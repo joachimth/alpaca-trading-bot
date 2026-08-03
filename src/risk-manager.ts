@@ -1,36 +1,121 @@
 // Risk Manager
 // Enforces hard risk rules that override all AI/TA decisions
 // This is the safety net — no trade executes without passing these checks
+//
+// Research-based design (López de Prado, Carver):
+// - ATR-scaled stop loss/take profit (not fixed percentages)
+// - Volatility-targeting for position sizing
+// - Transaction cost estimation before every trade
+// - Multiple kill switches including rolling drawdown and position divergence
 
 import type { AccountInfo, Position } from './alpaca';
 import type { AIDecision } from './ai-decision';
+import type { TAIndicators } from './technical-analysis';
 
 export interface RiskConfig {
   maxPositions: number;
-  maxPositionPct: number;       // max % of portfolio per single position
-  stopLossPct: number;          // stop loss percentage
-  takeProfitPct: number;        // take profit percentage
-  trailingStopPct: number;      // trailing stop percentage
-  dailyLossLimitPct: number;    // stop trading if down this much on the day
-  minConfidence: number;        // minimum AI confidence to act
+  maxPositionPct: number;         // max % of portfolio per single position (hard cap)
+  stopLossATRMultiplier: number;  // stop loss = entry - X * ATR (default 1.5)
+  takeProfitATRMultiplier: number;// take profit = entry + X * ATR (default 2.0)
+  trailingStopPct: number;        // trailing stop percentage (simplified, not ATR)
+  dailyLossLimitPct: number;      // stop trading if down this much on the day
+  rollingDrawdownLimitPct: number;// stop trading if 20-period drawdown exceeds this
+  minConfidence: number;          // minimum AI confidence to act
   enableMargin: boolean;
-  eodFlatten: boolean;          // close all positions before EOD
+  eodFlatten: boolean;            // close all positions before EOD
+  targetVolatilityPct: number;    // target daily portfolio vol (for position sizing)
+  maxOrderRatePerMin: number;     // kill switch: max orders per minute
+  minEdgeAfterCosts: number;      // minimum expected return after estimated costs (bps)
 }
 
 export interface RiskCheckResult {
   approved: boolean;
   reason: string;
-  adjustedQty?: number;         // if position size needs reduction
+  adjustedQty?: number;
   stopLossPrice?: number;
   takeProfitPrice?: number;
   trailingStopPct?: number;
+  estimatedCosts?: number;        // estimated transaction costs in $
+  edgeAfterCosts?: number;        // expected edge after costs in $
+}
+
+export interface KillSwitchState {
+  tradingHalted: boolean;
+  reason: string;
+  triggeredAt: number | null;
+  // Rolling tracking
+  equityHistory: number[];        // recent equity snapshots for drawdown calc
+  orderTimestamps: number[];      // recent order submission times
 }
 
 export class RiskManager {
   private config: RiskConfig;
+  private killState: KillSwitchState;
 
   constructor(config: RiskConfig) {
     this.config = config;
+    this.killState = {
+      tradingHalted: false,
+      reason: '',
+      triggeredAt: null,
+      equityHistory: [],
+      orderTimestamps: [],
+    };
+  }
+
+  // ============================================================
+  // Kill switch management
+  // ============================================================
+
+  updateEquitySnapshot(equity: number): void {
+    this.killState.equityHistory.push(equity);
+    // Keep last 20 snapshots (~100 minutes at 5-min cadence)
+    if (this.killState.equityHistory.length > 20) {
+      this.killState.equityHistory.shift();
+    }
+
+    // Check rolling drawdown
+    if (this.killState.equityHistory.length >= 5) {
+      const peak = Math.max(...this.killState.equityHistory);
+      const current = equity;
+      const drawdownPct = peak > 0 ? ((peak - current) / peak) * 100 : 0;
+
+      if (drawdownPct >= this.config.rollingDrawdownLimitPct) {
+        this.haltTrading(`Rolling drawdown limit reached: ${drawdownPct.toFixed(2)}%`);
+      }
+    }
+  }
+
+  recordOrder(): boolean {
+    const now = Date.now();
+    // Clean old timestamps (older than 60 seconds)
+    this.killState.orderTimestamps = this.killState.orderTimestamps.filter(
+      t => now - t < 60000
+    );
+
+    // Check rate limit
+    if (this.killState.orderTimestamps.length >= this.config.maxOrderRatePerMin) {
+      this.haltTrading(`Order rate limit exceeded: ${this.killState.orderTimestamps.length} orders/min`);
+      return false;
+    }
+
+    this.killState.orderTimestamps.push(now);
+    return true;
+  }
+
+  haltTrading(reason: string): void {
+    this.killState.tradingHalted = true;
+    this.killState.reason = reason;
+    this.killState.triggeredAt = Date.now();
+    console.error(`KILL SWITCH TRIGGERED: ${reason}`);
+  }
+
+  isTradingHalted(): boolean {
+    return this.killState.tradingHalted;
+  }
+
+  getKillState(): KillSwitchState {
+    return { ...this.killState };
   }
 
   // ============================================================
@@ -41,8 +126,15 @@ export class RiskManager {
     decision: AIDecision,
     account: AccountInfo,
     positions: Position[],
-    price: number
+    indicators: TAIndicators
   ): RiskCheckResult {
+    const price = indicators.price;
+
+    // 0. Kill switch check
+    if (this.killState.tradingHalted) {
+      return { approved: false, reason: `Trading halted: ${this.killState.reason}` };
+    }
+
     // 1. Account blocked?
     if (account.trading_blocked || account.account_blocked) {
       return { approved: false, reason: 'Account is blocked from trading' };
@@ -50,6 +142,7 @@ export class RiskManager {
 
     // 2. Daily loss limit hit?
     if (account.change_today_pct < 0 && Math.abs(account.change_today_pct) >= this.config.dailyLossLimitPct) {
+      this.haltTrading(`Daily loss limit reached (${account.change_today_pct.toFixed(2)}%)`);
       return { approved: false, reason: `Daily loss limit reached (${account.change_today_pct.toFixed(2)}%)` };
     }
 
@@ -61,14 +154,28 @@ export class RiskManager {
     // 4. Position count limit (for new buys)
     if (decision.action === 'BUY') {
       const currentLongs = positions.filter(p => p.side === 'long' && p.qty > 0).length;
-      const existingPosition = positions.find(p => p.symbol === decision.taSignal.indicators.symbol);
+      const existingPosition = positions.find(p => p.symbol === indicators.symbol);
 
       if (!existingPosition && currentLongs >= this.config.maxPositions) {
         return { approved: false, reason: `Max positions reached (${currentLongs}/${this.config.maxPositions})` };
       }
     }
 
-    // 5. Position size calculation
+    // 5. Transaction cost estimation
+    const estimatedCosts = this.estimateTransactionCosts(price, indicators);
+    const edgeBps = decision.confidence * 100; // rough: confidence as bps expected edge
+    const edgeAfterCosts = edgeBps - estimatedCosts.bps;
+
+    if (edgeAfterCosts < this.config.minEdgeAfterCosts) {
+      return {
+        approved: false,
+        reason: `Edge after costs insufficient: ${edgeAfterCosts.toFixed(1)}bps < ${this.config.minEdgeAfterCosts}bps (est. costs: ${estimatedCosts.bps}bps)`,
+        estimatedCosts: estimatedCosts.dollar,
+        edgeAfterCosts: edgeAfterCosts,
+      };
+    }
+
+    // 6. Volatility-targeting position sizing
     const maxPositionValue = account.portfolio_value * (this.config.maxPositionPct / 100);
     const availableCash = this.config.enableMargin ? account.buying_power : account.cash;
 
@@ -76,8 +183,17 @@ export class RiskManager {
       return { approved: false, reason: 'No available cash/buying power' };
     }
 
-    // Calculate position size based on risk
-    const riskAmount = Math.min(maxPositionValue, availableCash * 0.95);
+    // Volatility-targeting: size inversely proportional to ATR%
+    // Higher volatility = smaller position. Target constant risk.
+    const atrPct = indicators.atrPct > 0 ? indicators.atrPct : 2.0; // fallback 2%
+    const volScale = Math.min(1.0, this.config.targetVolatilityPct / atrPct);
+    const volScaledValue = maxPositionValue * volScale;
+    const riskAmount = Math.min(volScaledValue, availableCash * 0.95);
+
+    if (riskAmount <= 0) {
+      return { approved: false, reason: `Position value after vol-scaling is zero (ATR%: ${atrPct.toFixed(2)}, target vol: ${this.config.targetVolatilityPct}%)` };
+    }
+
     const integerQty = Math.floor(riskAmount / price);
     const fractionalQty = riskAmount / price;
 
@@ -85,61 +201,120 @@ export class RiskManager {
       return { approved: false, reason: `Position size too small (max $${riskAmount.toFixed(2)} at $${price.toFixed(2)}` };
     }
 
-    // Use integer qty if >= 1, otherwise use fractional
     const finalQty = integerQty >= 1 ? integerQty : Math.round(fractionalQty * 100) / 100;
 
-    // 6. Stop loss and take profit
+    // 7. ATR-scaled stop loss and take profit
+    // Stop = entry - (ATR multiplier * ATR)
+    // Target = entry + (ATR multiplier * ATR)
+    // This adapts to current volatility regime
+    const atrValue = indicators.atr > 0 ? indicators.atr : price * 0.02; // fallback 2% of price
     const stopLossPrice = decision.action === 'BUY'
-      ? price * (1 - this.config.stopLossPct / 100)
+      ? price - (this.config.stopLossATRMultiplier * atrValue)
       : undefined;
     const takeProfitPrice = decision.action === 'BUY'
-      ? price * (1 + this.config.takeProfitPct / 100)
+      ? price + (this.config.takeProfitATRMultiplier * atrValue)
       : undefined;
+
+    // 8. Order rate check
+    if (!this.recordOrder()) {
+      return { approved: false, reason: 'Order rate limit exceeded' };
+    }
 
     return {
       approved: true,
-      reason: 'Approved',
+      reason: `Approved (vol-scaled ${(volScale * 100).toFixed(0)}%, ATR stop ${this.config.stopLossATRMultiplier}x, costs ${estimatedCosts.bps}bps)`,
       adjustedQty: finalQty,
       stopLossPrice,
       takeProfitPrice,
       trailingStopPct: this.config.trailingStopPct,
+      estimatedCosts: estimatedCosts.dollar,
+      edgeAfterCosts: edgeAfterCosts,
     };
   }
 
   // ============================================================
-  // Position management: check if positions need to be closed
+  // Transaction cost estimation
   // ============================================================
 
-  checkPositions(positions: Position[]): Array<{ symbol: string; reason: string; priority: 'critical' | 'high' | 'medium' }> {
+  private estimateTransactionCosts(price: number, indicators: TAIndicators): { bps: number; dollar: number } {
+    // Spread cost: estimate from ATR (higher vol = wider spread)
+    // Typical US large cap spread: 1-5 bps. Scale with volatility.
+    const spreadBps = Math.min(10, Math.max(1, indicators.atrPct * 1.5));
+
+    // Slippage: depends on order size relative to volume
+    // Without ADV data, use volume ratio as proxy
+    const slippageBps = indicators.volumeRatio > 2 ? 2 : 5;
+
+    // Alpaca commission: $0 for US equities
+    const commissionBps = 0;
+
+    // SEC/FINRA fees: ~$0.01 per $10k traded = ~0.1 bps
+    const regulatoryBps = 0.1;
+
+    // Total in basis points
+    const totalBps = spreadBps + slippageBps + commissionBps + regulatoryBps;
+
+    // Convert to dollar amount (per share)
+    const dollarPerShare = price * (totalBps / 10000);
+
+    return { bps: totalBps, dollar: dollarPerShare };
+  }
+
+  // ============================================================
+  // Position management: check if positions need to be closed
+  // Uses ATR-scaled thresholds from DB-stored stop/target prices
+  // ============================================================
+
+  checkPositions(
+    positions: Position[],
+    dbPositions: Array<{ ticker: string; stop_loss_price: number | null; take_profit_price: number | null; opened_at: string }>
+  ): Array<{ symbol: string; reason: string; priority: 'critical' | 'high' | 'medium' }> {
     const actions: Array<{ symbol: string; reason: string; priority: 'critical' | 'high' | 'medium' }> = [];
+
+    // Build lookup for DB-stored stop/target
+    const stopMap = new Map(dbPositions.map(p => [p.ticker, p]));
 
     for (const pos of positions) {
       if (pos.qty <= 0) continue;
 
-      // Stop loss check
-      const stopLossPct = this.config.stopLossPct / 100;
-      const lossPct = Math.abs(pos.unrealized_plpc);
-      if (pos.unrealized_pl < 0 && lossPct >= stopLossPct) {
+      const dbPos = stopMap.get(pos.symbol);
+      const stopLossPrice = dbPos?.stop_loss_price;
+      const takeProfitPrice = dbPos?.take_profit_price;
+
+      // ATR-based stop loss: check if current price hits stored stop
+      if (stopLossPrice && pos.current_price <= stopLossPrice) {
         actions.push({
           symbol: pos.symbol,
-          reason: `Stop loss triggered: ${(lossPct * 100).toFixed(1)}% loss`,
+          reason: `ATR stop loss hit: price $${pos.current_price.toFixed(2)} <= stop $${stopLossPrice.toFixed(2)}`,
           priority: 'critical',
         });
         continue;
       }
 
-      // Take profit check
-      const takeProfitPct = this.config.takeProfitPct / 100;
-      if (pos.unrealized_pl > 0 && pos.unrealized_plpc >= takeProfitPct) {
+      // ATR-based take profit: check if current price hits stored target
+      if (takeProfitPrice && pos.current_price >= takeProfitPrice) {
         actions.push({
           symbol: pos.symbol,
-          reason: `Take profit triggered: +${(pos.unrealized_plpc * 100).toFixed(1)}% gain`,
+          reason: `ATR take profit hit: price $${pos.current_price.toFixed(2)} >= target $${takeProfitPrice.toFixed(2)}`,
           priority: 'high',
         });
         continue;
       }
 
-      // Trailing stop: if position was up significantly and now giving back gains
+      // Fallback: percentage-based stop loss (if no ATR stop stored)
+      if (!stopLossPrice) {
+        const lossPct = Math.abs(pos.unrealized_plpc);
+        if (pos.unrealized_pl < 0 && lossPct >= 0.08) {
+          actions.push({
+            symbol: pos.symbol,
+            reason: `Fallback stop loss: ${(lossPct * 100).toFixed(1)}% loss`,
+            priority: 'critical',
+          });
+          continue;
+        }
+      }
+
+      // Trailing stop: giving back gains intraday
       if (pos.unrealized_pl > 0 && pos.change_today_pct < -this.config.trailingStopPct) {
         actions.push({
           symbol: pos.symbol,
@@ -149,12 +324,11 @@ export class RiskManager {
         continue;
       }
 
-      // Stale position (held too long for daytrading)
-      // We'll let the AI decide on these, but flag them
+      // Stale position flag
       if (pos.unrealized_plpc > -0.02 && pos.unrealized_plpc < 0.02) {
         actions.push({
           symbol: pos.symbol,
-          reason: `Position flat (${(pos.unrealized_plpc * 100).toFixed(1)}%) — review for exit`,
+          reason: `Position flat (${(pos.unrealized_plpc * 100).toFixed(1)}%) - review for exit`,
           priority: 'medium',
         });
       }
@@ -164,16 +338,48 @@ export class RiskManager {
   }
 
   // ============================================================
-  // EOD flatten: close all positions before market close
+  // Position divergence detection (reconciliation)
+  // ============================================================
+
+  checkDivergence(
+    brokerPositions: Position[],
+    internalPositions: Array<{ ticker: string; qty: number; side: string }>
+  ): { divergent: boolean; details: string[] } {
+    const details: string[] = [];
+    const brokerMap = new Map(brokerPositions.map(p => [p.symbol, p]));
+    const internalMap = new Map(internalPositions.map(p => [p.ticker, p]));
+
+    // Check: in broker but not in internal
+    for (const [symbol, bPos] of brokerMap) {
+      const iPos = internalMap.get(symbol);
+      if (!iPos) {
+        details.push(`${symbol}: in broker but not internal (qty: ${bPos.qty})`);
+      } else if (Math.abs(iPos.qty - bPos.qty) > 0.001) {
+        details.push(`${symbol}: qty mismatch (internal: ${iPos.qty}, broker: ${bPos.qty})`);
+      }
+    }
+
+    // Check: in internal but not in broker
+    for (const [symbol, iPos] of internalMap) {
+      if (!brokerMap.has(symbol)) {
+        details.push(`${symbol}: in internal but not broker (qty: ${iPos.qty})`);
+      }
+    }
+
+    return { divergent: details.length > 0, details };
+  }
+
+  // ============================================================
+  // EOD flatten
   // ============================================================
 
   shouldFlattenEOD(minutesToClose: number): boolean {
     if (!this.config.eodFlatten) return false;
-    return minutesToClose <= 15; // Start closing 15 min before market close
+    return minutesToClose <= 15;
   }
 
   // ============================================================
-  // Portfolio heat: total risk exposure
+  // Portfolio heat
   // ============================================================
 
   getPortfolioHeat(positions: Position[], account: AccountInfo): number {
@@ -189,10 +395,13 @@ export class RiskManager {
     const errors: string[] = [];
     if (this.config.maxPositions < 1) errors.push('maxPositions must be >= 1');
     if (this.config.maxPositionPct < 1 || this.config.maxPositionPct > 100) errors.push('maxPositionPct must be 1-100');
-    if (this.config.stopLossPct < 1 || this.config.stopLossPct > 50) errors.push('stopLossPct must be 1-50');
-    if (this.config.takeProfitPct < 1) errors.push('takeProfitPct must be >= 1');
+    if (this.config.stopLossATRMultiplier < 0.5 || this.config.stopLossATRMultiplier > 5) errors.push('stopLossATRMultiplier must be 0.5-5');
+    if (this.config.takeProfitATRMultiplier < 0.5 || this.config.takeProfitATRMultiplier > 10) errors.push('takeProfitATRMultiplier must be 0.5-10');
     if (this.config.dailyLossLimitPct < 1 || this.config.dailyLossLimitPct > 50) errors.push('dailyLossLimitPct must be 1-50');
+    if (this.config.rollingDrawdownLimitPct < 1 || this.config.rollingDrawdownLimitPct > 50) errors.push('rollingDrawdownLimitPct must be 1-50');
     if (this.config.minConfidence < 0 || this.config.minConfidence > 1) errors.push('minConfidence must be 0-1');
+    if (this.config.targetVolatilityPct < 0.5 || this.config.targetVolatilityPct > 10) errors.push('targetVolatilityPct must be 0.5-10');
+    if (this.config.maxOrderRatePerMin < 1) errors.push('maxOrderRatePerMin must be >= 1');
     return errors;
   }
 }

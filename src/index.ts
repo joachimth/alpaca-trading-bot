@@ -25,6 +25,7 @@ const FALLBACK_CONFIG = {
   takeProfitPct: 15,
   trailingStopPct: 5,
   dailyLossLimitPct: 15,
+  rollingDrawdownLimitPct: 10,
   minConfidence: 0.6,
   scanUniverseSize: 100,
   rsiPeriod: 14,
@@ -37,6 +38,11 @@ const FALLBACK_CONFIG = {
   macdSignal: 9,
   atrPeriod: 14,
   volumeAvgPeriod: 20,
+  stopLossATRMultiplier: 1.5,
+  takeProfitATRMultiplier: 2.0,
+  targetVolatilityPct: 2.0,
+  maxOrderRatePerMin: 10,
+  minEdgeAfterCosts: 5,
   useAiRefinement: true,
   llmModel: 'accounts/fireworks/models/glm-5p2',
   llmTemperature: 0.3,
@@ -124,22 +130,39 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       total_plpc: account.last_equity > 0 ? ((account.equity - account.last_equity) / account.last_equity) * 100 : 0,
     });
 
-    // 5. Initialize risk manager
+    // 5. Initialize risk manager with ATR-scaled parameters
     const riskConfig: RiskConfig = {
       maxPositions: config.maxPositions,
       maxPositionPct: config.maxPositionPct,
-      stopLossPct: config.stopLossPct,
-      takeProfitPct: config.takeProfitPct,
+      stopLossATRMultiplier: config.stopLossATRMultiplier || 1.5,
+      takeProfitATRMultiplier: config.takeProfitATRMultiplier || 2.0,
       trailingStopPct: config.trailingStopPct,
       dailyLossLimitPct: config.dailyLossLimitPct,
+      rollingDrawdownLimitPct: config.rollingDrawdownLimitPct || 10,
       minConfidence: config.minConfidence,
       enableMargin: config.enableMargin,
       eodFlatten: config.eodFlatten,
+      targetVolatilityPct: config.targetVolatilityPct || 2.0,
+      maxOrderRatePerMin: config.maxOrderRatePerMin || 10,
+      minEdgeAfterCosts: config.minEdgeAfterCosts || 5,
     };
     const riskManager = new RiskManager(riskConfig);
 
-    // 6. Check existing positions for stop loss / take profit
-    const positionActions = riskManager.checkPositions(positions);
+    // Update kill switch with equity snapshot
+    riskManager.updateEquitySnapshot(account.equity);
+
+    // 5b. Reconciliation: check for position divergence
+    const dbPositions = await db.getOpenPositions();
+    const divergence = riskManager.checkDivergence(positions, dbPositions.map(p => ({ ticker: p.ticker, qty: p.qty, side: p.side })));
+    if (divergence.divergent) {
+      const details = divergence.details.join('; ');
+      errors.push(`Position divergence detected: ${details}`);
+      riskManager.haltTrading(`Position divergence: ${details}`);
+      console.error(`DIVERGENCE: ${details}`);
+    }
+
+    // 6. Check existing positions for stop loss / take profit (ATR-based)
+    const positionActions = riskManager.checkPositions(positions, dbPositions);
     for (const action of positionActions) {
       if (action.priority === 'critical' || action.priority === 'high') {
         try {
@@ -346,7 +369,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       }
 
       // BUY / SELL: risk check then execute
-      const riskCheck = riskManager.checkTrade(decision, account, positions, signal.indicators.price);
+      const riskCheck = riskManager.checkTrade(decision, account, positions, signal.indicators);
       if (!riskCheck.approved) {
         await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
         console.log(`Skipped ${signal.indicators.symbol}: ${riskCheck.reason}`);
@@ -428,8 +451,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
     // 12. Sync positions from Alpaca to DB (preserve stop/take profit from DB)
     const finalPositions = await alpaca.getPositions();
-    const dbPositions = await db.getOpenPositions();
-    const dbPositionMap = new Map(dbPositions.map(p => [p.ticker, p]));
+    const syncDbPositions = await db.getOpenPositions();
+    const dbPositionMap = new Map(syncDbPositions.map(p => [p.ticker, p]));
 
     for (const pos of finalPositions) {
       const existing = dbPositionMap.get(pos.symbol);

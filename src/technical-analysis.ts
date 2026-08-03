@@ -32,6 +32,13 @@ export interface TAIndicators {
   adx: number;          // trend strength
   obv: number;          // On-Balance Volume
   obvTrend: 'up' | 'down' | 'flat';
+  // Research-based additions
+  shortTermReturn: number;    // return over last N bars (for reversal signal)
+  shortTermReturnPeriods: number;
+  gapPct: number;             // today's open gap percentage
+  vwap: number;               // volume-weighted average price
+  vwapDeviation: number;      // current price deviation from VWAP (%)
+  intradayReturn: number;     // return since today's open
 }
 
 export interface TASignal {
@@ -310,6 +317,42 @@ export function analyze(bars: Bar[], symbol: string, config: {
   const macdTrend = macdResult.histogram > 0 ? 'bullish' : macdResult.histogram < 0 ? 'bearish' : 'neutral';
   const pricePosition = resistance !== support ? (lastPrice - support) / (resistance - support) : 0.5;
 
+  // Short-term return (last 12 bars ~ 1 hour on 5-min bars)
+  const stReturnPeriods = Math.min(12, closes.length - 1);
+  const stReturn = stReturnPeriods > 0 && closes[closes.length - 1 - stReturnPeriods] > 0
+    ? ((lastPrice - closes[closes.length - 1 - stReturnPeriods]) / closes[closes.length - 1 - stReturnPeriods]) * 100
+    : 0;
+
+  // VWAP (volume-weighted average price) over recent bars
+  const vwapBars = bars.slice(-Math.min(50, bars.length));
+  const totalVol = vwapBars.reduce((s, b) => s + b.v, 0);
+  const vwapValue = totalVol > 0
+    ? vwapBars.reduce((s, b) => s + ((b.h + b.l + b.c) / 3) * b.v, 0) / totalVol
+    : lastPrice;
+  const vwapDeviation = vwapValue > 0 ? ((lastPrice - vwapValue) / vwapValue) * 100 : 0;
+
+  // Gap percentage: today's first bar open vs yesterday's last close
+  // Detect day boundary by looking for a gap > 2 hours in timestamps
+  let gapPct = 0;
+  let intradayReturn = 0;
+  if (bars.length >= 2) {
+    // Find today's first bar (look for largest time gap in last ~100 bars)
+    let dayStartIdx = Math.max(0, bars.length - 100);
+    for (let i = bars.length - 1; i > Math.max(1, bars.length - 100); i--) {
+      const gap = bars[i].t - bars[i - 1].t;
+      if (gap > 7200) { // > 2 hours = new day
+        dayStartIdx = i;
+        break;
+      }
+    }
+    const dayOpen = bars[dayStartIdx].o;
+    const prevClose = dayStartIdx > 0 ? bars[dayStartIdx - 1].c : dayOpen;
+    if (prevClose > 0) {
+      gapPct = ((dayOpen - prevClose) / prevClose) * 100;
+      intradayReturn = ((lastPrice - dayOpen) / dayOpen) * 100;
+    }
+  }
+
   return {
     symbol,
     price: lastPrice,
@@ -338,6 +381,12 @@ export function analyze(bars: Bar[], symbol: string, config: {
     adx: adxVal,
     obv: obvResult.value,
     obvTrend: obvResult.trend,
+    shortTermReturn: stReturn,
+    shortTermReturnPeriods: stReturnPeriods,
+    gapPct,
+    vwap: vwapValue,
+    vwapDeviation,
+    intradayReturn,
   };
 }
 
@@ -440,6 +489,46 @@ export function generateSignal(indicators: TAIndicators, config: {
   } else if (indicators.pricePosition > 0.8) {
     bearScore += 0.5;
     reasons.push(`Price near resistance (${indicators.resistance.toFixed(2)})`);
+  }
+
+  // === Research-based signals ===
+
+  // Short-term reversal (Jegadeesh 1990, Lehmann 1990)
+  // One of the most robust anomalies, especially in less liquid names
+  // If stock dropped significantly in last ~1 hour, expect bounce (and vice versa)
+  if (indicators.shortTermReturn <= -2.0) {
+    bullScore += 2;
+    reasons.push(`Short-term reversal: ${indicators.shortTermReturn.toFixed(1)}% over ${indicators.shortTermReturnPeriods} bars (oversold bounce)`);
+  } else if (indicators.shortTermReturn >= 2.0) {
+    bearScore += 2;
+    reasons.push(`Short-term reversal: ${indicators.shortTermReturn.toFixed(1)}% over ${indicators.shortTermReturnPeriods} bars (overbought fade)`);
+  } else if (indicators.shortTermReturn <= -1.0) {
+    bullScore += 1;
+    reasons.push(`Mild reversal signal: ${indicators.shortTermReturn.toFixed(1)}% pullback`);
+  } else if (indicators.shortTermReturn >= 1.0) {
+    bearScore += 1;
+    reasons.push(`Mild reversal signal: ${indicators.shortTermReturn.toFixed(1)}% run-up`);
+  }
+
+  // VWAP deviation (institutional reference point)
+  // Price below VWAP = selling pressure, above = buying pressure
+  // Extreme deviations tend to revert
+  if (indicators.vwapDeviation <= -1.5) {
+    bullScore += 1;
+    reasons.push(`Price ${indicators.vwapDeviation.toFixed(1)}% below VWAP (reversion candidate)`);
+  } else if (indicators.vwapDeviation >= 1.5) {
+    bearScore += 1;
+    reasons.push(`Price ${indicators.vwapDeviation.toFixed(1)}% above VWAP (extension risk)`);
+  }
+
+  // Opening gap behavior
+  // Large gaps tend to fill partially during the day
+  if (indicators.gapPct <= -1.5) {
+    bullScore += 1;
+    reasons.push(`Gap down ${indicators.gapPct.toFixed(1)}% (gap fill potential)`);
+  } else if (indicators.gapPct >= 1.5) {
+    bearScore += 1;
+    reasons.push(`Gap up ${indicators.gapPct.toFixed(1)}% (gap fade potential)`);
   }
 
   // Determine action

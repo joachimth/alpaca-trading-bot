@@ -133,12 +133,16 @@ CREATE TABLE IF NOT EXISTS bot_config (
 -- Default config values
 INSERT OR IGNORE INTO bot_config (key, value) VALUES
   ('max_positions', '15'),
-  ('max_position_pct', '20'),           -- max % of portfolio per position
-  ('stop_loss_pct', '8'),               -- 8% stop loss
-  ('take_profit_pct', '15'),            -- 15% take profit
+  ('max_position_pct', '20'),           -- max % of portfolio per position (hard cap)
+  ('stop_loss_atr_multiplier', '1.5'),  -- stop loss = entry - 1.5 * ATR
+  ('take_profit_atr_multiplier', '2.0'),-- take profit = entry + 2.0 * ATR
   ('trailing_stop_pct', '5'),           -- 5% trailing stop
   ('daily_loss_limit_pct', '15'),       -- stop trading if down 15% on the day
+  ('rolling_drawdown_limit_pct', '10'), -- stop if 20-period drawdown exceeds 10%
   ('min_confidence', '0.6'),            -- minimum AI confidence to act
+  ('min_edge_after_costs', '5'),        -- minimum expected edge after costs (bps)
+  ('target_volatility_pct', '2.0'),     -- target daily portfolio vol for sizing
+  ('max_order_rate_per_min', '10'),     -- kill switch: max orders per minute
   ('scan_universe_size', '100'),        -- number of tickers to scan
   ('rsi_oversold', '30'),
   ('rsi_overbought', '70'),
@@ -153,5 +157,5 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
   ('llm_model', 'accounts/fireworks/models/glm-5p2'),
   ('llm_temperature', '0.3'),
   ('enable_margin', 'true'),
-  ('eod_flatten', 'false'),             -- daytrading: close all before EOD (set true for pure daytrading)
-  ('version', '1.0.0');
+  ('eod_flatten', 'true'),              -- daytrading: close all before EOD
+  ('version', '1.1.0');
