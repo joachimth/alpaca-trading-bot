@@ -182,6 +182,9 @@
     .info-card strong { color: var(--text); }
     .trigger-btn { padding: 6px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text); cursor: pointer; font-family: inherit; font-size: 11px; transition: all 0.2s; }
     .trigger-btn:hover { background: var(--bg-card-hover); border-color: var(--teal); }
+    .range-btn { padding: 3px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); cursor: pointer; font-family: inherit; font-size: 10px; font-weight: 600; transition: all 0.2s; }
+    .range-btn:hover { color: var(--text); border-color: var(--blue); }
+    .range-btn.active { background: var(--blue-bg); color: var(--blue); border-color: rgba(41, 121, 255, 0.4); }
   </style>
 </head>
 <body>
@@ -225,7 +228,14 @@
         <div class="metric-card"><div class="metric-label">Total Trades</div><div class="metric-value neutral" id="mTrades">-</div><div class="metric-sub" id="mTradesSub">-</div></div>
       </div>
       <div class="chart-section">
-        <div class="section-title"><span>Equity Curve</span><span style="font-size: 11px; color: var(--text-muted)" id="chartRange">Last 100 snapshots</span></div>
+        <div class="section-title">
+          <span>Equity Curve</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span style="font-size: 11px; color: var(--text-muted)" id="chartRange">Loading...</span>
+            <button class="range-btn active" id="rangeRecent" onclick="setChartRange('recent')">Recent</button>
+            <button class="range-btn" id="rangeAll" onclick="setChartRange('all')">All Time</button>
+          </div>
+        </div>
         <div class="chart-container"><canvas id="equityChart"></canvas></div>
       </div>
       <div class="grid-2col">
@@ -289,6 +299,8 @@
     const API_BASE = 'https://alpaca-trading-bot.joachim-763.workers.dev';
     let currentTab = 'overview';
     let dashboardData = null;
+    let chartRangeMode = 'recent'; // 'recent' or 'all'
+    let allTimeHistory = null; // cached all-time performance data
     async function fetchAPI(path) {
       try { const r = await fetch(API_BASE + path); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.json(); }
       catch (e) { console.error('API error for ' + path, e); return null; }
@@ -333,8 +345,32 @@
         document.getElementById('mTrades').textContent = data.stats.totalTrades;
         document.getElementById('mTradesSub').textContent = data.stats.totalDecisions + ' decisions';
       }
-      if (data.performanceHistory && data.performanceHistory.length > 0) drawEquityChart(data.performanceHistory);
+      if (data.performanceHistory && data.performanceHistory.length > 0) updateEquityChart();
       renderTab(currentTab);
+    }
+    async function setChartRange(mode) {
+      chartRangeMode = mode;
+      document.getElementById('rangeRecent').classList.toggle('active', mode === 'recent');
+      document.getElementById('rangeAll').classList.toggle('active', mode === 'all');
+      if (mode === 'all' && !allTimeHistory) {
+        // Fetch all-time data
+        try {
+          const data = await fetchAPI('/api/performance?limit=10000');
+          allTimeHistory = data.performance || [];
+        } catch (e) { allTimeHistory = []; }
+      }
+      updateEquityChart();
+    }
+    function updateEquityChart() {
+      let snaps;
+      if (chartRangeMode === 'all' && allTimeHistory) {
+        snaps = allTimeHistory;
+        document.getElementById('chartRange').textContent = allTimeHistory.length + ' snapshots (all time)';
+      } else {
+        snaps = dashboardData.performanceHistory || [];
+        document.getElementById('chartRange').textContent = snaps.length + ' snapshots (recent)';
+      }
+      drawEquityChart(snaps);
     }
     function renderTab(tab) {
       if (!dashboardData) return;
@@ -374,19 +410,33 @@
       const c = document.getElementById('equityChart'); const ctx = c.getContext('2d');
       const r = c.getBoundingClientRect(); c.width = r.width * devicePixelRatio; c.height = r.height * devicePixelRatio;
       ctx.scale(devicePixelRatio, devicePixelRatio);
-      const w = r.width, h = r.height, p = { t: 10, r: 10, b: 20, l: 60 };
+      const w = r.width, h = r.height, p = { t: 10, r: 10, b: 30, l: 60 };
       const cw = w - p.l - p.r, ch = h - p.t - p.b;
       ctx.clearRect(0, 0, w, h);
-      if (snaps.length < 2) { ctx.fillStyle = '#6b7689'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillText('Not enough data yet', w / 2, h / 2); return; }
+      if (!snaps || snaps.length < 2) { ctx.fillStyle = '#6b7689'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillText('Not enough data yet', w / 2, h / 2); return; }
       const vals = snaps.map(s => s.equity); const min = Math.min(...vals), max = Math.max(...vals);
       const range = max - min || 1, pr = range * 0.1, yMin = min - pr, yMax = max + pr;
+      // Y-axis grid lines + labels
       ctx.strokeStyle = '#1e2638'; ctx.lineWidth = 1;
       for (let i = 0; i <= 4; i++) { const y = p.t + (ch / 4) * i; ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(p.l + cw, y); ctx.stroke(); const v = yMax - ((yMax - yMin) / 4) * i; ctx.fillStyle = '#6b7689'; ctx.font = '10px monospace'; ctx.textAlign = 'right'; ctx.fillText('$' + v.toFixed(0), p.l - 8, y + 3); }
+      // Equity line + fill
       ctx.beginPath(); vals.forEach((v, i) => { const x = p.l + (cw / (vals.length - 1)) * i; const y = p.t + ch - ((v - yMin) / (yMax - yMin)) * ch; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
       const up = vals[vals.length - 1] >= vals[0]; ctx.strokeStyle = up ? '#00c853' : '#ff1744'; ctx.lineWidth = 2; ctx.stroke();
       ctx.lineTo(p.l + cw, p.t + ch); ctx.lineTo(p.l, p.t + ch); ctx.closePath(); ctx.fillStyle = up ? 'rgba(0,200,83,0.08)' : 'rgba(255,23,68,0.08)'; ctx.fill();
+      // Current value dot
       const lx = p.l + cw, ly = p.t + ch - ((vals[vals.length - 1] - yMin) / (yMax - yMin)) * ch;
       ctx.beginPath(); ctx.arc(lx, ly, 3, 0, Math.PI * 2); ctx.fillStyle = up ? '#00c853' : '#ff1744'; ctx.fill();
+      // X-axis time labels (show ~5 labels spread across)
+      ctx.fillStyle = '#6b7689'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+      const labelCount = Math.min(5, snaps.length);
+      for (let i = 0; i < labelCount; i++) {
+        const idx = Math.floor((snaps.length - 1) * (i / (labelCount - 1 || 1)));
+        const x = p.l + (cw / (vals.length - 1)) * idx;
+        const ts = snaps[idx].timestamp;
+        const d = new Date(ts.includes('T') ? ts + 'Z' : ts);
+        const label = snaps.length > 200 ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        ctx.fillText(label, x, h - 8);
+      }
     }
     function renderPositions(ps, elId, showClose) {
       const el = document.getElementById(elId);

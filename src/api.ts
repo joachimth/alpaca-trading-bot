@@ -168,7 +168,7 @@ export class DashboardAPI {
       db.getRecentDecisions(20),
       db.getRecentTrades(20),
       db.getRecentRuns(10),
-      db.getRecentSnapshots(50),
+      db.getRecentSnapshots(500),
       db.getOpenPositions(),
     ]);
 
