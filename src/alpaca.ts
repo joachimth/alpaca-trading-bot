@@ -539,3 +539,4 @@ export class AlpacaClient {
     const snaps = await this.getCryptoSnapshots([symbol]);
     return snaps[symbol]?.latest_price || null;
   }
+}
