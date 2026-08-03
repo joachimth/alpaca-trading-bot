@@ -8,6 +8,7 @@ import { RiskManager, type RiskConfig } from './risk-manager';
 import { Database } from './database';
 import { UniverseScanner } from './scanner';
 import { DashboardAPI } from './api';
+import { runSwingCycle } from './swing-strategy';
 
 export interface Env {
   DB: D1Database;
@@ -52,7 +53,14 @@ const FALLBACK_CONFIG = {
 
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(runTradingCycle(env, 'cron'));
+    // Dual-cron routing: Cloudflare's event.cron tells us which trigger fired
+    if (event.cron === '0 22 * * 1-5') {
+      // Swing trading: once daily after market close
+      ctx.waitUntil(runSwingCycle(env, 'swing_cron'));
+    } else {
+      // Daytrading: every 5 minutes during market hours
+      ctx.waitUntil(runTradingCycle(env, 'cron'));
+    }
   },
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {

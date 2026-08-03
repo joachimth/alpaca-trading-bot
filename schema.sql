@@ -158,4 +158,36 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
   ('llm_temperature', '0.3'),
   ('enable_margin', 'true'),
   ('eod_flatten', 'true'),              -- daytrading: close all before EOD
-  ('version', '1.1.0');
+-- ============================================================
+-- Swing trading config (swing_ prefixed keys)
+-- ============================================================
+INSERT OR IGNORE INTO bot_config (key, value) VALUES
+  ('swing_reversal_weight', '0.35'),
+  ('swing_momentum_weight', '0.15'),
+  ('swing_proximity_weight', '0.20'),
+  ('swing_volume_weight', '0.10'),
+  ('swing_quality_weight', '0.20'),
+  ('swing_reversal_lookback', '5'),
+  ('swing_reversal_threshold', '2.0'),
+  ('swing_min_price', '5'),
+  ('swing_min_dollar_volume', '2000000'),
+  ('swing_min_history', '252'),
+  ('swing_max_positions', '30'),
+  ('swing_top_percentile', '20'),
+  ('swing_bottom_percentile', '80'),
+  ('swing_earnings_blackout_days', '3'),
+  ('swing_max_position_pct', '5'),
+  ('swing_target_position_pct', '3.33'),
+  ('swing_max_gross_exposure', '100'),
+  ('swing_stop_loss_pct', '15'),
+  ('swing_trailing_stop_pct', '8'),
+  ('swing_daily_loss_limit_pct', '5'),
+  ('swing_rolling_drawdown_limit_pct', '15'),
+  ('swing_min_confidence', '0.5'),
+  ('swing_exit_zscore', '-0.5'),
+  ('swing_enable_margin', 'false'),
+  ('swing_max_turnover_pct', '30'),
+  ('swing_min_trade_size', '0.25'),
+  ('swing_max_order_rate_per_min', '15'),
+  ('swing_scan_universe_size', '150'),
+  ('version', '2.0.0');

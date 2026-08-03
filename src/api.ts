@@ -74,6 +74,10 @@ export class DashboardAPI {
         return await this.triggerCycle(corsHeaders);
       }
 
+      if (path === '/api/trigger-swing' && method === 'POST') {
+        return await this.triggerSwingCycle(corsHeaders);
+      }
+
       if (path === '/api/positions/close' && method === 'POST') {
         return await this.closePosition(url, corsHeaders);
       }
@@ -194,8 +198,19 @@ export class DashboardAPI {
       // The simplest approach: return immediately and let the next cron pick up
       // But we can also trigger via the Cloudflare API
       return this.json({ 
-        message: 'Manual trigger received. The trading cycle will run on the next cron tick (within 5 minutes). To run immediately, trigger the cron via Cloudflare dashboard or API.',
+        message: 'Manual trigger received. The trading cycle will run on the next cron tick (within 5 minutes during market hours). To run immediately, trigger the cron via Cloudflare dashboard or API.',
         next_cron: 'within 5 minutes during market hours'
+      }, cors);
+    } catch (e) {
+      return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);
+    }
+  }
+
+  private async triggerSwingCycle(cors: Record<string, string>): Promise<Response> {
+    try {
+      return this.json({
+        message: 'Swing trigger received. The swing cycle will run on the next scheduled cron (22:00 UTC weekdays). To run immediately, trigger the cron via Cloudflare API.',
+        next_cron: '22:00 UTC today (if weekday)'
       }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);

@@ -22,6 +22,8 @@
       --purple: #aa00ff;
       --yellow: #ffea00;
       --gray: #546e7a;
+      --teal: #00bfa5;
+      --teal-bg: rgba(0, 191, 165, 0.1);
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -126,6 +128,24 @@
       text-align: center; padding: 20px; color: var(--text-muted); font-size: 11px;
       border-top: 1px solid var(--border); margin-top: 24px;
     }
+    .tab-bar { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+    .tab { padding: 10px 24px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--text); border-bottom-color: var(--blue); }
+    .tab-swing.active { color: var(--teal); border-bottom-color: var(--teal); }
+    .tab-badge { font-size: 9px; padding: 1px 6px; border-radius: 10px; font-weight: 700; }
+    .tab-badge.day { background: var(--blue-bg); color: var(--blue); }
+    .tab-badge.swing { background: var(--teal-bg); color: var(--teal); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .signal-swing { background: var(--teal-bg); color: var(--teal); }
+    .strategy-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .strategy-day { background: var(--blue-bg); color: var(--blue); }
+    .strategy-swing { background: var(--teal-bg); color: var(--teal); }
+    .info-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; font-size: 12px; color: var(--text-muted); }
+    .info-card strong { color: var(--text); }
+    .trigger-btn { padding: 6px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text); cursor: pointer; font-family: inherit; font-size: 11px; transition: all 0.2s; }
+    .trigger-btn:hover { background: var(--bg-card-hover); border-color: var(--teal); }
   </style>
 </head>
 <body>
@@ -133,7 +153,7 @@
     <header>
       <div class="header-left">
         <h1>Alpaca AI Trading Bot</h1>
-        <div class="subtitle">Autonomous daytrading - Paper Trading Account</div>
+        <div class="subtitle">Autonomous trading - Paper Trading Account</div>
       </div>
       <div class="header-right">
         <div id="statusBadge" class="status-badge offline">
@@ -143,34 +163,78 @@
         <button class="refresh-btn" onclick="loadDashboard()">Refresh</button>
       </div>
     </header>
-    <div class="metrics-grid" id="metricsGrid">
-      <div class="metric-card"><div class="metric-label">Portfolio Value</div><div class="metric-value neutral" id="mPortfolio">-</div><div class="metric-sub" id="mPortfolioSub">Loading...</div></div>
-      <div class="metric-card"><div class="metric-label">Cash Available</div><div class="metric-value neutral" id="mCash">-</div><div class="metric-sub" id="mCashSub">Buying power: -</div></div>
-      <div class="metric-card"><div class="metric-label">Daily P&L</div><div class="metric-value neutral" id="mDailyPL">-</div><div class="metric-sub" id="mDailyPLSub">-</div></div>
-      <div class="metric-card"><div class="metric-label">Open Positions</div><div class="metric-value neutral" id="mPositions">-</div><div class="metric-sub" id="mPositionsSub">-</div></div>
-      <div class="metric-card"><div class="metric-label">Win Rate</div><div class="metric-value neutral" id="mWinRate">-</div><div class="metric-sub" id="mWinRateSub">-</div></div>
-      <div class="metric-card"><div class="metric-label">Total Trades</div><div class="metric-value neutral" id="mTrades">-</div><div class="metric-sub" id="mTradesSub">-</div></div>
+
+    <div class="tab-bar">
+      <div class="tab active" id="tabOverview" onclick="switchTab('overview')">Overview <span class="tab-badge day">ALL</span></div>
+      <div class="tab" id="tabDaytrading" onclick="switchTab('daytrading')">Daytrading <span class="tab-badge day">5min</span></div>
+      <div class="tab tab-swing" id="tabSwing" onclick="switchTab('swing')">Swing <span class="tab-badge swing">Daily</span></div>
     </div>
-    <div class="chart-section">
-      <div class="section-title"><span>Equity Curve</span><span style="font-size: 11px; color: var(--text-muted)" id="chartRange">Last 100 snapshots</span></div>
-      <div class="chart-container"><canvas id="equityChart"></canvas></div>
-    </div>
-    <div class="grid-2col">
-      <div class="table-section">
-        <div class="section-title"><span>Open Positions</span><button class="danger-btn" onclick="closeAllPositions()">Close All</button></div>
-        <div id="positionsTable"><div class="loading">Loading positions...</div></div>
+
+    <div class="tab-content active" id="contentOverview">
+      <div class="info-card">
+        <strong>Two strategies on the same account:</strong>
+        <span class="strategy-badge strategy-day">Daytrading</span> TA + AI, 5-min bars, EOD flatten, margin.
+        <span class="strategy-badge strategy-swing">Swing</span> Cross-sectional ranking, daily bars, 2-30 day holds, no margin, gap-aware sizing.
       </div>
-      <div class="table-section">
-        <div class="section-title"><span>Recent AI Decisions</span></div>
-        <div id="decisionsTable"><div class="loading">Loading decisions...</div></div>
+      <div class="metrics-grid" id="metricsGrid">
+        <div class="metric-card"><div class="metric-label">Portfolio Value</div><div class="metric-value neutral" id="mPortfolio">-</div><div class="metric-sub" id="mPortfolioSub">Loading...</div></div>
+        <div class="metric-card"><div class="metric-label">Cash Available</div><div class="metric-value neutral" id="mCash">-</div><div class="metric-sub" id="mCashSub">Buying power: -</div></div>
+        <div class="metric-card"><div class="metric-label">Daily P&L</div><div class="metric-value neutral" id="mDailyPL">-</div><div class="metric-sub" id="mDailyPLSub">-</div></div>
+        <div class="metric-card"><div class="metric-label">Open Positions</div><div class="metric-value neutral" id="mPositions">-</div><div class="metric-sub" id="mPositionsSub">-</div></div>
+        <div class="metric-card"><div class="metric-label">Win Rate</div><div class="metric-value neutral" id="mWinRate">-</div><div class="metric-sub" id="mWinRateSub">-</div></div>
+        <div class="metric-card"><div class="metric-label">Total Trades</div><div class="metric-value neutral" id="mTrades">-</div><div class="metric-sub" id="mTradesSub">-</div></div>
       </div>
+      <div class="chart-section">
+        <div class="section-title"><span>Equity Curve</span><span style="font-size: 11px; color: var(--text-muted)" id="chartRange">Last 100 snapshots</span></div>
+        <div class="chart-container"><canvas id="equityChart"></canvas></div>
+      </div>
+      <div class="grid-2col">
+        <div class="table-section">
+          <div class="section-title"><span>All Open Positions</span><button class="danger-btn" onclick="closeAllPositions()">Close All</button></div>
+          <div id="positionsTableAll"><div class="loading">Loading positions...</div></div>
+        </div>
+        <div class="table-section">
+          <div class="section-title"><span>Recent Decisions (All Strategies)</span></div>
+          <div id="decisionsTableAll"><div class="loading">Loading decisions...</div></div>
+        </div>
+      </div>
+      <div class="table-section"><div class="section-title"><span>Recent Trades (All)</span></div><div id="tradesTableAll"><div class="loading">Loading trades...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Run History (All)</span></div><div id="runsTableAll"><div class="loading">Loading runs...</div></div></div>
     </div>
-    <div class="table-section"><div class="section-title"><span>Recent Trades</span></div><div id="tradesTable"><div class="loading">Loading trades...</div></div></div>
-    <div class="table-section"><div class="section-title"><span>Run History</span></div><div id="runsTable"><div class="loading">Loading runs...</div></div></div>
-    <div class="footer">Alpaca AI Trading Bot v1.0.0 - Cloudflare Worker + D1 - Paper Trading Mode<br>Auto-refreshes every 30 seconds</div>
+
+    <div class="tab-content" id="contentDaytrading">
+      <div class="info-card">
+        <span class="strategy-badge strategy-day">Daytrading</span>
+        <strong>TA + AI strategy:</strong> RSI, MACD, EMA, ATR, Bollinger + Fireworks GLM LLM. Every 5 min during market hours. EOD flatten. Max 15 positions, 20% each.
+      </div>
+      <div class="grid-2col">
+        <div class="table-section"><div class="section-title"><span>Daytrading Positions</span></div><div id="positionsTableDay"><div class="loading">Loading...</div></div></div>
+        <div class="table-section"><div class="section-title"><span>Daytrading Decisions</span></div><div id="decisionsTableDay"><div class="loading">Loading...</div></div></div>
+      </div>
+      <div class="table-section"><div class="section-title"><span>Daytrading Trades</span></div><div id="tradesTableDay"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Daytrading Run History</span></div><div id="runsTableDay"><div class="loading">Loading...</div></div></div>
+    </div>
+
+    <div class="tab-content" id="contentSwing">
+      <div class="info-card">
+        <span class="strategy-badge strategy-swing">Swing Trading</span>
+        <strong>Cross-sectional ranking:</strong> Reversal (Jegadeesh), momentum (12-1), 52w high (George & Hwang), volume, quality (low-vol, anti-lottery). Daily at 22:00 UTC. 2-30 day holds. No margin. Gap-aware sizing. Max 30 positions, 5% each. Hysteresis exits.
+        <div style="margin-top: 8px;"><button class="trigger-btn" onclick="triggerSwing()">Trigger Swing Cycle</button></div>
+      </div>
+      <div class="grid-2col">
+        <div class="table-section"><div class="section-title"><span>Swing Positions</span></div><div id="positionsTableSwing"><div class="loading">Loading...</div></div></div>
+        <div class="table-section"><div class="section-title"><span>Swing Decisions (Ranking)</span></div><div id="decisionsTableSwing"><div class="loading">Loading...</div></div></div>
+      </div>
+      <div class="table-section"><div class="section-title"><span>Swing Trades</span></div><div id="tradesTableSwing"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Swing Run History</span></div><div id="runsTableSwing"><div class="loading">Loading...</div></div></div>
+    </div>
+
+    <div class="footer">Alpaca AI Trading Bot v2.0.0 - Cloudflare Worker + D1 - Paper Trading<br>Daytrading: 5-min cron | Swing: daily cron at 22:00 UTC | Auto-refresh every 30s</div>
   </div>
   <script>
     const API_BASE = 'https://alpaca-trading-bot.joachim-763.workers.dev';
+    let currentTab = 'overview';
+    let dashboardData = null;
     async function fetchAPI(path) {
       try { const r = await fetch(API_BASE + path); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.json(); }
       catch (e) { console.error('API error for ' + path, e); return null; }
@@ -178,9 +242,19 @@
     function fmtMoney(v, d = 2) { if (v == null || isNaN(v)) return '-'; return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }); }
     function fmtPct(v, s = true) { if (v == null || isNaN(v)) return '-'; return (s && v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%'; }
     function fmtTime(ts) { if (!ts) return '-'; const d = new Date(ts.includes('T') ? ts + 'Z' : ts); return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); }
+    function fmtDateTime(ts) { if (!ts) return '-'; const d = new Date(ts.includes('T') ? ts + 'Z' : ts); return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+      document.getElementById('content' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+      renderTab(tab);
+    }
     async function loadDashboard() {
       const data = await fetchAPI('/api/dashboard');
       if (!data) { const b = document.getElementById('statusBadge'); b.className = 'status-badge offline'; b.innerHTML = '<div class="pulse" style="background:var(--red)"></div><span>Connection Error</span>'; return; }
+      dashboardData = data;
       const hasAcc = data.account && !data.account.error;
       const badge = document.getElementById('statusBadge');
       if (hasAcc) { const open = !data.account.trading_blocked; badge.className = 'status-badge ' + (open ? 'live' : 'offline'); badge.innerHTML = '<div class="pulse" style="background:var(--' + (open ? 'green' : 'red') + ')"></div><span>' + (open ? 'Live - Paper Trading' : 'Account Blocked') + '</span>'; }
@@ -206,10 +280,34 @@
         document.getElementById('mTradesSub').textContent = data.stats.totalDecisions + ' decisions';
       }
       if (data.performanceHistory && data.performanceHistory.length > 0) drawEquityChart(data.performanceHistory);
-      renderPositions(data.positions || []);
-      renderDecisions(data.recentDecisions || []);
-      renderTrades(data.recentTrades || []);
-      renderRuns(data.recentRuns || []);
+      renderTab(currentTab);
+    }
+    function renderTab(tab) {
+      if (!dashboardData) return;
+      const allPos = dashboardData.positions || [];
+      const allDec = dashboardData.recentDecisions || [];
+      const allTr = dashboardData.recentTrades || [];
+      const allRun = dashboardData.recentRuns || [];
+      if (tab === 'overview') {
+        renderPositions(allPos, 'positionsTableAll', true);
+        renderDecisions(allDec, 'decisionsTableAll');
+        renderTrades(allTr, 'tradesTableAll');
+        renderRuns(allRun, 'runsTableAll');
+      } else if (tab === 'daytrading') {
+        const dayDec = allDec.filter(d => d.signal_source !== 'swing');
+        const dayRun = allRun.filter(r => r.trigger !== 'swing_cron');
+        renderPositions(allPos, 'positionsTableDay', false);
+        renderDecisions(dayDec, 'decisionsTableDay');
+        renderTrades(allTr, 'tradesTableDay');
+        renderRuns(dayRun, 'runsTableDay');
+      } else if (tab === 'swing') {
+        const swDec = allDec.filter(d => d.signal_source === 'swing');
+        const swRun = allRun.filter(r => r.trigger === 'swing_cron');
+        renderPositions(allPos, 'positionsTableSwing', false);
+        renderSwingDecisions(swDec, 'decisionsTableSwing');
+        renderTrades(allTr, 'tradesTableSwing');
+        renderRuns(swRun, 'runsTableSwing');
+      }
     }
     function drawEquityChart(snaps) {
       const c = document.getElementById('equityChart'); const ctx = c.getContext('2d');
@@ -229,41 +327,54 @@
       const lx = p.l + cw, ly = p.t + ch - ((vals[vals.length - 1] - yMin) / (yMax - yMin)) * ch;
       ctx.beginPath(); ctx.arc(lx, ly, 3, 0, Math.PI * 2); ctx.fillStyle = up ? '#00c853' : '#ff1744'; ctx.fill();
     }
-    function renderPositions(ps) {
-      const el = document.getElementById('positionsTable');
-      if (!ps.length) { el.innerHTML = '<div class="loading">No open positions</div>'; return; }
-      let h = '<table><thead><tr><th>Symbol</th><th>Qty</th><th>Entry</th><th>Current</th><th>Mkt Value</th><th>Unrealized P&L</th><th>P&L %</th><th></th></tr></thead><tbody>';
-      for (const p of ps) { const pc = p.unrealized_pl >= 0 ? 'positive' : 'negative'; h += '<tr><td><strong>' + p.ticker + '</strong></td><td>' + p.qty + '</td><td>$' + p.avg_entry_price.toFixed(2) + '</td><td>$' + p.current_price.toFixed(2) + '</td><td>' + fmtMoney(p.market_value) + '</td><td class="' + pc + '">' + fmtMoney(p.unrealized_pl) + '</td><td class="' + pc + '">' + (p.unrealized_plpc >= 0 ? '+' : '') + (p.unrealized_plpc * 100).toFixed(2) + '%</td><td><button class="danger-btn" onclick="closePosition(\'' + p.ticker + '\')">Close</button></td></tr>'; }
+    function renderPositions(ps, elId, showClose) {
+      const el = document.getElementById(elId);
+      if (!ps || !ps.length) { el.innerHTML = '<div class="loading">No open positions</div>'; return; }
+      let h = '<table><thead><tr><th>Symbol</th><th>Qty</th><th>Entry</th><th>Current</th><th>Mkt Value</th><th>Unrealized P&L</th><th>P&L %</th>' + (showClose ? '<th></th>' : '') + '</tr></thead><tbody>';
+      for (const p of ps) { const pc = p.unrealized_pl >= 0 ? 'positive' : 'negative'; h += '<tr><td><strong>' + p.ticker + '</strong></td><td>' + p.qty + '</td><td>$' + (p.avg_entry_price||0).toFixed(2) + '</td><td>$' + (p.current_price||0).toFixed(2) + '</td><td>' + fmtMoney(p.market_value) + '</td><td class="' + pc + '">' + fmtMoney(p.unrealized_pl) + '</td><td class="' + pc + '">' + ((p.unrealized_plpc||0) >= 0 ? '+' : '') + ((p.unrealized_plpc||0)*100).toFixed(2) + '%</td>' + (showClose ? '<td><button class="danger-btn" onclick="closePosition(\'' + p.ticker + '\')">Close</button></td>' : '') + '</tr>'; }
       h += '</tbody></table>'; el.innerHTML = h;
     }
-    function renderDecisions(ds) {
-      const el = document.getElementById('decisionsTable');
-      if (!ds.length) { el.innerHTML = '<div class="loading">No decisions yet</div>'; return; }
+    function renderDecisions(ds, elId) {
+      const el = document.getElementById(elId);
+      if (!ds || !ds.length) { el.innerHTML = '<div class="loading">No decisions yet</div>'; return; }
       let h = '<table><thead><tr><th>Time</th><th>Symbol</th><th>Action</th><th>Conf</th><th>Source</th><th>Reason</th><th>Status</th></tr></thead><tbody>';
       for (const d of ds.slice(0, 15)) {
-        const cc = d.confidence >= 0.7 ? '#00c853' : d.confidence >= 0.5 ? '#ff9100' : '#546e7a';
+        const cc = d.confidence >= 0.7 ? '#00c853' : d.confidence >= 0.5 ? '#ff9100' : d.confidence >= 0 ? '#546e7a' : '#ff1744';
         const st = d.executed === 1 ? '<span style="color:var(--green)">Executed</span>' : d.executed === 2 ? '<span style="color:var(--text-muted)">Skipped</span>' : d.executed === 3 ? '<span style="color:var(--red)">Failed</span>' : '<span style="color:var(--yellow)">Pending</span>';
-        const src = d.signal_source === 'ta+ai' ? '<span class="signal-source signal-ai">TA+AI</span>' : d.signal_source === 'ai' ? '<span class="signal-source signal-ai">AI</span>' : '<span class="signal-source signal-ta">TA</span>';
-        h += '<tr><td>' + fmtTime(d.timestamp) + '</td><td><strong>' + d.ticker + '</strong></td><td><span class="action-badge action-' + d.action + '">' + d.action + '</span></td><td><span class="conf-bar"><span class="conf-fill" style="width:' + d.confidence * 100 + '%;background:' + cc + '"></span></span>' + (d.confidence * 100).toFixed(0) + '%</td><td>' + src + '</td><td class="reason-text" title="' + (d.reason || '').replace(/"/g, '&quot;') + '">' + (d.reason || '-') + '</td><td>' + st + '</td></tr>';
+        let src; if (d.signal_source === 'swing') src = '<span class="signal-source signal-swing">SWING</span>'; else if (d.signal_source === 'ta+ai') src = '<span class="signal-source signal-ai">TA+AI</span>'; else if (d.signal_source === 'ai') src = '<span class="signal-source signal-ai">AI</span>'; else src = '<span class="signal-source signal-ta">TA</span>';
+        h += '<tr><td>' + fmtTime(d.timestamp) + '</td><td><strong>' + d.ticker + '</strong></td><td><span class="action-badge action-' + d.action + '">' + d.action + '</span></td><td><span class="conf-bar"><span class="conf-fill" style="width:' + Math.abs(d.confidence)*50 + '%;background:' + cc + '"></span></span>' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + src + '</td><td class="reason-text" title="' + (d.reason||'').replace(/"/g,'&quot;') + '">' + (d.reason||'-') + '</td><td>' + st + '</td></tr>';
       }
       h += '</tbody></table>'; el.innerHTML = h;
     }
-    function renderTrades(ts) {
-      const el = document.getElementById('tradesTable');
-      if (!ts.length) { el.innerHTML = '<div class="loading">No trades executed yet</div>'; return; }
+    function renderSwingDecisions(ds, elId) {
+      const el = document.getElementById(elId);
+      if (!ds || !ds.length) { el.innerHTML = '<div class="loading">No swing decisions yet. The swing strategy runs daily at 22:00 UTC on weekdays.</div>'; return; }
+      let h = '<table><thead><tr><th>Time</th><th>Symbol</th><th>Action</th><th>Z-Score</th><th>Rank</th><th>Signals</th><th>Status</th></tr></thead><tbody>';
+      for (const d of ds.slice(0, 20)) {
+        const st = d.executed === 1 ? '<span style="color:var(--green)">Executed</span>' : d.executed === 2 ? '<span style="color:var(--text-muted)">Skipped</span>' : d.executed === 3 ? '<span style="color:var(--red)">Failed</span>' : '<span style="color:var(--yellow)">Pending</span>';
+        let rank = '-', signals = '-'; try { const ai = JSON.parse(d.ai_reasoning||'{}'); if (ai.rank) rank = '#' + ai.rank; if (ai.signals) signals = ai.signals.join(', '); } catch(e) {}
+        const zColor = d.confidence >= 1 ? 'var(--green)' : d.confidence >= 0.5 ? 'var(--blue)' : d.confidence >= 0 ? 'var(--text-muted)' : 'var(--red)';
+        h += '<tr><td>' + fmtDateTime(d.timestamp) + '</td><td><strong>' + d.ticker + '</strong></td><td><span class="action-badge action-' + d.action + '">' + d.action + '</span></td><td style="color:' + zColor + '">' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + rank + '</td><td class="reason-text" title="' + (d.reason||'').replace(/"/g,'&quot;') + '">' + (signals||d.reason||'-') + '</td><td>' + st + '</td></tr>';
+      }
+      h += '</tbody></table>'; el.innerHTML = h;
+    }
+    function renderTrades(ts, elId) {
+      const el = document.getElementById(elId);
+      if (!ts || !ts.length) { el.innerHTML = '<div class="loading">No trades executed yet</div>'; return; }
       let h = '<table><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Fill Price</th><th>Est. Value</th><th>Status</th></tr></thead><tbody>';
       for (const t of ts.slice(0, 20)) { const sc = t.side === 'buy' ? 'positive' : 'negative'; const stc = t.status === 'filled' ? 'var(--green)' : t.status === 'rejected' || t.status === 'canceled' ? 'var(--red)' : 'var(--yellow)'; h += '<tr><td>' + fmtTime(t.timestamp) + '</td><td><strong>' + t.ticker + '</strong></td><td class="' + sc + '">' + t.side.toUpperCase() + '</td><td>' + t.qty + '</td><td>' + (t.avg_fill_price ? '$' + t.avg_fill_price.toFixed(2) : '-') + '</td><td>' + fmtMoney(t.estimated_value) + '</td><td style="color:' + stc + '">' + t.status + '</td></tr>'; }
       h += '</tbody></table>'; el.innerHTML = h;
     }
-    function renderRuns(rs) {
-      const el = document.getElementById('runsTable');
-      if (!rs.length) { el.innerHTML = '<div class="loading">No runs yet</div>'; return; }
+    function renderRuns(rs, elId) {
+      const el = document.getElementById(elId);
+      if (!rs || !rs.length) { el.innerHTML = '<div class="loading">No runs yet</div>'; return; }
       let h = '<table><thead><tr><th>Time</th><th>Trigger</th><th>Market</th><th>Decisions</th><th>Trades</th><th>Errors</th><th>Duration</th><th>Status</th></tr></thead><tbody>';
-      for (const r of rs.slice(0, 15)) { const sc = r.status === 'ok' ? 'var(--green)' : r.status === 'error' ? 'var(--red)' : 'var(--text-muted)'; h += '<tr><td>' + fmtTime(r.timestamp) + '</td><td>' + r.trigger + '</td><td>' + (r.market_open ? 'Open' : 'Closed') + '</td><td>' + r.decisions_made + '</td><td>' + r.trades_executed + '</td><td style="color:' + (r.errors > 0 ? 'var(--red)' : 'var(--text-muted)') + '">' + r.errors + '</td><td>' + (r.duration_ms ? (r.duration_ms / 1000).toFixed(1) + 's' : '-') + '</td><td style="color:' + sc + '">' + r.status + '</td></tr>'; }
+      for (const r of rs.slice(0, 15)) { const sc = r.status === 'ok' ? 'var(--green)' : r.status === 'error' ? 'var(--red)' : 'var(--text-muted)'; const tl = r.trigger === 'swing_cron' ? '<span style="color:var(--teal)">swing_cron</span>' : r.trigger; h += '<tr><td>' + fmtDateTime(r.timestamp) + '</td><td>' + tl + '</td><td>' + (r.market_open?'Open':'Closed') + '</td><td>' + r.decisions_made + '</td><td>' + r.trades_executed + '</td><td style="color:' + (r.errors>0?'var(--red)':'var(--text-muted)') + '">' + r.errors + '</td><td>' + (r.duration_ms?(r.duration_ms/1000).toFixed(1)+'s':'-') + '</td><td style="color:' + sc + '">' + r.status + '</td></tr>'; }
       h += '</tbody></table>'; el.innerHTML = h;
     }
     async function closePosition(s) { if (!confirm('Close position for ' + s + '?')) return; const r = await fetch(API_BASE + '/api/positions/close?symbol=' + s, { method: 'POST' }); if (r.ok) { alert('Closed ' + s); loadDashboard(); } else alert('Failed'); }
     async function closeAllPositions() { if (!confirm('Close ALL positions?')) return; const r = await fetch(API_BASE + '/api/positions/close-all', { method: 'POST' }); if (r.ok) { alert('All positions closed'); loadDashboard(); } else alert('Failed'); }
+    async function triggerSwing() { if (!confirm('Trigger swing cycle? It will run on the next cron tick.')) return; const r = await fetch(API_BASE + '/api/trigger-swing', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
     loadDashboard();
     setInterval(loadDashboard, 30000);
   </script>

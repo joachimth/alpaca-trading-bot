@@ -9,11 +9,11 @@ binding = "DB"
 database_name = "alpaca-trading-bot"
 database_id = "2bc505a2-d744-4322-8c3b-5f5ebe35f9a1"
 
-# Cron: every 5 minutes during market hours
-# Cloudflare runs in UTC. US market hours: 9:30-16:00 ET = 13:30-20:00 UTC (Mar) / 14:30-21:00 UTC (Nov, DST)
-# We run every 5 min and check market status inside the worker.
+# Cron triggers:
+# 1. Daytrading: every 5 minutes during US market hours (13-21 UTC, Mon-Fri)
+# 2. Swing: once daily after market close (22:00 UTC = after 16:00 ET close)
 [triggers]
-crons = ["*/5 13-21 * * 1-5"]
+crons = ["*/5 13-21 * * 1-5", "0 22 * * 1-5"]
 
 # Secrets (set via wrangler secret put or dashboard):
 # ALPACA_API_KEY
