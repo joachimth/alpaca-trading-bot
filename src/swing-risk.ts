@@ -11,10 +11,10 @@ import type { SwingScore } from './swing-signals';
 
 export interface SwingRiskConfig {
   maxPositions: number;
-  maxPositionPct: number;          // max % of portfolio per position (hard cap)
+  maxPositionPct: number;          // max % of swing capital per position (hard cap)
   targetPositionPct: number;       // target % per position (equal weight default)
   maxSectorPct: number;            // max net sector exposure (placeholder, needs sector data)
-  maxGrossExposure: number;        // max total exposure as % of portfolio (100 = no margin)
+  maxGrossExposure: number;        // max total exposure as % of swing capital (100 = no margin)
   stopLossPct: number;             // emergency stop (gap protection, not primary)
   trailingStopPct: number;         // trailing stop for profit protection
   dailyLossLimitPct: number;       // stop trading if down this much on the day
@@ -23,9 +23,10 @@ export interface SwingRiskConfig {
   exitZScore: number;              // sell if z-score drops below this (hysteresis)
   enableMargin: boolean;
   earningsBlackoutDays: number;    // don't enter within N days of earnings
-  maxTurnoverPct: number;          // max % of portfolio to trade per rebalance
-  minTradeSize: number;            // min trade size as % of portfolio (skip tiny rebalances)
+  maxTurnoverPct: number;          // max % of swing capital to trade per rebalance
+  minTradeSize: number;            // min trade size as % of swing capital (skip tiny rebalances)
   maxOrderRatePerMin: number;      // kill switch
+  maxCapitalUsd: number;           // hard cap on total swing capital deployed (0 = use full account)
 }
 
 export interface SwingRiskCheckResult {
@@ -106,68 +107,81 @@ export class SwingRiskManager {
   // ============================================================
 
   checkEntry(
-    score: SwingScore,
-    account: AccountInfo,
-    positions: Position[],
-    price: number
-  ): SwingRiskCheckResult {
-    // Kill switch
-    if (this.killState.tradingHalted) {
-      return { approved: false, reason: `Trading halted: ${this.killState.reason}` };
-    }
+  score: SwingScore,
+  account: AccountInfo,
+  positions: Position[],
+  price: number
+): SwingRiskCheckResult {
+  // Kill switch
+  if (this.killState.tradingHalted) {
+    return { approved: false, reason: `Trading halted: ${this.killState.reason}` };
+  }
 
-    // Account blocked
-    if (account.trading_blocked || account.account_blocked) {
-      return { approved: false, reason: 'Account blocked' };
-    }
+  // Account blocked
+  if (account.trading_blocked || account.account_blocked) {
+    return { approved: false, reason: 'Account blocked' };
+  }
 
-    // Daily loss limit
-    if (account.change_today_pct < 0 && Math.abs(account.change_today_pct) >= this.config.dailyLossLimitPct) {
-      this.haltTrading(`Daily loss: ${account.change_today_pct.toFixed(2)}%`);
-      return { approved: false, reason: `Daily loss limit: ${account.change_today_pct.toFixed(2)}%` };
-    }
+  // Daily loss limit
+  if (account.change_today_pct < 0 && Math.abs(account.change_today_pct) >= this.config.dailyLossLimitPct) {
+    this.haltTrading(`Daily loss: ${account.change_today_pct.toFixed(2)}%`);
+    return { approved: false, reason: `Daily loss limit: ${account.change_today_pct.toFixed(2)}%` };
+  }
 
-    // Confidence threshold (z-score based)
-    if (score.compositeScore < this.config.minConfidence) {
-      return { approved: false, reason: `Z-score ${score.compositeScore.toFixed(2)} below min ${this.config.minConfidence}` };
-    }
+  // Confidence threshold (z-score based)
+  if (score.compositeScore < this.config.minConfidence) {
+    return { approved: false, reason: `Z-score ${score.compositeScore.toFixed(2)} below min ${this.config.minConfidence}` };
+  }
 
-    // Position count
-    const currentLongs = positions.filter(p => p.side === 'long' && p.qty > 0).length;
-    const existing = positions.find(p => p.symbol === score.symbol);
-    if (!existing && currentLongs >= this.config.maxPositions) {
-      return { approved: false, reason: `Max positions (${currentLongs}/${this.config.maxPositions})` };
-    }
+  // Determine swing capital: use maxCapitalUsd if set, otherwise full account
+  const swingCapital = this.config.maxCapitalUsd > 0
+    ? Math.min(this.config.maxCapitalUsd, account.portfolio_value)
+    : account.portfolio_value;
 
-    // Gross exposure check
-    const currentGross = positions.reduce((s, p) => s + Math.abs(p.market_value), 0);
-    const currentGrossPct = account.portfolio_value > 0 ? (currentGross / account.portfolio_value) * 100 : 0;
-    if (currentGrossPct >= this.config.maxGrossExposure) {
-      return { approved: false, reason: `Gross exposure ${currentGrossPct.toFixed(1)}% >= max ${this.config.maxGrossExposure}%` };
-    }
+  // Position count — only count swing-held positions (we can't perfectly distinguish,
+  // but with a capital cap we check total swing exposure instead)
+  const currentLongs = positions.filter(p => p.side === 'long' && p.qty > 0).length;
+  const existing = positions.find(p => p.symbol === score.symbol);
+  if (!existing && currentLongs >= this.config.maxPositions) {
+    return { approved: false, reason: `Max positions (${currentLongs}/${this.config.maxPositions})` };
+  }
 
-    // Gap-aware position sizing
-    // On swing horizon, gap risk is the main enemy. Size based on volatility so
-    // a worst-case gap (~3-4 sigma) doesn't destroy the position.
-    const vol = score.indicators.vol20d > 0 ? score.indicators.vol20d : 0.3; // annualized
-    const dailyVol = vol / Math.sqrt(252);
-    // Expected worst-case gap: 3 daily sigmas
-    const worstCaseGapPct = 3 * dailyVol * 100;
-    // Risk budget: we accept max 1% portfolio loss per position on a gap
-    const maxLossPerPosition = account.portfolio_value * 0.01;
-    // Position size = maxLoss / worstCaseGap%
-    const gapBasedValue = maxLossPerPosition / (worstCaseGapPct / 100);
+  // Gross exposure check — against swing capital, not full account
+  const currentGross = positions.reduce((s, p) => s + Math.abs(p.market_value), 0);
+  // If we have a capital cap, check how much of it is already deployed
+  const swingGrossUsed = this.config.maxCapitalUsd > 0
+    ? Math.min(currentGross, this.config.maxCapitalUsd)
+    : currentGross;
+  const swingGrossPct = swingCapital > 0 ? (swingGrossUsed / swingCapital) * 100 : 0;
+  if (swingGrossPct >= this.config.maxGrossExposure) {
+    return { approved: false, reason: `Swing gross exposure ${swingGrossPct.toFixed(1)}% >= max ${this.config.maxGrossExposure}%` };
+  }
 
-    // Also cap at target position size and hard max
-    const targetValue = account.portfolio_value * (this.config.targetPositionPct / 100);
-    const maxValue = account.portfolio_value * (this.config.maxPositionPct / 100);
-    const availableCash = this.config.enableMargin ? account.buying_power : account.cash;
+  // Gap-aware position sizing
+  // On swing horizon, gap risk is the main enemy. Size based on volatility so
+  // a worst-case gap (~3-4 sigma) doesn't destroy the position.
+  const vol = score.indicators.vol20d > 0 ? score.indicators.vol20d : 0.3; // annualized
+  const dailyVol = vol / Math.sqrt(252);
+  // Expected worst-case gap: 3 daily sigmas
+  const worstCaseGapPct = 3 * dailyVol * 100;
+  // Risk budget: we accept max 1% of swing capital loss per position on a gap
+  const maxLossPerPosition = swingCapital * 0.01;
+  // Position size = maxLoss / worstCaseGap%
+  const gapBasedValue = maxLossPerPosition / (worstCaseGapPct / 100);
 
-    const positionValue = Math.min(gapBasedValue, targetValue, maxValue, availableCash * 0.95);
+  // Also cap at target position size and hard max — based on swing capital
+  const targetValue = swingCapital * (this.config.targetPositionPct / 100);
+  const maxValue = swingCapital * (this.config.maxPositionPct / 100);
+  // Available cash: respect the swing capital cap
+  const availableForSwing = this.config.maxCapitalUsd > 0
+    ? Math.min(this.config.maxCapitalUsd - swingGrossUsed, account.cash)
+    : (this.config.enableMargin ? account.buying_power : account.cash);
 
-    if (positionValue <= 0) {
-      return { approved: false, reason: `Position value is zero (gap-based: $${gapBasedValue.toFixed(0)}, target: $${targetValue.toFixed(0)})` };
-    }
+  const positionValue = Math.min(gapBasedValue, targetValue, maxValue, availableForSwing * 0.95);
+
+  if (positionValue <= 0) {
+    return { approved: false, reason: `Position value is zero (gap-based: $${gapBasedValue.toFixed(0)}, target: $${targetValue.toFixed(0)}, available: $${availableForSwing.toFixed(0)})` };
+  }
 
     const integerQty = Math.floor(positionValue / price);
     const fractionalQty = positionValue / price;
@@ -331,8 +345,14 @@ export class SwingRiskManager {
   // ============================================================
 
   getPortfolioHeat(positions: Position[], account: AccountInfo): number {
+    const swingCapital = this.config.maxCapitalUsd > 0
+      ? Math.min(this.config.maxCapitalUsd, account.portfolio_value)
+      : account.portfolio_value;
     const totalExposure = positions.reduce((sum, p) => sum + Math.abs(p.market_value), 0);
-    return account.portfolio_value > 0 ? (totalExposure / account.portfolio_value) * 100 : 0;
+    const cappedExposure = this.config.maxCapitalUsd > 0
+      ? Math.min(totalExposure, this.config.maxCapitalUsd)
+      : totalExposure;
+    return swingCapital > 0 ? (cappedExposure / swingCapital) * 100 : 0;
   }
 
   isTradingHalted(): boolean {

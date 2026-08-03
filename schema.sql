@@ -194,4 +194,5 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
   ('swing_min_trade_size', '0.25'),
   ('swing_max_order_rate_per_min', '15'),
   ('swing_scan_universe_size', '150'),
+  ('swing_max_capital_usd', '3700'),   -- ~25,000 DKK cap for private person use
   ('version', '2.0.0');

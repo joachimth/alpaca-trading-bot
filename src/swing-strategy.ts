@@ -34,6 +34,7 @@ const SWING_FALLBACK_CONFIG = {
   maxTurnoverPct: 30,       // max 30% of portfolio traded per rebalance
   minTradeSize: 0.25,       // skip trades < 0.25% of portfolio
   maxOrderRatePerMin: 15,
+  maxCapitalUsd: 3700,      // ~25,000 DKK cap for swing strategy
 };
 
 export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
@@ -129,6 +130,7 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
       maxTurnoverPct: config.maxTurnoverPct,
       minTradeSize: config.minTradeSize,
       maxOrderRatePerMin: config.maxOrderRatePerMin,
+      maxCapitalUsd: config.maxCapitalUsd || 0,
     };
     const riskManager = new SwingRiskManager(riskConfig);
     riskManager.updateEquitySnapshot(account.equity);
@@ -301,7 +303,11 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
       ...proposedSells.map(s => ({ symbol: s.symbol, side: 'sell' as const, value: s.value })),
       ...proposedBuys.map(b => ({ symbol: b.symbol, side: 'buy' as const, value: b.value })),
     ];
-    const turnoverFiltered = riskManager.applyTurnoverControl(allProposedTrades, updatedAccount.portfolio_value);
+    // Use swing capital for turnover calculation if cap is set
+    const turnoverBase = config.maxCapitalUsd > 0
+      ? Math.min(config.maxCapitalUsd, updatedAccount.portfolio_value)
+      : updatedAccount.portfolio_value;
+    const turnoverFiltered = riskManager.applyTurnoverControl(allProposedTrades, turnoverBase);
 
     // Execute buys (respecting turnover control)
     const buyTradeMap = new Map(turnoverFiltered.filter(t => t.side === 'buy').map(t => [t.symbol, t]));
