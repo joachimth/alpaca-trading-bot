@@ -20,36 +20,39 @@ export interface Env {
 
 // Default fallback config if D1 is empty
 const FALLBACK_CONFIG = {
-  maxPositions: 15,
-  maxPositionPct: 20,
-  stopLossPct: 8,
-  takeProfitPct: 15,
-  trailingStopPct: 5,
-  dailyLossLimitPct: 15,
-  rollingDrawdownLimitPct: 10,
-  minConfidence: 0.6,
-  scanUniverseSize: 100,
-  rsiPeriod: 14,
-  rsiOversold: 30,
-  rsiOverbought: 70,
-  emaFast: 9,
-  emaSlow: 21,
-  macdFast: 12,
-  macdSlow: 26,
-  macdSignal: 9,
-  atrPeriod: 14,
-  volumeAvgPeriod: 20,
-  stopLossATRMultiplier: 1.5,
-  takeProfitATRMultiplier: 2.0,
-  targetVolatilityPct: 2.0,
-  maxOrderRatePerMin: 10,
-  minEdgeAfterCosts: 5,
-  useAiRefinement: true,
-  llmModel: 'accounts/fireworks/models/glm-5p2',
-  llmTemperature: 0.3,
-  enableMargin: true,
-  eodFlatten: true,
-};
+    maxPositions: 15,
+    maxPositionPct: 20,
+    stopLossPct: 8,
+    takeProfitPct: 15,
+    trailingStopPct: 5,
+    dailyLossLimitPct: 15,
+    rollingDrawdownLimitPct: 10,
+    minConfidence: 0.7,
+    scanUniverseSize: 100,
+    rsiPeriod: 14,
+    rsiOversold: 30,
+    rsiOverbought: 70,
+    emaFast: 9,
+    emaSlow: 21,
+    macdFast: 12,
+    macdSlow: 26,
+    macdSignal: 9,
+    atrPeriod: 14,
+    volumeAvgPeriod: 20,
+    stopLossATRMultiplier: 1.5,
+    takeProfitATRMultiplier: 2.0,
+    targetVolatilityPct: 2.0,
+    maxOrderRatePerMin: 10,
+    minEdgeAfterCosts: 5,
+    useAiRefinement: true,
+    llmModel: 'accounts/fireworks/models/glm-5p2',
+    llmTemperature: 0.3,
+    enableMargin: true,
+    eodFlatten: true,
+    minHoldMinutes: 15,        // don't sell a position held < N minutes (unless stop loss)
+    reentryCooldownMinutes: 30, // don't re-buy a symbol sold < N minutes ago
+    maxTradesPerCycle: 3,      // max new trades per 5-min cycle
+  };
 
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
@@ -299,6 +302,29 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
     console.log(`TA complete: ${signals.length} analyzed, ${signalsToProcess.length} to process`);
 
+    // Anti-churn: get recently sold symbols for re-entry cooldown
+    const cooldownMin = config.reentryCooldownMinutes || 30;
+    const recentlySold = await db.getRecentlyClosedSymbols(cooldownMin);
+    if (recentlySold.size > 0) {
+      console.log(`Re-entry cooldown (${cooldownMin}min): ${Array.from(recentlySold).join(', ')}`);
+    }
+
+    // Anti-churn: build a map of position entry times for min hold check
+    const dbPosMap = new Map(dbPositions.map(p => [p.ticker, p]));
+    const minHoldMin = config.minHoldMinutes || 15;
+    const nowMs = Date.now();
+    const isWithinMinHold = (symbol: string): boolean => {
+      const dbPos = dbPosMap.get(symbol);
+      if (!dbPos || !dbPos.opened_at) return false;
+      const openedMs = new Date(dbPos.opened_at + 'Z').getTime();
+      const heldMin = (nowMs - openedMs) / 60000;
+      return heldMin < minHoldMin;
+    };
+
+    // Track trades per cycle
+    let cycleTradeCount = 0;
+    const maxTradesPerCycle = config.maxTradesPerCycle || 3;
+
     // 11. AI refinement
     const marketContext: AIMarketContext = {
       account: {
@@ -358,15 +384,28 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         continue;
       }
 
+      // Anti-churn: max trades per cycle limit
+      if (cycleTradeCount >= maxTradesPerCycle) {
+        await db.updateDecisionStatus(decisionId, 2, `Max trades per cycle reached (${maxTradesPerCycle})`);
+        continue;
+      }
+
       // CLOSE: close existing position
       if (decision.action === 'CLOSE') {
         const existingPos = positions.find(p => p.symbol === signal.indicators.symbol);
         if (existingPos) {
+          // Anti-churn: check minimum hold time (unless stop loss was hit via checkPositions already)
+          if (isWithinMinHold(signal.indicators.symbol)) {
+            await db.updateDecisionStatus(decisionId, 2, `Min hold time not reached (${minHoldMin}min)`);
+            console.log(`Skip CLOSE ${signal.indicators.symbol}: held < ${minHoldMin} min`);
+            continue;
+          }
           try {
             await alpaca.closePosition(signal.indicators.symbol);
             await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
             await db.updateDecisionStatus(decisionId, 1, 'Position closed');
             tradesExecuted++;
+            cycleTradeCount++;
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : 'unknown';
             await db.updateDecisionStatus(decisionId, 3, `Close failed: ${errMsg}`);
@@ -388,11 +427,18 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       if (decision.action === 'SELL') {
         const existingPos = positions.find(p => p.symbol === signal.indicators.symbol);
         if (existingPos) {
+          // Anti-churn: check minimum hold time
+          if (isWithinMinHold(signal.indicators.symbol)) {
+            await db.updateDecisionStatus(decisionId, 2, `Min hold time not reached (${minHoldMin}min)`);
+            console.log(`Skip SELL ${signal.indicators.symbol}: held < ${minHoldMin} min`);
+            continue;
+          }
           try {
             await alpaca.closePosition(signal.indicators.symbol);
             await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
             await db.updateDecisionStatus(decisionId, 1, 'Position closed (sell signal)');
             tradesExecuted++;
+            cycleTradeCount++;
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : 'unknown';
             await db.updateDecisionStatus(decisionId, 3, `Sell failed: ${errMsg}`);
@@ -404,6 +450,13 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
       // BUY: submit new order
       if (decision.action === 'BUY' && riskCheck.adjustedQty) {
+        // Anti-churn: re-entry cooldown check
+        if (recentlySold.has(signal.indicators.symbol)) {
+          await db.updateDecisionStatus(decisionId, 2, `Re-entry cooldown active (${cooldownMin}min)`);
+          console.log(`Skip BUY ${signal.indicators.symbol}: sold within last ${cooldownMin} min`);
+          continue;
+        }
+
         const qty = riskCheck.adjustedQty;
         try {
           // Submit market order
@@ -448,6 +501,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
           await db.updateDecisionStatus(decisionId, 1, `Order submitted: ${qty} shares`);
           tradesExecuted++;
+          cycleTradeCount++;
           console.log(`BUY ${signal.indicators.symbol}: ${qty} shares @ ~$${signal.indicators.price.toFixed(2)}`);
         } catch (e) {
           const errMsg = e instanceof Error ? e.message : 'unknown';

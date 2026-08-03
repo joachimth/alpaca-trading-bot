@@ -158,6 +158,10 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
   ('llm_temperature', '0.3'),
   ('enable_margin', 'true'),
   ('eod_flatten', 'true'),              -- daytrading: close all before EOD
+  ('min_hold_minutes', '15'),           -- anti-churn: min hold time before sell
+  ('reentry_cooldown_minutes', '30'),   -- anti-churn: cooldown after selling before re-buy
+  ('max_trades_per_cycle', '3'),        -- anti-churn: max new trades per 5-min cycle
+  ('min_confidence', '0.7'),            -- raised from 0.6 to reduce low-conviction trades
 -- ============================================================
 -- Swing trading config (swing_ prefixed keys)
 -- ============================================================

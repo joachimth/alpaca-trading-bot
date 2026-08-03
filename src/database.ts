@@ -152,8 +152,8 @@ export class Database {
     take_profit_price: number | null;
   }): Promise<void> {
     await this.db.prepare(
-      `INSERT INTO positions (ticker, side, qty, avg_entry_price, current_price, market_value, unrealized_pl, unrealized_plpc, stop_loss_price, take_profit_price, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      `INSERT INTO positions (ticker, side, qty, avg_entry_price, current_price, market_value, unrealized_pl, unrealized_plpc, stop_loss_price, take_profit_price, opened_at, updated_at, closed_at, closed_pl, close_reason)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), NULL, NULL, NULL)
        ON CONFLICT(ticker) DO UPDATE SET
          side = excluded.side,
          qty = excluded.qty,
@@ -164,6 +164,10 @@ export class Database {
          unrealized_plpc = excluded.unrealized_plpc,
          stop_loss_price = excluded.stop_loss_price,
          take_profit_price = excluded.take_profit_price,
+         opened_at = datetime('now'),
+         closed_at = NULL,
+         closed_pl = NULL,
+         close_reason = NULL,
          updated_at = datetime('now')`
     ).bind(
       pos.ticker,
@@ -190,6 +194,17 @@ export class Database {
       'SELECT * FROM positions WHERE closed_at IS NULL ORDER BY market_value DESC'
     ).all();
     return result.results as any[];
+  }
+
+  // Get tickers that were closed within the last N minutes (for re-entry cooldown)
+  async getRecentlyClosedSymbols(cooldownMinutes: number): Promise<Set<string>> {
+    const result = await this.db.prepare(
+      `SELECT ticker FROM positions 
+       WHERE closed_at IS NOT NULL 
+       AND closed_at > datetime('now', ?)
+       GROUP BY ticker`
+    ).bind(`-${cooldownMinutes} minutes`).all();
+    return new Set((result.results as any[]).map(r => r.ticker));
   }
 
   // ============================================================
