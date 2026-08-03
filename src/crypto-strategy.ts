@@ -290,30 +290,41 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
     // Process signals
     for (const { symbol, indicators, signal } of signalsToProcess) {
       // AI refinement
-      let decision = signal;
-      if (config.useAiRefinement && signal.action !== 'HOLD' && signal.confidence > 0.5) {
-        try {
-          const refined = await refineWithLLM(signal, indicators, {
-            apiKey: env.LLM_API_KEY || env.FIREWORKS_API_KEY,
-            model: config.llmModel,
-            temperature: config.llmTemperature,
-            marketRegime: 'crypto',
-          });
-          if (refined) decision = refined;
-        } catch (e) {
-          console.error(`Crypto AI refinement failed for ${symbol}:`, e);
+        let decision: any = signal;
+        if (config.useAiRefinement && signal.action !== 'HOLD' && signal.confidence > 0.5 && env.LLM_API_KEY) {
+          try {
+            const refined = await refineWithLLM(signal, {
+              account: {
+                equity: account.equity,
+                cash: account.cash,
+                positionsCount: cryptoPositions.length,
+                dailyPlPct: account.change_today_pct || 0,
+              },
+              marketRegime: 'crypto',
+              topMovers: { gainers: [], losers: [] },
+              positions: cryptoPositions,
+            }, {
+              apiKey: env.LLM_API_KEY,
+              model: config.llmModel,
+              temperature: config.llmTemperature,
+              minConfidence: config.minConfidence,
+              marketRegime: 'crypto',
+            });
+            if (refined) decision = { ...signal, ...refined, reason: refined.reasoning };
+          } catch (e) {
+            console.error(`Crypto AI refinement failed for ${symbol}:`, e);
+          }
         }
-      }
 
       decisionsMade++;
       const decisionId = await db.logDecision({
         ticker: symbol,
         action: decision.action,
         confidence: decision.confidence,
-        signal_source: 'crypto',
-        reason: decision.reason,
+        signal_source: env.LLM_API_KEY ? 'crypto+ai' : 'crypto',
+        reason: decision.reason || decision.reasoning || (signal.reasons ? signal.reasons.join('; ') : ''),
         ta_data: JSON.stringify(indicators),
-        ai_reasoning: decision.aiReasoning || '',
+        ai_reasoning: decision.factors ? JSON.stringify({ factors: decision.factors, adjusted: decision.adjustedFromTA }) : '',
         price_at_decision: indicators.price,
         executed: 0,
         execution_reason: '',

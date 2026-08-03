@@ -92,6 +92,18 @@ export class DashboardAPI {
         return await this.closeAllPositions(corsHeaders);
       }
 
+      if (path === '/api/debug' && method === 'GET') {
+        const hasLLM = !!(this.env as any).LLM_API_KEY;
+        const hasAlpacaKey = !!(this.env as any).ALPACA_API_KEY;
+        const hasAlpacaSecret = !!(this.env as any).ALPACA_API_SECRET;
+        return this.json({
+          llm_key_present: hasLLM,
+          llm_key_length: hasLLM ? (this.env as any).LLM_API_KEY.length : 0,
+          alpaca_key_present: hasAlpacaKey,
+          alpaca_secret_present: hasAlpacaSecret,
+        }, corsHeaders);
+      }
+
       return this.json({ error: 'Not found', path }, corsHeaders, 404);
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : 'unknown';
