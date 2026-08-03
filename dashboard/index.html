@@ -152,7 +152,14 @@
       text-align: center; padding: 20px; color: var(--text-muted); font-size: 11px;
       border-top: 1px solid var(--border); margin-top: 24px;
     }
-    .tab-bar { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 24px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .tab-bar-wrap { position: relative; margin-bottom: 24px; }
+    .tab-bar-wrap::after {
+      content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 32px;
+      background: linear-gradient(to left, var(--bg), transparent);
+      pointer-events: none; opacity: 1; transition: opacity 0.2s;
+    }
+    .tab-bar-wrap.scrolled-end::after { opacity: 0; }
+    .tab-bar { display: flex; gap: 0; border-bottom: 1px solid var(--border); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .tab-bar::-webkit-scrollbar { display: none; }
     .tab { padding: 10px 16px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s; display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; }
     .tab:hover { color: var(--text); }
@@ -193,11 +200,13 @@
       </div>
     </header>
 
-    <div class="tab-bar">
-      <div class="tab active" id="tabOverview" onclick="switchTab('overview')">Overview <span class="tab-badge day">ALL</span></div>
-      <div class="tab" id="tabDaytrading" onclick="switchTab('daytrading')">Daytrading <span class="tab-badge day">5min</span></div>
-      <div class="tab tab-swing" id="tabSwing" onclick="switchTab('swing')">Swing <span class="tab-badge swing">Daily</span></div>
-      <div class="tab tab-crypto" id="tabCrypto" onclick="switchTab('crypto')">Crypto <span class="tab-badge crypto">4h</span></div>
+    <div class="tab-bar-wrap" id="tabBarWrap">
+      <div class="tab-bar">
+        <div class="tab active" id="tabOverview" onclick="switchTab('overview')">Overview <span class="tab-badge day">ALL</span></div>
+        <div class="tab" id="tabDaytrading" onclick="switchTab('daytrading')">Daytrading <span class="tab-badge day">5min</span></div>
+        <div class="tab tab-swing" id="tabSwing" onclick="switchTab('swing')">Swing <span class="tab-badge swing">Daily</span></div>
+        <div class="tab tab-crypto" id="tabCrypto" onclick="switchTab('crypto')">Crypto <span class="tab-badge crypto">4h</span></div>
+      </div>
     </div>
 
     <div class="tab-content active" id="contentOverview">
@@ -429,6 +438,19 @@
     async function triggerSwing() { if (!confirm('Trigger swing cycle? It will run on the next cron tick.')) return; const r = await fetch(API_BASE + '/api/trigger-swing', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
     async function triggerCrypto() { if (!confirm('Trigger crypto cycle? It will run on the next 4h cron tick.')) return; const r = await fetch(API_BASE + '/api/trigger-crypto', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
     loadDashboard();
+    // Tab scroll hint: fade gradient when scrolled to end
+    (function() {
+      const wrap = document.getElementById('tabBarWrap');
+      const bar = wrap.querySelector('.tab-bar');
+      function checkScroll() {
+        const atEnd = bar.scrollLeft + bar.clientWidth >= bar.scrollWidth - 2;
+        wrap.classList.toggle('scrolled-end', atEnd);
+      }
+      bar.addEventListener('scroll', checkScroll, { passive: true });
+      window.addEventListener('resize', checkScroll);
+      checkScroll();
+    })();
+
     setInterval(loadDashboard, 30000);
   </script>
 </body>
