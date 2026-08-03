@@ -162,6 +162,7 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
   ('reentry_cooldown_minutes', '30'),   -- anti-churn: cooldown after selling before re-buy
   ('max_trades_per_cycle', '3'),        -- anti-churn: max new trades per 5-min cycle
   ('min_confidence', '0.7'),            -- raised from 0.6 to reduce low-conviction trades
+  ('max_capital_usd', '5000'),          -- daytrading capital cap (~33,000 DKK)
 -- ============================================================
 -- Swing trading config (swing_ prefixed keys)
 -- ============================================================

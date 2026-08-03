@@ -52,6 +52,7 @@ const FALLBACK_CONFIG = {
     minHoldMinutes: 15,        // don't sell a position held < N minutes (unless stop loss)
     reentryCooldownMinutes: 30, // don't re-buy a symbol sold < N minutes ago
     maxTradesPerCycle: 3,      // max new trades per 5-min cycle
+    maxCapitalUsd: 5000,       // daytrading capital cap (~33,000 DKK)
   };
 
 export default {
@@ -156,6 +157,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       targetVolatilityPct: config.targetVolatilityPct || 2.0,
       maxOrderRatePerMin: config.maxOrderRatePerMin || 10,
       minEdgeAfterCosts: config.minEdgeAfterCosts || 5,
+      maxCapitalUsd: config.maxCapitalUsd || 0,
     };
     const riskManager = new RiskManager(riskConfig);
 

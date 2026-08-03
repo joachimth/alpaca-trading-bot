@@ -14,7 +14,7 @@ import type { TAIndicators } from './technical-analysis';
 
 export interface RiskConfig {
   maxPositions: number;
-  maxPositionPct: number;         // max % of portfolio per single position (hard cap)
+  maxPositionPct: number;         // max % of trading capital per single position (hard cap)
   stopLossATRMultiplier: number;  // stop loss = entry - X * ATR (default 1.5)
   takeProfitATRMultiplier: number;// take profit = entry + X * ATR (default 2.0)
   trailingStopPct: number;        // trailing stop percentage (simplified, not ATR)
@@ -26,6 +26,7 @@ export interface RiskConfig {
   targetVolatilityPct: number;    // target daily portfolio vol (for position sizing)
   maxOrderRatePerMin: number;     // kill switch: max orders per minute
   minEdgeAfterCosts: number;      // minimum expected return after estimated costs (bps)
+  maxCapitalUsd: number;          // hard cap on total daytrading capital (0 = use full account)
 }
 
 export interface RiskCheckResult {
@@ -176,11 +177,23 @@ export class RiskManager {
     }
 
     // 6. Volatility-targeting position sizing
-    const maxPositionValue = account.portfolio_value * (this.config.maxPositionPct / 100);
-    const availableCash = this.config.enableMargin ? account.buying_power : account.cash;
+    // Determine trading capital: use maxCapitalUsd if set, otherwise full account
+    const tradingCapital = this.config.maxCapitalUsd > 0
+      ? Math.min(this.config.maxCapitalUsd, account.portfolio_value)
+      : account.portfolio_value;
+
+    const maxPositionValue = tradingCapital * (this.config.maxPositionPct / 100);
+    // Available cash: respect the capital cap
+    const currentGross = positions.reduce((s, p) => s + Math.abs(p.market_value), 0);
+    const capRemaining = this.config.maxCapitalUsd > 0
+      ? Math.max(0, this.config.maxCapitalUsd - currentGross)
+      : Infinity;
+    const availableCash = this.config.enableMargin
+      ? Math.min(account.buying_power, capRemaining)
+      : Math.min(account.cash, capRemaining);
 
     if (availableCash <= 0) {
-      return { approved: false, reason: 'No available cash/buying power' };
+      return { approved: false, reason: 'No available cash within capital cap' };
     }
 
     // Volatility-targeting: size inversely proportional to ATR%
@@ -191,7 +204,7 @@ export class RiskManager {
     const riskAmount = Math.min(volScaledValue, availableCash * 0.95);
 
     if (riskAmount <= 0) {
-      return { approved: false, reason: `Position value after vol-scaling is zero (ATR%: ${atrPct.toFixed(2)}, target vol: ${this.config.targetVolatilityPct}%)` };
+      return { approved: false, reason: `Position value after vol-scaling is zero (ATR%: ${atrPct.toFixed(2)}, target vol: ${this.config.targetVolatilityPct}%, cap remaining: $${capRemaining.toFixed(0)})` };
     }
 
     const integerQty = Math.floor(riskAmount / price);
