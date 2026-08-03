@@ -215,38 +215,71 @@ async function callLLM(prompt: string, config: AIRefinementConfig): Promise<stri
 }
 
 function parseLLMResponse(response: string): {
-  action: 'BUY' | 'SELL' | 'HOLD' | 'CLOSE';
-  confidence: number;
-  reasoning: string;
-  factors: string[];
-} {
-  try {
-    // Try to parse as JSON directly
-    let jsonStr = response.trim();
+    action: 'BUY' | 'SELL' | 'HOLD' | 'CLOSE';
+    confidence: number;
+    reasoning: string;
+    factors: string[];
+  } {
+    // Strategy 1: Direct JSON parse
+    try {
+      let jsonStr = response.trim();
+      if (jsonStr.includes('```')) {
+        const match = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (match) jsonStr = match[1].trim();
+      }
+      const parsed = JSON.parse(jsonStr);
+      return {
+        action: (parsed.action || 'HOLD').toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
+        confidence: Math.max(0, Math.min(1, parseFloat(parsed.confidence) || 0.5)),
+        reasoning: parsed.reasoning || 'No reasoning provided',
+        factors: Array.isArray(parsed.factors) ? parsed.factors : [reasoning],
+      };
+    } catch { /* fall through */ }
 
-    // Extract JSON if wrapped in markdown
-    if (jsonStr.includes('```')) {
-      const match = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (match) jsonStr = match[1].trim();
+    // Strategy 2: Extract JSON object from thinking/model output
+    // GLM-5p2 and DeepSeek sometimes wrap JSON in their thinking process
+    const jsonMatch = response.match(/\{[^{}]*"action"[^{}]*\}/s);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          action: (parsed.action || 'HOLD').toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
+          confidence: Math.max(0, Math.min(1, parseFloat(parsed.confidence) || 0.5)),
+          reasoning: parsed.reasoning || 'No reasoning provided',
+          factors: Array.isArray(parsed.factors) ? parsed.factors : [reasoning],
+        };
+      } catch { /* fall through */ }
     }
 
-    const parsed = JSON.parse(jsonStr);
+    // Strategy 3: Multi-line JSON extraction (action + confidence + reasoning across lines)
+    const multilineMatch = response.match(/\{\s*"action"\s*:\s*"(\w+)"[\s\S]*?"confidence"\s*:\s*([\d.]+)[\s\S]*?"reasoning"\s*:\s*"([^"]*)"[\s\S]*?\}/s);
+    if (multilineMatch) {
+      const [, action, conf, reasoning] = multilineMatch;
+      return {
+        action: action.toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
+        confidence: Math.max(0, Math.min(1, parseFloat(conf) || 0.5)),
+        reasoning: reasoning || 'No reasoning provided',
+        factors: [reasoning],
+      };
+    }
 
-    const action = (parsed.action || 'HOLD').toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE';
-    const confidence = Math.max(0, Math.min(1, parseFloat(parsed.confidence) || 0.5));
-    const reasoning = parsed.reasoning || 'No reasoning provided';
-    const factors = Array.isArray(parsed.factors) ? parsed.factors : [reasoning];
-
-    return { action, confidence, reasoning, factors };
-  } catch {
-    // If JSON parse fails, try to extract action from text
+    // Strategy 4: Last resort — extract action keyword from text
     const upper = response.toUpperCase();
-    if (upper.includes('BUY')) return { action: 'BUY', confidence: 0.6, reasoning: response.slice(0, 200), factors: ['LLM text response'] };
-    if (upper.includes('SELL')) return { action: 'SELL', confidence: 0.6, reasoning: response.slice(0, 200), factors: ['LLM text response'] };
-    if (upper.includes('CLOSE')) return { action: 'CLOSE', confidence: 0.6, reasoning: response.slice(0, 200), factors: ['LLM text response'] };
-    return { action: 'HOLD', confidence: 0.5, reasoning: 'Failed to parse LLM response, defaulting to HOLD', factors: ['Parse error'] };
+    // Check for the last occurrence of each action (models often conclude at the end)
+    const actions: Array<'BUY' | 'SELL' | 'HOLD' | 'CLOSE'> = ['BUY', 'SELL', 'HOLD', 'CLOSE'];
+    let lastAction: 'BUY' | 'SELL' | 'HOLD' | 'CLOSE' = 'HOLD';
+    let lastPos = -1;
+    for (const a of actions) {
+      const pos = upper.lastIndexOf(a);
+      if (pos > lastPos) { lastPos = pos; lastAction = a; }
+    }
+    return {
+      action: lastAction,
+      confidence: 0.5,
+      reasoning: response.slice(0, 200).replace(/\n/g, ' '),
+      factors: ['LLM text response (JSON parse failed)'],
+    };
   }
-}
 
 // ============================================================
 // Batch refinement: process multiple TA signals
