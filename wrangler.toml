@@ -7,7 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "alpaca-trading-bot"
-database_id = "REPLACE_AFTER_CREATE"
+database_id = "2bc505a2-d744-4322-8c3b-5f5ebe35f9a1"
 
 # Cron: every 5 minutes during market hours
 # Cloudflare runs in UTC. US market hours: 9:30-16:00 ET = 13:30-20:00 UTC (Mar) / 14:30-21:00 UTC (Nov, DST)
