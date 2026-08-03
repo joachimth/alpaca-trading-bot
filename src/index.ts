@@ -1,0 +1,444 @@
+// Main Worker Entry Point
+// Handles cron triggers, manual API calls, and the full trading cycle
+
+export { DashboardAPI } from './api';
+
+import { AlpacaClient } from './alpaca';
+import { analyze, generateSignal } from './technical-analysis';
+import { refineWithLLM, detectMarketRegime, type AIMarketContext } from './ai-decision';
+import { RiskManager, type RiskConfig } from './risk-manager';
+import { Database } from './database';
+import { UniverseScanner } from './scanner';
+import { DashboardAPI } from './api';
+
+export interface Env {
+  DB: D1Database;
+  ALPACA_API_KEY: string;
+  ALPACA_API_SECRET: string;
+  ALPACA_BASE_URL: string;
+  LLM_API_KEY: string;
+}
+
+// Default fallback config if D1 is empty
+const FALLBACK_CONFIG = {
+  maxPositions: 15,
+  maxPositionPct: 20,
+  stopLossPct: 8,
+  takeProfitPct: 15,
+  trailingStopPct: 5,
+  dailyLossLimitPct: 15,
+  minConfidence: 0.6,
+  scanUniverseSize: 100,
+  rsiPeriod: 14,
+  rsiOversold: 30,
+  rsiOverbought: 70,
+  emaFast: 9,
+  emaSlow: 21,
+  macdFast: 12,
+  macdSlow: 26,
+  macdSignal: 9,
+  atrPeriod: 14,
+  volumeAvgPeriod: 20,
+  useAiRefinement: true,
+  llmModel: 'accounts/fireworks/models/glm-5p2',
+  llmTemperature: 0.3,
+  enableMargin: true,
+  eodFlatten: false,
+};
+
+export default {
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(runTradingCycle(env, 'cron'));
+  },
+
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const api = new DashboardAPI(env);
+    return api.handle(request);
+  },
+};
+
+// ============================================================
+// Main Trading Cycle
+// ============================================================
+
+async function runTradingCycle(env: Env, trigger: string): Promise<void> {
+  const startTime = Date.now();
+  const db = new Database(env.DB);
+  const errors: string[] = [];
+  let decisionsMade = 0;
+  let tradesExecuted = 0;
+
+  try {
+    // 1. Initialize clients
+    const alpaca = new AlpacaClient({
+      apiKey: env.ALPACA_API_KEY,
+      apiSecret: env.ALPACA_API_SECRET,
+      baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
+    });
+
+    // 2. Load config
+    const dbConfig = await db.getConfig();
+    const config = { ...FALLBACK_CONFIG };
+    for (const [key, value] of Object.entries(dbConfig)) {
+      if (key in config) {
+        const numVal = parseFloat(value);
+        if (!isNaN(numVal)) (config as any)[key] = numVal;
+        else if (value === 'true') (config as any)[key] = true;
+        else if (value === 'false') (config as any)[key] = false;
+        else (config as any)[key] = value;
+      }
+    }
+
+    // 3. Check market status
+    const clock = await alpaca.getClock();
+    if (!clock.is_open) {
+      console.log('Market closed, skipping cycle');
+      await db.logRun({
+        trigger,
+        market_open: 0,
+        duration_ms: Date.now() - startTime,
+        decisions_made: 0,
+        trades_executed: 0,
+        errors: 0,
+        error_details: null,
+        status: 'skipped',
+      });
+      return;
+    }
+
+    // 4. Get account and positions
+    const account = await alpaca.getAccount();
+    const positions = await alpaca.getPositions();
+
+    // Log performance snapshot
+    await db.logSnapshot({
+      account_id: account.id,
+      equity: account.equity,
+      cash: account.cash,
+      buying_power: account.buying_power,
+      portfolio_value: account.portfolio_value,
+      long_market_value: account.long_market_value,
+      short_market_value: account.short_market_value,
+      positions_count: positions.length,
+      daily_pl: account.change_today,
+      daily_plpc: account.change_today_pct,
+      total_pl: account.equity - account.last_equity,
+      total_plpc: account.last_equity > 0 ? ((account.equity - account.last_equity) / account.last_equity) * 100 : 0,
+    });
+
+    // 5. Initialize risk manager
+    const riskConfig: RiskConfig = {
+      maxPositions: config.maxPositions,
+      maxPositionPct: config.maxPositionPct,
+      stopLossPct: config.stopLossPct,
+      takeProfitPct: config.takeProfitPct,
+      trailingStopPct: config.trailingStopPct,
+      dailyLossLimitPct: config.dailyLossLimitPct,
+      minConfidence: config.minConfidence,
+      enableMargin: config.enableMargin,
+      eodFlatten: config.eodFlatten,
+    };
+    const riskManager = new RiskManager(riskConfig);
+
+    // 6. Check existing positions for stop loss / take profit
+    const positionActions = riskManager.checkPositions(positions);
+    for (const action of positionActions) {
+      if (action.priority === 'critical' || action.priority === 'high') {
+        try {
+          console.log(`Closing ${action.symbol}: ${action.reason}`);
+          await alpaca.closePosition(action.symbol);
+          const pos = positions.find(p => p.symbol === action.symbol);
+          if (pos) {
+            await db.closePosition(action.symbol, pos.unrealized_pl, action.reason);
+          }
+          tradesExecuted++;
+        } catch (e) {
+          errors.push(`Failed to close ${action.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
+        }
+      }
+    }
+
+    // 7. EOD flatten check
+    const now = new Date(clock.timestamp);
+    const marketClose = new Date(clock.next_close);
+    const minutesToClose = (marketClose.getTime() - now.getTime()) / 60000;
+
+    if (riskManager.shouldFlattenEOD(minutesToClose)) {
+      console.log(`EOD flatten: ${minutesToClose.toFixed(0)} min to close. Liquidating all positions.`);
+      try {
+        await alpaca.closeAllPositions();
+        for (const pos of positions) {
+          await db.closePosition(pos.symbol, pos.unrealized_pl, 'eod_flatten');
+        }
+        tradesExecuted += positions.length;
+      } catch (e) {
+        errors.push(`EOD flatten failed: ${e instanceof Error ? e.message : 'unknown'}`);
+      }
+    }
+
+    // 8. Scan universe for candidates
+    const scanner = new UniverseScanner(alpaca, config.scanUniverseSize);
+    const candidates = await scanner.scan();
+    console.log(`Scanned universe: ${candidates.length} candidates`);
+
+    // 9. Analyze each candidate with TA
+    const taConfig = {
+      rsiPeriod: config.rsiPeriod,
+      rsiOversold: config.rsiOversold,
+      rsiOverbought: config.rsiOverbought,
+      emaFast: config.emaFast,
+      emaSlow: config.emaSlow,
+      macdFast: config.macdFast,
+      macdSlow: config.macdSlow,
+      macdSignal: config.macdSignal,
+      atrPeriod: config.atrPeriod,
+      volumeAvgPeriod: config.volumeAvgPeriod,
+    };
+
+    const signals = [];
+    const analyzedSymbols = new Set(positions.map(p => p.symbol));
+
+    // Analyze held positions first (for exit signals)
+    for (const pos of positions) {
+      try {
+        const bars = await alpaca.getBars(pos.symbol, '5Min', 200);
+        if (bars.length < 30) continue;
+        const indicators = analyze(bars, pos.symbol, taConfig);
+        const signal = generateSignal(indicators, { rsiOversold: config.rsiOversold, rsiOverbought: config.rsiOverbought });
+        signals.push(signal);
+        analyzedSymbols.add(pos.symbol);
+      } catch (e) {
+        errors.push(`TA failed for ${pos.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
+      }
+    }
+
+    // Analyze new candidates (skip already analyzed)
+    const newCandidates = candidates.filter(s => !analyzedSymbols.has(s));
+    const scanLimit = Math.min(newCandidates.length, 30); // Limit per cycle
+
+    for (const symbol of newCandidates.slice(0, scanLimit)) {
+      try {
+        const bars = await alpaca.getBars(symbol, '5Min', 200);
+        if (bars.length < 30) continue;
+        const indicators = analyze(bars, symbol, taConfig);
+        const signal = generateSignal(indicators, { rsiOversold: config.rsiOversold, rsiOverbought: config.rsiOverbought });
+        signals.push(signal);
+      } catch (e) {
+        // Silent skip for individual symbol failures
+        console.error(`TA failed for ${symbol}:`, e);
+      }
+    }
+
+    // 10. Filter to actionable signals
+    const actionableSignals = signals.filter(s => s.action !== 'HOLD' || s.confidence > 0.7);
+    // For held positions, also include HOLD signals (potential CLOSE)
+    const heldSignals = signals.filter(s => positions.some(p => p.symbol === s.indicators.symbol));
+    const signalsToProcess = [...new Set([...actionableSignals, ...heldSignals])];
+
+    console.log(`TA complete: ${signals.length} analyzed, ${signalsToProcess.length} to process`);
+
+    // 11. AI refinement
+    const marketContext: AIMarketContext = {
+      account: {
+        equity: account.equity,
+        cash: account.cash,
+        positionsCount: positions.length,
+        dailyPlPct: account.change_today_pct,
+      },
+      marketRegime: detectMarketRegime({ spyTrend: 0, vixLevel: 15, breadth: 0.5 }),
+      topMovers: { gainers: [], losers: [] },
+      positions,
+    };
+
+    // Process top signals with AI (limit to top 10 by confidence)
+    const sortedSignals = signalsToProcess.sort((a, b) => b.confidence - a.confidence).slice(0, 10);
+
+    for (const signal of sortedSignals) {
+      let decision;
+      if (config.useAiRefinement && env.LLM_API_KEY) {
+        decision = await refineWithLLM(signal, marketContext, {
+          apiKey: env.LLM_API_KEY,
+          model: config.llmModel,
+          temperature: config.llmTemperature,
+          minConfidence: config.minConfidence,
+        });
+      } else {
+        // Pure TA mode
+        decision = {
+          action: signal.action,
+          confidence: signal.confidence,
+          reasoning: signal.reasons.join('; '),
+          factors: signal.reasons,
+          adjustedFromTA: false,
+          taSignal: signal,
+        };
+      }
+
+      decisionsMade++;
+
+      // Log decision
+      const decisionId = await db.logDecision({
+        ticker: signal.indicators.symbol,
+        action: decision.action,
+        confidence: decision.confidence,
+        signal_source: config.useAiRefinement ? 'ta+ai' : 'ta',
+        reason: decision.reasoning,
+        ta_data: JSON.stringify(signal.indicators),
+        ai_reasoning: JSON.stringify({ factors: decision.factors, adjusted: decision.adjustedFromTA }),
+        price_at_decision: signal.indicators.price,
+        executed: 0,
+        execution_reason: '',
+      });
+
+      // Skip HOLD
+      if (decision.action === 'HOLD') {
+        await db.updateDecisionStatus(decisionId, 2, 'HOLD — no action needed');
+        continue;
+      }
+
+      // CLOSE: close existing position
+      if (decision.action === 'CLOSE') {
+        const existingPos = positions.find(p => p.symbol === signal.indicators.symbol);
+        if (existingPos) {
+          try {
+            await alpaca.closePosition(signal.indicators.symbol);
+            await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
+            await db.updateDecisionStatus(decisionId, 1, 'Position closed');
+            tradesExecuted++;
+          } catch (e) {
+            const errMsg = e instanceof Error ? e.message : 'unknown';
+            await db.updateDecisionStatus(decisionId, 3, `Close failed: ${errMsg}`);
+            errors.push(`Close failed for ${signal.indicators.symbol}: ${errMsg}`);
+          }
+        }
+        continue;
+      }
+
+      // BUY / SELL: risk check then execute
+      const riskCheck = riskManager.checkTrade(decision, account, positions, signal.indicators.price);
+      if (!riskCheck.approved) {
+        await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
+        console.log(`Skipped ${signal.indicators.symbol}: ${riskCheck.reason}`);
+        continue;
+      }
+
+      // SELL: close existing long position
+      if (decision.action === 'SELL') {
+        const existingPos = positions.find(p => p.symbol === signal.indicators.symbol);
+        if (existingPos) {
+          try {
+            await alpaca.closePosition(signal.indicators.symbol);
+            await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
+            await db.updateDecisionStatus(decisionId, 1, 'Position closed (sell signal)');
+            tradesExecuted++;
+          } catch (e) {
+            const errMsg = e instanceof Error ? e.message : 'unknown';
+            await db.updateDecisionStatus(decisionId, 3, `Sell failed: ${errMsg}`);
+            errors.push(`Sell failed for ${signal.indicators.symbol}: ${errMsg}`);
+          }
+        }
+        continue;
+      }
+
+      // BUY: submit new order
+      if (decision.action === 'BUY' && riskCheck.adjustedQty) {
+        const qty = riskCheck.adjustedQty;
+        try {
+          // Submit market order
+          const order = await alpaca.submitOrder({
+            symbol: signal.indicators.symbol,
+            qty: qty,
+            side: 'buy',
+            type: 'market',
+            time_in_force: 'day',
+            client_order_id: `bot_${decisionId}_${Date.now()}`,
+          });
+
+          await db.logTrade({
+            alpaca_order_id: order.id,
+            ticker: signal.indicators.symbol,
+            side: 'buy',
+            qty: qty,
+            fill_price: null,
+            avg_fill_price: null,
+            status: order.status,
+            order_type: 'market',
+            limit_price: null,
+            stop_price: null,
+            estimated_value: qty * signal.indicators.price,
+            decision_id: decisionId,
+            error_message: null,
+          });
+
+          // Update position in DB
+          await db.upsertPosition({
+            ticker: signal.indicators.symbol,
+            side: 'long',
+            qty: qty,
+            avg_entry_price: signal.indicators.price,
+            current_price: signal.indicators.price,
+            market_value: qty * signal.indicators.price,
+            unrealized_pl: 0,
+            unrealized_plpc: 0,
+            stop_loss_price: riskCheck.stopLossPrice || null,
+            take_profit_price: riskCheck.takeProfitPrice || null,
+          });
+
+          await db.updateDecisionStatus(decisionId, 1, `Order submitted: ${qty} shares`);
+          tradesExecuted++;
+          console.log(`BUY ${signal.indicators.symbol}: ${qty} shares @ ~$${signal.indicators.price.toFixed(2)}`);
+        } catch (e) {
+          const errMsg = e instanceof Error ? e.message : 'unknown';
+          await db.updateDecisionStatus(decisionId, 3, `Order failed: ${errMsg}`);
+          errors.push(`Buy failed for ${signal.indicators.symbol}: ${errMsg}`);
+        }
+      }
+    }
+
+    // 12. Sync positions from Alpaca to DB
+    const finalPositions = await alpaca.getPositions();
+    for (const pos of finalPositions) {
+      await db.upsertPosition({
+        ticker: pos.symbol,
+        side: pos.side,
+        qty: pos.qty,
+        avg_entry_price: pos.avg_entry_price,
+        current_price: pos.current_price,
+        market_value: pos.market_value,
+        unrealized_pl: pos.unrealized_pl,
+        unrealized_plpc: pos.unrealized_plpc,
+        stop_loss_price: null,
+        take_profit_price: null,
+      });
+    }
+
+    // 13. Log run
+    await db.logRun({
+      trigger,
+      market_open: 1,
+      duration_ms: Date.now() - startTime,
+      decisions_made: decisionsMade,
+      trades_executed: tradesExecuted,
+      errors: errors.length,
+      error_details: errors.length > 0 ? JSON.stringify(errors) : null,
+      status: errors.length > 5 ? 'error' : 'ok',
+    });
+
+    console.log(`Cycle complete: ${decisionsMade} decisions, ${tradesExecuted} trades, ${errors.length} errors, ${Date.now() - startTime}ms`);
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : 'unknown error';
+    errors.push(`Fatal: ${errMsg}`);
+    console.error('Trading cycle failed:', error);
+
+    await db.logRun({
+      trigger,
+      market_open: 0,
+      duration_ms: Date.now() - startTime,
+      decisions_made: decisionsMade,
+      trades_executed: tradesExecuted,
+      errors: errors.length,
+      error_details: JSON.stringify(errors),
+      status: 'error',
+    });
+  }
+}

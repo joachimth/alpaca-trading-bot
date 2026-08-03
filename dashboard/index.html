@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alpaca AI Trading Bot</title>
+  <style>
+    :root {
+      --bg: #0a0e14;
+      --bg-card: #111620;
+      --bg-card-hover: #161c28;
+      --border: #1e2638;
+      --text: #e0e6f0;
+      --text-muted: #6b7689;
+      --green: #00c853;
+      --green-bg: rgba(0, 200, 83, 0.1);
+      --red: #ff1744;
+      --red-bg: rgba(255, 23, 68, 0.1);
+      --blue: #2979ff;
+      --blue-bg: rgba(41, 121, 255, 0.1);
+      --orange: #ff9100;
+      --purple: #aa00ff;
+      --yellow: #ffea00;
+      --gray: #546e7a;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 20px 0; border-bottom: 1px solid var(--border); margin-bottom: 24px;
+    }
+    .header-left h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.5px; }
+    .header-left .subtitle { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .status-badge {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+    .status-badge.live { background: var(--green-bg); color: var(--green); border: 1px solid rgba(0, 200, 83, 0.3); }
+    .status-badge.offline { background: var(--red-bg); color: var(--red); border: 1px solid rgba(255, 23, 68, 0.3); }
+    .pulse { width: 8px; height: 8px; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .refresh-btn {
+      padding: 6px 16px; background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); cursor: pointer; font-family: inherit;
+      font-size: 11px; transition: all 0.2s;
+    }
+    .refresh-btn:hover { background: var(--bg-card-hover); border-color: var(--blue); }
+    .metrics-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px; margin-bottom: 24px;
+    }
+    .metric-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 16px; transition: all 0.2s;
+    }
+    .metric-card:hover { border-color: var(--border); background: var(--bg-card-hover); }
+    .metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 6px; }
+    .metric-value { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    .metric-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .positive { color: var(--green); }
+    .negative { color: var(--red); }
+    .neutral { color: var(--text); }
+    .chart-section {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 20px; margin-bottom: 24px;
+    }
+    .section-title {
+      font-size: 14px; font-weight: 600; margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .chart-container { position: relative; height: 200px; }
+    canvas { width: 100% !important; height: 100% !important; }
+    .table-section {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 20px; margin-bottom: 24px; overflow-x: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th {
+      text-align: left; padding: 8px 12px; color: var(--text-muted); font-weight: 500;
+      text-transform: uppercase; font-size: 10px; letter-spacing: 1px; border-bottom: 1px solid var(--border);
+    }
+    td { padding: 10px 12px; border-bottom: 1px solid rgba(30, 38, 56, 0.5); }
+    tr:hover { background: var(--bg-card-hover); }
+    .action-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+    }
+    .action-BUY { background: var(--green-bg); color: var(--green); }
+    .action-SELL { background: var(--red-bg); color: var(--red); }
+    .action-HOLD { background: rgba(84, 110, 122, 0.15); color: var(--gray); }
+    .action-CLOSE { background: var(--orange); color: #000; }
+    .conf-bar {
+      display: inline-block; width: 50px; height: 4px; background: var(--border);
+      border-radius: 2px; overflow: hidden; vertical-align: middle; margin-right: 6px;
+    }
+    .conf-fill { height: 100%; border-radius: 2px; }
+    .loading { text-align: center; padding: 40px; color: var(--text-muted); }
+    .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 900px) {
+      .grid-2col { grid-template-columns: 1fr; }
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .signal-source { font-size: 9px; padding: 1px 5px; border-radius: 3px; margin-left: 4px; }
+    .signal-ta { background: rgba(170, 0, 255, 0.15); color: var(--purple); }
+    .signal-ai { background: var(--blue-bg); color: var(--blue); }
+    .reason-text {
+      max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted);
+    }
+    .reason-text:hover { white-space: normal; color: var(--text); }
+    .danger-btn {
+      padding: 6px 16px; background: var(--red-bg); border: 1px solid rgba(255, 23, 68, 0.3);
+      border-radius: 6px; color: var(--red); cursor: pointer; font-family: inherit;
+      font-size: 11px; transition: all 0.2s;
+    }
+    .danger-btn:hover { background: rgba(255, 23, 68, 0.2); }
+    .footer {
+      text-align: center; padding: 20px; color: var(--text-muted); font-size: 11px;
+      border-top: 1px solid var(--border); margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-left">
+        <h1>Alpaca AI Trading Bot</h1>
+        <div class="subtitle">Autonomous daytrading - Paper Trading Account</div>
+      </div>
+      <div class="header-right">
+        <div id="statusBadge" class="status-badge offline">
+          <div class="pulse" style="background: var(--red)"></div>
+          <span>Connecting...</span>
+        </div>
+        <button class="refresh-btn" onclick="loadDashboard()">Refresh</button>
+      </div>
+    </header>
+    <div class="metrics-grid" id="metricsGrid">
+      <div class="metric-card"><div class="metric-label">Portfolio Value</div><div class="metric-value neutral" id="mPortfolio">-</div><div class="metric-sub" id="mPortfolioSub">Loading...</div></div>
+      <div class="metric-card"><div class="metric-label">Cash Available</div><div class="metric-value neutral" id="mCash">-</div><div class="metric-sub" id="mCashSub">Buying power: -</div></div>
+      <div class="metric-card"><div class="metric-label">Daily P&L</div><div class="metric-value neutral" id="mDailyPL">-</div><div class="metric-sub" id="mDailyPLSub">-</div></div>
+      <div class="metric-card"><div class="metric-label">Open Positions</div><div class="metric-value neutral" id="mPositions">-</div><div class="metric-sub" id="mPositionsSub">-</div></div>
+      <div class="metric-card"><div class="metric-label">Win Rate</div><div class="metric-value neutral" id="mWinRate">-</div><div class="metric-sub" id="mWinRateSub">-</div></div>
+      <div class="metric-card"><div class="metric-label">Total Trades</div><div class="metric-value neutral" id="mTrades">-</div><div class="metric-sub" id="mTradesSub">-</div></div>
+    </div>
+    <div class="chart-section">
+      <div class="section-title"><span>Equity Curve</span><span style="font-size: 11px; color: var(--text-muted)" id="chartRange">Last 100 snapshots</span></div>
+      <div class="chart-container"><canvas id="equityChart"></canvas></div>
+    </div>
+    <div class="grid-2col">
+      <div class="table-section">
+        <div class="section-title"><span>Open Positions</span><button class="danger-btn" onclick="closeAllPositions()">Close All</button></div>
+        <div id="positionsTable"><div class="loading">Loading positions...</div></div>
+      </div>
+      <div class="table-section">
+        <div class="section-title"><span>Recent AI Decisions</span></div>
+        <div id="decisionsTable"><div class="loading">Loading decisions...</div></div>
+      </div>
+    </div>
+    <div class="table-section"><div class="section-title"><span>Recent Trades</span></div><div id="tradesTable"><div class="loading">Loading trades...</div></div></div>
+    <div class="table-section"><div class="section-title"><span>Run History</span></div><div id="runsTable"><div class="loading">Loading runs...</div></div></div>
+    <div class="footer">Alpaca AI Trading Bot v1.0.0 - Cloudflare Worker + D1 - Paper Trading Mode<br>Auto-refreshes every 30 seconds</div>
+  </div>
+  <script>
+    const API_BASE = '';
+    async function fetchAPI(path) {
+      try { const r = await fetch(API_BASE + path); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.json(); }
+      catch (e) { console.error('API error for ' + path, e); return null; }
+    }
+    function fmtMoney(v, d = 2) { if (v == null || isNaN(v)) return '-'; return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }); }
+    function fmtPct(v, s = true) { if (v == null || isNaN(v)) return '-'; return (s && v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%'; }
+    function fmtTime(ts) { if (!ts) return '-'; const d = new Date(ts.includes('T') ? ts + 'Z' : ts); return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); }
+    async function loadDashboard() {
+      const data = await fetchAPI('/api/dashboard');
+      if (!data) { const b = document.getElementById('statusBadge'); b.className = 'status-badge offline'; b.innerHTML = '<div class="pulse" style="background:var(--red)"></div><span>Connection Error</span>'; return; }
+      const hasAcc = data.account && !data.account.error;
+      const badge = document.getElementById('statusBadge');
+      if (hasAcc) { const open = !data.account.trading_blocked; badge.className = 'status-badge ' + (open ? 'live' : 'offline'); badge.innerHTML = '<div class="pulse" style="background:var(--' + (open ? 'green' : 'red') + ')"></div><span>' + (open ? 'Live - Paper Trading' : 'Account Blocked') + '</span>'; }
+      else { badge.className = 'status-badge offline'; badge.innerHTML = '<div class="pulse" style="background:var(--red)"></div><span>Account Error</span>'; }
+      if (hasAcc) {
+        const a = data.account;
+        document.getElementById('mPortfolio').textContent = fmtMoney(a.portfolio_value);
+        document.getElementById('mPortfolio').className = 'metric-value ' + (a.change_today >= 0 ? 'positive' : 'negative');
+        document.getElementById('mPortfolioSub').textContent = 'Equity: ' + fmtMoney(a.equity);
+        document.getElementById('mCash').textContent = fmtMoney(a.cash);
+        document.getElementById('mCashSub').textContent = 'Buying power: ' + fmtMoney(a.buying_power);
+        document.getElementById('mDailyPL').textContent = fmtMoney(a.change_today);
+        document.getElementById('mDailyPL').className = 'metric-value ' + (a.change_today >= 0 ? 'positive' : 'negative');
+        document.getElementById('mDailyPLSub').textContent = fmtPct(a.change_today_pct);
+        document.getElementById('mPositions').textContent = data.positions ? data.positions.length : 0;
+        const lv = data.positions ? data.positions.reduce((s, p) => s + Math.abs(p.market_value || 0), 0) : 0;
+        document.getElementById('mPositionsSub').textContent = 'Exposure: ' + fmtMoney(lv);
+      }
+      if (data.stats) {
+        document.getElementById('mWinRate').textContent = data.stats.winRate.toFixed(1) + '%';
+        document.getElementById('mWinRateSub').textContent = data.stats.executedTrades + ' closed';
+        document.getElementById('mTrades').textContent = data.stats.totalTrades;
+        document.getElementById('mTradesSub').textContent = data.stats.totalDecisions + ' decisions';
+      }
+      if (data.performanceHistory && data.performanceHistory.length > 0) drawEquityChart(data.performanceHistory);
+      renderPositions(data.positions || []);
+      renderDecisions(data.recentDecisions || []);
+      renderTrades(data.recentTrades || []);
+      renderRuns(data.recentRuns || []);
+    }
+    function drawEquityChart(snaps) {
+      const c = document.getElementById('equityChart'); const ctx = c.getContext('2d');
+      const r = c.getBoundingClientRect(); c.width = r.width * devicePixelRatio; c.height = r.height * devicePixelRatio;
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+      const w = r.width, h = r.height, p = { t: 10, r: 10, b: 20, l: 60 };
+      const cw = w - p.l - p.r, ch = h - p.t - p.b;
+      ctx.clearRect(0, 0, w, h);
+      if (snaps.length < 2) { ctx.fillStyle = '#6b7689'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillText('Not enough data yet', w / 2, h / 2); return; }
+      const vals = snaps.map(s => s.equity); const min = Math.min(...vals), max = Math.max(...vals);
+      const range = max - min || 1, pr = range * 0.1, yMin = min - pr, yMax = max + pr;
+      ctx.strokeStyle = '#1e2638'; ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) { const y = p.t + (ch / 4) * i; ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(p.l + cw, y); ctx.stroke(); const v = yMax - ((yMax - yMin) / 4) * i; ctx.fillStyle = '#6b7689'; ctx.font = '10px monospace'; ctx.textAlign = 'right'; ctx.fillText('$' + v.toFixed(0), p.l - 8, y + 3); }
+      ctx.beginPath(); vals.forEach((v, i) => { const x = p.l + (cw / (vals.length - 1)) * i; const y = p.t + ch - ((v - yMin) / (yMax - yMin)) * ch; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+      const up = vals[vals.length - 1] >= vals[0]; ctx.strokeStyle = up ? '#00c853' : '#ff1744'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.lineTo(p.l + cw, p.t + ch); ctx.lineTo(p.l, p.t + ch); ctx.closePath(); ctx.fillStyle = up ? 'rgba(0,200,83,0.08)' : 'rgba(255,23,68,0.08)'; ctx.fill();
+      const lx = p.l + cw, ly = p.t + ch - ((vals[vals.length - 1] - yMin) / (yMax - yMin)) * ch;
+      ctx.beginPath(); ctx.arc(lx, ly, 3, 0, Math.PI * 2); ctx.fillStyle = up ? '#00c853' : '#ff1744'; ctx.fill();
+    }
+    function renderPositions(ps) {
+      const el = document.getElementById('positionsTable');
+      if (!ps.length) { el.innerHTML = '<div class="loading">No open positions</div>'; return; }
+      let h = '<table><thead><tr><th>Symbol</th><th>Qty</th><th>Entry</th><th>Current</th><th>Mkt Value</th><th>Unrealized P&L</th><th>P&L %</th><th></th></tr></thead><tbody>';
+      for (const p of ps) { const pc = p.unrealized_pl >= 0 ? 'positive' : 'negative'; h += '<tr><td><strong>' + p.ticker + '</strong></td><td>' + p.qty + '</td><td>$' + p.avg_entry_price.toFixed(2) + '</td><td>$' + p.current_price.toFixed(2) + '</td><td>' + fmtMoney(p.market_value) + '</td><td class="' + pc + '">' + fmtMoney(p.unrealized_pl) + '</td><td class="' + pc + '">' + (p.unrealized_plpc >= 0 ? '+' : '') + (p.unrealized_plpc * 100).toFixed(2) + '%</td><td><button class="danger-btn" onclick="closePosition(\'' + p.ticker + '\')">Close</button></td></tr>'; }
+      h += '</tbody></table>'; el.innerHTML = h;
+    }
+    function renderDecisions(ds) {
+      const el = document.getElementById('decisionsTable');
+      if (!ds.length) { el.innerHTML = '<div class="loading">No decisions yet</div>'; return; }
+      let h = '<table><thead><tr><th>Time</th><th>Symbol</th><th>Action</th><th>Conf</th><th>Source</th><th>Reason</th><th>Status</th></tr></thead><tbody>';
+      for (const d of ds.slice(0, 15)) {
+        const cc = d.confidence >= 0.7 ? '#00c853' : d.confidence >= 0.5 ? '#ff9100' : '#546e7a';
+        const st = d.executed === 1 ? '<span style="color:var(--green)">Executed</span>' : d.executed === 2 ? '<span style="color:var(--text-muted)">Skipped</span>' : d.executed === 3 ? '<span style="color:var(--red)">Failed</span>' : '<span style="color:var(--yellow)">Pending</span>';
+        const src = d.signal_source === 'ta+ai' ? '<span class="signal-source signal-ai">TA+AI</span>' : d.signal_source === 'ai' ? '<span class="signal-source signal-ai">AI</span>' : '<span class="signal-source signal-ta">TA</span>';
+        h += '<tr><td>' + fmtTime(d.timestamp) + '</td><td><strong>' + d.ticker + '</strong></td><td><span class="action-badge action-' + d.action + '">' + d.action + '</span></td><td><span class="conf-bar"><span class="conf-fill" style="width:' + d.confidence * 100 + '%;background:' + cc + '"></span></span>' + (d.confidence * 100).toFixed(0) + '%</td><td>' + src + '</td><td class="reason-text" title="' + (d.reason || '').replace(/"/g, '&quot;') + '">' + (d.reason || '-') + '</td><td>' + st + '</td></tr>';
+      }
+      h += '</tbody></table>'; el.innerHTML = h;
+    }
+    function renderTrades(ts) {
+      const el = document.getElementById('tradesTable');
+      if (!ts.length) { el.innerHTML = '<div class="loading">No trades executed yet</div>'; return; }
+      let h = '<table><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Fill Price</th><th>Est. Value</th><th>Status</th></tr></thead><tbody>';
+      for (const t of ts.slice(0, 20)) { const sc = t.side === 'buy' ? 'positive' : 'negative'; const stc = t.status === 'filled' ? 'var(--green)' : t.status === 'rejected' || t.status === 'canceled' ? 'var(--red)' : 'var(--yellow)'; h += '<tr><td>' + fmtTime(t.timestamp) + '</td><td><strong>' + t.ticker + '</strong></td><td class="' + sc + '">' + t.side.toUpperCase() + '</td><td>' + t.qty + '</td><td>' + (t.avg_fill_price ? '$' + t.avg_fill_price.toFixed(2) : '-') + '</td><td>' + fmtMoney(t.estimated_value) + '</td><td style="color:' + stc + '">' + t.status + '</td></tr>'; }
+      h += '</tbody></table>'; el.innerHTML = h;
+    }
+    function renderRuns(rs) {
+      const el = document.getElementById('runsTable');
+      if (!rs.length) { el.innerHTML = '<div class="loading">No runs yet</div>'; return; }
+      let h = '<table><thead><tr><th>Time</th><th>Trigger</th><th>Market</th><th>Decisions</th><th>Trades</th><th>Errors</th><th>Duration</th><th>Status</th></tr></thead><tbody>';
+      for (const r of rs.slice(0, 15)) { const sc = r.status === 'ok' ? 'var(--green)' : r.status === 'error' ? 'var(--red)' : 'var(--text-muted)'; h += '<tr><td>' + fmtTime(r.timestamp) + '</td><td>' + r.trigger + '</td><td>' + (r.market_open ? 'Open' : 'Closed') + '</td><td>' + r.decisions_made + '</td><td>' + r.trades_executed + '</td><td style="color:' + (r.errors > 0 ? 'var(--red)' : 'var(--text-muted)') + '">' + r.errors + '</td><td>' + (r.duration_ms ? (r.duration_ms / 1000).toFixed(1) + 's' : '-') + '</td><td style="color:' + sc + '">' + r.status + '</td></tr>'; }
+      h += '</tbody></table>'; el.innerHTML = h;
+    }
+    async function closePosition(s) { if (!confirm('Close position for ' + s + '?')) return; const r = await fetch(API_BASE + '/api/positions/close?symbol=' + s, { method: 'POST' }); if (r.ok) { alert('Closed ' + s); loadDashboard(); } else alert('Failed'); }
+    async function closeAllPositions() { if (!confirm('Close ALL positions?')) return; const r = await fetch(API_BASE + '/api/positions/close-all', { method: 'POST' }); if (r.ok) { alert('All positions closed'); loadDashboard(); } else alert('Failed'); }
+    loadDashboard();
+    setInterval(loadDashboard, 30000);
+  </script>
+</body>
+</html>

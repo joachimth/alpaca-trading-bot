@@ -1,0 +1,157 @@
+-- Alpaca AI Trading Bot — D1 Schema
+-- Run: wrangler d1 execute alpaca-trading-bot --file=schema.sql
+
+-- ============================================================
+-- Decisions: every AI/TA decision the bot makes
+-- ============================================================
+CREATE TABLE IF NOT EXISTS decisions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+  ticker TEXT NOT NULL,
+  action TEXT NOT NULL CHECK(action IN ('BUY','SELL','HOLD','CLOSE')),
+  confidence REAL NOT NULL DEFAULT 0,        -- 0.0 to 1.0
+  signal_source TEXT NOT NULL DEFAULT 'ta',  -- 'ta', 'ai', 'ta+ai'
+  reason TEXT,                                -- human-readable explanation
+  ta_data TEXT,                               -- JSON: full technical analysis snapshot
+  ai_reasoning TEXT,                          -- JSON: LLM reasoning if used
+  price_at_decision REAL,
+  executed INTEGER NOT NULL DEFAULT 0,        -- 0=pending, 1=executed, 2=skipped(risk), 3=failed
+  execution_reason TEXT,                      -- why skipped/failed
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_decisions_timestamp ON decisions(timestamp);
+CREATE INDEX IF NOT EXISTS idx_decisions_ticker ON decisions(ticker);
+CREATE INDEX IF NOT EXISTS idx_decisions_action ON decisions(action);
+CREATE INDEX IF NOT EXISTS idx_decisions_executed ON decisions(executed);
+
+-- ============================================================
+-- Trades: executed orders
+-- ============================================================
+CREATE TABLE IF NOT EXISTS trades (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+  alpaca_order_id TEXT,
+  ticker TEXT NOT NULL,
+  side TEXT NOT NULL CHECK(side IN ('buy','sell')),
+  qty REAL NOT NULL,
+  fill_price REAL,
+  avg_fill_price REAL,
+  status TEXT NOT NULL DEFAULT 'submitted',   -- submitted, filled, partial, canceled, rejected
+  order_type TEXT NOT NULL DEFAULT 'market',  -- market, limit, stop, stop_limit
+  limit_price REAL,
+  stop_price REAL,
+  time_in_force TEXT NOT NULL DEFAULT 'day',
+  estimated_value REAL,
+  decision_id INTEGER REFERENCES decisions(id),
+  error_message TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp);
+CREATE INDEX IF NOT EXISTS idx_trades_ticker ON trades(ticker);
+CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
+CREATE INDEX IF NOT EXISTS idx_trades_alpaca_id ON trades(alpaca_order_id);
+
+-- ============================================================
+-- Positions: current and closed positions tracked by the bot
+-- ============================================================
+CREATE TABLE IF NOT EXISTS positions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticker TEXT NOT NULL UNIQUE,
+  side TEXT NOT NULL CHECK(side IN ('long','short')),
+  qty REAL NOT NULL,
+  avg_entry_price REAL NOT NULL,
+  current_price REAL,
+  market_value REAL,
+  unrealized_pl REAL,
+  unrealized_plpc REAL,                       -- percentage
+  stop_loss_price REAL,
+  take_profit_price REAL,
+  trailing_stop_enabled INTEGER NOT NULL DEFAULT 1,
+  opened_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  closed_at TEXT,
+  closed_pl REAL,                             -- realized P&L when closed
+  close_reason TEXT                           -- 'stop_loss', 'take_profit', 'signal', 'manual', 'eod'
+);
+
+CREATE INDEX IF NOT EXISTS idx_positions_ticker ON positions(ticker);
+CREATE INDEX IF NOT EXISTS idx_positions_open ON positions(closed_at);
+
+-- ============================================================
+-- Performance snapshots: taken each run cycle
+-- ============================================================
+CREATE TABLE IF NOT EXISTS performance_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+  account_id TEXT,
+  equity REAL,
+  cash REAL,
+  buying_power REAL,
+  portfolio_value REAL,
+  long_market_value REAL,
+  short_market_value REAL,
+  positions_count INTEGER DEFAULT 0,
+  daily_pl REAL,
+  daily_plpc REAL,
+  total_pl REAL,
+  total_plpc REAL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_snapshots_timestamp ON performance_snapshots(timestamp);
+
+-- ============================================================
+-- Run log: every cron invocation
+-- ============================================================
+CREATE TABLE IF NOT EXISTS run_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+  trigger TEXT NOT NULL DEFAULT 'cron',       -- 'cron', 'manual', 'api'
+  market_open INTEGER NOT NULL DEFAULT 0,
+  duration_ms INTEGER,
+  decisions_made INTEGER DEFAULT 0,
+  trades_executed INTEGER DEFAULT 0,
+  errors INTEGER DEFAULT 0,
+  error_details TEXT,                         -- JSON array of error messages
+  status TEXT NOT NULL DEFAULT 'ok',          -- ok, error, skipped
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_runlog_timestamp ON run_log(timestamp);
+
+-- ============================================================
+-- Config: key-value store for bot settings
+-- ============================================================
+CREATE TABLE IF NOT EXISTS bot_config (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Default config values
+INSERT OR IGNORE INTO bot_config (key, value) VALUES
+  ('max_positions', '15'),
+  ('max_position_pct', '20'),           -- max % of portfolio per position
+  ('stop_loss_pct', '8'),               -- 8% stop loss
+  ('take_profit_pct', '15'),            -- 15% take profit
+  ('trailing_stop_pct', '5'),           -- 5% trailing stop
+  ('daily_loss_limit_pct', '15'),       -- stop trading if down 15% on the day
+  ('min_confidence', '0.6'),            -- minimum AI confidence to act
+  ('scan_universe_size', '100'),        -- number of tickers to scan
+  ('rsi_oversold', '30'),
+  ('rsi_overbought', '70'),
+  ('ema_fast', '9'),
+  ('ema_slow', '21'),
+  ('macd_fast', '12'),
+  ('macd_slow', '26'),
+  ('macd_signal', '9'),
+  ('atr_period', '14'),
+  ('volume_avg_period', '20'),
+  ('use_ai_refinement', 'true'),
+  ('llm_model', 'accounts/fireworks/models/glm-5p2'),
+  ('llm_temperature', '0.3'),
+  ('enable_margin', 'true'),
+  ('eod_flatten', 'false'),             -- daytrading: close all before EOD (set true for pure daytrading)
+  ('version', '1.0.0');

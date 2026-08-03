@@ -1,0 +1,22 @@
+name = "alpaca-trading-bot"
+main = "src/index.ts"
+compatibility_date = "2024-06-20"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "alpaca-trading-bot"
+database_id = "REPLACE_AFTER_CREATE"
+
+# Cron: every 5 minutes during market hours
+# Cloudflare runs in UTC. US market hours: 9:30-16:00 ET = 13:30-20:00 UTC (Mar) / 14:30-21:00 UTC (Nov, DST)
+# We run every 5 min and check market status inside the worker.
+[triggers]
+crons = ["*/5 13-21 * * 1-5"]
+
+# Secrets (set via wrangler secret put or dashboard):
+# ALPACA_API_KEY
+# ALPACA_API_SECRET
+# ALPACA_BASE_URL  (paper: https://paper-api.alpaca.markets)
+# LLM_API_KEY      (for AI refinement layer)
