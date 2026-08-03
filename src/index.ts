@@ -72,7 +72,7 @@ export default {
   },
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const api = new DashboardAPI(env);
+    const api = new DashboardAPI(env, ctx);
     return api.handle(request);
   },
 };

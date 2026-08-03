@@ -12,6 +12,7 @@
 import { AlpacaClient } from './alpaca';
 import { analyze, generateSignal, type TAIndicators } from './technical-analysis';
 import { refineWithLLM } from './ai-decision';
+import { getCryptoSentiment, formatSentimentForPrompt } from './crypto-sentiment';
 import { RiskManager, type RiskConfig } from './risk-manager';
 import { Database } from './database';
 import type { Env } from './index';
@@ -103,6 +104,19 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
     const cryptoPositions = positions.filter(p =>
       CRYPTO_UNIVERSE.includes(p.symbol)
     );
+
+    // Fetch crypto market sentiment (Fear & Greed Index + trending coins)
+    let sentiment = null;
+    let sentimentText = 'Sentiment data unavailable';
+    try {
+      sentiment = await getCryptoSentiment();
+      sentimentText = formatSentimentForPrompt(sentiment);
+      if (sentiment) {
+        console.log(`Crypto sentiment: F&G ${sentiment.fearGreedValue} (${sentiment.fearGreedLabel}), trending: ${sentiment.trendingCoins.join(', ')}`);
+      }
+    } catch (e) {
+      console.error('Crypto sentiment failed (non-fatal):', e);
+    }
 
     // Log snapshot
     await db.logSnapshot({
@@ -220,8 +234,9 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
       try {
         const bars = await alpaca.getCryptoBars(symbol, '15Min', 200);
         if (bars.length < 50) return null;
-        const indicators = analyze(bars, {
-          rsiPeriod: 14, emaFast: 9, emaSlow: 21,
+        const indicators = analyze(bars, symbol, {
+          rsiPeriod: 14, rsiOversold: 30, rsiOverbought: 70,
+          emaFast: 9, emaSlow: 21,
           macdFast: 12, macdSlow: 26, macdSignal: 9,
           atrPeriod: 14, volumeAvgPeriod: 20,
         });
@@ -303,6 +318,7 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
               marketRegime: 'crypto',
               topMovers: { gainers: [], losers: [] },
               positions: cryptoPositions,
+              sentiment: sentimentText,
             }, {
               apiKey: env.LLM_API_KEY,
               model: config.llmModel,

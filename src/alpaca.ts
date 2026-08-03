@@ -484,7 +484,9 @@ export class AlpacaClient {
 
   async getCryptoBars(symbol: string, timeframe: string = '15Min', limit: number = 200): Promise<Bar[]> {
     const dataUrl = this.getDataBaseUrl();
-    const url = `${dataUrl}/v1beta3/crypto/us/bars?symbols=${symbol}&timeframe=${timeframe}&limit=${limit}`;
+    // Crypto API requires BTC/USD format, but our universe uses BTCUSD
+    const apiSymbol = symbol.includes('/') ? symbol : symbol.replace(/USD$/, '/USD');
+    const url = `${dataUrl}/v1beta3/crypto/us/bars?symbols=${apiSymbol}&timeframe=${timeframe}&limit=${limit}`;
 
     const resp = await fetch(url, { headers: this.getHeaders() });
     if (!resp.ok) {
@@ -493,9 +495,10 @@ export class AlpacaClient {
     }
 
     const data = await resp.json() as any;
-    const bars = (data.bars || []).filter((b: any) => b.S === symbol || b.symbol === symbol);
-    return bars.map((b: any) => ({
-      t: b.t || b.T || 0,
+    // Response format: { "bars": { "BTC/USD": [{ t, o, h, l, c, v }, ...] } }
+    const rawBars = data.bars?.[apiSymbol] || [];
+    return rawBars.map((b: any) => ({
+      t: new Date(b.t || b.T).getTime() / 1000,
       o: parseFloat(b.o || b.O),
       h: parseFloat(b.h || b.H),
       l: parseFloat(b.l || b.L),
@@ -512,7 +515,9 @@ export class AlpacaClient {
     if (symbols.length === 0) return {};
 
     const dataUrl = this.getDataBaseUrl();
-    const url = `${dataUrl}/v1beta3/crypto/us/snapshots?symbols=${symbols.join(',')}`;
+    // Convert BTCUSD -> BTC/USD for API
+    const apiSymbols = symbols.map(s => s.includes('/') ? s : s.replace(/USD$/, '/USD'));
+    const url = `${dataUrl}/v1beta3/crypto/us/snapshots?symbols=${apiSymbols.join(',')}`;
 
     const resp = await fetch(url, { headers: this.getHeaders() });
     if (!resp.ok) {
@@ -523,13 +528,15 @@ export class AlpacaClient {
     const data = await resp.json() as any;
     const result: Record<string, { latest_price: number; daily_change_pct: number; volume: number }> = {};
 
-    for (const [symbol, snap] of Object.entries(data.snapshots || data)) {
+    for (const [apiSymbol, snap] of Object.entries(data.snapshots || data)) {
       const s = snap as any;
+      // Convert back BTC/USD -> BTCUSD for internal use
+      const internalSymbol = apiSymbol.replace('/', '');
       const latestPrice = s.latestTrade ? parseFloat(s.latestTrade.p) : s.latestQuote ? parseFloat(s.latestQuote.ap) : 0;
       const prevClose = s.dailyBar ? parseFloat(s.dailyBar.pc || s.dailyBar.c) : 0;
       const dailyChangePct = prevClose > 0 ? ((latestPrice - prevClose) / prevClose) * 100 : 0;
       const volume = s.dailyBar ? parseFloat(s.dailyBar.v) : 0;
-      result[symbol] = { latest_price: latestPrice, daily_change_pct: dailyChangePct, volume };
+      result[internalSymbol] = { latest_price: latestPrice, daily_change_pct: dailyChangePct, volume };
     }
 
     return result;

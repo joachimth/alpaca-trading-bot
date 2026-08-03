@@ -15,16 +15,17 @@ export interface AIDecision {
 }
 
 export interface AIMarketContext {
-  account: {
-    equity: number;
-    cash: number;
-    positionsCount: number;
-    dailyPlPct: number;
-  };
-  marketRegime: string;    // e.g. "bullish", "bearish", "volatile", "choppy"
-  topMovers: { gainers: string[]; losers: string[] };
-  positions: Position[];
-}
+    account: {
+      equity: number;
+      cash: number;
+      positionsCount: number;
+      dailyPlPct: number;
+    };
+    marketRegime: string;    // e.g. "bullish", "bearish", "volatile", "choppy"
+    topMovers: { gainers: string[]; losers: string[] };
+    positions: Position[];
+    sentiment?: string;      // market sentiment text (Fear & Greed, trending, etc.)
+  }
 
 export interface AIRefinementConfig {
   apiKey: string;
@@ -155,7 +156,8 @@ MARKET CONTEXT:
 - Account equity: $${context.account.equity.toFixed(2)}, Cash: $${context.account.cash.toFixed(2)}
 - Open positions: ${context.account.positionsCount}/15
 - Daily P&L: ${context.account.dailyPlPct >= 0 ? '+' : ''}${context.account.dailyPlPct.toFixed(2)}%
-- Current positions: ${positions}
+  - Current positions: ${positions}
+  ${context.sentiment ? `\nMARKET SENTIMENT:\n${context.sentiment}` : ''}
 
 Respond in EXACTLY this JSON format (no other text):
 {

@@ -6,13 +6,17 @@ import { Database } from './database';
 import { AlpacaClient } from './alpaca';
 import { runSwingCycle } from './swing-strategy';
 import { runCryptoCycle } from './crypto-strategy';
+import { getCryptoSentiment } from './crypto-sentiment';
+import { analyze } from './technical-analysis';
 
 export class DashboardAPI {
-  private env: Env;
+    private env: Env;
+    private ctx: ExecutionContext | undefined;
 
-  constructor(env: Env) {
-    this.env = env;
-  }
+    constructor(env: Env, ctx?: ExecutionContext) {
+      this.env = env;
+      this.ctx = ctx;
+    }
 
   async handle(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -90,6 +94,42 @@ export class DashboardAPI {
 
       if (path === '/api/positions/close-all' && method === 'POST') {
         return await this.closeAllPositions(corsHeaders);
+      }
+
+      if (path === '/api/debug-crypto' && method === 'GET') {
+        try {
+          const alpaca = new AlpacaClient({
+            apiKey: (this.env as any).ALPACA_API_KEY,
+            apiSecret: (this.env as any).ALPACA_API_SECRET,
+            baseUrl: (this.env as any).ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
+          });
+          const bars = await alpaca.getCryptoBars('BTCUSD', '15Min', 200);
+          const sentiment = await getCryptoSentiment();
+          let analyzeResult: any = null;
+          let analyzeError: string | null = null;
+          try {
+            analyzeResult = analyze(bars, 'BTCUSD', {
+              rsiPeriod: 14, rsiOversold: 30, rsiOverbought: 70,
+              emaFast: 9, emaSlow: 21,
+              macdFast: 12, macdSlow: 26, macdSignal: 9,
+              atrPeriod: 14, volumeAvgPeriod: 20,
+            });
+          } catch (e) {
+            analyzeError = e instanceof Error ? `${e.message} | ${e.stack}` : String(e);
+          }
+          return this.json({
+            bars_count: bars.length,
+            first_bar: bars[0] || null,
+            last_bar: bars[bars.length - 1] || null,
+            sentiment: sentiment,
+            analyze_ok: !!analyzeResult,
+            analyze_error: analyzeError,
+            analyze_symbol: analyzeResult?.symbol || null,
+            analyze_rsi: analyzeResult?.rsi || null,
+          }, corsHeaders);
+        } catch (e) {
+          return this.json({ error: e instanceof Error ? e.message : 'unknown', stack: e instanceof Error ? e.stack : '' }, corsHeaders, 500);
+        }
       }
 
       if (path === '/api/debug' && method === 'GET') {
@@ -221,7 +261,7 @@ export class DashboardAPI {
 
   private async triggerSwingCycle(cors: Record<string, string>): Promise<Response> {
     try {
-      const ctx = (this.env as any).__ctx as ExecutionContext | undefined;
+      const ctx = this.ctx;
       if (ctx) {
         ctx.waitUntil(runSwingCycle(this.env, 'manual_swing'));
       } else {
@@ -238,11 +278,12 @@ export class DashboardAPI {
 
   private async triggerCryptoCycle(cors: Record<string, string>): Promise<Response> {
     try {
-      const ctx = (this.env as any).__ctx as ExecutionContext | undefined;
-      if (ctx) {
-        ctx.waitUntil(runCryptoCycle(this.env, 'manual_crypto'));
+      if (this.ctx) {
+        this.ctx.waitUntil(runCryptoCycle(this.env, 'manual_crypto').catch(e => {
+          console.error('Crypto cycle error:', e);
+        }));
       } else {
-        runCryptoCycle(this.env, 'manual_crypto');
+        await runCryptoCycle(this.env, 'manual_crypto');
       }
       return this.json({
         message: 'Crypto cycle triggered. Running now.',
