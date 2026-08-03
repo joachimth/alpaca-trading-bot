@@ -1,10 +1,8 @@
 // Main Worker Entry Point
 // Handles cron triggers, manual API calls, and the full trading cycle
 
-export { DashboardAPI } from './api';
-
 import { AlpacaClient } from './alpaca';
-import { analyze, generateSignal } from './technical-analysis';
+import { analyze, generateSignal, ema, atr } from './technical-analysis';
 import { refineWithLLM, detectMarketRegime, type AIMarketContext } from './ai-decision';
 import { RiskManager, type RiskConfig } from './risk-manager';
 import { Database } from './database';
@@ -43,7 +41,7 @@ const FALLBACK_CONFIG = {
   llmModel: 'accounts/fireworks/models/glm-5p2',
   llmTemperature: 0.3,
   enableMargin: true,
-  eodFlatten: false,
+  eodFlatten: true,
 };
 
 export default {
@@ -181,6 +179,28 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     const candidates = await scanner.scan();
     console.log(`Scanned universe: ${candidates.length} candidates`);
 
+    // 8b. Detect market regime using SPY (S&P 500 ETF)
+    let marketRegime = 'choppy';
+    try {
+      const spyBars = await alpaca.getBars('SPY', '5Min', 50);
+      if (spyBars.length >= 21) {
+        const spyCloses = spyBars.map(b => b.c);
+        const spyEmaFast = ema(spyCloses, 9);
+        const spyEmaSlow = ema(spyCloses, 21);
+        const spyTrend = spyEmaFast > spyEmaSlow ? 1 : spyEmaFast < spyEmaSlow ? -1 : 0;
+        // Approximate VIX from ATR of SPY (higher ATR% = more volatile)
+        const spyAtr = atr(spyBars, 14);
+        const spyPrice = spyCloses[spyCloses.length - 1];
+        const volatilityPct = spyPrice > 0 ? (spyAtr / spyPrice) * 100 : 0;
+        // Map volatility to VIX-like scale: 0.5% daily = ~12 VIX, 2% = ~30 VIX
+        const approxVix = volatilityPct * 15;
+        marketRegime = detectMarketRegime({ spyTrend, vixLevel: approxVix, breadth: 0.5 });
+        console.log(`Market regime: ${marketRegime} (SPY trend: ${spyTrend}, approx VIX: ${approxVix.toFixed(1)})`);
+      }
+    } catch (e) {
+      console.error('Market regime detection failed, using choppy:', e);
+    }
+
     // 9. Analyze each candidate with TA
     const taConfig = {
       rsiPeriod: config.rsiPeriod,
@@ -195,45 +215,56 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       volumeAvgPeriod: config.volumeAvgPeriod,
     };
 
-    const signals = [];
+    const signals: TASignal[] = [];
     const analyzedSymbols = new Set(positions.map(p => p.symbol));
 
-    // Analyze held positions first (for exit signals)
-    for (const pos of positions) {
+    // Analyze held positions first (for exit signals) - parallel
+    const heldPositionBarPromises = positions.map(async pos => {
       try {
         const bars = await alpaca.getBars(pos.symbol, '5Min', 200);
-        if (bars.length < 30) continue;
+        if (bars.length < 30) return null;
         const indicators = analyze(bars, pos.symbol, taConfig);
-        const signal = generateSignal(indicators, { rsiOversold: config.rsiOversold, rsiOverbought: config.rsiOverbought });
-        signals.push(signal);
-        analyzedSymbols.add(pos.symbol);
+        return generateSignal(indicators, { rsiOversold: config.rsiOversold, rsiOverbought: config.rsiOverbought });
       } catch (e) {
         errors.push(`TA failed for ${pos.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
+        return null;
+      }
+    });
+
+    const heldSignals = await Promise.all(heldPositionBarPromises);
+    for (const s of heldSignals) {
+      if (s) {
+        signals.push(s);
+        analyzedSymbols.add(s.indicators.symbol);
       }
     }
 
-    // Analyze new candidates (skip already analyzed)
+    // Analyze new candidates (skip already analyzed) - parallel, limited per cycle
     const newCandidates = candidates.filter(s => !analyzedSymbols.has(s));
-    const scanLimit = Math.min(newCandidates.length, 30); // Limit per cycle
+    const scanLimit = Math.min(newCandidates.length, 20); // Reduced from 30 to avoid timeout
 
-    for (const symbol of newCandidates.slice(0, scanLimit)) {
+    const candidateBarPromises = newCandidates.slice(0, scanLimit).map(async symbol => {
       try {
         const bars = await alpaca.getBars(symbol, '5Min', 200);
-        if (bars.length < 30) continue;
+        if (bars.length < 30) return null;
         const indicators = analyze(bars, symbol, taConfig);
-        const signal = generateSignal(indicators, { rsiOversold: config.rsiOversold, rsiOverbought: config.rsiOverbought });
-        signals.push(signal);
+        return generateSignal(indicators, { rsiOversold: config.rsiOversold, rsiOverbought: config.rsiOverbought });
       } catch (e) {
-        // Silent skip for individual symbol failures
         console.error(`TA failed for ${symbol}:`, e);
+        return null;
       }
+    });
+
+    const candidateSignals = await Promise.all(candidateBarPromises);
+    for (const s of candidateSignals) {
+      if (s) signals.push(s);
     }
 
     // 10. Filter to actionable signals
     const actionableSignals = signals.filter(s => s.action !== 'HOLD' || s.confidence > 0.7);
     // For held positions, also include HOLD signals (potential CLOSE)
-    const heldSignals = signals.filter(s => positions.some(p => p.symbol === s.indicators.symbol));
-    const signalsToProcess = [...new Set([...actionableSignals, ...heldSignals])];
+    const heldPositionSignals = signals.filter(s => positions.some(p => p.symbol === s.indicators.symbol));
+    const signalsToProcess = [...new Set([...actionableSignals, ...heldPositionSignals])];
 
     console.log(`TA complete: ${signals.length} analyzed, ${signalsToProcess.length} to process`);
 
@@ -245,7 +276,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         positionsCount: positions.length,
         dailyPlPct: account.change_today_pct,
       },
-      marketRegime: detectMarketRegime({ spyTrend: 0, vixLevel: 15, breadth: 0.5 }),
+      marketRegime: marketRegime,
       topMovers: { gainers: [], losers: [] },
       positions,
     };
@@ -395,9 +426,13 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       }
     }
 
-    // 12. Sync positions from Alpaca to DB
+    // 12. Sync positions from Alpaca to DB (preserve stop/take profit from DB)
     const finalPositions = await alpaca.getPositions();
+    const dbPositions = await db.getOpenPositions();
+    const dbPositionMap = new Map(dbPositions.map(p => [p.ticker, p]));
+
     for (const pos of finalPositions) {
+      const existing = dbPositionMap.get(pos.symbol);
       await db.upsertPosition({
         ticker: pos.symbol,
         side: pos.side,
@@ -407,8 +442,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         market_value: pos.market_value,
         unrealized_pl: pos.unrealized_pl,
         unrealized_plpc: pos.unrealized_plpc,
-        stop_loss_price: null,
-        take_profit_price: null,
+        stop_loss_price: existing?.stop_loss_price ?? null,
+        take_profit_price: existing?.take_profit_price ?? null,
       });
     }
 

@@ -45,7 +45,7 @@ const DEFAULT_UNIVERSE = [
   'RIVN', 'LCID', 'NIO', 'ENPH', 'SEDG', 'RUN',
   // Other high-volume
   'F', 'GM', 'CCL', 'NCLH', 'UAL', 'DAL', 'AAL', 'LUV',
-  'BBD', 'SOFI', 'WBD', 'SIRI', 'BAC', 'FCEL', 'PLUG',
+  'BBD', 'SOFI', 'WBD', 'SIRI', 'FCEL', 'PLUG',
 ];
 
 export class UniverseScanner {

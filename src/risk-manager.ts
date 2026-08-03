@@ -78,15 +78,15 @@ export class RiskManager {
 
     // Calculate position size based on risk
     const riskAmount = Math.min(maxPositionValue, availableCash * 0.95);
-    const maxQty = Math.floor(riskAmount / price);
+    const integerQty = Math.floor(riskAmount / price);
+    const fractionalQty = riskAmount / price;
 
-    if (maxQty < 1) {
-      // Try fractional shares
-      const fractionalQty = riskAmount / price;
-      if (fractionalQty < 0.01) {
-        return { approved: false, reason: `Position size too small (max $${riskAmount.toFixed(2)} at $${price.toFixed(2)}` };
-      }
+    if (fractionalQty < 0.01) {
+      return { approved: false, reason: `Position size too small (max $${riskAmount.toFixed(2)} at $${price.toFixed(2)}` };
     }
+
+    // Use integer qty if >= 1, otherwise use fractional
+    const finalQty = integerQty >= 1 ? integerQty : Math.round(fractionalQty * 100) / 100;
 
     // 6. Stop loss and take profit
     const stopLossPrice = decision.action === 'BUY'
@@ -99,7 +99,7 @@ export class RiskManager {
     return {
       approved: true,
       reason: 'Approved',
-      adjustedQty: Math.max(0.01, maxQty),
+      adjustedQty: finalQty,
       stopLossPrice,
       takeProfitPrice,
       trailingStopPct: this.config.trailingStopPct,
@@ -122,7 +122,7 @@ export class RiskManager {
       if (pos.unrealized_pl < 0 && lossPct >= stopLossPct) {
         actions.push({
           symbol: pos.symbol,
-          reason: `Stop loss triggered: ${lossPct >= 1 ? (lossPct * 100).toFixed(1) : (lossPct * 100).toFixed(1)}% loss`,
+          reason: `Stop loss triggered: ${(lossPct * 100).toFixed(1)}% loss`,
           priority: 'critical',
         });
         continue;

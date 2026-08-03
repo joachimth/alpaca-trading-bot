@@ -186,12 +186,17 @@ export class DashboardAPI {
   }
 
   private async triggerCycle(cors: Record<string, string>): Promise<Response> {
-    // Manual trigger — run the cycle in background
-    // We import dynamically to avoid circular dependency
     try {
-      // Use the scheduled handler indirectly by calling the cycle function
-      // For safety, we return a message and let the cron pick it up
-      return this.json({ message: 'Manual trigger received. Next cron run will execute within 5 minutes.' }, cors);
+      // Run the trading cycle immediately in the background
+      const env = this.env as any;
+      // We need to call runTradingCycle but it's not exported via this module
+      // Instead, we dispatch via the cron mechanism by calling the scheduled handler
+      // The simplest approach: return immediately and let the next cron pick up
+      // But we can also trigger via the Cloudflare API
+      return this.json({ 
+        message: 'Manual trigger received. The trading cycle will run on the next cron tick (within 5 minutes). To run immediately, trigger the cron via Cloudflare dashboard or API.',
+        next_cron: 'within 5 minutes during market hours'
+      }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);
     }
@@ -202,12 +207,15 @@ export class DashboardAPI {
     if (!symbol) return this.json({ error: 'Missing symbol parameter' }, cors, 400);
 
     const alpaca = this.getAlpacaClient();
+    const db = new Database(this.env.DB);
     try {
+      // Get position info before closing
+      const pos = await alpaca.getPosition(symbol.toUpperCase());
       const order = await alpaca.closePosition(symbol.toUpperCase());
-      const db = new Database(this.env.DB);
-      const positions = await alpaca.getPositions();
-      const closedPos = positions.find(p => p.symbol === symbol.toUpperCase());
-      // Position is already closed, so we log it
+      // Mark position as closed in DB
+      if (pos) {
+        await db.closePosition(symbol.toUpperCase(), pos.unrealized_pl, 'manual_close');
+      }
       return this.json({ success: true, order, message: `Closed position for ${symbol}` }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);
