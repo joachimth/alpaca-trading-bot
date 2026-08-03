@@ -4,6 +4,8 @@
 import type { Env } from './index';
 import { Database } from './database';
 import { AlpacaClient } from './alpaca';
+import { runSwingCycle } from './swing-strategy';
+import { runCryptoCycle } from './crypto-strategy';
 
 export class DashboardAPI {
   private env: Env;
@@ -195,14 +197,9 @@ export class DashboardAPI {
 
   private async triggerCycle(cors: Record<string, string>): Promise<Response> {
     try {
-      // Run the trading cycle immediately in the background
-      const env = this.env as any;
-      // We need to call runTradingCycle but it's not exported via this module
-      // Instead, we dispatch via the cron mechanism by calling the scheduled handler
-      // The simplest approach: return immediately and let the next cron pick up
-      // But we can also trigger via the Cloudflare API
+      // Daytrading cycle runs every 5 min via cron, can't import here due to circular dep
       return this.json({ 
-        message: 'Manual trigger received. The trading cycle will run on the next cron tick (within 5 minutes during market hours). To run immediately, trigger the cron via Cloudflare dashboard or API.',
+        message: 'Daytrading trigger received. Next cron tick runs within 5 minutes during market hours (13-21 UTC weekdays).',
         next_cron: 'within 5 minutes during market hours'
       }, cors);
     } catch (e) {
@@ -212,9 +209,15 @@ export class DashboardAPI {
 
   private async triggerSwingCycle(cors: Record<string, string>): Promise<Response> {
     try {
+      const ctx = (this.env as any).__ctx as ExecutionContext | undefined;
+      if (ctx) {
+        ctx.waitUntil(runSwingCycle(this.env, 'manual_swing'));
+      } else {
+        runSwingCycle(this.env, 'manual_swing');
+      }
       return this.json({
-        message: 'Swing trigger received. The swing cycle will run on the next scheduled cron (22:00 UTC weekdays). To run immediately, trigger the cron via Cloudflare API.',
-        next_cron: '22:00 UTC today (if weekday)'
+        message: 'Swing cycle triggered. Running now.',
+        status: 'running'
       }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);
@@ -223,9 +226,15 @@ export class DashboardAPI {
 
   private async triggerCryptoCycle(cors: Record<string, string>): Promise<Response> {
     try {
+      const ctx = (this.env as any).__ctx as ExecutionContext | undefined;
+      if (ctx) {
+        ctx.waitUntil(runCryptoCycle(this.env, 'manual_crypto'));
+      } else {
+        runCryptoCycle(this.env, 'manual_crypto');
+      }
       return this.json({
-        message: 'Crypto trigger received. The crypto cycle will run on the next 4-hour cron tick (00:00, 04:00, 08:00, 12:00, 16:00, or 20:00 UTC).',
-        next_cron: 'within 4 hours'
+        message: 'Crypto cycle triggered. Running now.',
+        status: 'running'
       }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);

@@ -406,7 +406,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         ticker: signal.indicators.symbol,
         action: decision.action,
         confidence: decision.confidence,
-        signal_source: config.useAiRefinement ? 'ta+ai' : 'ta',
+        signal_source: config.useAiRefinement && env.LLM_API_KEY ? 'ta+ai' : 'ta',
         reason: decision.reasoning,
         ta_data: JSON.stringify(signal.indicators),
         ai_reasoning: JSON.stringify({ factors: decision.factors, adjusted: decision.adjustedFromTA }),
