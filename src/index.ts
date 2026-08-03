@@ -9,6 +9,7 @@ import { Database } from './database';
 import { UniverseScanner } from './scanner';
 import { DashboardAPI } from './api';
 import { runSwingCycle } from './swing-strategy';
+import { runCryptoCycle } from './crypto-strategy';
 
 export interface Env {
   DB: D1Database;
@@ -61,6 +62,9 @@ export default {
     if (event.cron === '0 22 * * 1-5') {
       // Swing trading: once daily after market close
       ctx.waitUntil(runSwingCycle(env, 'swing_cron'));
+    } else if (event.cron === '0 */4 * * *') {
+      // Crypto: every 4 hours, 24/7
+      ctx.waitUntil(runCryptoCycle(env, 'crypto_cron'));
     } else {
       // Daytrading: every 5 minutes during market hours
       ctx.waitUntil(runTradingCycle(env, 'cron'));

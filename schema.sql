@@ -196,4 +196,29 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
   ('swing_max_order_rate_per_min', '15'),
   ('swing_scan_universe_size', '150'),
   ('swing_max_capital_usd', '3700'),   -- ~25,000 DKK cap for private person use
+-- ============================================================
+-- Crypto trading config (crypto_ prefixed keys)
+-- ============================================================
+INSERT OR IGNORE INTO bot_config (key, value) VALUES
+    ('crypto_max_positions', '5'),
+    ('crypto_max_position_pct', '25'),
+    ('crypto_stop_loss_pct', '12'),
+    ('crypto_take_profit_pct', '25'),
+    ('crypto_trailing_stop_pct', '8'),
+    ('crypto_daily_loss_limit_pct', '15'),
+    ('crypto_rolling_drawdown_limit_pct', '20'),
+    ('crypto_min_confidence', '0.7'),
+    ('crypto_stop_loss_atr_multiplier', '2.0'),
+    ('crypto_take_profit_atr_multiplier', '3.0'),
+    ('crypto_target_volatility_pct', '3.0'),
+    ('crypto_max_order_rate_per_min', '5'),
+    ('crypto_min_edge_after_costs', '8'),
+    ('crypto_enable_margin', 'false'),
+    ('crypto_min_hold_minutes', '30'),
+    ('crypto_reentry_cooldown_minutes', '60'),
+    ('crypto_max_trades_per_cycle', '2'),
+    ('crypto_max_capital_usd', '2000'),
+    ('crypto_use_ai_refinement', 'true'),
+    ('crypto_scan_universe_size', '15'),
+    ('version', '2.4.0');
   ('version', '2.0.0');

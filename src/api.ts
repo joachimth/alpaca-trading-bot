@@ -78,6 +78,10 @@ export class DashboardAPI {
         return await this.triggerSwingCycle(corsHeaders);
       }
 
+      if (path === '/api/trigger-crypto' && method === 'POST') {
+        return await this.triggerCryptoCycle(corsHeaders);
+      }
+
       if (path === '/api/positions/close' && method === 'POST') {
         return await this.closePosition(url, corsHeaders);
       }
@@ -211,6 +215,17 @@ export class DashboardAPI {
       return this.json({
         message: 'Swing trigger received. The swing cycle will run on the next scheduled cron (22:00 UTC weekdays). To run immediately, trigger the cron via Cloudflare API.',
         next_cron: '22:00 UTC today (if weekday)'
+      }, cors);
+    } catch (e) {
+      return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);
+    }
+  }
+
+  private async triggerCryptoCycle(cors: Record<string, string>): Promise<Response> {
+    try {
+      return this.json({
+        message: 'Crypto trigger received. The crypto cycle will run on the next 4-hour cron tick (00:00, 04:00, 08:00, 12:00, 16:00, or 20:00 UTC).',
+        next_cron: 'within 4 hours'
       }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);

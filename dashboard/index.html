@@ -133,6 +133,10 @@
     .tab:hover { color: var(--text); }
     .tab.active { color: var(--text); border-bottom-color: var(--blue); }
     .tab-swing.active { color: var(--teal); border-bottom-color: var(--teal); }
+    .tab-crypto.active { color: var(--orange); border-bottom-color: var(--orange); }
+    .tab-badge.crypto { background: rgba(255, 145, 0, 0.15); color: var(--orange); }
+    .signal-crypto { background: rgba(255, 145, 0, 0.15); color: var(--orange); }
+    .strategy-crypto { background: rgba(255, 145, 0, 0.15); color: var(--orange); }
     .tab-badge { font-size: 9px; padding: 1px 6px; border-radius: 10px; font-weight: 700; }
     .tab-badge.day { background: var(--blue-bg); color: var(--blue); }
     .tab-badge.swing { background: var(--teal-bg); color: var(--teal); }
@@ -168,13 +172,15 @@
       <div class="tab active" id="tabOverview" onclick="switchTab('overview')">Overview <span class="tab-badge day">ALL</span></div>
       <div class="tab" id="tabDaytrading" onclick="switchTab('daytrading')">Daytrading <span class="tab-badge day">5min</span></div>
       <div class="tab tab-swing" id="tabSwing" onclick="switchTab('swing')">Swing <span class="tab-badge swing">Daily</span></div>
+      <div class="tab tab-crypto" id="tabCrypto" onclick="switchTab('crypto')">Crypto <span class="tab-badge crypto">4h</span></div>
     </div>
 
     <div class="tab-content active" id="contentOverview">
       <div class="info-card">
-        <strong>Two strategies on the same account:</strong>
-        <span class="strategy-badge strategy-day">Daytrading</span> TA + AI, 5-min bars, EOD flatten, margin.
-        <span class="strategy-badge strategy-swing">Swing</span> Cross-sectional ranking, daily bars, 2-30 day holds, no margin, gap-aware sizing.
+        <strong>Three strategies on the same account:</strong>
+        <span class="strategy-badge strategy-day">Daytrading</span> TA + AI, 5-min bars, EOD flatten.
+        <span class="strategy-badge strategy-swing">Swing</span> Cross-sectional ranking, daily bars, 2-30 day holds.
+        <span class="strategy-badge strategy-crypto">Crypto</span> 24/7, 15-min bars, 4h cycles, no gap risk.
       </div>
       <div class="metrics-grid" id="metricsGrid">
         <div class="metric-card"><div class="metric-label">Portfolio Value</div><div class="metric-value neutral" id="mPortfolio">-</div><div class="metric-sub" id="mPortfolioSub">Loading...</div></div>
@@ -229,7 +235,21 @@
       <div class="table-section"><div class="section-title"><span>Swing Run History</span></div><div id="runsTableSwing"><div class="loading">Loading...</div></div></div>
     </div>
 
-    <div class="footer">Alpaca AI Trading Bot v2.0.0 - Cloudflare Worker + D1 - Paper Trading<br>Daytrading: 5-min cron | Swing: daily cron at 22:00 UTC | Auto-refresh every 30s</div>
+    <div class="tab-content" id="contentCrypto">
+      <div class="info-card">
+        <span class="strategy-badge strategy-crypto">Crypto</span>
+        <strong>24/7 crypto trading:</strong> BTC, ETH, SOL, AVAX, LINK + 10 more. 15-min bars, TA + AI. Every 4 hours. No gap risk (continuous market). No margin. Wider stops (2x ATR). GTC orders. $2,000 cap (~13,000 DKK).
+        <div style="margin-top: 8px;"><button class="trigger-btn" onclick="triggerCrypto()">Trigger Crypto Cycle</button></div>
+      </div>
+      <div class="grid-2col">
+        <div class="table-section"><div class="section-title"><span>Crypto Positions</span></div><div id="positionsTableCrypto"><div class="loading">Loading...</div></div></div>
+        <div class="table-section"><div class="section-title"><span>Crypto Decisions</span></div><div id="decisionsTableCrypto"><div class="loading">Loading...</div></div></div>
+      </div>
+      <div class="table-section"><div class="section-title"><span>Crypto Trades</span></div><div id="tradesTableCrypto"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Crypto Run History</span></div><div id="runsTableCrypto"><div class="loading">Loading...</div></div></div>
+    </div>
+
+    <div class="footer">Alpaca AI Trading Bot v2.4.0 - Cloudflare Worker + D1 - Paper Trading<br>Daytrading: 5-min cron | Swing: daily 22:00 UTC | Crypto: every 4h 24/7 | Auto-refresh 30s</div>
   </div>
   <script>
     const API_BASE = 'https://alpaca-trading-bot.joachim-763.workers.dev';
@@ -307,6 +327,13 @@
         renderSwingDecisions(swDec, 'decisionsTableSwing');
         renderTrades(allTr, 'tradesTableSwing');
         renderRuns(swRun, 'runsTableSwing');
+      } else if (tab === 'crypto') {
+        const crDec = allDec.filter(d => d.signal_source === 'crypto');
+        const crRun = allRun.filter(r => r.trigger === 'crypto_cron');
+        renderPositions(allPos, 'positionsTableCrypto', false);
+        renderDecisions(crDec, 'decisionsTableCrypto');
+        renderTrades(allTr, 'tradesTableCrypto');
+        renderRuns(crRun, 'runsTableCrypto');
       }
     }
     function drawEquityChart(snaps) {
@@ -341,7 +368,7 @@
       for (const d of ds.slice(0, 15)) {
         const cc = d.confidence >= 0.7 ? '#00c853' : d.confidence >= 0.5 ? '#ff9100' : d.confidence >= 0 ? '#546e7a' : '#ff1744';
         const st = d.executed === 1 ? '<span style="color:var(--green)">Executed</span>' : d.executed === 2 ? '<span style="color:var(--text-muted)">Skipped</span>' : d.executed === 3 ? '<span style="color:var(--red)">Failed</span>' : '<span style="color:var(--yellow)">Pending</span>';
-        let src; if (d.signal_source === 'swing') src = '<span class="signal-source signal-swing">SWING</span>'; else if (d.signal_source === 'ta+ai') src = '<span class="signal-source signal-ai">TA+AI</span>'; else if (d.signal_source === 'ai') src = '<span class="signal-source signal-ai">AI</span>'; else src = '<span class="signal-source signal-ta">TA</span>';
+        let src; if (d.signal_source === 'swing') src = '<span class="signal-source signal-swing">SWING</span>'; else if (d.signal_source === 'crypto') src = '<span class="signal-source signal-crypto">CRYPTO</span>'; else if (d.signal_source === 'ta+ai') src = '<span class="signal-source signal-ai">TA+AI</span>'; else if (d.signal_source === 'ai') src = '<span class="signal-source signal-ai">AI</span>'; else src = '<span class="signal-source signal-ta">TA</span>';
         h += '<tr><td>' + fmtTime(d.timestamp) + '</td><td><strong>' + d.ticker + '</strong></td><td><span class="action-badge action-' + d.action + '">' + d.action + '</span></td><td><span class="conf-bar"><span class="conf-fill" style="width:' + Math.abs(d.confidence)*50 + '%;background:' + cc + '"></span></span>' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + src + '</td><td class="reason-text" title="' + (d.reason||'').replace(/"/g,'&quot;') + '">' + (d.reason||'-') + '</td><td>' + st + '</td></tr>';
       }
       h += '</tbody></table>'; el.innerHTML = h;
@@ -375,6 +402,7 @@
     async function closePosition(s) { if (!confirm('Close position for ' + s + '?')) return; const r = await fetch(API_BASE + '/api/positions/close?symbol=' + s, { method: 'POST' }); if (r.ok) { alert('Closed ' + s); loadDashboard(); } else alert('Failed'); }
     async function closeAllPositions() { if (!confirm('Close ALL positions?')) return; const r = await fetch(API_BASE + '/api/positions/close-all', { method: 'POST' }); if (r.ok) { alert('All positions closed'); loadDashboard(); } else alert('Failed'); }
     async function triggerSwing() { if (!confirm('Trigger swing cycle? It will run on the next cron tick.')) return; const r = await fetch(API_BASE + '/api/trigger-swing', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
+    async function triggerCrypto() { if (!confirm('Trigger crypto cycle? It will run on the next 4h cron tick.')) return; const r = await fetch(API_BASE + '/api/trigger-crypto', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
     loadDashboard();
     setInterval(loadDashboard, 30000);
   </script>

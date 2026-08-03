@@ -477,4 +477,65 @@ export class AlpacaClient {
 
     return result;
   }
-}
+
+  // ============================================================
+  // Crypto Market Data (via data.alpaca.markets/v1beta3/crypto)
+  // ============================================================
+
+  async getCryptoBars(symbol: string, timeframe: string = '15Min', limit: number = 200): Promise<Bar[]> {
+    const dataUrl = this.getDataBaseUrl();
+    const url = `${dataUrl}/v1beta3/crypto/us/bars?symbols=${symbol}&timeframe=${timeframe}&limit=${limit}`;
+
+    const resp = await fetch(url, { headers: this.getHeaders() });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Alpaca getCryptoBars failed for ${symbol}: ${resp.status} ${text}`);
+    }
+
+    const data = await resp.json() as any;
+    const bars = (data.bars || []).filter((b: any) => b.S === symbol || b.symbol === symbol);
+    return bars.map((b: any) => ({
+      t: b.t || b.T || 0,
+      o: parseFloat(b.o || b.O),
+      h: parseFloat(b.h || b.H),
+      l: parseFloat(b.l || b.L),
+      c: parseFloat(b.c || b.C),
+      v: parseFloat(b.v || b.V),
+    }));
+  }
+
+  async getCryptoSnapshots(symbols: string[]): Promise<Record<string, {
+    latest_price: number;
+    daily_change_pct: number;
+    volume: number;
+  }>> {
+    if (symbols.length === 0) return {};
+
+    const dataUrl = this.getDataBaseUrl();
+    const url = `${dataUrl}/v1beta3/crypto/us/snapshots?symbols=${symbols.join(',')}`;
+
+    const resp = await fetch(url, { headers: this.getHeaders() });
+    if (!resp.ok) {
+      console.error(`Crypto snapshots failed: ${resp.status}`);
+      return {};
+    }
+
+    const data = await resp.json() as any;
+    const result: Record<string, { latest_price: number; daily_change_pct: number; volume: number }> = {};
+
+    for (const [symbol, snap] of Object.entries(data.snapshots || data)) {
+      const s = snap as any;
+      const latestPrice = s.latestTrade ? parseFloat(s.latestTrade.p) : s.latestQuote ? parseFloat(s.latestQuote.ap) : 0;
+      const prevClose = s.dailyBar ? parseFloat(s.dailyBar.pc || s.dailyBar.c) : 0;
+      const dailyChangePct = prevClose > 0 ? ((latestPrice - prevClose) / prevClose) * 100 : 0;
+      const volume = s.dailyBar ? parseFloat(s.dailyBar.v) : 0;
+      result[symbol] = { latest_price: latestPrice, daily_change_pct: dailyChangePct, volume };
+    }
+
+    return result;
+  }
+
+  async getCryptoLatestPrice(symbol: string): Promise<number | null> {
+    const snaps = await this.getCryptoSnapshots([symbol]);
+    return snaps[symbol]?.latest_price || null;
+  }
