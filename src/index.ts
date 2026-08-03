@@ -167,9 +167,40 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     const divergence = riskManager.checkDivergence(positions, dbPositions.map(p => ({ ticker: p.ticker, qty: p.qty, side: p.side })));
     if (divergence.divergent) {
       const details = divergence.details.join('; ');
-      errors.push(`Position divergence detected: ${details}`);
-      riskManager.haltTrading(`Position divergence: ${details}`);
-      console.error(`DIVERGENCE: ${details}`);
+      // Auto-reconcile: sync broker positions to DB instead of halting
+      // Only halt on qty mismatch (serious), not on "in broker but not internal" (fixable)
+      const hasQtyMismatch = divergence.details.some(d => d.includes('qty mismatch'));
+      if (hasQtyMismatch) {
+        errors.push(`Position divergence (qty mismatch): ${details}`);
+        riskManager.haltTrading(`Qty mismatch: ${details}`);
+        console.error(`DIVERGENCE (halted): ${details}`);
+      } else {
+        // Auto-reconcile: upsert all broker positions into DB
+        console.warn(`DIVERGENCE (auto-reconciling): ${details}`);
+        errors.push(`Auto-reconciled: ${details}`);
+        for (const pos of positions) {
+          const existing = dbPositions.find(p => p.ticker === pos.symbol);
+          await db.upsertPosition({
+            ticker: pos.symbol,
+            side: pos.side,
+            qty: pos.qty,
+            avg_entry_price: pos.avg_entry_price,
+            current_price: pos.current_price,
+            market_value: pos.market_value,
+            unrealized_pl: pos.unrealized_pl,
+            unrealized_plpc: pos.unrealized_plpc,
+            stop_loss_price: existing?.stop_loss_price ?? null,
+            take_profit_price: existing?.take_profit_price ?? null,
+          });
+        }
+        // Also close DB positions that no longer exist in broker
+        const brokerSymbols = new Set(positions.map(p => p.symbol));
+        for (const dbPos of dbPositions) {
+          if (!brokerSymbols.has(dbPos.ticker)) {
+            await db.closePosition(dbPos.ticker, 0, 'auto_reconcile_not_in_broker');
+          }
+        }
+      }
     }
 
     // 6. Check existing positions for stop loss / take profit (ATR-based)
