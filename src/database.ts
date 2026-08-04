@@ -153,6 +153,18 @@ export class Database {
     return result.results as any[];
   }
 
+  async getRecentDecisionsByStrategy(strategy: 'daytrading' | 'swing' | 'crypto', limit: number = 100): Promise<any[]> {
+    const predicate = strategy === 'swing'
+      ? `signal_source = 'swing'`
+      : strategy === 'crypto'
+        ? `signal_source LIKE 'crypto%'`
+        : `signal_source != 'swing' AND signal_source NOT LIKE 'crypto%'`;
+    const result = await this.db.prepare(
+      `SELECT * FROM decisions WHERE ${predicate} ORDER BY timestamp DESC LIMIT ?`
+    ).bind(limit).all();
+    return result.results as any[];
+  }
+
   // ============================================================
   // Trades
   // ============================================================
@@ -264,6 +276,14 @@ export class Database {
     const result = await this.db.prepare(
       'SELECT * FROM trades ORDER BY timestamp DESC LIMIT ?'
     ).bind(limit).all();
+    return result.results as any[];
+  }
+
+  async getRecentTradesByStrategy(strategy: 'daytrading' | 'swing' | 'crypto', limit: number = 100): Promise<any[]> {
+    await this.ensureTradeSchema();
+    const result = await this.db.prepare(
+      'SELECT * FROM trades WHERE strategy = ? ORDER BY timestamp DESC LIMIT ?'
+    ).bind(strategy, limit).all();
     return result.results as any[];
   }
 
@@ -419,6 +439,18 @@ export class Database {
   async getRecentRuns(limit: number = 30): Promise<any[]> {
     const result = await this.db.prepare(
       'SELECT * FROM run_log ORDER BY timestamp DESC, id DESC LIMIT ?'
+    ).bind(limit).all();
+    return result.results as any[];
+  }
+
+  async getRecentRunsByStrategy(strategy: 'daytrading' | 'swing' | 'crypto', limit: number = 100): Promise<any[]> {
+    const triggerPredicate = strategy === 'swing'
+      ? `trigger IN ('swing_cron', 'manual_swing')`
+      : strategy === 'crypto'
+        ? `trigger IN ('crypto_cron', 'manual_crypto')`
+        : `trigger NOT IN ('swing_cron', 'manual_swing', 'crypto_cron', 'manual_crypto')`;
+    const result = await this.db.prepare(
+      `SELECT * FROM run_log WHERE ${triggerPredicate} ORDER BY timestamp DESC, id DESC LIMIT ?`
     ).bind(limit).all();
     return result.results as any[];
   }

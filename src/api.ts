@@ -191,7 +191,7 @@ export class DashboardAPI {
     } catch (e) {
       console.error('Trade reconciliation failed:', e);
     }
-    const [stats, recentDecisions, recentTrades, runs, snapshots, positions, strategyComparison] = await Promise.all([
+    const [stats, recentDecisions, recentTrades, runs, snapshots, positions, strategyComparison, strategyHistory] = await Promise.all([
       db.getStats(),
       db.getRecentDecisions(20),
       db.getRecentTrades(20),
@@ -199,6 +199,12 @@ export class DashboardAPI {
       db.getRecentSnapshots(500),
       db.getOpenPositions(),
       db.getStrategyComparison(),
+      Promise.all((['daytrading', 'swing', 'crypto'] as const).map(async strategy => ({
+        strategy,
+        decisions: await db.getRecentDecisionsByStrategy(strategy, 100),
+        trades: await db.getRecentTradesByStrategy(strategy, 100),
+        runs: await db.getRecentRunsByStrategy(strategy, 100),
+      }))),
     ]);
 
     const latestSnapshot = snapshots[0] || null;
@@ -214,6 +220,7 @@ export class DashboardAPI {
       recentRuns: runs,
       performanceHistory: snapshots.reverse(), // chronological for charting
       strategyComparison,
+      strategyHistory: Object.fromEntries(strategyHistory.map(item => [item.strategy, item])),
     }, cors);
   }
 
