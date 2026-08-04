@@ -708,7 +708,7 @@
         }
         break;
       }
-      return text.replace(/\\s+/g, ' ').trim() || '-';
+      return text.replace(/\s+/g, ' ').trim() || '-';
     }
     function renderDecisions(ds, elId) {
       const el = document.getElementById(elId);
