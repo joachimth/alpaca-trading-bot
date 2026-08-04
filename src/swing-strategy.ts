@@ -259,11 +259,15 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
     for (const sell of proposedSells) {
       try {
         const pos = positions.find(p => p.symbol === sell.symbol);
-        await alpaca.closePosition(sell.symbol);
-        if (pos) {
+        const order = await alpaca.closePosition(sell.symbol);
+        await db.logOrderTrade(order);
+        if (pos && alpaca.isOrderFullyFilled(order)) {
           await db.closePosition(sell.symbol, pos.unrealized_pl, sell.reason);
+          tradesExecuted++;
+        } else if (pos) {
+          errors.push(`Swing exit not fully filled ${sell.symbol}: ${order.status}`);
         }
-        tradesExecuted++;
+
         console.log(`Swing SELL ${sell.symbol}: ${sell.reason}`);
       } catch (e) {
         errors.push(`Swing sell failed ${sell.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);

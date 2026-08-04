@@ -176,21 +176,26 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
 
       if (pos.unrealized_pl < 0 && pos.unrealized_plpc <= stopLoss) {
         try {
-          await alpaca.closePosition(pos.symbol);
-          await db.closePosition(pos.symbol, pos.unrealized_pl, 'crypto_stop_loss');
-          await db.logDecision({
-            ticker: pos.symbol,
-            action: 'CLOSE',
-            confidence: 1.0,
-            signal_source: 'crypto',
-            reason: `Stop loss: ${(pos.unrealized_plpc * 100).toFixed(1)}% loss`,
-            ta_data: '{}',
-            ai_reasoning: '{}',
-            price_at_decision: pos.current_price,
-            executed: 1,
-            execution_reason: 'crypto_stop_loss',
-          });
-          tradesExecuted++;
+          const order = await alpaca.closePosition(pos.symbol);
+          await db.logOrderTrade(order);
+          if (alpaca.isOrderFullyFilled(order)) {
+            await db.closePosition(pos.symbol, pos.unrealized_pl, 'crypto_stop_loss');
+            await db.logDecision({
+              ticker: pos.symbol,
+              action: 'CLOSE',
+              confidence: 1.0,
+              signal_source: 'crypto',
+              reason: `Stop loss: ${(pos.unrealized_plpc * 100).toFixed(1)}% loss`,
+              ta_data: '{}',
+              ai_reasoning: '{}',
+              price_at_decision: pos.current_price,
+              executed: 1,
+              execution_reason: 'crypto_stop_loss',
+            });
+            tradesExecuted++;
+          } else {
+            errors.push(`Crypto stop exit not fully filled ${pos.symbol}: ${order.status}`);
+          }
           console.log(`Crypto STOP LOSS ${pos.symbol}: ${(pos.unrealized_plpc * 100).toFixed(1)}%`);
         } catch (e) {
           errors.push(`Crypto stop loss failed ${pos.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
@@ -200,21 +205,26 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
 
       if (pos.unrealized_pl > 0 && pos.unrealized_plpc <= trailingStop) {
         try {
-          await alpaca.closePosition(pos.symbol);
-          await db.closePosition(pos.symbol, pos.unrealized_pl, 'crypto_trailing_stop');
-          await db.logDecision({
-            ticker: pos.symbol,
-            action: 'CLOSE',
-            confidence: 0.8,
-            signal_source: 'crypto',
-            reason: `Trailing stop: giving back ${(pos.unrealized_plpc * 100).toFixed(1)}%`,
-            ta_data: '{}',
-            ai_reasoning: '{}',
-            price_at_decision: pos.current_price,
-            executed: 1,
-            execution_reason: 'crypto_trailing_stop',
-          });
-          tradesExecuted++;
+          const order = await alpaca.closePosition(pos.symbol);
+          await db.logOrderTrade(order);
+          if (alpaca.isOrderFullyFilled(order)) {
+            await db.closePosition(pos.symbol, pos.unrealized_pl, 'crypto_trailing_stop');
+            await db.logDecision({
+              ticker: pos.symbol,
+              action: 'CLOSE',
+              confidence: 0.8,
+              signal_source: 'crypto',
+              reason: `Trailing stop: giving back ${(pos.unrealized_plpc * 100).toFixed(1)}%`,
+              ta_data: '{}',
+              ai_reasoning: '{}',
+              price_at_decision: pos.current_price,
+              executed: 1,
+              execution_reason: 'crypto_trailing_stop',
+            });
+            tradesExecuted++;
+          } else {
+            errors.push(`Crypto trailing exit not fully filled ${pos.symbol}: ${order.status}`);
+          }
           console.log(`Crypto TRAILING STOP ${pos.symbol}: ${(pos.unrealized_plpc * 100).toFixed(1)}%`);
         } catch (e) {
           errors.push(`Crypto trailing stop failed ${pos.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
@@ -365,11 +375,16 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
             continue;
           }
           try {
-            await alpaca.closePosition(symbol);
-            await db.closePosition(symbol, existingPos.unrealized_pl, 'crypto_signal');
-            await db.updateDecisionStatus(decisionId, 1, 'Position closed');
-            tradesExecuted++;
-            cycleTradeCount++;
+            const order = await alpaca.closePosition(symbol);
+            await db.logOrderTrade(order, { decisionId });
+            if (alpaca.isOrderFullyFilled(order)) {
+              await db.closePosition(symbol, existingPos.unrealized_pl, 'crypto_signal');
+              await db.updateDecisionStatus(decisionId, 1, 'Position closed');
+              tradesExecuted++;
+              cycleTradeCount++;
+            } else {
+              await db.updateDecisionStatus(decisionId, 0, `Exit order pending: ${order.status}`);
+            }
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : 'unknown';
             await db.updateDecisionStatus(decisionId, 3, `Close failed: ${errMsg}`);

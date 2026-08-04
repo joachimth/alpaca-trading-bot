@@ -219,12 +219,15 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       if (action.priority === 'critical' || action.priority === 'high') {
         try {
           console.log(`Closing ${action.symbol}: ${action.reason}`);
-          await alpaca.closePosition(action.symbol);
+          const order = await alpaca.closePosition(action.symbol);
+          await db.logOrderTrade(order);
           const pos = positions.find(p => p.symbol === action.symbol);
-          if (pos) {
+          if (pos && alpaca.isOrderFullyFilled(order)) {
             await db.closePosition(action.symbol, pos.unrealized_pl, action.reason);
+          } else if (pos) {
+            errors.push(`Exit order for ${action.symbol} not fully filled: ${order.status}`);
           }
-          tradesExecuted++;
+
         } catch (e) {
           errors.push(`Failed to close ${action.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
         }
@@ -239,11 +242,19 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     if (riskManager.shouldFlattenEOD(minutesToClose)) {
       console.log(`EOD flatten: ${minutesToClose.toFixed(0)} min to close. Liquidating all positions.`);
       try {
-        await alpaca.closeAllPositions();
-        for (const pos of positions) {
-          await db.closePosition(pos.symbol, pos.unrealized_pl, 'eod_flatten');
+        const closeOrders = await alpaca.closeAllPositions();
+        for (const order of closeOrders) {
+          await db.logOrderTrade(order);
         }
-        tradesExecuted += positions.length;
+        for (const pos of positions) {
+          const order = closeOrders.find(o => o.symbol === pos.symbol);
+          if (order && alpaca.isOrderFullyFilled(order)) {
+            await db.closePosition(pos.symbol, pos.unrealized_pl, 'eod_flatten');
+          } else {
+            errors.push(`EOD exit for ${pos.symbol} not fully filled`);
+          }
+        }
+
       } catch (e) {
         errors.push(`EOD flatten failed: ${e instanceof Error ? e.message : 'unknown'}`);
       }
@@ -442,10 +453,15 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             continue;
           }
           try {
-            await alpaca.closePosition(signal.indicators.symbol);
-            await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
-            await db.updateDecisionStatus(decisionId, 1, 'Position closed');
-            tradesExecuted++;
+            const order = await alpaca.closePosition(signal.indicators.symbol);
+            await db.logOrderTrade(order, { decisionId });
+            if (alpaca.isOrderFullyFilled(order)) {
+              await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
+              await db.updateDecisionStatus(decisionId, 1, 'Position closed');
+              tradesExecuted++;
+            } else {
+              await db.updateDecisionStatus(decisionId, 0, `Exit order pending: ${order.status}`);
+            }
             cycleTradeCount++;
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : 'unknown';
@@ -475,10 +491,15 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             continue;
           }
           try {
-            await alpaca.closePosition(signal.indicators.symbol);
-            await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
-            await db.updateDecisionStatus(decisionId, 1, 'Position closed (sell signal)');
-            tradesExecuted++;
+            const order = await alpaca.closePosition(signal.indicators.symbol);
+            await db.logOrderTrade(order, { decisionId });
+            if (alpaca.isOrderFullyFilled(order)) {
+              await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
+              await db.updateDecisionStatus(decisionId, 1, 'Position closed (sell signal)');
+              tradesExecuted++;
+            } else {
+              await db.updateDecisionStatus(decisionId, 0, `Exit order pending: ${order.status}`);
+            }
             cycleTradeCount++;
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : 'unknown';

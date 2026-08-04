@@ -165,9 +165,12 @@ export class DashboardAPI {
   }
 
   private async reconcileTrades(db: Database, alpaca: AlpacaClient): Promise<void> {
-    const pending = await db.getTradesNeedingSync(200);
-    if (pending.length === 0) return;
+    // Import broker sells as well as refreshing locally-known orders. The import is
+    // keyed by Alpaca order ID and is safe to call on every live/dashboard request.
     const orders = await alpaca.getRecentOrders(100);
+    await db.reconcileOrders(orders);
+
+    const pending = await db.getTradesNeedingSync(200);
     const byId = new Map(orders.map(order => [order.id, order]));
     for (const trade of pending) {
       const order = byId.get(trade.alpaca_order_id);
@@ -220,8 +223,9 @@ export class DashboardAPI {
   }
 
   private async getPositions(cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
-    const dbPositions = await db.getOpenPositions();
+      const db = new Database(this.env.DB);
+      try { await this.reconcileTrades(db, this.getAlpacaClient()); } catch (e) { console.error('Trade reconciliation failed:', e); }
+      const dbPositions = await db.getOpenPositions();
 
     // Also get live positions from Alpaca
     const alpaca = this.getAlpacaClient();
@@ -329,11 +333,12 @@ export class DashboardAPI {
       // Get position info before closing
       const pos = await alpaca.getPosition(symbol.toUpperCase());
       const order = await alpaca.closePosition(symbol.toUpperCase());
-      // Mark position as closed in DB
-      if (pos) {
+      await db.logOrderTrade(order);
+      // Mark position closed only after a confirmed full broker fill.
+      if (pos && alpaca.isOrderFullyFilled(order)) {
         await db.closePosition(symbol.toUpperCase(), pos.unrealized_pl, 'manual_close');
       }
-      return this.json({ success: true, order, message: `Closed position for ${symbol}` }, cors);
+      return this.json({ success: true, order, filled: alpaca.isOrderFullyFilled(order), message: `Close order submitted for ${symbol}` }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);
     }
@@ -341,9 +346,18 @@ export class DashboardAPI {
 
   private async closeAllPositions(cors: Record<string, string>): Promise<Response> {
     const alpaca = this.getAlpacaClient();
+    const db = new Database(this.env.DB);
     try {
-      await alpaca.closeAllPositions();
-      return this.json({ success: true, message: 'All positions closed' }, cors);
+      const positions = await alpaca.getPositions();
+      const orders = await alpaca.closeAllPositions();
+      for (const order of orders) {
+        await db.logOrderTrade(order);
+        const pos = positions.find(p => p.symbol === order.symbol);
+        if (pos && alpaca.isOrderFullyFilled(order)) {
+          await db.closePosition(pos.symbol, pos.unrealized_pl, 'manual_close_all');
+        }
+      }
+      return this.json({ success: true, orders, message: 'All positions closed' }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);
     }

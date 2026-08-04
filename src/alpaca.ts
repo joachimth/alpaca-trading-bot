@@ -219,21 +219,66 @@ export class AlpacaClient {
     };
   }
 
+  private parseOrder(data: any): Order {
+    return {
+      id: data.id,
+      client_order_id: data.client_order_id,
+      symbol: data.symbol,
+      qty: parseFloat(data.qty),
+      filled_qty: parseFloat(data.filled_qty || '0'),
+      filled_avg_price: data.filled_avg_price ? parseFloat(data.filled_avg_price) : null,
+      type: data.type,
+      side: data.side,
+      status: data.status,
+      time_in_force: data.time_in_force,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      submitted_at: data.submitted_at,
+      limit_price: data.limit_price ? parseFloat(data.limit_price) : null,
+      stop_price: data.stop_price ? parseFloat(data.stop_price) : null,
+      trail_price: data.trail_price ? parseFloat(data.trail_price) : null,
+      trail_percent: data.trail_percent ? parseFloat(data.trail_percent) : null,
+    };
+  }
+
+  isOrderFullyFilled(order: Order): boolean {
+    return order.status === 'filled' && order.filled_qty > 0 && order.filled_qty >= order.qty * 0.999;
+  }
+
+  private isTerminalOrder(status: string): boolean {
+    return ['filled', 'partially_filled', 'canceled', 'cancelled', 'rejected', 'expired', 'done_for_day', 'stopped'].includes(status);
+  }
+
+  async waitForOrder(orderId: string, timeoutMs: number = 5000): Promise<Order> {
+    const started = Date.now();
+    let order = await this.getOrder(orderId);
+    while (!this.isTerminalOrder(order.status) && Date.now() - started < timeoutMs) {
+      await new Promise(resolve => setTimeout(resolve, 250));
+      order = await this.getOrder(orderId);
+    }
+    return order;
+  }
+
   async closePosition(symbol: string): Promise<Order> {
     const resp = await this.request(`/v2/positions/${symbol}`, { method: 'DELETE' });
     if (!resp.ok) {
       const text = await resp.text();
       throw new Error(`Alpaca closePosition failed: ${resp.status} ${text}`);
     }
-    return await resp.json() as any;
+    const order = this.parseOrder(await resp.json());
+    return order.id ? await this.waitForOrder(order.id) : order;
   }
 
-  async closeAllPositions(): Promise<void> {
+  async closeAllPositions(): Promise<Order[]> {
     const resp = await this.request('/v2/positions', { method: 'DELETE' });
     if (!resp.ok && resp.status !== 207) {
       const text = await resp.text();
       throw new Error(`Alpaca closeAllPositions failed: ${resp.status} ${text}`);
     }
+    const data: any = await resp.json().catch(() => [] as any);
+    const rawOrders = Array.isArray(data) ? data : (data?.orders || data?.results || []);
+    const orders = rawOrders.filter((order: any) => order?.id).map((order: any) => this.parseOrder(order));
+    return await Promise.all(orders.map(order => this.waitForOrder(order.id)));
   }
 
   // ============================================================

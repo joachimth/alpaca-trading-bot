@@ -2,6 +2,7 @@
 // All D1 interactions for the trading bot
 
 import type { D1Database } from '@cloudflare/workers-types';
+import type { Order } from './alpaca';
 
 export interface DecisionRecord {
   ticker: string;
@@ -122,10 +123,57 @@ export class Database {
     return result.meta.last_row_id as number;
   }
 
+  async logOrderTrade(order: Order, options: {
+    decisionId?: number | null;
+    estimatedValue?: number | null;
+    errorMessage?: string | null;
+  } = {}): Promise<number> {
+    const existing = await this.db.prepare(
+      'SELECT id FROM trades WHERE alpaca_order_id = ? LIMIT 1'
+    ).bind(order.id).first();
+    if (existing?.id !== undefined && existing?.id !== null) {
+      await this.updateTradeStatus(order.id, order.status, order.filled_avg_price, order.filled_avg_price);
+      return existing.id as number;
+    }
+
+    return this.logTrade({
+      alpaca_order_id: order.id,
+      ticker: order.symbol,
+      side: order.side,
+      qty: order.qty,
+      fill_price: order.filled_avg_price,
+      avg_fill_price: order.filled_avg_price,
+      status: order.status,
+      order_type: order.type,
+      limit_price: order.limit_price,
+      stop_price: order.stop_price,
+      estimated_value: options.estimatedValue ?? (order.qty * (order.filled_avg_price ?? order.limit_price ?? order.stop_price ?? 0)),
+      decision_id: options.decisionId ?? null,
+      error_message: options.errorMessage ?? null,
+    });
+  }
+
   async updateTradeStatus(orderId: string, status: string, fillPrice: number | null, avgFillPrice: number | null): Promise<void> {
     await this.db.prepare(
       'UPDATE trades SET status = ?, fill_price = ?, avg_fill_price = ? WHERE alpaca_order_id = ?'
     ).bind(status, fillPrice, avgFillPrice, orderId).run();
+  }
+
+  async reconcileOrders(orders: Order[]): Promise<number> {
+    let imported = 0;
+    for (const order of orders) {
+      if (order.side !== 'sell') continue;
+      const existing = await this.db.prepare(
+        'SELECT id FROM trades WHERE alpaca_order_id = ? LIMIT 1'
+      ).bind(order.id).first();
+      if (existing) {
+        await this.updateTradeStatus(order.id, order.status, order.filled_avg_price, order.filled_avg_price);
+        continue;
+      }
+      await this.logOrderTrade(order);
+      imported++;
+    }
+    return imported;
   }
 
   async getTradesNeedingSync(limit: number = 200): Promise<any[]> {
