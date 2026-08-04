@@ -449,6 +449,7 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
               estimated_value: riskCheck.adjustedQty * indicators.price,
               decision_id: decisionId,
               error_message: null,
+              strategy: 'crypto',
             });
 
             await db.upsertPosition({
