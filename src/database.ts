@@ -286,7 +286,7 @@ export class Database {
 
   async getRecentRuns(limit: number = 30): Promise<any[]> {
     const result = await this.db.prepare(
-      'SELECT * FROM run_log ORDER BY timestamp DESC LIMIT ?'
+      'SELECT * FROM run_log ORDER BY timestamp DESC, id DESC LIMIT ?'
     ).bind(limit).all();
     return result.results as any[];
   }
