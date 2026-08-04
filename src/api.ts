@@ -72,6 +72,10 @@ export class DashboardAPI {
         return await this.getStats(corsHeaders);
       }
 
+      if (path === '/api/strategy-comparison') {
+        return await this.getStrategyComparison(corsHeaders);
+      }
+
       if (path === '/api/config') {
         return await this.getConfig(corsHeaders);
       }
@@ -163,13 +167,14 @@ export class DashboardAPI {
 
   private async getDashboard(cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB);
-    const [stats, recentDecisions, recentTrades, runs, snapshots, positions] = await Promise.all([
+    const [stats, recentDecisions, recentTrades, runs, snapshots, positions, strategyComparison] = await Promise.all([
       db.getStats(),
       db.getRecentDecisions(20),
       db.getRecentTrades(20),
       db.getRecentRuns(10),
       db.getRecentSnapshots(500),
       db.getOpenPositions(),
+      db.getStrategyComparison(),
     ]);
 
     const latestSnapshot = snapshots[0] || null;
@@ -184,6 +189,7 @@ export class DashboardAPI {
       recentTrades,
       recentRuns: runs,
       performanceHistory: snapshots.reverse(), // chronological for charting
+      strategyComparison,
     }, cors);
   }
 
@@ -239,6 +245,12 @@ export class DashboardAPI {
     const db = new Database(this.env.DB);
     const stats = await db.getStats();
     return this.json({ stats }, cors);
+  }
+
+  private async getStrategyComparison(cors: Record<string, string>): Promise<Response> {
+    const db = new Database(this.env.DB);
+    const comparison = await db.getStrategyComparison();
+    return this.json(comparison, cors);
   }
 
   private async getConfig(cors: Record<string, string>): Promise<Response> {

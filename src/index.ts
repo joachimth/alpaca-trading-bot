@@ -58,6 +58,8 @@ const FALLBACK_CONFIG = {
 
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    // Self-migration: add strategy column if missing (idempotent)
+    try { await env.DB.prepare('ALTER TABLE positions ADD COLUMN strategy TEXT').run(); } catch (_) {}
     // Dual-cron routing: Cloudflare's event.cron tells us which trigger fired
     if (event.cron === '0 22 * * 1-5') {
       // Swing trading: once daily after market close
@@ -72,6 +74,8 @@ export default {
   },
 
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // Self-migration: add strategy column if missing (idempotent)
+    try { await env.DB.prepare('ALTER TABLE positions ADD COLUMN strategy TEXT').run(); } catch (_) {}
     const api = new DashboardAPI(env, ctx);
     return api.handle(request);
   },
@@ -409,7 +413,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         signal_source: config.useAiRefinement && env.LLM_API_KEY ? 'ta+ai' : 'ta',
         reason: decision.reasoning,
         ta_data: JSON.stringify(signal.indicators),
-        ai_reasoning: JSON.stringify({ factors: decision.factors, adjusted: decision.adjustedFromTA }),
+        ai_reasoning: decision.reasoning + (decision.factors && decision.factors.length > 0 ? ' | Factors: ' + decision.factors.join('; ') : ''),
         price_at_decision: signal.indicators.price,
         executed: 0,
         execution_reason: '',
@@ -481,6 +485,9 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             await db.updateDecisionStatus(decisionId, 3, `Sell failed: ${errMsg}`);
             errors.push(`Sell failed for ${signal.indicators.symbol}: ${errMsg}`);
           }
+        } else {
+          await db.updateDecisionStatus(decisionId, 0, 'No existing position to sell — skipped (long-only bot)');
+          console.log(`Skip SELL ${signal.indicators.symbol}: no position held`);
         }
         continue;
       }
@@ -534,6 +541,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             unrealized_plpc: 0,
             stop_loss_price: riskCheck.stopLossPrice || null,
             take_profit_price: riskCheck.takeProfitPrice || null,
+            strategy: 'daytrading',
           });
 
           await db.updateDecisionStatus(decisionId, 1, `Order submitted: ${qty} shares`);

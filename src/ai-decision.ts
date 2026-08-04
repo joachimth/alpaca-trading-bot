@@ -238,6 +238,36 @@ function parseLLMResponse(response: string): {
       };
     } catch { /* fall through */ }
 
+    // Strategy 1b: Strip <think> tags and other prefix/suffix, then try JSON.parse
+    const cleaned = response.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    if (cleaned !== response.trim()) {
+      try {
+        const parsed = JSON.parse(cleaned);
+        return {
+          action: (parsed.action || 'HOLD').toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
+          confidence: Math.max(0, Math.min(1, parseFloat(parsed.confidence) || 0.5)),
+          reasoning: parsed.reasoning || 'No reasoning provided',
+          factors: Array.isArray(parsed.factors) ? parsed.factors : [reasoning],
+        };
+      } catch { /* fall through */ }
+    }
+
+    // Strategy 1c: Find first { and last } — extract substring and try parsing
+    const firstBrace = response.indexOf('{');
+    const lastBrace = response.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      const jsonCandidate = response.substring(firstBrace, lastBrace + 1);
+      try {
+        const parsed = JSON.parse(jsonCandidate);
+        return {
+          action: (parsed.action || 'HOLD').toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
+          confidence: Math.max(0, Math.min(1, parseFloat(parsed.confidence) || 0.5)),
+          reasoning: parsed.reasoning || 'No reasoning provided',
+          factors: Array.isArray(parsed.factors) ? parsed.factors : [reasoning],
+        };
+      } catch { /* fall through */ }
+    }
+
     // Strategy 2: Extract JSON object from thinking/model output
     // GLM-5p2 and DeepSeek sometimes wrap JSON in their thinking process
     const jsonMatch = response.match(/\{[^{}]*"action"[^{}]*\}/s);
@@ -262,6 +292,19 @@ function parseLLMResponse(response: string): {
         confidence: Math.max(0, Math.min(1, parseFloat(conf) || 0.5)),
         reasoning: reasoning || 'No reasoning provided',
         factors: [reasoning],
+      };
+    }
+
+    // Strategy 3b: Extract action, confidence, and reasoning with flexible quoting
+    const actionMatch = response.match(/"action"\s*:\s*"(\w+)"/i);
+    const confMatch = response.match(/"confidence"\s*:\s*([\d.]+)/i);
+    const reasoningMatch = response.match(/"reasoning"\s*:\s*"([^"]+)"/i);
+    if (actionMatch) {
+      return {
+        action: actionMatch[1].toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
+        confidence: Math.max(0, Math.min(1, parseFloat(confMatch?.[1] || '0.5'))),
+        reasoning: reasoningMatch?.[1] || 'No reasoning provided',
+        factors: reasoningMatch ? [reasoningMatch[1]] : ['LLM response partially parsed'],
       };
     }
 

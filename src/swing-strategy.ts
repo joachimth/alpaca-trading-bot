@@ -361,6 +361,7 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
           unrealized_plpc: 0,
           stop_loss_price: price * (1 - config.stopLossPct / 100),
           take_profit_price: null, // swing uses signal-based exit, not fixed TP
+          strategy: 'swing',
         });
 
         tradesExecuted++;

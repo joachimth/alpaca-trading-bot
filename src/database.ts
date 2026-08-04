@@ -150,10 +150,12 @@ export class Database {
     unrealized_plpc: number;
     stop_loss_price: number | null;
     take_profit_price: number | null;
+    strategy?: string | null;
   }): Promise<void> {
+    const strategy = pos.strategy ?? null;
     await this.db.prepare(
-      `INSERT INTO positions (ticker, side, qty, avg_entry_price, current_price, market_value, unrealized_pl, unrealized_plpc, stop_loss_price, take_profit_price, opened_at, updated_at, closed_at, closed_pl, close_reason)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), NULL, NULL, NULL)
+      `INSERT INTO positions (ticker, side, qty, avg_entry_price, current_price, market_value, unrealized_pl, unrealized_plpc, stop_loss_price, take_profit_price, strategy, opened_at, updated_at, closed_at, closed_pl, close_reason)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), NULL, NULL, NULL)
        ON CONFLICT(ticker) DO UPDATE SET
          side = excluded.side,
          qty = excluded.qty,
@@ -164,23 +166,25 @@ export class Database {
          unrealized_plpc = excluded.unrealized_plpc,
          stop_loss_price = excluded.stop_loss_price,
          take_profit_price = excluded.take_profit_price,
+         strategy = COALESCE(excluded.strategy, positions.strategy),
          opened_at = datetime('now'),
          closed_at = NULL,
          closed_pl = NULL,
          close_reason = NULL,
          updated_at = datetime('now')`
     ).bind(
-      pos.ticker,
-      pos.side,
-      pos.qty,
-      pos.avg_entry_price,
-      pos.current_price,
-      pos.market_value,
-      pos.unrealized_pl,
-      pos.unrealized_plpc,
-      pos.stop_loss_price,
-      pos.take_profit_price
-    ).run();
+        pos.ticker,
+        pos.side,
+        pos.qty,
+        pos.avg_entry_price,
+        pos.current_price,
+        pos.market_value,
+        pos.unrealized_pl,
+        pos.unrealized_plpc,
+        pos.stop_loss_price,
+        pos.take_profit_price,
+        strategy
+      ).run();
   }
 
   async closePosition(ticker: string, closedPl: number, reason: string): Promise<void> {
@@ -285,6 +289,137 @@ export class Database {
       'SELECT * FROM run_log ORDER BY timestamp DESC LIMIT ?'
     ).bind(limit).all();
     return result.results as any[];
+  }
+
+  // ============================================================
+  // Strategy comparison
+  // ============================================================
+
+  async getStrategyComparison(): Promise<any[]> {
+    // Open positions: unrealized P&L grouped by strategy
+    const openResult = await this.db.prepare(
+      `SELECT COALESCE(strategy, 'daytrading') as strategy,
+              COUNT(*) as open_positions,
+              COALESCE(SUM(unrealized_pl), 0) as unrealized_pl,
+              COALESCE(SUM(market_value), 0) as market_value
+       FROM positions WHERE closed_at IS NULL
+       GROUP BY COALESCE(strategy, 'daytrading')`
+    ).all();
+
+    // Closed positions: realized P&L grouped by strategy
+    const closedResult = await this.db.prepare(
+      `SELECT COALESCE(strategy, 'daytrading') as strategy,
+              COUNT(*) as closed_positions,
+              COALESCE(SUM(closed_pl), 0) as realized_pl,
+              SUM(CASE WHEN closed_pl > 0 THEN 1 ELSE 0 END) as wins,
+              SUM(CASE WHEN closed_pl <= 0 THEN 1 ELSE 0 END) as losses
+       FROM positions WHERE closed_at IS NOT NULL
+       GROUP BY COALESCE(strategy, 'daytrading')`
+    ).all();
+
+    // Decisions grouped by signal_source (maps to strategy)
+    const decResult = await this.db.prepare(
+      `SELECT
+         CASE
+           WHEN signal_source LIKE 'crypto%' THEN 'crypto'
+           WHEN signal_source = 'swing' THEN 'swing'
+           ELSE 'daytrading'
+         END as strategy,
+         COUNT(*) as total_decisions,
+         SUM(CASE WHEN executed = 1 THEN 1 ELSE 0 END) as executed_decisions
+       FROM decisions
+       GROUP BY strategy`
+    ).all();
+
+    // Trades grouped by strategy (via decision join)
+    const tradeResult = await this.db.prepare(
+      `SELECT
+         CASE
+           WHEN d.signal_source LIKE 'crypto%' THEN 'crypto'
+           WHEN d.signal_source = 'swing' THEN 'swing'
+           ELSE 'daytrading'
+         END as strategy,
+         COUNT(*) as total_trades,
+         SUM(CASE WHEN t.status = 'filled' THEN 1 ELSE 0 END) as filled_trades
+       FROM trades t
+       LEFT JOIN decisions d ON d.id = t.decision_id
+       GROUP BY strategy`
+    ).all();
+
+    // Closed positions time series for cumulative P&L chart
+    const timeSeriesResult = await this.db.prepare(
+      `SELECT COALESCE(strategy, 'daytrading') as strategy,
+              closed_at,
+              closed_pl
+       FROM positions
+       WHERE closed_at IS NOT NULL AND closed_pl IS NOT NULL
+       ORDER BY closed_at ASC`
+    ).all();
+
+    // Merge all into one structure
+    const strategies: Record<string, any> = {};
+    const ensure = (s: string) => {
+      if (!strategies[s]) {
+        strategies[s] = {
+          strategy: s,
+          openPositions: 0,
+          unrealizedPl: 0,
+          marketValue: 0,
+          closedPositions: 0,
+          realizedPl: 0,
+          wins: 0,
+          losses: 0,
+          totalDecisions: 0,
+          executedDecisions: 0,
+          totalTrades: 0,
+          filledTrades: 0,
+        };
+      }
+      return strategies[s];
+    };
+
+    for (const r of openResult.results as any[]) {
+      const s = ensure(r.strategy);
+      s.openPositions = r.open_positions;
+      s.unrealizedPl = r.unrealized_pl;
+      s.marketValue = r.market_value;
+    }
+    for (const r of closedResult.results as any[]) {
+      const s = ensure(r.strategy);
+      s.closedPositions = r.closed_positions;
+      s.realizedPl = r.realized_pl;
+      s.wins = r.wins;
+      s.losses = r.losses;
+    }
+    for (const r of decResult.results as any[]) {
+      const s = ensure(r.strategy);
+      s.totalDecisions = r.total_decisions;
+      s.executedDecisions = r.executed_decisions;
+    }
+    for (const r of tradeResult.results as any[]) {
+      const s = ensure(r.strategy);
+      s.totalTrades = r.total_trades;
+      s.filledTrades = r.filled_trades;
+    }
+
+    // Compute derived fields
+    const result = Object.values(strategies);
+    for (const s of result) {
+      s.totalPl = s.realizedPl + s.unrealizedPl;
+      s.winRate = (s.wins + s.losses) > 0 ? (s.wins / (s.wins + s.losses)) * 100 : 0;
+    }
+
+    // Build cumulative P&L time series per strategy
+    const timeSeries: Record<string, { timestamp: string; cumulativePl: number }[]> = {};
+    const runningTotals: Record<string, number> = {};
+    for (const r of timeSeriesResult.results as any[]) {
+      const strat = r.strategy;
+      if (!timeSeries[strat]) { timeSeries[strat] = []; runningTotals[strat] = 0; }
+      runningTotals[strat] += r.closed_pl;
+      timeSeries[strat].push({ timestamp: r.closed_at, cumulativePl: runningTotals[strat] });
+    }
+
+    return { strategies: result, timeSeries };
   }
 
   // ============================================================

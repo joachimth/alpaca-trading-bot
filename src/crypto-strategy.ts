@@ -340,7 +340,7 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
         signal_source: env.LLM_API_KEY ? 'crypto+ai' : 'crypto',
         reason: decision.reason || decision.reasoning || (signal.reasons ? signal.reasons.join('; ') : ''),
         ta_data: JSON.stringify(indicators),
-        ai_reasoning: decision.factors ? JSON.stringify({ factors: decision.factors, adjusted: decision.adjustedFromTA }) : '',
+        ai_reasoning: decision.reasoning || decision.reason || (decision.factors ? decision.factors.join('; ') : ''),
         price_at_decision: indicators.price,
         executed: 0,
         execution_reason: '',
@@ -375,6 +375,8 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
             await db.updateDecisionStatus(decisionId, 3, `Close failed: ${errMsg}`);
             errors.push(`Crypto close failed ${symbol}: ${errMsg}`);
           }
+        } else {
+          await db.updateDecisionStatus(decisionId, 0, 'No existing position to sell — skipped');
         }
         continue;
       }
@@ -430,6 +432,7 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
               unrealized_plpc: 0,
               stop_loss_price: riskCheck.stopLossPrice,
               take_profit_price: riskCheck.takeProfitPrice,
+              strategy: 'crypto',
             });
 
             await db.updateDecisionStatus(decisionId, 1, `Order: ${riskCheck.adjustedQty} units`);

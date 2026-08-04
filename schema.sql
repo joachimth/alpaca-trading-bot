@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS positions (
   stop_loss_price REAL,
   take_profit_price REAL,
   trailing_stop_enabled INTEGER NOT NULL DEFAULT 1,
+  strategy TEXT,                              -- 'daytrading', 'swing', 'crypto'
   opened_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   closed_at TEXT,
@@ -220,5 +221,5 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
     ('crypto_max_capital_usd', '2000'),
     ('crypto_use_ai_refinement', 'true'),
     ('crypto_scan_universe_size', '15'),
-    ('version', '2.4.0');
+    ('version', '2.6.0');
   ('version', '2.0.0');

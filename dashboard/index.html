@@ -238,6 +238,16 @@
         </div>
         <div class="chart-container"><canvas id="equityChart"></canvas></div>
       </div>
+        <div class="chart-section">
+          <div class="section-title"><span>Strategy Comparison</span>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <button class="range-btn active" id="cmpViewBars" onclick="setCmpView('bars')">P&L Bars</button>
+              <button class="range-btn" id="cmpViewLine" onclick="setCmpView('line')">Cumulative P&L</button>
+            </div>
+          </div>
+          <div class="chart-container" style="height:220px"><canvas id="strategyChart"></canvas></div>
+          <div id="strategySummary" style="margin-top:16px;"></div>
+        </div>
       <div class="grid-2col">
         <div class="table-section">
           <div class="section-title"><span>All Open Positions</span><button class="danger-btn" onclick="closeAllPositions()">Close All</button></div>
@@ -293,7 +303,7 @@
       <div class="table-section"><div class="section-title"><span>Crypto Run History</span></div><div id="runsTableCrypto"><div class="loading">Loading...</div></div></div>
     </div>
 
-    <div class="footer">Alpaca AI Trading Bot v2.4.0 - Cloudflare Worker + D1 - Paper Trading<br>Daytrading: 5-min cron | Swing: daily 22:00 UTC | Crypto: every 4h 24/7 | Auto-refresh 30s</div>
+    <div class="footer">Alpaca AI Trading Bot v2.6.0 - Cloudflare Worker + D1 - Paper Trading<br>Daytrading: 5-min cron | Swing: daily 22:00 UTC | Crypto: every 4h 24/7 | Auto-refresh 30s</div>
   </div>
   <script>
     const API_BASE = 'https://alpaca-trading-bot.joachim-763.workers.dev';
@@ -301,6 +311,7 @@
     let dashboardData = null;
     let chartRangeMode = 'recent'; // 'recent' or 'all'
     let allTimeHistory = null; // cached all-time performance data
+    let cmpViewMode = 'bars'; // 'bars' or 'line'
     async function fetchAPI(path) {
       try { const r = await fetch(API_BASE + path); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.json(); }
       catch (e) { console.error('API error for ' + path, e); return null; }
@@ -346,6 +357,8 @@
         document.getElementById('mTradesSub').textContent = data.stats.totalDecisions + ' decisions';
       }
       if (data.performanceHistory && data.performanceHistory.length > 0) updateEquityChart();
+      drawStrategyChart();
+      renderStrategySummary();
       renderTab(currentTab);
     }
     async function setChartRange(mode) {
@@ -437,6 +450,207 @@
         const label = snaps.length > 200 ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         ctx.fillText(label, x, h - 8);
       }
+    }
+    const STRATEGY_COLORS = { daytrading: '#2979ff', swing: '#ff9100', crypto: '#aa00ff' };
+    const STRATEGY_LABELS = { daytrading: 'Daytrading', swing: 'Swing', crypto: 'Crypto' };
+    function setCmpView(mode) {
+      cmpViewMode = mode;
+      document.getElementById('cmpViewBars').classList.toggle('active', mode === 'bars');
+      document.getElementById('cmpViewLine').classList.toggle('active', mode === 'line');
+      drawStrategyChart();
+    }
+    function drawStrategyChart() {
+      const c = document.getElementById('strategyChart');
+      if (!c) return;
+      const cmp = dashboardData ? dashboardData.strategyComparison : null;
+      if (!cmp || !cmp.strategies) { return; }
+      const ctx = c.getContext('2d');
+      const r = c.getBoundingClientRect(); c.width = r.width * devicePixelRatio; c.height = r.height * devicePixelRatio;
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+      const w = r.width, h = r.height, p = { t: 10, r: 10, b: 30, l: 70 };
+      const cw = w - p.l - p.r, ch = h - p.t - p.b;
+      ctx.clearRect(0, 0, w, h);
+      if (cmpViewMode === 'bars') {
+        drawStrategyBars(ctx, w, h, p, cw, ch, cmp.strategies);
+      } else {
+        drawStrategyLines(ctx, w, h, p, cw, ch, cmp);
+      }
+    }
+    function drawStrategyBars(ctx, w, h, p, cw, ch, strategies) {
+      const allStrats = ['daytrading', 'swing', 'crypto'];
+      const metrics = ['realizedPl', 'unrealizedPl', 'totalPl'];
+      const metricLabels = ['Realized', 'Unrealized', 'Total'];
+      const metricColors = ['#00c853', '#ff9100', '#2979ff'];
+      // Find max abs value for scaling
+      let maxAbs = 0;
+      for (const s of strategies) { for (const m of metrics) { maxAbs = Math.max(maxAbs, Math.abs(s[m] || 0)); } }
+      if (maxAbs === 0) { ctx.fillStyle = '#6b7689'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillText('No P&L data yet', w / 2, h / 2); return; }
+      const yRange = maxAbs * 1.2, yMin = -yRange, yMax = yRange;
+      const zeroY = p.t + ch - ((0 - yMin) / (yMax - yMin)) * ch;
+      // Y-axis grid
+      ctx.strokeStyle = '#1e2638'; ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = p.t + (ch / 4) * i;
+        ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(p.l + cw, y); ctx.stroke();
+        const v = yMax - ((yMax - yMin) / 4) * i;
+        ctx.fillStyle = '#6b7689'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+        ctx.fillText((v >= 0 ? '$' : '-$') + Math.abs(v).toFixed(0), p.l - 8, y + 3);
+      }
+      // Zero line
+      ctx.strokeStyle = '#2a3548'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(p.l, zeroY); ctx.lineTo(p.l + cw, zeroY); ctx.stroke();
+      // Draw grouped bars
+      const groupW = cw / allStrats.length;
+      const barW = groupW / (metrics.length + 1) * 0.85;
+      const groupPad = (groupW - barW * metrics.length) / 2;
+      for (let si = 0; si < allStrats.length; si++) {
+        const strat = allStrats[si];
+        const data = strategies.find(s => s.strategy === strat) || { strategy: strat, realizedPl: 0, unrealizedPl: 0, totalPl: 0 };
+        const gx = p.l + si * groupW + groupPad;
+        for (let mi = 0; mi < metrics.length; mi++) {
+          const val = data[metrics[mi]] || 0;
+          const barH = Math.abs(val) / yRange * (ch / 2);
+          const bx = gx + mi * barW;
+          const by = val >= 0 ? zeroY - barH : zeroY;
+          ctx.fillStyle = metricColors[mi];
+          ctx.globalAlpha = 0.85;
+          ctx.fillRect(bx, by, barW * 0.9, barH);
+          ctx.globalAlpha = 1;
+          // Value label on top/bottom
+          ctx.fillStyle = val >= 0 ? '#00c853' : '#ff1744';
+          ctx.font = '9px monospace'; ctx.textAlign = 'center';
+          const labelY = val >= 0 ? by - 4 : by + barH + 10;
+          ctx.fillText((val >= 0 ? '+' : '') + val.toFixed(0), bx + barW * 0.45, labelY);
+        }
+        // Strategy label
+        ctx.fillStyle = STRATEGY_COLORS[strat] || '#e0e6f0';
+        ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(STRATEGY_LABELS[strat] || strat, gx + (barW * metrics.length) / 2, h - 8);
+      }
+      // Legend
+      ctx.font = '9px monospace'; ctx.textAlign = 'left';
+      for (let mi = 0; mi < metrics.length; mi++) {
+        const lx = p.l + 4 + mi * 65;
+        ctx.fillStyle = metricColors[mi];
+        ctx.fillRect(lx, p.t + 2, 8, 8);
+        ctx.fillStyle = '#6b7689';
+        ctx.fillText(metricLabels[mi], lx + 12, p.t + 10);
+      }
+    }
+    function drawStrategyLines(ctx, w, h, p, cw, ch, cmp) {
+      const ts = cmp.timeSeries || {};
+      const allStrats = ['daytrading', 'swing', 'crypto'];
+      // Check if any data
+      let totalPoints = 0;
+      for (const s of allStrats) { totalPoints += (ts[s] || []).length; }
+      if (totalPoints === 0) { ctx.fillStyle = '#6b7689'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillText('No closed positions yet', w / 2, h / 2); return; }
+      // Find global y range
+      let yMin = 0, yMax = 0;
+      for (const s of allStrats) {
+        for (const pt of (ts[s] || [])) {
+          yMin = Math.min(yMin, pt.cumulativePl);
+          yMax = Math.max(yMax, pt.cumulativePl);
+        }
+      }
+      const yRange = (yMax - yMin) || 1, pr = yRange * 0.15;
+      yMin -= pr; yMax += pr;
+      // Find global x range (timestamps)
+      let xMin = Infinity, xMax = -Infinity;
+      for (const s of allStrats) {
+        for (const pt of (ts[s] || [])) {
+          const t = new Date(pt.timestamp.includes('T') ? pt.timestamp + 'Z' : pt.timestamp).getTime();
+          xMin = Math.min(xMin, t); xMax = Math.max(xMax, t);
+        }
+      }
+      if (xMin === xMax) { xMin -= 3600000; xMax += 3600000; }
+      // Y-axis grid
+      ctx.strokeStyle = '#1e2638'; ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = p.t + (ch / 4) * i;
+        ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(p.l + cw, y); ctx.stroke();
+        const v = yMax - ((yMax - yMin) / 4) * i;
+        ctx.fillStyle = '#6b7689'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+        ctx.fillText((v >= 0 ? '$' : '-$') + Math.abs(v).toFixed(0), p.l - 8, y + 3);
+      }
+      // Zero line
+      const zeroY = p.t + ch - ((0 - yMin) / (yMax - yMin)) * ch;
+      ctx.strokeStyle = '#2a3548'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(p.l, zeroY); ctx.lineTo(p.l + cw, zeroY); ctx.stroke();
+      // Draw lines per strategy
+      for (const s of allStrats) {
+        const points = ts[s] || [];
+        if (points.length === 0) continue;
+        ctx.strokeStyle = STRATEGY_COLORS[s] || '#e0e6f0';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Start from zero
+        const firstT = new Date(points[0].timestamp.includes('T') ? points[0].timestamp + 'Z' : points[0].timestamp).getTime();
+        const startX = p.l + ((firstT - xMin) / (xMax - xMin)) * cw;
+        const startY = p.t + ch - ((0 - yMin) / (yMax - yMin)) * ch;
+        ctx.moveTo(startX, startY);
+        for (const pt of points) {
+          const t = new Date(pt.timestamp.includes('T') ? pt.timestamp + 'Z' : pt.timestamp).getTime();
+          const x = p.l + ((t - xMin) / (xMax - xMin)) * cw;
+          const y = p.t + ch - ((pt.cumulativePl - yMin) / (yMax - yMin)) * ch;
+          ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        // End dot
+        if (points.length > 0) {
+          const last = points[points.length - 1];
+          const t = new Date(last.timestamp.includes('T') ? last.timestamp + 'Z' : last.timestamp).getTime();
+          const x = p.l + ((t - xMin) / (xMax - xMin)) * cw;
+          const y = p.t + ch - ((last.cumulativePl - yMin) / (yMax - yMin)) * ch;
+          ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = STRATEGY_COLORS[s] || '#e0e6f0'; ctx.fill();
+        }
+      }
+      // Legend
+      ctx.font = '9px monospace'; ctx.textAlign = 'left';
+      for (let si = 0; si < allStrats.length; si++) {
+        const s = allStrats[si];
+        const lx = p.l + 4 + si * 75;
+        ctx.fillStyle = STRATEGY_COLORS[s];
+        ctx.fillRect(lx, p.t + 2, 8, 8);
+        ctx.fillStyle = '#6b7689';
+        ctx.fillText(STRATEGY_LABELS[s], lx + 12, p.t + 10);
+      }
+      // X-axis labels
+      ctx.fillStyle = '#6b7689'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+      for (let i = 0; i <= 4; i++) {
+        const t = xMin + (xMax - xMin) * (i / 4);
+        const x = p.l + (cw / 4) * i;
+        const d = new Date(t);
+        ctx.fillText(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), x, h - 8);
+      }
+    }
+    function renderStrategySummary() {
+      const el = document.getElementById('strategySummary');
+      if (!el) return;
+      const cmp = dashboardData ? dashboardData.strategyComparison : null;
+      if (!cmp || !cmp.strategies || cmp.strategies.length === 0) { el.innerHTML = ''; return; }
+      const order = ['daytrading', 'swing', 'crypto'];
+      const sorted = order.map(o => cmp.strategies.find(s => s.strategy === o)).filter(Boolean);
+      let h = '<table><thead><tr><th>Strategy</th><th>Decisions</th><th>Trades</th><th>Open Pos</th><th>Realized P&L</th><th>Unrealized P&L</th><th>Total P&L</th><th>Win Rate</th><th>Mkt Value</th></tr></thead><tbody>';
+      for (const s of sorted) {
+        const tp = s.totalPl || 0;
+        const tc = tp >= 0 ? 'positive' : 'negative';
+        const rc = (s.realizedPl || 0) >= 0 ? 'positive' : 'negative';
+        const uc = (s.unrealizedPl || 0) >= 0 ? 'positive' : 'negative';
+        const color = STRATEGY_COLORS[s.strategy] || '#e0e6f0';
+        h += '<tr><td><strong style="color:' + color + '">' + (STRATEGY_LABELS[s.strategy] || s.strategy) + '</strong></td>';
+        h += '<td>' + (s.totalDecisions || 0) + ' <span style="color:var(--text-muted)">(' + (s.executedDecisions || 0) + ' exec)</span></td>';
+        h += '<td>' + (s.filledTrades || 0) + ' / ' + (s.totalTrades || 0) + '</td>';
+        h += '<td>' + (s.openPositions || 0) + '</td>';
+        h += '<td class="' + rc + '">' + fmtMoney(s.realizedPl || 0) + '</td>';
+        h += '<td class="' + uc + '">' + fmtMoney(s.unrealizedPl || 0) + '</td>';
+        h += '<td class="' + tc + '">' + (tp >= 0 ? '+' : '') + fmtMoney(tp, 2) + '</td>';
+        h += '<td>' + (s.winRate || 0).toFixed(0) + '% <span style="color:var(--text-muted)">(' + (s.wins || 0) + 'W ' + (s.losses || 0) + 'L)</span></td>';
+        h += '<td>' + fmtMoney(s.marketValue || 0, 0) + '</td>';
+        h += '</tr>';
+      }
+      h += '</tbody></table>';
+      el.innerHTML = h;
     }
     function renderPositions(ps, elId, showClose) {
       const el = document.getElementById(elId);
