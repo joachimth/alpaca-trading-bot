@@ -128,6 +128,15 @@ export class Database {
     ).bind(status, fillPrice, avgFillPrice, orderId).run();
   }
 
+  async getTradesNeedingSync(limit: number = 200): Promise<any[]> {
+    const result = await this.db.prepare(
+      `SELECT * FROM trades
+       WHERE status NOT IN ('filled', 'canceled', 'cancelled', 'rejected', 'expired')
+       ORDER BY timestamp DESC LIMIT ?`
+    ).bind(limit).all();
+    return result.results as any[];
+  }
+
   async getRecentTrades(limit: number = 50): Promise<any[]> {
     const result = await this.db.prepare(
       'SELECT * FROM trades ORDER BY timestamp DESC LIMIT ?'
@@ -260,15 +269,15 @@ export class Database {
   // ============================================================
 
   async logRun(run: {
-    trigger: string;
-    market_open: number;
-    duration_ms: number;
-    decisions_made: number;
-    trades_executed: number;
-    errors: number;
-    error_details: string | null;
-    status: string;
-  }): Promise<void> {
+      trigger: string;
+      market_open: number;
+      duration_ms: number;
+      decisions_made: number;
+      trades_executed: number;
+      errors: number;
+      error_details: string | null;
+      status: string;
+    }): Promise<void> {
     await this.db.prepare(
       `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`

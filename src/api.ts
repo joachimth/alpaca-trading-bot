@@ -11,11 +11,9 @@ import { analyze } from './technical-analysis';
 
 export class DashboardAPI {
     private env: Env;
-    private ctx: ExecutionContext | undefined;
 
-    constructor(env: Env, ctx?: ExecutionContext) {
+    constructor(env: Env) {
       this.env = env;
-      this.ctx = ctx;
     }
 
   async handle(request: Request): Promise<Response> {
@@ -160,13 +158,36 @@ export class DashboardAPI {
       status,
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, max-age=0',
         ...corsHeaders,
       },
     });
   }
 
+  private async reconcileTrades(db: Database, alpaca: AlpacaClient): Promise<void> {
+    const pending = await db.getTradesNeedingSync(200);
+    if (pending.length === 0) return;
+    const orders = await alpaca.getRecentOrders(100);
+    const byId = new Map(orders.map(order => [order.id, order]));
+    for (const trade of pending) {
+      const order = byId.get(trade.alpaca_order_id);
+      if (!order) continue;
+      await db.updateTradeStatus(
+        order.id,
+        order.status,
+        order.filled_avg_price,
+        order.filled_avg_price,
+      );
+    }
+  }
+
   private async getDashboard(cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB);
+    try {
+      await this.reconcileTrades(db, this.getAlpacaClient());
+    } catch (e) {
+      console.error('Trade reconciliation failed:', e);
+    }
     const [stats, recentDecisions, recentTrades, runs, snapshots, positions, strategyComparison] = await Promise.all([
       db.getStats(),
       db.getRecentDecisions(20),
@@ -223,6 +244,7 @@ export class DashboardAPI {
 
   private async getTrades(url: URL, cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB);
+    try { await this.reconcileTrades(db, this.getAlpacaClient()); } catch (e) { console.error('Trade reconciliation failed:', e); }
     const limit = parseInt(url.searchParams.get('limit') || '50');
     const trades = await db.getRecentTrades(limit);
     return this.json({ trades }, cors);
@@ -243,12 +265,14 @@ export class DashboardAPI {
 
   private async getStats(cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB);
+    try { await this.reconcileTrades(db, this.getAlpacaClient()); } catch (e) { console.error('Trade reconciliation failed:', e); }
     const stats = await db.getStats();
     return this.json({ stats }, cors);
   }
 
   private async getStrategyComparison(cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB);
+    try { await this.reconcileTrades(db, this.getAlpacaClient()); } catch (e) { console.error('Trade reconciliation failed:', e); }
     const comparison = await db.getStrategyComparison();
     return this.json(comparison, cors);
   }
@@ -273,15 +297,10 @@ export class DashboardAPI {
 
   private async triggerSwingCycle(cors: Record<string, string>): Promise<Response> {
     try {
-      const ctx = this.ctx;
-      if (ctx) {
-        ctx.waitUntil(runSwingCycle(this.env, 'manual_swing'));
-      } else {
-        runSwingCycle(this.env, 'manual_swing');
-      }
+      await runSwingCycle(this.env, 'manual_swing');
       return this.json({
-        message: 'Swing cycle triggered. Running now.',
-        status: 'running'
+        message: 'Swing cycle completed.',
+        status: 'completed'
       }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);
@@ -290,16 +309,10 @@ export class DashboardAPI {
 
   private async triggerCryptoCycle(cors: Record<string, string>): Promise<Response> {
     try {
-      if (this.ctx) {
-        this.ctx.waitUntil(runCryptoCycle(this.env, 'manual_crypto').catch(e => {
-          console.error('Crypto cycle error:', e);
-        }));
-      } else {
-        await runCryptoCycle(this.env, 'manual_crypto');
-      }
+      await runCryptoCycle(this.env, 'manual_crypto');
       return this.json({
-        message: 'Crypto cycle triggered. Running now.',
-        status: 'running'
+        message: 'Crypto cycle completed.',
+        status: 'completed'
       }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);

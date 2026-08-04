@@ -76,7 +76,7 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Self-migration: add strategy column if missing (idempotent)
     try { await env.DB.prepare('ALTER TABLE positions ADD COLUMN strategy TEXT').run(); } catch (_) {}
-    const api = new DashboardAPI(env, ctx);
+    const api = new DashboardAPI(env);
     return api.handle(request);
   },
 };

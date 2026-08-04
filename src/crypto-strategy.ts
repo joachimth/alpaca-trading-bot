@@ -157,7 +157,7 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
     if (riskManager.isTradingHalted()) {
       console.error(`Crypto: trading halted — ${riskManager.isTradingHalted()}`);
       await db.logRun({
-        trigger: 'crypto_cron',
+        trigger,
         market_open: 1, // crypto always "open"
         duration_ms: Date.now() - startTime,
         decisions_made: 0,
@@ -255,7 +255,7 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
     if (validTA.length < 3) {
       errors.push(`Too few crypto coins with valid TA: ${validTA.length}`);
       await db.logRun({
-        trigger: 'crypto_cron',
+        trigger,
         market_open: 1,
         duration_ms: Date.now() - startTime,
         decisions_made: 0,
@@ -469,7 +469,7 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
     }
 
     await db.logRun({
-      trigger: 'crypto_cron',
+      trigger,
       market_open: 1,
       duration_ms: Date.now() - startTime,
       decisions_made: decisionsMade,
@@ -485,7 +485,7 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
     errors.push(`Fatal: ${errMsg}`);
     console.error('Crypto cycle failed:', error);
     await db.logRun({
-      trigger: 'crypto_cron',
+      trigger,
       market_open: 1,
       duration_ms: Date.now() - startTime,
       decisions_made: decisionsMade,
