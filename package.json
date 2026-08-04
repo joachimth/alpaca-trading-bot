@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "db:create": "wrangler d1 create trading-bot",
-    "db:migrate": "wrangler d1 execute trading-bot --file=schema.sql",
-    "db:migrate:remote": "wrangler d1 execute trading-bot --remote --file=schema.sql",
+    "db:create": "wrangler d1 create alpaca-trading-bot",
+    "db:migrate": "wrangler d1 execute alpaca-trading-bot --file=schema.sql",
+    "db:migrate:remote": "wrangler d1 execute alpaca-trading-bot --remote --file=schema.sql",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
@@ -16,6 +16,6 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240620.0",
     "typescript": "^5.5.0",
-    "wrangler": "^3.60.0"
+    "wrangler": "^4.118.0"
   }
 }

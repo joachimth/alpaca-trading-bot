@@ -222,9 +222,10 @@
     <div class="tab-content active" id="contentOverview">
       <div class="info-card">
         <strong>Three strategies on the same account:</strong>
-        <span class="strategy-badge strategy-day">Daytrading</span> TA + AI, 5-min bars, EOD flatten.
+                  <span style="display:block;color:var(--text-muted);margin:6px 0 8px">Current positions come from Alpaca through the Worker API. If the broker is unavailable, stale D1 positions are not shown.</span>
+                  <span class="strategy-badge strategy-day">Daytrading</span>
         <span class="strategy-badge strategy-swing">Swing</span> Cross-sectional ranking, daily bars, 2-30 day holds.
-        <span class="strategy-badge strategy-crypto">Crypto</span> 24/7, 15-min bars, 30-min cycles, no gap risk.
+        <span class="strategy-badge strategy-crypto">Crypto</span> 24/7, 15-min bars, :07/:37 UTC cycles, no gap risk.<br><span style="color:var(--text-muted)">Current positions come from Alpaca through the Worker API. If the broker is unavailable, stale D1 positions are not shown.</span>
       </div>
       <div class="metrics-grid" id="metricsGrid">
         <div class="metric-card"><div class="metric-label">Portfolio Value</div><div class="metric-value neutral" id="mPortfolio">-</div><div class="metric-sub" id="mPortfolioSub">Loading...</div></div>
@@ -266,7 +267,7 @@
         </div>
       </div>
       <div class="table-section"><div class="section-title"><span>Recent Trades (All)</span></div><div id="tradesTableAll"><div class="loading">Loading trades...</div></div></div>
-      <div class="table-section"><div class="section-title"><span>Run History (All)</span></div><div id="runsTableAll"><div class="loading">Loading runs...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Run History (All)</span></div><div class="run-history-note">Orders submitted = orders sent to Alpaca. They may be pending, rejected, canceled, partially filled, or filled.</div><div id="runsTableAll"><div class="loading">Loading runs...</div></div></div>
     </div>
 
     <div class="tab-content" id="contentDaytrading">
@@ -279,7 +280,7 @@
         <div class="table-section"><div class="section-title"><span>Daytrading Decisions</span></div><div id="decisionsTableDay"><div class="loading">Loading...</div></div></div>
       </div>
       <div class="table-section"><div class="section-title"><span>Daytrading Trades</span></div><div id="tradesTableDay"><div class="loading">Loading...</div></div></div>
-      <div class="table-section"><div class="section-title"><span>Daytrading Run History</span></div><div class="run-history-note">Orders submitted = orders sent to Alpaca. They may be pending, rejected, partially filled, or filled.</div><div id="runsTableDay"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Daytrading Run History</span></div><div class="run-history-note">Orders submitted = orders sent to Alpaca. They may be pending, rejected, canceled, partially filled, or filled.</div><div id="runsTableDay"><div class="loading">Loading...</div></div></div>
     </div>
 
     <div class="tab-content" id="contentSwing">
@@ -293,7 +294,7 @@
         <div class="table-section"><div class="section-title"><span>Swing Decisions (Ranking)</span></div><div id="decisionsTableSwing"><div class="loading">Loading...</div></div></div>
       </div>
       <div class="table-section"><div class="section-title"><span>Swing Trades</span></div><div id="tradesTableSwing"><div class="loading">Loading...</div></div></div>
-      <div class="table-section"><div class="section-title"><span>Swing Run History</span></div><div class="run-history-note">Orders submitted = orders sent to Alpaca. They may be pending, rejected, partially filled, or filled.</div><div id="runsTableSwing"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Swing Run History</span></div><div class="run-history-note">Orders submitted = orders sent to Alpaca. They may be pending, rejected, canceled, partially filled, or filled.</div><div id="runsTableSwing"><div class="loading">Loading...</div></div></div>
     </div>
 
     <div class="tab-content" id="contentCrypto">
@@ -307,7 +308,7 @@
         <div class="table-section"><div class="section-title"><span>Crypto Decisions</span></div><div id="decisionsTableCrypto"><div class="loading">Loading...</div></div></div>
       </div>
       <div class="table-section"><div class="section-title"><span>Crypto Trades</span></div><div id="tradesTableCrypto"><div class="loading">Loading...</div></div></div>
-      <div class="table-section"><div class="section-title"><span>Crypto Run History</span></div><div class="run-history-note">Orders submitted = orders sent to Alpaca. They may be pending, rejected, partially filled, or filled.</div><div id="runsTableCrypto"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Crypto Run History</span></div><div class="run-history-note">Orders submitted = orders sent to Alpaca. They may be pending, rejected, canceled, partially filled, or filled.</div><div id="runsTableCrypto"><div class="loading">Loading...</div></div></div>
     </div>
 
     <div class="footer">Alpaca AI Trading Bot v2.6.0 - Cloudflare Worker + D1 - Paper Trading<br>Daytrading: 5-min cron | Swing: daily 22:00 UTC | Crypto: every 30min 24/7 | Auto-refresh 30s</div>
@@ -754,7 +755,7 @@
     }
     function renderTrades(ts, elId) {
       const el = document.getElementById(elId);
-      if (!ts || !ts.length) { el.innerHTML = '<div class="loading">No trades executed yet</div>'; return; }
+      if (!ts || !ts.length) { el.innerHTML = '<div class="loading">No persisted trade records yet</div>'; return; }
       let h = '<table><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Fill Price</th><th>Est. Value</th><th>Status</th></tr></thead><tbody>';
       for (const t of ts.slice(0, 20)) { const sc = t.side === 'buy' ? 'positive' : 'negative'; const stc = t.status === 'filled' ? 'var(--green)' : t.status === 'rejected' || t.status === 'canceled' ? 'var(--red)' : 'var(--yellow)'; h += '<tr><td>' + fmtTime(t.timestamp) + '</td><td><strong>' + t.ticker + '</strong></td><td class="' + sc + '">' + t.side.toUpperCase() + '</td><td>' + t.qty + '</td><td>' + (t.avg_fill_price ? '$' + t.avg_fill_price.toFixed(2) : '-') + '</td><td>' + fmtMoney(t.estimated_value) + '</td><td style="color:' + stc + '">' + t.status + '</td></tr>'; }
       h += '</tbody></table>'; el.innerHTML = h;
@@ -768,8 +769,8 @@
     }
     async function closePosition(s) { if (!confirm('Close position for ' + s + '?')) return; const r = await fetch(API_BASE + '/api/positions/close?symbol=' + s, { method: 'POST' }); if (r.ok) { alert('Closed ' + s); loadDashboard(); } else alert('Failed'); }
     async function closeAllPositions() { if (!confirm('Close ALL positions?')) return; const r = await fetch(API_BASE + '/api/positions/close-all', { method: 'POST' }); if (r.ok) { alert('All positions closed'); loadDashboard(); } else alert('Failed'); }
-    async function triggerSwing() { if (!confirm('Trigger swing cycle? It will run on the next cron tick.')) return; const r = await fetch(API_BASE + '/api/trigger-swing', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
-    async function triggerCrypto() { if (!confirm('Trigger crypto cycle? It will run on the next 30-minute cron tick.')) return; const r = await fetch(API_BASE + '/api/trigger-crypto', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
+    async function triggerSwing() { if (!confirm('Trigger swing cycle now? This calls the Worker API and runs immediately.')) return; const r = await fetch(API_BASE + '/api/trigger-swing', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
+    async function triggerCrypto() { if (!confirm('Trigger crypto cycle now? This calls the Worker API and runs immediately.')) return; const r = await fetch(API_BASE + '/api/trigger-crypto', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
     loadDashboard();
     // Tab scroll hint: fade gradient when scrolled to end
     (function() {

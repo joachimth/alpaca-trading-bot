@@ -9,10 +9,10 @@ binding = "DB"
 database_name = "alpaca-trading-bot"
 database_id = "2bc505a2-d744-4322-8c3b-5f5ebe35f9a1"
 
-# Cron triggers:
-# 1. Daytrading: broad UTC-safe window, Alpaca clock is authoritative
-# 2. Swing: once daily after market close (22:00 UTC, Mon-Fri)
-# 3. Crypto: every 30 minutes at :07/:37, 24/7
+# Cron triggers, all expressed in UTC:
+# 1. Daytrading: broad window; the Alpaca market clock gates execution inside it.
+# 2. Swing: once daily after market close at 22:00 UTC, Mon-Fri.
+# 3. Crypto: 24/7 at :07 and :37 UTC, every 30 minutes.
 [triggers]
 crons = ["*/5 13-21 * * 1-5", "0 22 * * 1-5", "7-59/30 * * * *"]
 

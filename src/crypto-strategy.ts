@@ -2,7 +2,7 @@
 // 24/7 operation, no market hours, no gap risk, no PDT rule
 // Reuses TA engine (RSI, MACD, EMA, ATR, Bollinger) on crypto bars
 // Key differences from daytrading:
-// - Runs every 15 min (crypto moves fast but 24/7 = more cycles)
+// - Runs every 30 min at :07/:37 UTC (24/7 cadence)
 // - No EOD flatten (crypto never closes)
 // - No gap risk (continuous market)
 // - Wider stops (crypto is more volatile)
@@ -58,7 +58,7 @@ const CRYPTO_FALLBACK_CONFIG = {
   eodFlatten: false,           // crypto never closes
   minHoldMinutes: 30,          // 30 min min hold (2 cycles)
   reentryCooldownMinutes: 60,  // 1 hour cooldown after selling
-  maxTradesPerCycle: 2,        // max 2 trades per 15-min cycle
+  maxTradesPerCycle: 2,        // max 2 trades per 30-min cycle
   maxCapitalUsd: 2000,         // ~13,000 DKK cap for crypto
 };
 
