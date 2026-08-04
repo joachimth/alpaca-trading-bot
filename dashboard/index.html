@@ -413,8 +413,8 @@
         renderTrades(allTr, 'tradesTableSwing');
         renderRuns(swRun, 'runsTableSwing');
       } else if (tab === 'crypto') {
-        const crDec = allDec.filter(d => d.signal_source === 'crypto');
-        const crRun = allRun.filter(r => r.trigger === 'crypto_cron');
+        const crDec = allDec.filter(d => (d.signal_source || '').startsWith('crypto'));
+        const crRun = allRun.filter(r => r.trigger === 'crypto_cron' || r.trigger === 'manual_crypto');
         renderPositions(allPos, 'positionsTableCrypto', false);
         renderDecisions(crDec, 'decisionsTableCrypto');
         renderTrades(allTr, 'tradesTableCrypto');
@@ -668,7 +668,7 @@
       for (const d of ds.slice(0, 15)) {
         const cc = d.confidence >= 0.7 ? '#00c853' : d.confidence >= 0.5 ? '#ff9100' : d.confidence >= 0 ? '#546e7a' : '#ff1744';
         const st = d.executed === 1 ? '<span style="color:var(--green)">Executed</span>' : d.executed === 2 ? '<span style="color:var(--text-muted)">Skipped</span>' : d.executed === 3 ? '<span style="color:var(--red)">Failed</span>' : '<span style="color:var(--yellow)">Pending</span>';
-        let src; if (d.signal_source === 'swing') src = '<span class="signal-source signal-swing">SWING</span>'; else if (d.signal_source === 'crypto') src = '<span class="signal-source signal-crypto">CRYPTO</span>'; else if (d.signal_source === 'ta+ai') src = '<span class="signal-source signal-ai">TA+AI</span>'; else if (d.signal_source === 'ai') src = '<span class="signal-source signal-ai">AI</span>'; else src = '<span class="signal-source signal-ta">TA</span>';
+        let src; if (d.signal_source === 'swing') src = '<span class="signal-source signal-swing">SWING</span>'; else if ((d.signal_source || '').startsWith('crypto')) src = '<span class="signal-source signal-crypto">CRYPTO+AI</span>'; else if (d.signal_source === 'ta+ai') src = '<span class="signal-source signal-ai">TA+AI</span>'; else if (d.signal_source === 'ai') src = '<span class="signal-source signal-ai">AI</span>'; else src = '<span class="signal-source signal-ta">TA</span>';
         h += '<tr><td>' + fmtTime(d.timestamp) + '</td><td><strong>' + d.ticker + '</strong></td><td><span class="action-badge action-' + d.action + '">' + d.action + '</span></td><td><span class="conf-bar"><span class="conf-fill" style="width:' + Math.abs(d.confidence)*50 + '%;background:' + cc + '"></span></span>' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + src + '</td><td class="reason-text" title="' + (d.reason||'').replace(/"/g,'&quot;') + '">' + (d.reason||'-') + '</td><td>' + st + '</td></tr>';
       }
       h += '</tbody></table>'; el.innerHTML = h;
