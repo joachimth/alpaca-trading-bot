@@ -10,11 +10,11 @@ database_name = "alpaca-trading-bot"
 database_id = "2bc505a2-d744-4322-8c3b-5f5ebe35f9a1"
 
 # Cron triggers:
-# 1. Daytrading: every 5 minutes during US market hours (13-21 UTC, Mon-Fri)
+# 1. Daytrading: broad UTC-safe window, Alpaca clock is authoritative
 # 2. Swing: once daily after market close (22:00 UTC, Mon-Fri)
-# 3. Crypto: every 4 hours, 24/7 (00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC)
+# 3. Crypto: every 30 minutes at :07/:37, 24/7
 [triggers]
-crons = ["*/5 13-21 * * 1-5", "0 22 * * 1-5", "0 */4 * * *"]
+crons = ["*/5 13-21 * * 1-5", "0 22 * * 1-5", "7-59/30 * * * *"]
 
 # Secrets (set via wrangler secret put or dashboard):
 # ALPACA_API_KEY

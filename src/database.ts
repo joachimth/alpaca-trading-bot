@@ -31,13 +31,70 @@ export interface TradeRecord {
   estimated_value: number;
   decision_id: number | null;
   error_message: string | null;
+  strategy?: 'daytrading' | 'swing' | 'crypto' | null;
 }
 
 export class Database {
   private db: D1Database;
+  private schemaReady: Promise<void>;
 
   constructor(db: D1Database) {
     this.db = db;
+    this.schemaReady = Promise.all([
+      this.ensureTradeStrategyColumn(),
+      this.ensureCycleLeaseSchema(),
+    ]).then(() => undefined);
+  }
+
+  private async ensureTradeStrategyColumn(): Promise<void> {
+    const column = await this.db.prepare(
+      `SELECT 1 FROM pragma_table_info('trades') WHERE name = 'strategy' LIMIT 1`
+    ).first();
+    if (!column) {
+      try {
+        await this.db.prepare('ALTER TABLE trades ADD COLUMN strategy TEXT').run();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!message.toLowerCase().includes('duplicate column')) throw error;
+      }
+    }
+  }
+
+  private async ensureCycleLeaseSchema(): Promise<void> {
+    await this.db.prepare(`
+      CREATE TABLE IF NOT EXISTS cycle_leases (
+        lease_key TEXT PRIMARY KEY,
+        owner TEXT NOT NULL,
+        acquired_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+      )
+    `).run();
+  }
+
+  private async ensureTradeSchema(): Promise<void> {
+    await this.schemaReady;
+  }
+
+  async acquireCycleLease(owner: string, ttlMs = 30 * 60 * 1000, leaseKey = 'global'): Promise<boolean> {
+    await this.ensureTradeSchema();
+    const now = Date.now();
+    const result = await this.db.prepare(`
+      INSERT INTO cycle_leases (lease_key, owner, acquired_at, expires_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(lease_key) DO UPDATE SET
+        owner = excluded.owner,
+        acquired_at = excluded.acquired_at,
+        expires_at = excluded.expires_at
+      WHERE cycle_leases.expires_at <= excluded.acquired_at
+    `).bind(leaseKey, owner, now, now + ttlMs).run();
+    return (result.meta.changes ?? 0) > 0;
+  }
+
+  async releaseCycleLease(owner: string, leaseKey = 'global'): Promise<void> {
+    await this.ensureTradeSchema();
+    await this.db.prepare(
+      'DELETE FROM cycle_leases WHERE lease_key = ? AND owner = ?'
+    ).bind(leaseKey, owner).run();
   }
 
   // ============================================================
@@ -101,9 +158,10 @@ export class Database {
   // ============================================================
 
   async logTrade(record: TradeRecord): Promise<number> {
+    await this.ensureTradeSchema();
     const result = await this.db.prepare(
-      `INSERT INTO trades (alpaca_order_id, ticker, side, qty, fill_price, avg_fill_price, status, order_type, limit_price, stop_price, estimated_value, decision_id, error_message)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO trades (alpaca_order_id, ticker, side, qty, fill_price, avg_fill_price, status, order_type, limit_price, stop_price, estimated_value, decision_id, error_message, strategy)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       record.alpaca_order_id,
       record.ticker,
@@ -117,7 +175,8 @@ export class Database {
       record.stop_price,
       record.estimated_value,
       record.decision_id,
-      record.error_message
+      record.error_message,
+      record.strategy ?? null
     ).run();
 
     return result.meta.last_row_id as number;
@@ -127,12 +186,19 @@ export class Database {
     decisionId?: number | null;
     estimatedValue?: number | null;
     errorMessage?: string | null;
+    strategy?: 'daytrading' | 'swing' | 'crypto' | null;
   } = {}): Promise<number> {
+    await this.ensureTradeSchema();
     const existing = await this.db.prepare(
       'SELECT id FROM trades WHERE alpaca_order_id = ? LIMIT 1'
     ).bind(order.id).first();
     if (existing?.id !== undefined && existing?.id !== null) {
-      await this.updateTradeStatus(order.id, order.status, order.filled_avg_price, order.filled_avg_price);
+      await this.db.prepare(
+        `UPDATE trades SET status = ?, fill_price = ?, avg_fill_price = ?,
+             decision_id = COALESCE(decision_id, ?), strategy = COALESCE(strategy, ?)
+         WHERE alpaca_order_id = ?`
+      ).bind(order.status, order.filled_avg_price, order.filled_avg_price,
+        options.decisionId ?? null, options.strategy ?? null, order.id).run();
       return existing.id as number;
     }
 
@@ -150,33 +216,41 @@ export class Database {
       estimated_value: options.estimatedValue ?? (order.qty * (order.filled_avg_price ?? order.limit_price ?? order.stop_price ?? 0)),
       decision_id: options.decisionId ?? null,
       error_message: options.errorMessage ?? null,
+      strategy: options.strategy ?? null,
     });
   }
 
   async updateTradeStatus(orderId: string, status: string, fillPrice: number | null, avgFillPrice: number | null): Promise<void> {
+    await this.ensureTradeSchema();
     await this.db.prepare(
       'UPDATE trades SET status = ?, fill_price = ?, avg_fill_price = ? WHERE alpaca_order_id = ?'
     ).bind(status, fillPrice, avgFillPrice, orderId).run();
   }
 
   async reconcileOrders(orders: Order[]): Promise<number> {
+    await this.ensureTradeSchema();
     let imported = 0;
     for (const order of orders) {
       if (order.side !== 'sell') continue;
       const existing = await this.db.prepare(
         'SELECT id FROM trades WHERE alpaca_order_id = ? LIMIT 1'
       ).bind(order.id).first();
+      const position = await this.db.prepare('SELECT strategy FROM positions WHERE ticker = ? AND closed_at IS NULL LIMIT 1').bind(order.symbol).first();
+      const strategy = (position?.strategy as TradeRecord['strategy']) ?? null;
       if (existing) {
-        await this.updateTradeStatus(order.id, order.status, order.filled_avg_price, order.filled_avg_price);
+        await this.db.prepare(
+          `UPDATE trades SET status = ?, fill_price = ?, avg_fill_price = ?, strategy = COALESCE(strategy, ?) WHERE alpaca_order_id = ?`
+        ).bind(order.status, order.filled_avg_price, order.filled_avg_price, strategy, order.id).run();
         continue;
       }
-      await this.logOrderTrade(order);
+      await this.logOrderTrade(order, { strategy });
       imported++;
     }
     return imported;
   }
 
   async getTradesNeedingSync(limit: number = 200): Promise<any[]> {
+    await this.ensureTradeSchema();
     const result = await this.db.prepare(
       `SELECT * FROM trades
        WHERE status NOT IN ('filled', 'canceled', 'cancelled', 'rejected', 'expired')
@@ -186,6 +260,7 @@ export class Database {
   }
 
   async getRecentTrades(limit: number = 50): Promise<any[]> {
+    await this.ensureTradeSchema();
     const result = await this.db.prepare(
       'SELECT * FROM trades ORDER BY timestamp DESC LIMIT ?'
     ).bind(limit).all();
@@ -224,7 +299,7 @@ export class Database {
          stop_loss_price = excluded.stop_loss_price,
          take_profit_price = excluded.take_profit_price,
          strategy = COALESCE(excluded.strategy, positions.strategy),
-         opened_at = datetime('now'),
+         opened_at = CASE WHEN positions.closed_at IS NULL THEN positions.opened_at ELSE excluded.opened_at END,
          closed_at = NULL,
          closed_pl = NULL,
          close_reason = NULL,
@@ -388,19 +463,13 @@ export class Database {
        GROUP BY strategy`
     ).all();
 
-    // Trades grouped by strategy (via decision join)
+    // Only explicitly attributed trades are grouped; unknown history stays NULL.
     const tradeResult = await this.db.prepare(
-      `SELECT
-         CASE
-           WHEN d.signal_source LIKE 'crypto%' THEN 'crypto'
-           WHEN d.signal_source = 'swing' THEN 'swing'
-           ELSE 'daytrading'
-         END as strategy,
-         COUNT(*) as total_trades,
-         SUM(CASE WHEN t.status = 'filled' THEN 1 ELSE 0 END) as filled_trades
-       FROM trades t
-       LEFT JOIN decisions d ON d.id = t.decision_id
-       GROUP BY strategy`
+      `SELECT strategy, COUNT(*) as total_trades,
+              SUM(CASE WHEN status = 'filled' THEN 1 ELSE 0 END) as filled_trades
+         FROM trades
+        WHERE strategy IS NOT NULL
+        GROUP BY strategy`
     ).all();
 
     // Closed positions time series for cumulative P&L chart

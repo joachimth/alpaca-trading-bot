@@ -38,6 +38,21 @@ const SWING_FALLBACK_CONFIG = {
 };
 
 export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
+  const owner = `swing:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+  const leaseDb = new Database(env.DB);
+  if (!await leaseDb.acquireCycleLease(owner)) {
+    console.log(`Skipping ${trigger}: another strategy cycle holds the global lease`);
+    return;
+  }
+  try {
+    await runSwingCycleInner(env, trigger);
+  } finally {
+    await leaseDb.releaseCycleLease(owner);
+  }
+}
+
+async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
+  void trigger;
   const startTime = Date.now();
   const db = new Database(env.DB);
   const errors: string[] = [];
@@ -75,7 +90,7 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
     const today = new Date().toISOString().split('T')[0];
     const recentRuns = await db.getRecentRuns(5);
     const alreadyRanToday = recentRuns.some((r: any) =>
-      r.trigger === 'swing_cron' && r.timestamp.startsWith(today) && r.status === 'ok'
+      (r.trigger === 'swing_cron' || r.trigger === 'manual_swing') && r.timestamp.startsWith(today) && r.status === 'ok'
     );
     if (alreadyRanToday) {
       console.log('Swing: already ran today, skipping');
@@ -92,9 +107,15 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
       return;
     }
 
-    // Get account and positions
+    // Reconcile broker orders before evaluating swing positions.
+    await db.reconcileOrders(await alpaca.getRecentOrders(100));
+
+    // Swing may only manage positions explicitly tagged as swing.
     const account = await alpaca.getAccount();
-    const positions = await alpaca.getPositions();
+    const allBrokerPositions = await alpaca.getPositions();
+    const allDbPositions = await db.getOpenPositions();
+    const swingSymbols = new Set(allDbPositions.filter(p => p.strategy === 'swing').map(p => p.ticker));
+    const positions = allBrokerPositions.filter(p => swingSymbols.has(p.symbol));
 
     // Log performance snapshot (shared table, tagged via trigger)
     await db.logSnapshot({
@@ -136,7 +157,7 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
     riskManager.updateEquitySnapshot(account.equity);
 
     // Reconciliation
-    const dbPositions = await db.getOpenPositions();
+    const dbPositions = allDbPositions.filter(p => p.strategy === 'swing');
     const divergence = riskManager.checkDivergence(
       positions,
       dbPositions.map(p => ({ ticker: p.ticker, qty: p.qty, side: p.side }))
@@ -260,7 +281,7 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
       try {
         const pos = positions.find(p => p.symbol === sell.symbol);
         const order = await alpaca.closePosition(sell.symbol);
-        await db.logOrderTrade(order);
+        await db.logOrderTrade(order, { strategy: 'swing' });
         if (pos && alpaca.isOrderFullyFilled(order)) {
           await db.closePosition(sell.symbol, pos.unrealized_pl, sell.reason);
           tradesExecuted++;
@@ -280,8 +301,10 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
 
     // Refresh account after sells
     const updatedAccount = await alpaca.getAccount();
-    const updatedPositions = await alpaca.getPositions();
-    const heldSymbols = new Set(updatedPositions.map(p => p.symbol));
+    const updatedAllPositions = await alpaca.getPositions();
+    const updatedPositions = updatedAllPositions.filter(p => swingSymbols.has(p.symbol));
+    // Never buy a symbol already held by another strategy.
+    const heldSymbols = new Set(updatedAllPositions.map(p => p.symbol));
 
     const proposedBuys: Array<{ symbol: string; value: number; score: SwingScore }> = [];
 
@@ -351,6 +374,7 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
           estimated_value: qty * price,
           decision_id: null,
           error_message: null,
+          strategy: 'swing',
         });
 
         // Update position in DB
@@ -376,9 +400,12 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
     }
 
     // Sync positions
-    const finalPositions = await alpaca.getPositions();
+    const finalPositions = (await alpaca.getPositions()).filter(p => {
+      const existing = allDbPositions.find(x => x.ticker === p.symbol);
+      return existing?.strategy === 'swing';
+    });
     const syncDbPositions = await db.getOpenPositions();
-    const dbPositionMap = new Map(syncDbPositions.map(p => [p.ticker, p]));
+    const dbPositionMap = new Map(syncDbPositions.filter(p => p.strategy === 'swing').map(p => [p.ticker, p]));
 
     for (const pos of finalPositions) {
       const existing = dbPositionMap.get(pos.symbol);

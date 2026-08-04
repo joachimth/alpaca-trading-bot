@@ -20,6 +20,11 @@ export interface Env {
 }
 
 // Default fallback config if D1 is empty
+const CRYPTO_SYMBOLS = new Set([
+  'BTCUSD','ETHUSD','SOLUSD','AVAXUSD','LINKUSD','MATICUSD','DOTUSD','UNIUSD',
+  'ATOMUSD','LTCUSD','BCHUSD','NEARUSD','AAVEUSD','XLMUSD','ALGOUSD',
+]);
+
 const FALLBACK_CONFIG = {
     maxPositions: 15,
     maxPositionPct: 20,
@@ -60,20 +65,19 @@ export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     // Self-migration: add strategy column if missing (idempotent)
     try { await env.DB.prepare('ALTER TABLE positions ADD COLUMN strategy TEXT').run(); } catch (_) {}
-    // Dual-cron routing: Cloudflare's event.cron tells us which trigger fired
+    // Cloudflare passes the configured cron expression verbatim.
     if (event.cron === '0 22 * * 1-5') {
-      // Swing trading: once daily after market close
       ctx.waitUntil(runSwingCycle(env, 'swing_cron'));
-    } else if (event.cron === '0 */4 * * *') {
-      // Crypto: every 4 hours, 24/7
+    } else if (event.cron === '7-59/30 * * * *') {
       ctx.waitUntil(runCryptoCycle(env, 'crypto_cron'));
+    } else if (event.cron === '*/5 13-21 * * 1-5') {
+      ctx.waitUntil(runTradingCycleWithLease(env, 'cron'));
     } else {
-      // Daytrading: every 5 minutes during market hours
-      ctx.waitUntil(runTradingCycle(env, 'cron'));
+      console.warn(`Ignoring unknown cron expression: ${event.cron}`);
     }
   },
 
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     // Self-migration: add strategy column if missing (idempotent)
     try { await env.DB.prepare('ALTER TABLE positions ADD COLUMN strategy TEXT').run(); } catch (_) {}
     const api = new DashboardAPI(env);
@@ -84,6 +88,20 @@ export default {
 // ============================================================
 // Main Trading Cycle
 // ============================================================
+
+async function runTradingCycleWithLease(env: Env, trigger: string): Promise<void> {
+  const owner = `daytrading:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+  const db = new Database(env.DB);
+  if (!await db.acquireCycleLease(owner)) {
+    console.log(`Skipping ${trigger}: another strategy cycle holds the global lease`);
+    return;
+  }
+  try {
+    await runTradingCycle(env, trigger);
+  } finally {
+    await db.releaseCycleLease(owner);
+  }
+}
 
 async function runTradingCycle(env: Env, trigger: string): Promise<void> {
   const startTime = Date.now();
@@ -130,9 +148,21 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       return;
     }
 
-    // 4. Get account and positions
+    // Reconcile broker orders before reading positions or generating signals.
+    await db.reconcileOrders(await alpaca.getRecentOrders(100));
+
+    // 4. Get account and stock positions only. Crypto and swing positions are
+    // owned by their respective strategies and must not enter this risk loop.
     const account = await alpaca.getAccount();
-    const positions = await alpaca.getPositions();
+    const allBrokerPositions = await alpaca.getPositions();
+    const allDbPositions = await db.getOpenPositions();
+    const daySymbols = new Set(allDbPositions.filter(p =>
+      p.strategy === 'daytrading' || (!p.strategy && !CRYPTO_SYMBOLS.has(p.ticker))
+    ).map(p => p.ticker));
+    const taggedSymbols = new Set(allDbPositions.map(p => p.ticker));
+    const positions = allBrokerPositions.filter(p =>
+      !CRYPTO_SYMBOLS.has(p.symbol) && (daySymbols.has(p.symbol) || !taggedSymbols.has(p.symbol))
+    );
 
     // Log performance snapshot
     await db.logSnapshot({
@@ -173,7 +203,9 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     riskManager.updateEquitySnapshot(account.equity);
 
     // 5b. Reconciliation: check for position divergence
-    const dbPositions = await db.getOpenPositions();
+    const dbPositions = (await db.getOpenPositions()).filter(p =>
+      p.strategy === 'daytrading' || (!p.strategy && !CRYPTO_SYMBOLS.has(p.ticker))
+    );
     const divergence = riskManager.checkDivergence(positions, dbPositions.map(p => ({ ticker: p.ticker, qty: p.qty, side: p.side })));
     if (divergence.divergent) {
       const details = divergence.details.join('; ');
@@ -220,7 +252,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         try {
           console.log(`Closing ${action.symbol}: ${action.reason}`);
           const order = await alpaca.closePosition(action.symbol);
-          await db.logOrderTrade(order);
+          await db.logOrderTrade(order, { strategy: dbPositions.find(p => p.ticker === action.symbol)?.strategy ?? 'daytrading' });
           const pos = positions.find(p => p.symbol === action.symbol);
           if (pos && alpaca.isOrderFullyFilled(order)) {
             await db.closePosition(action.symbol, pos.unrealized_pl, action.reason);
@@ -239,16 +271,16 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     const marketClose = new Date(clock.next_close);
     const minutesToClose = (marketClose.getTime() - now.getTime()) / 60000;
 
+    const noNewEntries = Boolean(config.eodFlatten) && minutesToClose <= 15;
     if (riskManager.shouldFlattenEOD(minutesToClose)) {
       console.log(`EOD flatten: ${minutesToClose.toFixed(0)} min to close. Liquidating all positions.`);
       try {
-        const closeOrders = await alpaca.closeAllPositions();
-        for (const order of closeOrders) {
-          await db.logOrderTrade(order);
-        }
+        const closeOrders = [];
         for (const pos of positions) {
-          const order = closeOrders.find(o => o.symbol === pos.symbol);
-          if (order && alpaca.isOrderFullyFilled(order)) {
+          const order = await alpaca.closePosition(pos.symbol);
+          closeOrders.push(order);
+          await db.logOrderTrade(order, { strategy: 'daytrading' });
+          if (alpaca.isOrderFullyFilled(order)) {
             await db.closePosition(pos.symbol, pos.unrealized_pl, 'eod_flatten');
           } else {
             errors.push(`EOD exit for ${pos.symbol} not fully filled`);
@@ -454,7 +486,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           }
           try {
             const order = await alpaca.closePosition(signal.indicators.symbol);
-            await db.logOrderTrade(order, { decisionId });
+            await db.logOrderTrade(order, { decisionId, strategy: 'daytrading' });
             if (alpaca.isOrderFullyFilled(order)) {
               await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
               await db.updateDecisionStatus(decisionId, 1, 'Position closed');
@@ -492,7 +524,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           }
           try {
             const order = await alpaca.closePosition(signal.indicators.symbol);
-            await db.logOrderTrade(order, { decisionId });
+            await db.logOrderTrade(order, { decisionId, strategy: 'daytrading' });
             if (alpaca.isOrderFullyFilled(order)) {
               await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
               await db.updateDecisionStatus(decisionId, 1, 'Position closed (sell signal)');
@@ -515,6 +547,11 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
       // BUY: submit new order
       if (decision.action === 'BUY' && riskCheck.adjustedQty) {
+        if (noNewEntries) {
+          await db.updateDecisionStatus(decisionId, 2, 'No new BUY entries during EOD flatten window');
+          console.log(`Skip BUY ${signal.indicators.symbol}: EOD no-entry cutoff active`);
+          continue;
+        }
         // Anti-churn: re-entry cooldown check
         if (recentlySold.has(signal.indicators.symbol)) {
           await db.updateDecisionStatus(decisionId, 2, `Re-entry cooldown active (${cooldownMin}min)`);
@@ -548,6 +585,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             estimated_value: qty * signal.indicators.price,
             decision_id: decisionId,
             error_message: null,
+            strategy: 'daytrading',
           });
 
           // Update position in DB
@@ -578,9 +616,9 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     }
 
     // 12. Sync positions from Alpaca to DB (preserve stop/take profit from DB)
-    const finalPositions = await alpaca.getPositions();
+    const finalPositions = (await alpaca.getPositions()).filter(p => !CRYPTO_SYMBOLS.has(p.symbol));
     const syncDbPositions = await db.getOpenPositions();
-    const dbPositionMap = new Map(syncDbPositions.map(p => [p.ticker, p]));
+    const dbPositionMap = new Map(syncDbPositions.filter(p => p.strategy === 'daytrading' || (!p.strategy && !CRYPTO_SYMBOLS.has(p.ticker))).map(p => [p.ticker, p]));
 
     for (const pos of finalPositions) {
       const existing = dbPositionMap.get(pos.symbol);

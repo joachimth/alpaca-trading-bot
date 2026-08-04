@@ -44,14 +44,24 @@ CREATE TABLE IF NOT EXISTS trades (
   time_in_force TEXT NOT NULL DEFAULT 'day',
   estimated_value REAL,
   decision_id INTEGER REFERENCES decisions(id),
+  strategy TEXT,                              -- nullable: known strategy only
   error_message TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp);
 CREATE INDEX IF NOT EXISTS idx_trades_ticker ON trades(ticker);
+
+-- Global account-wide lease preventing overlapping strategy cycles.
+CREATE TABLE IF NOT EXISTS cycle_leases (
+  lease_key TEXT PRIMARY KEY,
+  owner TEXT NOT NULL,
+  acquired_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
 CREATE INDEX IF NOT EXISTS idx_trades_alpaca_id ON trades(alpaca_order_id);
+CREATE INDEX IF NOT EXISTS idx_trades_strategy ON trades(strategy);
 
 -- ============================================================
 -- Positions: current and closed positions tracked by the bot

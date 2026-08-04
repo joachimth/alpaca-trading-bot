@@ -63,6 +63,20 @@ const CRYPTO_FALLBACK_CONFIG = {
 };
 
 export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
+  const owner = `crypto:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+  const leaseDb = new Database(env.DB);
+  if (!await leaseDb.acquireCycleLease(owner)) {
+    console.log(`Skipping ${trigger}: another strategy cycle holds the global lease`);
+    return;
+  }
+  try {
+    await runCryptoCycleInner(env, trigger);
+  } finally {
+    await leaseDb.releaseCycleLease(owner);
+  }
+}
+
+async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
   const startTime = Date.now();
   const db = new Database(env.DB);
   const errors: string[] = [];
@@ -94,8 +108,9 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
     }
 
     // No market hours check — crypto trades 24/7
+    await db.reconcileOrders(await alpaca.getRecentOrders(100));
 
-    // Get account and positions
+    // Get account and crypto positions
     const account = await alpaca.getAccount();
     const positions = await alpaca.getPositions();
 
@@ -127,7 +142,7 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
       portfolio_value: account.portfolio_value,
       long_market_value: account.long_market_value,
       short_market_value: account.short_market_value,
-      positions_count: positions.length,
+      positions_count: cryptoPositions.length,
       daily_pl: account.change_today,
       daily_plpc: account.change_today_pct,
       total_pl: account.equity - account.last_equity,
@@ -177,7 +192,7 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
       if (pos.unrealized_pl < 0 && pos.unrealized_plpc <= stopLoss) {
         try {
           const order = await alpaca.closePosition(pos.symbol);
-          await db.logOrderTrade(order);
+          await db.logOrderTrade(order, { strategy: 'crypto' });
           if (alpaca.isOrderFullyFilled(order)) {
             await db.closePosition(pos.symbol, pos.unrealized_pl, 'crypto_stop_loss');
             await db.logDecision({
@@ -206,7 +221,7 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
       if (pos.unrealized_pl > 0 && pos.unrealized_plpc <= trailingStop) {
         try {
           const order = await alpaca.closePosition(pos.symbol);
-          await db.logOrderTrade(order);
+          await db.logOrderTrade(order, { strategy: 'crypto' });
           if (alpaca.isOrderFullyFilled(order)) {
             await db.closePosition(pos.symbol, pos.unrealized_pl, 'crypto_trailing_stop');
             await db.logDecision({
@@ -376,7 +391,7 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
           }
           try {
             const order = await alpaca.closePosition(symbol);
-            await db.logOrderTrade(order, { decisionId });
+            await db.logOrderTrade(order, { decisionId, strategy: 'crypto' });
             if (alpaca.isOrderFullyFilled(order)) {
               await db.closePosition(symbol, existingPos.unrealized_pl, 'crypto_signal');
               await db.updateDecisionStatus(decisionId, 1, 'Position closed');
@@ -464,9 +479,9 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
     }
 
     // Sync positions
-    const finalPositions = await alpaca.getPositions();
+    const finalPositions = (await alpaca.getPositions()).filter(p => CRYPTO_UNIVERSE.includes(p.symbol));
     const syncDbPositions = await db.getOpenPositions();
-    const dbPositionMap = new Map(syncDbPositions.map(p => [p.ticker, p]));
+    const dbPositionMap = new Map(syncDbPositions.filter(p => p.strategy === 'crypto').map(p => [p.ticker, p]));
     for (const pos of finalPositions) {
       const existing = dbPositionMap.get(pos.symbol);
       await db.upsertPosition({

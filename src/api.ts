@@ -332,8 +332,9 @@ export class DashboardAPI {
     try {
       // Get position info before closing
       const pos = await alpaca.getPosition(symbol.toUpperCase());
+      const dbPos = (await db.getOpenPositions()).find(p => p.ticker === symbol.toUpperCase());
       const order = await alpaca.closePosition(symbol.toUpperCase());
-      await db.logOrderTrade(order);
+      await db.logOrderTrade(order, { strategy: dbPos?.strategy ?? null });
       // Mark position closed only after a confirmed full broker fill.
       if (pos && alpaca.isOrderFullyFilled(order)) {
         await db.closePosition(symbol.toUpperCase(), pos.unrealized_pl, 'manual_close');
@@ -349,9 +350,11 @@ export class DashboardAPI {
     const db = new Database(this.env.DB);
     try {
       const positions = await alpaca.getPositions();
+      const dbPositions = await db.getOpenPositions();
       const orders = await alpaca.closeAllPositions();
       for (const order of orders) {
-        await db.logOrderTrade(order);
+        const dbPos = dbPositions.find(p => p.ticker === order.symbol);
+        await db.logOrderTrade(order, { strategy: dbPos?.strategy ?? null });
         const pos = positions.find(p => p.symbol === order.symbol);
         if (pos && alpaca.isOrderFullyFilled(order)) {
           await db.closePosition(pos.symbol, pos.unrealized_pl, 'manual_close_all');
