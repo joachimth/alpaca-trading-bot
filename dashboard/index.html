@@ -345,6 +345,10 @@
       else { badge.className = 'status-badge offline'; badge.innerHTML = '<div class="pulse" style="background:var(--red)"></div><span>Account Error</span>'; }
       if (hasAcc) {
         const a = data.account;
+        if (data.positionsAvailable === false) {
+          document.getElementById('mPositions').textContent = '—';
+          document.getElementById('mPositionsSub').textContent = 'Broker positions unavailable';
+        }
         document.getElementById('mPortfolio').textContent = fmtMoney(a.portfolio_value);
         document.getElementById('mPortfolio').className = 'metric-value ' + (a.change_today >= 0 ? 'positive' : 'negative');
         document.getElementById('mPortfolioSub').textContent = 'Equity: ' + fmtMoney(a.equity);
@@ -353,9 +357,11 @@
         document.getElementById('mDailyPL').textContent = fmtMoney(a.change_today);
         document.getElementById('mDailyPL').className = 'metric-value ' + (a.change_today >= 0 ? 'positive' : 'negative');
         document.getElementById('mDailyPLSub').textContent = fmtPct(a.change_today_pct);
-        document.getElementById('mPositions').textContent = data.positions ? data.positions.length : 0;
-        const lv = data.positions ? data.positions.reduce((s, p) => s + Math.abs(p.market_value || 0), 0) : 0;
-        document.getElementById('mPositionsSub').textContent = 'Exposure: ' + fmtMoney(lv);
+        if (data.positionsAvailable !== false) {
+          document.getElementById('mPositions').textContent = data.positions ? data.positions.length : 0;
+          const lv = data.positions ? data.positions.reduce((s, p) => s + Math.abs(p.market_value || 0), 0) : 0;
+          document.getElementById('mPositionsSub').textContent = 'Exposure: ' + fmtMoney(lv);
+        }
       }
       if (data.stats) {
         document.getElementById('mWinRate').textContent = data.stats.winRate.toFixed(1) + '%';
@@ -405,7 +411,7 @@
         if (source.startsWith('crypto')) return 'crypto';
         return 'daytrading';
       };
-      const strategyPos = strategy => allPos.filter(p => (p.strategy || 'daytrading') === strategy);
+      const strategyPos = strategy => allPos.filter(p => p.strategy === strategy);
       const strategyTrades = strategy => allTr.filter(t => {
         if (t.strategy) return t.strategy === strategy;
         const decision = allDec.find(d => d.id === t.decision_id);
@@ -651,6 +657,7 @@
       const el = document.getElementById('strategySummary');
       if (!el) return;
       const cmp = dashboardData ? dashboardData.strategyComparison : null;
+      if (cmp && cmp.positionsAvailable === false) { el.innerHTML = '<div class="loading">Current positions unavailable from broker API</div>'; return; }
       if (!cmp || !cmp.strategies || cmp.strategies.length === 0) { el.innerHTML = ''; return; }
       const order = ['daytrading', 'swing', 'crypto'];
       const sorted = order.map(o => cmp.strategies.find(s => s.strategy === o)).filter(Boolean);

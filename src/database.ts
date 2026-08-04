@@ -459,16 +459,33 @@ export class Database {
   // Strategy comparison
   // ============================================================
 
-  async getStrategyComparison(): Promise<any[]> {
-    // Open positions: unrealized P&L grouped by strategy
-    const openResult = await this.db.prepare(
-      `SELECT COALESCE(strategy, 'daytrading') as strategy,
-              COUNT(*) as open_positions,
-              COALESCE(SUM(unrealized_pl), 0) as unrealized_pl,
-              COALESCE(SUM(market_value), 0) as market_value
-       FROM positions WHERE closed_at IS NULL
-       GROUP BY COALESCE(strategy, 'daytrading')`
-    ).all();
+  async getStrategyComparison(currentPositions?: readonly {
+    strategy: string | null;
+    unrealized_pl: number;
+    market_value: number;
+  }[]): Promise<any> {
+      // Current open-position exposure is broker-authoritative when supplied.
+    const openRows = currentPositions
+      ? currentPositions.reduce((rows, position) => {
+          const strategy = position.strategy ?? 'unattributed';
+          const existing = rows.get(strategy) ?? { open_positions: 0, unrealized_pl: 0, market_value: 0 };
+          existing.open_positions += 1;
+          existing.unrealized_pl += position.unrealized_pl;
+          existing.market_value += position.market_value;
+          rows.set(strategy, existing);
+          return rows;
+        }, new Map<string, { open_positions: number; unrealized_pl: number; market_value: number }>())
+      : new Map<string, { open_positions: number; unrealized_pl: number; market_value: number }>();
+    const openResult = currentPositions
+      ? { results: Array.from(openRows, ([strategy, values]) => ({ strategy, ...values })) }
+      : await this.db.prepare(
+          `SELECT COALESCE(strategy, 'daytrading') as strategy,
+                  COUNT(*) as open_positions,
+                  COALESCE(SUM(unrealized_pl), 0) as unrealized_pl,
+                  COALESCE(SUM(market_value), 0) as market_value
+           FROM positions WHERE closed_at IS NULL
+           GROUP BY COALESCE(strategy, 'daytrading')`
+        ).all();
 
     // Closed positions: realized P&L grouped by strategy
     const closedResult = await this.db.prepare(

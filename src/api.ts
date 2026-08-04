@@ -8,6 +8,7 @@ import { runSwingCycle } from './swing-strategy';
 import { runCryptoCycle } from './crypto-strategy';
 import { getCryptoSentiment } from './crypto-sentiment';
 import { analyze } from './technical-analysis';
+import { projectBrokerPositions } from './position-projection';
 
 export class DashboardAPI {
     private env: Env;
@@ -191,14 +192,13 @@ export class DashboardAPI {
     } catch (e) {
       console.error('Trade reconciliation failed:', e);
     }
-    const [stats, recentDecisions, recentTrades, runs, snapshots, positions, strategyComparison, strategyHistory] = await Promise.all([
+    const [stats, recentDecisions, recentTrades, runs, snapshots, dbPositions, strategyHistory] = await Promise.all([
       db.getStats(),
       db.getRecentDecisions(20),
       db.getRecentTrades(20),
       db.getRecentRuns(10),
       db.getRecentSnapshots(500),
       db.getOpenPositions(),
-      db.getStrategyComparison(),
       Promise.all((['daytrading', 'swing', 'crypto'] as const).map(async strategy => ({
         strategy,
         decisions: await db.getRecentDecisionsByStrategy(strategy, 100),
@@ -209,12 +209,28 @@ export class DashboardAPI {
 
     const latestSnapshot = snapshots[0] || null;
     const account = await this.tryGetAccount();
+    let positions: ReturnType<typeof projectBrokerPositions> = [];
+    let positionsAvailable = true;
+    let positionsError: string | null = null;
+    try {
+      const livePositions = await this.getBrokerPositions();
+      positions = projectBrokerPositions(livePositions, dbPositions);
+    } catch (e) {
+      positionsAvailable = false;
+      positionsError = e instanceof Error ? e.message : 'Broker positions unavailable';
+      console.error('Broker position projection failed:', e);
+    }
+    const strategyComparison = positionsAvailable
+      ? await db.getStrategyComparison(positions)
+      : null;
 
     return this.json({
       stats,
       account,
       latestSnapshot,
       positions,
+      positionsAvailable,
+      positionsError,
       recentDecisions,
       recentTrades,
       recentRuns: runs,
@@ -230,20 +246,17 @@ export class DashboardAPI {
   }
 
   private async getPositions(cors: Record<string, string>): Promise<Response> {
-      const db = new Database(this.env.DB);
-      try { await this.reconcileTrades(db, this.getAlpacaClient()); } catch (e) { console.error('Trade reconciliation failed:', e); }
-      const dbPositions = await db.getOpenPositions();
-
-    // Also get live positions from Alpaca
-    const alpaca = this.getAlpacaClient();
-    let livePositions = [];
+    const db = new Database(this.env.DB);
+    try { await this.reconcileTrades(db, this.getAlpacaClient()); } catch (e) { console.error('Trade reconciliation failed:', e); }
+    const dbPositions = await db.getOpenPositions();
     try {
-      livePositions = await alpaca.getPositions();
+      const livePositions = await this.getBrokerPositions();
+      const positions = projectBrokerPositions(livePositions, dbPositions);
+      return this.json({ positions, positionsAvailable: true, source: 'alpaca' }, cors);
     } catch (e) {
-      // Fallback to DB only
+      const error = e instanceof Error ? e.message : 'Broker positions unavailable';
+      return this.json({ positions: [], positionsAvailable: false, source: 'alpaca', error }, cors, 503);
     }
-
-    return this.json({ dbPositions, livePositions }, cors);
   }
 
   private async getDecisions(url: URL, cors: Record<string, string>): Promise<Response> {
@@ -284,8 +297,16 @@ export class DashboardAPI {
   private async getStrategyComparison(cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB);
     try { await this.reconcileTrades(db, this.getAlpacaClient()); } catch (e) { console.error('Trade reconciliation failed:', e); }
-    const comparison = await db.getStrategyComparison();
-    return this.json(comparison, cors);
+    try {
+      const dbPositions = await db.getOpenPositions();
+      const livePositions = await this.getBrokerPositions();
+      const positions = projectBrokerPositions(livePositions, dbPositions);
+      const comparison = await db.getStrategyComparison(positions);
+      return this.json({ ...comparison, positionsAvailable: true }, cors);
+    } catch (e) {
+      const error = e instanceof Error ? e.message : 'Broker positions unavailable';
+      return this.json({ strategies: [], timeSeries: {}, positionsAvailable: false, error }, cors, 503);
+    }
   }
 
   private async getConfig(cors: Record<string, string>): Promise<Response> {
@@ -379,6 +400,10 @@ export class DashboardAPI {
       apiSecret: this.env.ALPACA_API_SECRET,
       baseUrl: this.env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
     });
+  }
+
+  private async getBrokerPositions(): Promise<import('./alpaca').Position[]> {
+    return await this.getAlpacaClient().getPositions();
   }
 
   private async tryGetAccount(): Promise<any> {
