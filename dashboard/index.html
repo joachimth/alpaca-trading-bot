@@ -142,6 +142,8 @@
       max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted);
     }
     .reason-text:hover { white-space: normal; color: var(--text); }
+    .strategy-summary-scroll { width: 100%; min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .strategy-summary-scroll table { min-width: 980px; }
     .danger-btn {
       padding: 6px 16px; background: var(--red-bg); border: 1px solid rgba(255, 23, 68, 0.3);
       border-radius: 6px; color: var(--red); cursor: pointer; font-family: inherit;
@@ -631,7 +633,7 @@
       if (!cmp || !cmp.strategies || cmp.strategies.length === 0) { el.innerHTML = ''; return; }
       const order = ['daytrading', 'swing', 'crypto'];
       const sorted = order.map(o => cmp.strategies.find(s => s.strategy === o)).filter(Boolean);
-      let h = '<table><thead><tr><th>Strategy</th><th>Decisions</th><th>Trades</th><th>Open Pos</th><th>Realized P&L</th><th>Unrealized P&L</th><th>Total P&L</th><th>Win Rate</th><th>Mkt Value</th></tr></thead><tbody>';
+      let h = '<div class="strategy-summary-scroll"><table><thead><tr><th>Strategy</th><th>Decisions</th><th>Trades</th><th>Open Pos</th><th>Realized P&L</th><th>Unrealized P&L</th><th>Total P&L</th><th>Win Rate</th><th>Mkt Value</th></tr></thead><tbody>';
       for (const s of sorted) {
         const tp = s.totalPl || 0;
         const tc = tp >= 0 ? 'positive' : 'negative';
@@ -649,7 +651,7 @@
         h += '<td>' + fmtMoney(s.marketValue || 0, 0) + '</td>';
         h += '</tr>';
       }
-      h += '</tbody></table>';
+      h += '</tbody></table></div>';
       el.innerHTML = h;
     }
     function renderPositions(ps, elId, showClose) {

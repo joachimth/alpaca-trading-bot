@@ -486,7 +486,12 @@ export class AlpacaClient {
     const dataUrl = this.getDataBaseUrl();
     // Crypto API requires BTC/USD format, but our universe uses BTCUSD
     const apiSymbol = symbol.includes('/') ? symbol : symbol.replace(/USD$/, '/USD');
-    const url = `${dataUrl}/v1beta3/crypto/us/bars?symbols=${apiSymbol}&timeframe=${timeframe}&limit=${limit}`;
+    // Alpaca otherwise defaults to bars from the current UTC day only.
+    // Use a rolling historical window so early 00/04/08/12 UTC cycles
+    // still have enough bars for the TA indicators.
+    const end = new Date();
+    const start = new Date(end.getTime() - 3 * 24 * 60 * 60 * 1000);
+    const url = `${dataUrl}/v1beta3/crypto/us/bars?symbols=${encodeURIComponent(apiSymbol)}&timeframe=${encodeURIComponent(timeframe)}&start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}&limit=${limit}`;
 
     const resp = await fetch(url, { headers: this.getHeaders() });
     if (!resp.ok) {
@@ -503,7 +508,7 @@ export class AlpacaClient {
       h: parseFloat(b.h || b.H),
       l: parseFloat(b.l || b.L),
       c: parseFloat(b.c || b.C),
-      v: parseFloat(b.v || b.V),
+      v: parseFloat(b.v || b.V) || 0,
     }));
   }
 
