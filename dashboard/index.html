@@ -673,6 +673,43 @@
       for (const p of ps) { const pc = p.unrealized_pl >= 0 ? 'positive' : 'negative'; h += '<tr><td><strong>' + p.ticker + '</strong></td><td>' + p.qty + '</td><td>$' + (p.avg_entry_price||0).toFixed(2) + '</td><td>$' + (p.current_price||0).toFixed(2) + '</td><td>' + fmtMoney(p.market_value) + '</td><td class="' + pc + '">' + fmtMoney(p.unrealized_pl) + '</td><td class="' + pc + '">' + ((p.unrealized_plpc||0) >= 0 ? '+' : '') + ((p.unrealized_plpc||0)*100).toFixed(2) + '%</td>' + (showClose ? '<td><button class="danger-btn" onclick="closePosition(\'' + p.ticker + '\')">Close</button></td>' : '') + '</tr>'; }
       h += '</tbody></table>'; el.innerHTML = h;
     }
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+    function readableDecisionReason(value) {
+      let text = String(value == null ? '' : value).trim();
+      if (!text) return '-';
+      for (let i = 0; i < 2; i++) {
+        const candidate = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        try {
+          const parsed = JSON.parse(candidate);
+          if (typeof parsed === 'string') { text = parsed.trim(); continue; }
+          if (parsed && typeof parsed === 'object') {
+            const reason = parsed.reasoning || parsed.reason || parsed.text || parsed.content;
+            if (typeof reason === 'string' && reason.trim()) { text = reason.trim(); continue; }
+            if (Array.isArray(parsed.factors) && parsed.factors.length) return parsed.factors.join('; ');
+            if (parsed.action) return String(parsed.action).toUpperCase() + (parsed.confidence != null ? ' decision (' + Number(parsed.confidence).toFixed(2) + ')' : ' decision');
+          }
+        } catch (e) { /* legacy plain text or truncated JSON */ }
+        const rawReasoning = candidate.match(/"reasoning"\s*:\s*"([\s\S]*?)(?:"\s*(?:,|}|$)|$)/i);
+        if (rawReasoning && rawReasoning[1].trim()) {
+          return rawReasoning[1]
+            .replace(/\\"/g, '"')
+            .replace(/\\n/g, ' ')
+            .replace(/\\r/g, ' ')
+            .replace(/\\t/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+        break;
+      }
+      return text.replace(/\\s+/g, ' ').trim() || '-';
+    }
     function renderDecisions(ds, elId) {
       const el = document.getElementById(elId);
       if (!ds || !ds.length) { el.innerHTML = '<div class="loading">No decisions yet</div>'; return; }
@@ -681,7 +718,8 @@
         const cc = d.confidence >= 0.7 ? '#00c853' : d.confidence >= 0.5 ? '#ff9100' : d.confidence >= 0 ? '#546e7a' : '#ff1744';
         const st = d.executed === 1 ? '<span style="color:var(--green)">Executed</span>' : d.executed === 2 ? '<span style="color:var(--text-muted)">Skipped</span>' : d.executed === 3 ? '<span style="color:var(--red)">Failed</span>' : '<span style="color:var(--yellow)">Pending</span>';
         let src; if (d.signal_source === 'swing') src = '<span class="signal-source signal-swing">SWING</span>'; else if ((d.signal_source || '').startsWith('crypto')) src = '<span class="signal-source signal-crypto">CRYPTO+AI</span>'; else if (d.signal_source === 'ta+ai') src = '<span class="signal-source signal-ai">TA+AI</span>'; else if (d.signal_source === 'ai') src = '<span class="signal-source signal-ai">AI</span>'; else src = '<span class="signal-source signal-ta">TA</span>';
-        h += '<tr><td>' + fmtTime(d.timestamp) + '</td><td><strong>' + d.ticker + '</strong></td><td><span class="action-badge action-' + d.action + '">' + d.action + '</span></td><td><span class="conf-bar"><span class="conf-fill" style="width:' + Math.abs(d.confidence)*50 + '%;background:' + cc + '"></span></span>' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + src + '</td><td class="reason-text" title="' + (d.reason||'').replace(/"/g,'&quot;') + '">' + (d.reason||'-') + '</td><td>' + st + '</td></tr>';
+        const reason = readableDecisionReason(d.reason);
+        h += '<tr><td>' + escapeHtml(fmtTime(d.timestamp)) + '</td><td><strong>' + escapeHtml(d.ticker) + '</strong></td><td><span class="action-badge action-' + escapeHtml(d.action) + '">' + escapeHtml(d.action) + '</span></td><td><span class="conf-bar"><span class="conf-fill" style="width:' + Math.abs(d.confidence)*50 + '%;background:' + cc + '"></span></span>' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + src + '</td><td class="reason-text" title="' + escapeHtml(reason) + '">' + escapeHtml(reason) + '</td><td>' + st + '</td></tr>';
       }
       h += '</tbody></table>'; el.innerHTML = h;
     }
@@ -693,7 +731,8 @@
         const st = d.executed === 1 ? '<span style="color:var(--green)">Executed</span>' : d.executed === 2 ? '<span style="color:var(--text-muted)">Skipped</span>' : d.executed === 3 ? '<span style="color:var(--red)">Failed</span>' : '<span style="color:var(--yellow)">Pending</span>';
         let rank = '-', signals = '-'; try { const ai = JSON.parse(d.ai_reasoning||'{}'); if (ai.rank) rank = '#' + ai.rank; if (ai.signals) signals = ai.signals.join(', '); } catch(e) {}
         const zColor = d.confidence >= 1 ? 'var(--green)' : d.confidence >= 0.5 ? 'var(--blue)' : d.confidence >= 0 ? 'var(--text-muted)' : 'var(--red)';
-        h += '<tr><td>' + fmtDateTime(d.timestamp) + '</td><td><strong>' + d.ticker + '</strong></td><td><span class="action-badge action-' + d.action + '">' + d.action + '</span></td><td style="color:' + zColor + '">' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + rank + '</td><td class="reason-text" title="' + (d.reason||'').replace(/"/g,'&quot;') + '">' + (signals||d.reason||'-') + '</td><td>' + st + '</td></tr>';
+        const swingReason = readableDecisionReason(signals || d.reason);
+        h += '<tr><td>' + escapeHtml(fmtDateTime(d.timestamp)) + '</td><td><strong>' + escapeHtml(d.ticker) + '</strong></td><td><span class="action-badge action-' + escapeHtml(d.action) + '">' + escapeHtml(d.action) + '</span></td><td style="color:' + zColor + '">' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + escapeHtml(rank) + '</td><td class="reason-text" title="' + escapeHtml(swingReason) + '">' + escapeHtml(swingReason) + '</td><td>' + st + '</td></tr>';
       }
       h += '</tbody></table>'; el.innerHTML = h;
     }
