@@ -3,6 +3,12 @@
 
 import type { D1Database } from '@cloudflare/workers-types';
 import type { Order } from './alpaca';
+import {
+  DEFAULT_CRYPTO_UNIVERSE,
+  inferCryptoSellStrategy,
+  type CryptoBuyAttributionMetadata,
+  type PositionAttributionMetadata,
+} from './crypto-attribution';
 
 export interface DecisionRecord {
   ticker: string;
@@ -239,26 +245,97 @@ export class Database {
     ).bind(status, fillPrice, avgFillPrice, orderId).run();
   }
 
+  private async inferCryptoSellStrategy(
+    symbol: string,
+    createdAt: string | null | undefined,
+    existingStrategy?: TradeRecord['strategy'],
+  ): Promise<TradeRecord['strategy']> {
+    const [positions, earlierTrades] = await Promise.all([
+      this.db.prepare(
+        `SELECT ticker, strategy FROM positions
+         WHERE closed_at IS NULL AND strategy IS NOT NULL`
+      ).all(),
+      this.db.prepare(
+        `SELECT ticker, side, strategy, timestamp FROM trades
+         WHERE side = 'buy' AND strategy = 'crypto'`
+      ).all(),
+    ]);
+
+    return inferCryptoSellStrategy({
+      orderSymbol: symbol,
+      orderSide: 'sell',
+      orderCreatedAt: createdAt,
+      existingStrategy,
+      openPositions: positions.results as unknown as PositionAttributionMetadata[],
+      earlierTrades: earlierTrades.results as unknown as CryptoBuyAttributionMetadata[],
+      cryptoUniverse: DEFAULT_CRYPTO_UNIVERSE,
+    });
+  }
+
+  /**
+   * Import broker sells and attribute them without changing broker-authoritative
+   * positions. Existing non-null strategy values are always preserved.
+   */
   async reconcileOrders(orders: Order[]): Promise<number> {
     await this.ensureTradeSchema();
     let imported = 0;
     for (const order of orders) {
       if (order.side !== 'sell') continue;
       const existing = await this.db.prepare(
-        'SELECT id FROM trades WHERE alpaca_order_id = ? LIMIT 1'
-      ).bind(order.id).first();
-      const position = await this.db.prepare('SELECT strategy FROM positions WHERE ticker = ? AND closed_at IS NULL LIMIT 1').bind(order.symbol).first();
-      const strategy = (position?.strategy as TradeRecord['strategy']) ?? null;
+        'SELECT id, strategy FROM trades WHERE alpaca_order_id = ? LIMIT 1'
+      ).bind(order.id).first() as { id?: number; strategy?: TradeRecord['strategy'] } | null;
+      const strategy = await this.inferCryptoSellStrategy(
+        order.symbol,
+        order.created_at,
+        existing?.strategy ?? null,
+      );
       if (existing) {
         await this.db.prepare(
-          `UPDATE trades SET status = ?, fill_price = ?, avg_fill_price = ?, strategy = COALESCE(strategy, ?) WHERE alpaca_order_id = ?`
+          `UPDATE trades SET status = ?, fill_price = ?, avg_fill_price = ?, strategy = COALESCE(strategy, ?)
+           WHERE alpaca_order_id = ?`
         ).bind(order.status, order.filled_avg_price, order.filled_avg_price, strategy, order.id).run();
         continue;
       }
       await this.logOrderTrade(order, { strategy });
       imported++;
     }
+
+    // Keep legacy NULL-strategy crypto sells repairable on every normal
+    // reconciliation pass; the UPDATE itself is guarded and idempotent.
+    await this.backfillCryptoSellAttribution();
     return imported;
+  }
+
+  /**
+   * Idempotently repair only NULL-strategy sell rows that the same narrow
+   * crypto attribution rules can prove are crypto. Unknown symbols, stock
+   * punctuation, non-USD pairs, buys, and already-attributed rows are untouched.
+   */
+  async backfillCryptoSellAttribution(limit = 200): Promise<number> {
+    await this.ensureTradeSchema();
+    const rows = await this.db.prepare(
+      `SELECT id, ticker, side, timestamp, strategy FROM trades
+       WHERE side = 'sell' AND strategy IS NULL
+       ORDER BY timestamp ASC LIMIT ?`
+    ).bind(limit).all();
+    let updated = 0;
+
+    for (const row of rows.results as Array<{
+      id: number;
+      ticker: string;
+      side: string;
+      timestamp: string;
+      strategy: TradeRecord['strategy'];
+    }>) {
+      const strategy = await this.inferCryptoSellStrategy(row.ticker, row.timestamp, null);
+      if (strategy !== 'crypto') continue;
+      const result = await this.db.prepare(
+        `UPDATE trades SET strategy = 'crypto'
+         WHERE id = ? AND side = 'sell' AND strategy IS NULL`
+      ).bind(row.id).run();
+      if ((result.meta.changes ?? 0) > 0) updated++;
+    }
+    return updated;
   }
 
   async getTradesNeedingSync(limit: number = 200): Promise<any[]> {
