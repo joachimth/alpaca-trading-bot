@@ -1,10 +1,13 @@
 # NOW
 
-## 2026-08-04 21:39 EEST — Documentation aligned
-- ee17068 and Worker version 43 are live at 100%.
-- Current positions come from Alpaca through Worker API; D1 supplies metadata/history.
-- Schedules: daytrading `*/5 13-21`, swing `0 22`, crypto `7-59/30` UTC.
-- 2/2 projection tests pass; no cycle or broker order started.
+## 2026-08-05 08:29 CEST - Category performance deployed
+- Commit `fa8a37e` pushed to GitHub; Cloudflare version 48 (`ebfe01d1`) active at 100% traffic.
+- Live API now exposes category `dailyPl`, `portfolioValue`, `categoryHistory`, and `categoryHistoryAvailable`.
+- Account equity/cash remain account-level; category value is broker-marked position value only.
+- Current live verification: Alpaca account ACTIVE, positions source `alpaca`, 2 broker positions available.
+- Category history is intentionally empty until deployed cycles record at least two snapshots per category.
+- Cron schedules unchanged; no trading cycle or broker order was started during deployment.
 
 ## Open
-- Partial fills, legacy NULL strategy trades, swing logging, sync attribution, TS errors, duplicate warning, limited tests.
+- Verify the next daytrading and crypto cycles populate `category_snapshots`; swing remains dependent on its scheduled run.
+- Partial fills, TypeScript errors, duplicate warning, and limited integration tests remain open.
