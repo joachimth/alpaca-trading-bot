@@ -275,6 +275,14 @@
         <span class="strategy-badge strategy-day">Daytrading</span>
         <strong>TA + AI strategy:</strong> RSI, MACD, EMA, ATR, Bollinger + Fireworks GLM LLM. Every 5 min during market hours. EOD flatten. Max 15 positions, 20% each.
       </div>
+      <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-label">Daytrading Daily P&L</div><div class="metric-value neutral" id="mDayCatDailyPL">-</div><div class="metric-sub" id="mDayCatDailyPLSub">Loading...</div></div>
+        <div class="metric-card"><div class="metric-label">Daytrading Portfolio Value</div><div class="metric-value neutral" id="mDayCatPortfolio">-</div><div class="metric-sub" id="mDayCatPortfolioSub">Loading...</div></div>
+      </div>
+      <div class="chart-section">
+        <div class="section-title"><span>Daytrading Portfolio Value History</span><span style="font-size:11px;color:var(--text-muted)" id="catChartNoteDaytrading"></span></div>
+        <div class="chart-container" style="height:180px"><canvas id="categoryChartDaytrading"></canvas></div>
+      </div>
       <div class="grid-2col">
         <div class="table-section"><div class="section-title"><span>Daytrading Positions</span></div><div id="positionsTableDay"><div class="loading">Loading...</div></div></div>
         <div class="table-section"><div class="section-title"><span>Daytrading Decisions</span></div><div id="decisionsTableDay"><div class="loading">Loading...</div></div></div>
@@ -289,6 +297,14 @@
         <strong>Cross-sectional ranking:</strong> Reversal (Jegadeesh), momentum (12-1), 52w high (George & Hwang), volume, quality (low-vol, anti-lottery). Daily at 22:00 UTC. 2-30 day holds. No margin. Gap-aware sizing. Max 30 positions, 5% each. Hysteresis exits.
         <div style="margin-top: 8px;"><button class="trigger-btn" onclick="triggerSwing()">Trigger Swing Cycle</button></div>
       </div>
+      <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-label">Swing Daily P&L</div><div class="metric-value neutral" id="mSwingCatDailyPL">-</div><div class="metric-sub" id="mSwingCatDailyPLSub">Loading...</div></div>
+        <div class="metric-card"><div class="metric-label">Swing Portfolio Value</div><div class="metric-value neutral" id="mSwingCatPortfolio">-</div><div class="metric-sub" id="mSwingCatPortfolioSub">Loading...</div></div>
+      </div>
+      <div class="chart-section">
+        <div class="section-title"><span>Swing Portfolio Value History</span><span style="font-size:11px;color:var(--text-muted)" id="catChartNoteSwing"></span></div>
+        <div class="chart-container" style="height:180px"><canvas id="categoryChartSwing"></canvas></div>
+      </div>
       <div class="grid-2col">
         <div class="table-section"><div class="section-title"><span>Swing Positions</span></div><div id="positionsTableSwing"><div class="loading">Loading...</div></div></div>
         <div class="table-section"><div class="section-title"><span>Swing Decisions (Ranking)</span></div><div id="decisionsTableSwing"><div class="loading">Loading...</div></div></div>
@@ -302,6 +318,14 @@
         <span class="strategy-badge strategy-crypto">Crypto</span>
         <strong>24/7 crypto trading:</strong> BTC, ETH, SOL, AVAX, LINK + 10 more. 15-min bars, TA + AI. Every 30 minutes. No gap risk (continuous market). No margin. Wider stops (2x ATR). GTC orders. $2,000 cap (~13,000 DKK).
         <div style="margin-top: 8px;"><button class="trigger-btn" onclick="triggerCrypto()">Trigger Crypto Cycle</button></div>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-label">Crypto Daily P&L</div><div class="metric-value neutral" id="mCryptoCatDailyPL">-</div><div class="metric-sub" id="mCryptoCatDailyPLSub">Loading...</div></div>
+        <div class="metric-card"><div class="metric-label">Crypto Portfolio Value</div><div class="metric-value neutral" id="mCryptoCatPortfolio">-</div><div class="metric-sub" id="mCryptoCatPortfolioSub">Loading...</div></div>
+      </div>
+      <div class="chart-section">
+        <div class="section-title"><span>Crypto Portfolio Value History</span><span style="font-size:11px;color:var(--text-muted)" id="catChartNoteCrypto"></span></div>
+        <div class="chart-container" style="height:180px"><canvas id="categoryChartCrypto"></canvas></div>
       </div>
       <div class="grid-2col">
         <div class="table-section"><div class="section-title"><span>Crypto Positions</span></div><div id="positionsTableCrypto"><div class="loading">Loading...</div></div></div>
@@ -431,6 +455,7 @@
         renderDecisions(dayDec, 'decisionsTableDay');
         renderTrades(dayHistory.trades || strategyTrades('daytrading'), 'tradesTableDay');
         renderRuns(dayRun, 'runsTableDay');
+        renderCategoryPanel('daytrading');
       } else if (tab === 'swing') {
         const swingHistory = history.swing || {};
         const swDec = swingHistory.decisions || allDec.filter(d => strategyForDecision(d) === 'swing');
@@ -439,6 +464,7 @@
         renderSwingDecisions(swDec, 'decisionsTableSwing');
         renderTrades(swingHistory.trades || strategyTrades('swing'), 'tradesTableSwing');
         renderRuns(swRun, 'runsTableSwing');
+        renderCategoryPanel('swing');
       } else if (tab === 'crypto') {
         const cryptoHistory = history.crypto || {};
         const crDec = cryptoHistory.decisions || allDec.filter(d => strategyForDecision(d) === 'crypto');
@@ -447,7 +473,102 @@
         renderDecisions(crDec, 'decisionsTableCrypto');
         renderTrades(cryptoHistory.trades || strategyTrades('crypto'), 'tradesTableCrypto');
         renderRuns(crRun, 'runsTableCrypto');
+        renderCategoryPanel('crypto');
       }
+    }
+    const CATEGORY_TAB_IDS = {
+      daytrading: { dailyPl: 'mDayCatDailyPL', dailyPlSub: 'mDayCatDailyPLSub', portfolio: 'mDayCatPortfolio', portfolioSub: 'mDayCatPortfolioSub', canvas: 'categoryChartDaytrading', note: 'catChartNoteDaytrading' },
+      swing: { dailyPl: 'mSwingCatDailyPL', dailyPlSub: 'mSwingCatDailyPLSub', portfolio: 'mSwingCatPortfolio', portfolioSub: 'mSwingCatPortfolioSub', canvas: 'categoryChartSwing', note: 'catChartNoteSwing' },
+      crypto: { dailyPl: 'mCryptoCatDailyPL', dailyPlSub: 'mCryptoCatDailyPLSub', portfolio: 'mCryptoCatPortfolio', portfolioSub: 'mCryptoCatPortfolioSub', canvas: 'categoryChartCrypto', note: 'catChartNoteCrypto' },
+    };
+    // Category daily P&L / portfolio value: broker-marked market value and
+    // today's intraday unrealized + realized-today P&L for that category's
+    // *currently owned* broker positions only — never account equity split
+    // by strategy, and never a D1-only position shown as live.
+    function renderCategoryPanel(strategy) {
+      const ids = CATEGORY_TAB_IDS[strategy];
+      if (!ids || !dashboardData) return;
+      const cmp = dashboardData.strategyComparison;
+      const entry = cmp && cmp.strategies ? cmp.strategies.find(s => s.strategy === strategy) : null;
+      const dailyPlEl = document.getElementById(ids.dailyPl);
+      const dailyPlSubEl = document.getElementById(ids.dailyPlSub);
+      const pvEl = document.getElementById(ids.portfolio);
+      const pvSubEl = document.getElementById(ids.portfolioSub);
+      if (!cmp || cmp.positionsAvailable === false) {
+        dailyPlEl.textContent = '—'; dailyPlEl.className = 'metric-value neutral';
+        dailyPlSubEl.textContent = 'Broker positions unavailable';
+        pvEl.textContent = '—'; pvSubEl.textContent = 'Broker positions unavailable';
+      } else {
+        const dailyPl = entry && entry.dailyPl != null ? entry.dailyPl : 0;
+        const portfolioValue = entry && entry.portfolioValue != null ? entry.portfolioValue : (entry ? entry.marketValue : 0);
+        dailyPlEl.textContent = fmtMoney(dailyPl);
+        dailyPlEl.className = 'metric-value ' + (dailyPl > 0 ? 'positive' : dailyPl < 0 ? 'negative' : 'neutral');
+        dailyPlSubEl.textContent = 'Intraday unrealized + realized today';
+        pvEl.textContent = fmtMoney(portfolioValue);
+        pvSubEl.textContent = (entry ? (entry.openPositions || 0) : 0) + ' open broker position' + ((entry && entry.openPositions === 1) ? '' : 's');
+      }
+      const catHistory = dashboardData.categoryHistory || {};
+      const catAvailable = dashboardData.categoryHistoryAvailable || {};
+      const histSeries = catHistory[strategy] || [];
+      const available = !!catAvailable[strategy];
+      const note = document.getElementById(ids.note);
+      if (note) note.textContent = available ? (histSeries.length + ' snapshots') : ' — insufficient history yet';
+      drawCategoryChart(ids.canvas, histSeries, STRATEGY_COLORS[strategy] || '#e0e6f0');
+    }
+    function drawCategoryChart(canvasId, hist, color) {
+      const c = document.getElementById(canvasId);
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const r = c.getBoundingClientRect(); c.width = r.width * devicePixelRatio; c.height = r.height * devicePixelRatio;
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+      const w = r.width, h = r.height, p = { t: 10, r: 10, b: 22, l: 60 };
+      const cw = w - p.l - p.r, ch = h - p.t - p.b;
+      ctx.clearRect(0, 0, w, h);
+      if (!hist || hist.length < 2) {
+        ctx.fillStyle = '#6b7689'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('Insufficient history — accumulates from each trading cycle going forward', w / 2, h / 2);
+        return;
+      }
+      const vals = hist.map(s => s.market_value || 0);
+      const pls = hist.map(s => s.daily_pl || 0);
+      const min = Math.min(...vals, 0), max = Math.max(...vals);
+      const range = (max - min) || 1, pad = range * 0.15, yMin = min - pad, yMax = max + pad;
+      ctx.strokeStyle = '#1e2638'; ctx.lineWidth = 1;
+      for (let i = 0; i <= 3; i++) {
+        const y = p.t + (ch / 3) * i;
+        ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(p.l + cw, y); ctx.stroke();
+        const v = yMax - ((yMax - yMin) / 3) * i;
+        ctx.fillStyle = '#6b7689'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+        ctx.fillText('$' + v.toFixed(0), p.l - 8, y + 3);
+      }
+      ctx.beginPath();
+      vals.forEach((v, i) => {
+        const x = p.l + (cw / (vals.length - 1)) * i;
+        const y = p.t + ch - ((v - yMin) / (yMax - yMin)) * ch;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+      const maxAbsPl = Math.max(...pls.map(v => Math.abs(v)), 1);
+      vals.forEach((v, i) => {
+        const x = p.l + (cw / (vals.length - 1)) * i;
+        const y = p.t + ch - ((v - yMin) / (yMax - yMin)) * ch;
+        const pl = pls[i];
+        const radius = 2 + (Math.abs(pl) / maxAbsPl) * 4;
+        ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = pl >= 0 ? '#00c853' : '#ff1744';
+        ctx.fill();
+      });
+      ctx.fillStyle = '#6b7689'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+      const labelCount = Math.min(4, hist.length);
+      for (let i = 0; i < labelCount; i++) {
+        const idx = Math.floor((hist.length - 1) * (i / (labelCount - 1 || 1)));
+        const x = p.l + (cw / (vals.length - 1)) * idx;
+        const ts = hist[idx].timestamp;
+        const d = new Date(ts.includes('T') ? ts + 'Z' : ts);
+        ctx.fillText(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), x, h - 6);
+      }
+      ctx.fillStyle = '#6b7689'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+      ctx.fillText("dot = that snapshot's daily P&L (size/color)", p.l, p.t + 10);
     }
     function drawEquityChart(snaps) {
       const c = document.getElementById('equityChart'); const ctx = c.getContext('2d');

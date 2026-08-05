@@ -1,4 +1,5 @@
 import type { Position } from './alpaca';
+import { normalizeCryptoSymbol } from './crypto-attribution';
 
 /**
  * The subset of a D1 position that is safe to carry into a broker-backed
@@ -76,6 +77,58 @@ export function projectBrokerPositions(
   });
 }
 
+/**
+ * Broker positions and D1 metadata can disagree on crypto symbol punctuation
+ * (AAVE/USD vs AAVEUSD). Only known-universe crypto symbols are rewritten;
+ * stock tickers (including ones with punctuation, e.g. BRK.B) pass through
+ * unchanged so this never invents a match for a non-crypto symbol.
+ */
 function normalizeSymbol(symbol: string): string {
-  return symbol.trim().toUpperCase();
+  const value = symbol.trim().toUpperCase();
+  return normalizeCryptoSymbol(value) ?? value;
+}
+
+export type CategoryStrategy = 'daytrading' | 'swing' | 'crypto';
+
+const CATEGORY_STRATEGIES: readonly CategoryStrategy[] = ['daytrading', 'swing', 'crypto'];
+
+export interface CategoryPositionSummary {
+  strategy: CategoryStrategy;
+  positionsCount: number;
+  marketValue: number;
+  unrealizedPl: number;
+  unrealizedIntradayPl: number;
+}
+
+function isCategoryStrategy(value: string | null): value is CategoryStrategy {
+  return value === 'daytrading' || value === 'swing' || value === 'crypto';
+}
+
+/**
+ * Aggregate broker-authoritative positions into per-category totals.
+ *
+ * Only positions the broker currently holds are counted — this is never
+ * derived from account equity or from D1-only rows. Positions the broker
+ * holds but that carry no strategy attribution ('unattributed', e.g. a
+ * manually-opened or unrecognized position) are intentionally excluded from
+ * every category rather than guessed into one.
+ */
+export function summarizeByCategory(
+  projections: readonly BrokerPositionProjection[],
+): CategoryPositionSummary[] {
+  const totals = new Map<CategoryStrategy, CategoryPositionSummary>(
+    CATEGORY_STRATEGIES.map(strategy => [
+      strategy,
+      { strategy, positionsCount: 0, marketValue: 0, unrealizedPl: 0, unrealizedIntradayPl: 0 },
+    ]),
+  );
+  for (const p of projections) {
+    if (!isCategoryStrategy(p.strategy)) continue;
+    const entry = totals.get(p.strategy)!;
+    entry.positionsCount += 1;
+    entry.marketValue += p.market_value;
+    entry.unrealizedPl += p.unrealized_pl;
+    entry.unrealizedIntradayPl += p.unrealized_intraday_pl;
+  }
+  return CATEGORY_STRATEGIES.map(strategy => totals.get(strategy)!);
 }

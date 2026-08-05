@@ -14,6 +14,7 @@ import {
   type SwingScore,
 } from './swing-signals';
 import { SwingRiskManager, type SwingRiskConfig } from './swing-risk';
+import { projectBrokerPositions, summarizeByCategory } from './position-projection';
 import type { Env } from './index';
 
 const SWING_FALLBACK_CONFIG = {
@@ -132,6 +133,15 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       total_pl: account.equity - account.last_equity,
       total_plpc: account.last_equity > 0 ? ((account.equity - account.last_equity) / account.last_equity) * 100 : 0,
     });
+
+    // Log per-category market value & P&L from broker-authoritative
+    // positions (non-fatal — must not block the swing cycle itself).
+    try {
+      const categoryProjections = projectBrokerPositions(allBrokerPositions, allDbPositions);
+      await db.logCategorySnapshots(summarizeByCategory(categoryProjections));
+    } catch (e) {
+      console.error('Category snapshot logging failed:', e);
+    }
 
     // Initialize risk manager
     const riskConfig: SwingRiskConfig = {

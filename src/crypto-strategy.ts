@@ -15,6 +15,7 @@ import { refineWithLLM } from './ai-decision';
 import { getCryptoSentiment, formatSentimentForPrompt } from './crypto-sentiment';
 import { RiskManager, type RiskConfig } from './risk-manager';
 import { Database } from './database';
+import { projectBrokerPositions, summarizeByCategory } from './position-projection';
 import type { Env } from './index';
 
 // Curated crypto universe — major liquid coins on Alpaca
@@ -113,6 +114,7 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
     // Get account and crypto positions
     const account = await alpaca.getAccount();
     const positions = await alpaca.getPositions();
+    const allDbPositions = await db.getOpenPositions();
 
     // Only filter crypto positions (symbols ending in USD that aren't stock symbols)
     // Alpaca returns crypto positions with same format as stock positions
@@ -148,6 +150,15 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
       total_pl: account.equity - account.last_equity,
       total_plpc: account.last_equity > 0 ? ((account.equity - account.last_equity) / account.last_equity) * 100 : 0,
     });
+
+    // Log per-category market value & P&L from broker-authoritative
+    // positions (non-fatal — must not block the crypto cycle itself).
+    try {
+      const categoryProjections = projectBrokerPositions(positions, allDbPositions);
+      await db.logCategorySnapshots(summarizeByCategory(categoryProjections));
+    } catch (e) {
+      console.error('Category snapshot logging failed:', e);
+    }
 
     // Initialize risk manager with crypto-specific config
     const riskConfig: RiskConfig = {

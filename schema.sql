@@ -114,6 +114,28 @@ CREATE TABLE IF NOT EXISTS performance_snapshots (
 CREATE INDEX IF NOT EXISTS idx_snapshots_timestamp ON performance_snapshots(timestamp);
 
 -- ============================================================
+-- Category snapshots: per-strategy (daytrading/swing/crypto) market value
+-- and P&L, taken each run cycle from broker-authoritative positions only.
+-- Unlike performance_snapshots (account-wide equity/cash), these rows never
+-- split account equity by strategy — market_value is the sum of current
+-- broker positions attributed to that strategy. Rows only start
+-- accumulating once this table exists; there is no retroactive backfill.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS category_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+  strategy TEXT NOT NULL CHECK(strategy IN ('daytrading','swing','crypto')),
+  market_value REAL NOT NULL DEFAULT 0,
+  unrealized_pl REAL NOT NULL DEFAULT 0,
+  realized_pl_today REAL NOT NULL DEFAULT 0,   -- closed_pl summed for positions closed today (UTC)
+  daily_pl REAL NOT NULL DEFAULT 0,            -- unrealized_intraday_pl (broker) + realized_pl_today
+  positions_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_category_snapshots_strategy_ts ON category_snapshots(strategy, timestamp);
+
+-- ============================================================
 -- Run log: every cron invocation
 -- ============================================================
 CREATE TABLE IF NOT EXISTS run_log (

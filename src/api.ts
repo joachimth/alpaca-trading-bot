@@ -223,6 +223,7 @@ export class DashboardAPI {
     const strategyComparison = positionsAvailable
       ? await db.getStrategyComparison(positions)
       : null;
+    const categoryHistory = await this.getCategoryHistory(db);
 
     return this.json({
       stats,
@@ -237,7 +238,33 @@ export class DashboardAPI {
       performanceHistory: snapshots.reverse(), // chronological for charting
       strategyComparison,
       strategyHistory: Object.fromEntries(strategyHistory.map(item => [item.strategy, item])),
+      categoryHistory: categoryHistory.series,
+      categoryHistoryAvailable: categoryHistory.available,
     }, cors);
+  }
+
+  /**
+   * Per-category (daytrading/swing/crypto) market-value/P&L history from
+   * category_snapshots, chronological. This table only accumulates rows
+   * going forward from each trading cycle — it is never backfilled from
+   * account-level snapshots or current ownership, so a category with fewer
+   * than 2 recorded points is explicitly reported as unavailable rather
+   * than rendered as a fabricated trend.
+   */
+  private async getCategoryHistory(db: Database): Promise<{
+    series: Record<string, any[]>;
+    available: Record<string, boolean>;
+  }> {
+    const strategies = ['daytrading', 'swing', 'crypto'] as const;
+    const rows = await Promise.all(strategies.map(s => db.getCategorySnapshots(s, 500)));
+    const series: Record<string, any[]> = {};
+    const available: Record<string, boolean> = {};
+    strategies.forEach((s, i) => {
+      const chronological = rows[i].slice().reverse();
+      series[s] = chronological;
+      available[s] = chronological.length >= 2;
+    });
+    return { series, available };
   }
 
   private async getAccount(cors: Record<string, string>): Promise<Response> {
@@ -302,7 +329,13 @@ export class DashboardAPI {
       const livePositions = await this.getBrokerPositions();
       const positions = projectBrokerPositions(livePositions, dbPositions);
       const comparison = await db.getStrategyComparison(positions);
-      return this.json({ ...comparison, positionsAvailable: true }, cors);
+      const categoryHistory = await this.getCategoryHistory(db);
+      return this.json({
+        ...comparison,
+        positionsAvailable: true,
+        categoryHistory: categoryHistory.series,
+        categoryHistoryAvailable: categoryHistory.available,
+      }, cors);
     } catch (e) {
       const error = e instanceof Error ? e.message : 'Broker positions unavailable';
       return this.json({ strategies: [], timeSeries: {}, positionsAvailable: false, error }, cors, 503);

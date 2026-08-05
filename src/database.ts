@@ -9,6 +9,7 @@ import {
   type CryptoBuyAttributionMetadata,
   type PositionAttributionMetadata,
 } from './crypto-attribution';
+import type { CategoryPositionSummary, CategoryStrategy } from './position-projection';
 
 export interface DecisionRecord {
   ticker: string;
@@ -49,6 +50,7 @@ export class Database {
     this.schemaReady = Promise.all([
       this.ensureTradeStrategyColumn(),
       this.ensureCycleLeaseSchema(),
+      this.ensureCategorySnapshotSchema(),
     ]).then(() => undefined);
   }
 
@@ -75,6 +77,25 @@ export class Database {
         expires_at INTEGER NOT NULL
       )
     `).run();
+  }
+
+  private async ensureCategorySnapshotSchema(): Promise<void> {
+    await this.db.prepare(`
+      CREATE TABLE IF NOT EXISTS category_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+        strategy TEXT NOT NULL,
+        market_value REAL NOT NULL DEFAULT 0,
+        unrealized_pl REAL NOT NULL DEFAULT 0,
+        realized_pl_today REAL NOT NULL DEFAULT 0,
+        daily_pl REAL NOT NULL DEFAULT 0,
+        positions_count INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `).run();
+    await this.db.prepare(
+      `CREATE INDEX IF NOT EXISTS idx_category_snapshots_strategy_ts ON category_snapshots(strategy, timestamp)`
+    ).run();
   }
 
   private async ensureTradeSchema(): Promise<void> {
@@ -485,6 +506,57 @@ export class Database {
   }
 
   // ============================================================
+  // Category snapshots (per-strategy market value & P&L, broker-authoritative)
+  // ============================================================
+
+  /**
+   * Realized P&L for positions closed today, grouped by strategy, using a
+   * UTC day boundary (SQLite's date('now') is UTC). Each position's
+   * closed_pl is recorded exactly once when it closes, so this never
+   * double-counts or fabricates a value for a day with no closes.
+   */
+  async getRealizedPlToday(): Promise<Record<string, number>> {
+    const result = await this.db.prepare(
+      `SELECT COALESCE(strategy, 'daytrading') as strategy,
+              COALESCE(SUM(closed_pl), 0) as realized_today
+         FROM positions
+        WHERE closed_at IS NOT NULL AND closed_pl IS NOT NULL AND closed_at >= date('now')
+        GROUP BY COALESCE(strategy, 'daytrading')`
+    ).all();
+    const out: Record<string, number> = {};
+    for (const r of result.results as any[]) out[r.strategy] = r.realized_today;
+    return out;
+  }
+
+  /**
+   * Log one row per category from currently-known broker positions.
+   * daily_pl = today's broker-reported intraday unrealized change for
+   * currently-held positions + today's already-recorded realized closes.
+   * Categories with zero current exposure are still logged at zero — this
+   * is real (no positions), not a fabricated/missing value.
+   */
+  async logCategorySnapshots(summaries: readonly CategoryPositionSummary[]): Promise<void> {
+    await this.ensureTradeSchema();
+    const realizedToday = await this.getRealizedPlToday();
+    for (const s of summaries) {
+      const realizedPlToday = realizedToday[s.strategy] ?? 0;
+      const dailyPl = s.unrealizedIntradayPl + realizedPlToday;
+      await this.db.prepare(
+        `INSERT INTO category_snapshots (strategy, market_value, unrealized_pl, realized_pl_today, daily_pl, positions_count)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).bind(s.strategy, s.marketValue, s.unrealizedPl, realizedPlToday, dailyPl, s.positionsCount).run();
+    }
+  }
+
+  async getCategorySnapshots(strategy: CategoryStrategy, limit: number = 500): Promise<any[]> {
+    await this.ensureTradeSchema();
+    const result = await this.db.prepare(
+      `SELECT * FROM category_snapshots WHERE strategy = ? ORDER BY timestamp DESC LIMIT ?`
+    ).bind(strategy, limit).all();
+    return result.results as any[];
+  }
+
+  // ============================================================
   // Run log
   // ============================================================
 
@@ -540,6 +612,7 @@ export class Database {
     strategy: string | null;
     unrealized_pl: number;
     market_value: number;
+    unrealized_intraday_pl?: number;
   }[]): Promise<any> {
       // Current open-position exposure is broker-authoritative when supplied.
     const openRows = currentPositions
@@ -659,6 +732,31 @@ export class Database {
     for (const s of result) {
       s.totalPl = s.realizedPl + s.unrealizedPl;
       s.winRate = (s.wins + s.losses) > 0 ? (s.wins / (s.wins + s.losses)) * 100 : 0;
+    }
+
+    // Live category daily P&L and portfolio value. These require
+    // broker-authoritative current positions (currentPositions) — without
+    // them there is no reliable "today" intraday number, so the fields are
+    // left unset rather than derived from stale/D1-only data.
+    if (currentPositions) {
+      const realizedToday = await this.getRealizedPlToday();
+      const intradayByStrategy = new Map<string, number>();
+      for (const p of currentPositions) {
+        if (p.strategy !== 'daytrading' && p.strategy !== 'swing' && p.strategy !== 'crypto') continue;
+        intradayByStrategy.set(
+          p.strategy,
+          (intradayByStrategy.get(p.strategy) ?? 0) + (p.unrealized_intraday_pl ?? 0)
+        );
+      }
+      for (const strat of ['daytrading', 'swing', 'crypto'] as const) {
+        const s = ensure(strat);
+        const realized = realizedToday[strat] ?? 0;
+        const intraday = intradayByStrategy.get(strat) ?? 0;
+        s.dailyPl = intraday + realized;
+        // Broker-marked market value of current broker positions attributed
+        // to this strategy — never account equity split by strategy.
+        s.portfolioValue = s.marketValue;
+      }
     }
 
     // Build cumulative P&L time series per strategy

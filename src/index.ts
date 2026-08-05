@@ -10,6 +10,7 @@ import { UniverseScanner } from './scanner';
 import { DashboardAPI } from './api';
 import { runSwingCycle } from './swing-strategy';
 import { runCryptoCycle } from './crypto-strategy';
+import { projectBrokerPositions, summarizeByCategory } from './position-projection';
 
 export interface Env {
   DB: D1Database;
@@ -179,6 +180,16 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       total_pl: account.equity - account.last_equity,
       total_plpc: account.last_equity > 0 ? ((account.equity - account.last_equity) / account.last_equity) * 100 : 0,
     });
+
+    // Log per-category (daytrading/swing/crypto) market value & P&L from
+    // broker-authoritative positions. Non-fatal: a failure here must not
+    // block the trading cycle itself.
+    try {
+      const categoryProjections = projectBrokerPositions(allBrokerPositions, allDbPositions);
+      await db.logCategorySnapshots(summarizeByCategory(categoryProjections));
+    } catch (e) {
+      console.error('Category snapshot logging failed:', e);
+    }
 
     // 5. Initialize risk manager with ATR-scaled parameters
     const riskConfig: RiskConfig = {
