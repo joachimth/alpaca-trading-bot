@@ -383,28 +383,55 @@ export class AlpacaClient {
   // Market Data (via data.alpaca.markets)
   // ============================================================
 
-  async getBars(symbol: string, timeframe: string = '5Min', limit: number = 200): Promise<Bar[]> {
+  async getBars(
+    symbol: string,
+    timeframe: string = '5Min',
+    limit: number = 200,
+    options: { start?: string; end?: string } = {},
+  ): Promise<Bar[]> {
     const dataUrl = this.getDataBaseUrl();
-    const url = `${dataUrl}/v2/stocks/${symbol}/bars?timeframe=${timeframe}&limit=${limit}`;
+    const bars: any[] = [];
+    let pageToken: string | undefined;
+    // Alpaca may return fewer rows than requested and expose the remainder via
+    // next_page_token. Follow it so a short first page cannot masquerade as a
+    // short history window.
+    for (let page = 0; page < 20; page++) {
+      const params = new URLSearchParams({
+        timeframe,
+        limit: String(limit),
+        sort: 'asc',
+      });
+      if (options.start) params.set('start', options.start);
+      if (options.end) params.set('end', options.end);
+      if (pageToken) params.set('page_token', pageToken);
+      const url = `${dataUrl}/v2/stocks/${symbol}/bars?${params.toString()}`;
 
-    const resp = await fetch(url, {
-      headers: this.getHeaders(),
-    });
+      const resp = await fetch(url, {
+        headers: this.getHeaders(),
+      });
 
-    if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(`Alpaca getBars failed for ${symbol}: ${resp.status} ${text}`);
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Alpaca getBars failed for ${symbol}: ${resp.status} ${text}`);
+      }
+
+      const data = await resp.json() as any;
+      bars.push(...(Array.isArray(data.bars) ? data.bars : []));
+      pageToken = typeof data.next_page_token === 'string' && data.next_page_token.length > 0
+        ? data.next_page_token
+        : undefined;
+      if (!pageToken) break;
     }
 
-    const data = await resp.json() as any;
-    const bars = data.bars || [];
     return bars.map((b: any) => ({
-      t: b.t,
-      o: b.o,
-      h: b.h,
-      l: b.l,
-      c: b.c,
-      v: b.v,
+      // Alpaca returns RFC-3339 timestamps for stock bars. Normalize them to
+      // unix seconds so all indicator timestamp arithmetic is deterministic.
+      t: typeof b.t === 'string' ? Date.parse(b.t) / 1000 : Number(b.t),
+      o: Number(b.o),
+      h: Number(b.h),
+      l: Number(b.l),
+      c: Number(b.c),
+      v: Number(b.v),
     }));
   }
 

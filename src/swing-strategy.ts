@@ -10,12 +10,17 @@ import {
   scoreAndRank,
   filterUniverse,
   DEFAULT_SWING_CONFIG,
-  type SwingConfig,
   type SwingScore,
 } from './swing-signals';
 import { SwingRiskManager, type SwingRiskConfig } from './swing-risk';
 import { projectBrokerPositions, summarizeByCategory } from './position-projection';
 import type { Env } from './index';
+import {
+  assessSwingBars,
+  getSwingBarsWindow,
+  isSwingEntryDataDegraded,
+  SWING_BAR_LIMIT,
+} from './swing-data';
 
 const SWING_FALLBACK_CONFIG = {
   ...DEFAULT_SWING_CONFIG,
@@ -192,18 +197,49 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       return;
     }
 
-    // Scan universe — swing uses daily bars, needs more history
+    // Scan universe — swing uses daily bars and an explicit completed-session
+    // window. Alpaca's bars endpoint otherwise defaults to the current day;
+    // on a post-close cron that can yield empty/partial data.
     const scanner = new UniverseScanner(alpaca, config.maxPositions * 5); // scan 5x what we'll hold
     const candidates = await scanner.scan();
-    console.log(`Swing: scanning ${candidates.length} candidates`);
+    const barsWindow = getSwingBarsWindow();
+    console.log(`Swing: scanning ${candidates.length} candidates; daily bars ${barsWindow.start}..${barsWindow.end}`);
 
-    // Compute swing indicators for all candidates (parallel, daily bars, 300 bars = ~1.2 years)
+    const diagnostics = {
+      candidates: candidates.length,
+      barsRequested: SWING_BAR_LIMIT,
+      barsWindowStart: barsWindow.start,
+      barsWindowEnd: barsWindow.end,
+      barsOk: 0,
+      barsEmpty: 0,
+      barsInvalid: 0,
+      barsStale: 0,
+      barsShort: 0,
+      indicatorFailures: 0,
+      filtered: 0,
+    };
+
+    // Compute swing indicators for all candidates. Data quality is assessed
+    // before indicators; no stale/partial series can create an entry.
     const indicatorPromises = candidates.map(async symbol => {
       try {
-        const bars = await alpaca.getBars(symbol, '1Day', 300);
-        if (bars.length < 60) return null;
-        return computeSwingIndicators(bars, symbol);
+        const rawBars = await alpaca.getBars(symbol, '1Day', SWING_BAR_LIMIT, {
+          start: barsWindow.start,
+          end: barsWindow.end,
+        });
+        const assessment = assessSwingBars(rawBars, barsWindow.endDate);
+        if (assessment.quality === 'ok') diagnostics.barsOk++;
+        else if (assessment.quality === 'empty') diagnostics.barsEmpty++;
+        else if (assessment.quality === 'invalid') diagnostics.barsInvalid++;
+        else if (assessment.quality === 'stale') diagnostics.barsStale++;
+        else diagnostics.barsShort++;
+        if (assessment.quality !== 'ok') {
+          console.warn(`Swing: ${symbol} data ${assessment.quality} (received=${assessment.received}, valid=${assessment.valid}, latest=${assessment.latestBarAt}, staleDays=${assessment.staleDays})`);
+          return null;
+        }
+        return computeSwingIndicators(assessment.bars, symbol);
       } catch (e) {
+        diagnostics.indicatorFailures++;
         console.error(`Swing: indicator failed for ${symbol}:`, e);
         return null;
       }
@@ -212,23 +248,40 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     const indicatorResults = await Promise.all(indicatorPromises);
     const validIndicators = indicatorResults.filter((i): i is NonNullable<typeof i> => i !== null);
 
-    // Filter universe by liquidity
+    // Filter universe by liquidity; existing price/volume/history thresholds
+    // remain unchanged.
     const filtered = filterUniverse(validIndicators, config);
-    console.log(`Swing: ${filtered.length} stocks passed universe filter`);
+    diagnostics.filtered = filtered.length;
+    console.log(`Swing: universe diagnostics ${JSON.stringify(diagnostics)}`);
 
-    if (filtered.length < 20) {
-      errors.push(`Universe too small after filtering: ${filtered.length} stocks`);
-      await db.logRun({
-        trigger: 'swing_cron',
-        market_open: clock.is_open ? 1 : 0,
-        duration_ms: Date.now() - startTime,
-        decisions_made: 0,
-        trades_executed: 0,
-        errors: errors.length,
-        error_details: JSON.stringify(errors),
-        status: 'error',
-      });
-      return;
+    const entryDataDegraded = isSwingEntryDataDegraded(filtered.length);
+    if (entryDataDegraded) {
+      const degradedStatus = {
+        code: 'SWING_DATA_DEGRADED',
+        message: 'Insufficient fresh, valid candidates for new swing entries',
+        ...diagnostics,
+        requiredFilteredCandidates: 20,
+      };
+      errors.push(JSON.stringify(degradedStatus));
+      console.warn(`Swing: ${JSON.stringify(degradedStatus)}`);
+
+      // Protective handling is deliberately preserved: existing positions
+      // still run through the exit phase using the valid ranked universe.
+      // New entries are skipped because the cross-sectional sample is unsafe.
+      // With no valid universe at all, there are no new-entry decisions.
+      if (filtered.length === 0) {
+        await db.logRun({
+          trigger: 'swing_cron',
+          market_open: clock.is_open ? 1 : 0,
+          duration_ms: Date.now() - startTime,
+          decisions_made: 0,
+          trades_executed: 0,
+          errors: errors.length,
+          error_details: JSON.stringify(errors),
+          status: 'degraded',
+        });
+        return;
+      }
     }
 
     // Cross-sectional ranking
@@ -250,6 +303,13 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       const score = allScores.get(pos.symbol);
 
       if (!score) {
+        // A degraded data window must not turn missing bars into a sell
+        // signal. Preserve the existing position until a complete, fresh
+        // cross-section is available again.
+        if (entryDataDegraded) {
+          console.warn(`Swing: preserving ${pos.symbol}; no fresh score during degraded data run`);
+          continue;
+        }
         // Stock not in current universe (could be delisted, illiquid, etc.) — exit
         proposedSells.push({ symbol: pos.symbol, value: Math.abs(pos.market_value), reason: 'Not in current universe' });
         decisionsMade++;
@@ -346,10 +406,15 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       : updatedAccount.portfolio_value;
     const turnoverFiltered = riskManager.applyTurnoverControl(allProposedTrades, turnoverBase);
 
-    // Execute buys (respecting turnover control)
+    // Execute buys (respecting turnover control). A degraded cross-sectional
+    // sample may still support protective exits, but never new entries.
     const buyTradeMap = new Map(turnoverFiltered.filter(t => t.side === 'buy').map(t => [t.symbol, t]));
 
-    for (const buy of proposedBuys) {
+    if (entryDataDegraded) {
+      console.warn('Swing: skipping all new entries because the fresh filtered universe is below 20 candidates');
+    }
+
+    for (const buy of entryDataDegraded ? [] : proposedBuys) {
       const tradeInfo = buyTradeMap.get(buy.symbol);
       if (tradeInfo?.skipped) {
         console.log(`Swing: skip buy ${buy.symbol}: ${tradeInfo.reason}`);
@@ -442,7 +507,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       trades_executed: tradesExecuted,
       errors: errors.length,
       error_details: errors.length > 0 ? JSON.stringify(errors) : null,
-      status: errors.length > 5 ? 'error' : 'ok',
+      status: entryDataDegraded ? 'degraded' : errors.length > 5 ? 'error' : 'ok',
     });
 
     console.log(`Swing cycle complete: ${decisionsMade} decisions, ${tradesExecuted} trades, ${errors.length} errors, ${Date.now() - startTime}ms`);
