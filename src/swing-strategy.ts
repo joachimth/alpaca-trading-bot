@@ -378,7 +378,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
 
     const proposedBuys: Array<{ symbol: string; value: number; score: SwingScore }> = [];
 
-    for (const score of buyCandidates) {
+    for (const score of entryDataDegraded ? [] : buyCandidates) {
       // Skip if already holding
       if (heldSymbols.has(score.symbol)) continue;
 
