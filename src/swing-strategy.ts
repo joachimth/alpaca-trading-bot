@@ -15,6 +15,7 @@ import {
 import { SwingRiskManager, type SwingRiskConfig } from './swing-risk';
 import { projectBrokerPositions, summarizeByCategory } from './position-projection';
 import type { Env } from './index';
+import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 import {
   assessSwingBars,
   getSwingBarsWindow,
@@ -44,10 +45,14 @@ const SWING_FALLBACK_CONFIG = {
 };
 
 export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
+  const leaseStart = Date.now();
   const owner = `swing:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const leaseDb = new Database(env.DB);
   if (!await leaseDb.acquireCycleLease(owner)) {
+    const skips = new SkipReasonCollector();
+    skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another strategy cycle holds the global lease', { strategy: 'swing', trigger });
     console.log(`Skipping ${trigger}: another strategy cycle holds the global lease`);
+    await leaseDb.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 0, error_details: serializeRunDetails([], skips), status: 'skipped' });
     return;
   }
   try {
@@ -58,10 +63,10 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
 }
 
 async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
-  void trigger;
   const startTime = Date.now();
   const db = new Database(env.DB);
   const errors: string[] = [];
+  const skips = new SkipReasonCollector();
   let decisionsMade = 0;
   let tradesExecuted = 0;
 
@@ -99,16 +104,17 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       (r.trigger === 'swing_cron' || r.trigger === 'manual_swing') && r.timestamp.startsWith(today) && r.status === 'ok'
     );
     if (alreadyRanToday) {
+      skips.add('ONCE_PER_DAY', 'cycle', 'Swing already completed a successful run for this UTC day', { trigger, date: today });
       console.log('Swing: already ran today, skipping');
       await db.logRun({
-        trigger: 'swing_cron',
+        trigger,
         market_open: clock.is_open ? 1 : 0,
         duration_ms: Date.now() - startTime,
         decisions_made: 0,
         trades_executed: 0,
         errors: 0,
-        error_details: null,
-        status: 'skipped',
+        error_details: serializeRunDetails([], skips),
+        status: runStatus(errors, skips, false, tradesExecuted),
       });
       return;
     }
@@ -183,16 +189,17 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     }
 
     if (riskManager.isTradingHalted()) {
+      skips.add('RISK_HALTED', 'cycle', 'Swing trading is halted by risk controls', { reason: riskManager.isTradingHalted() });
       console.error(`Swing: trading halted — ${riskManager.isTradingHalted()}`);
       await db.logRun({
-        trigger: 'swing_cron',
+        trigger,
         market_open: clock.is_open ? 1 : 0,
         duration_ms: Date.now() - startTime,
         decisions_made: 0,
         trades_executed: 0,
         errors: errors.length,
-        error_details: errors.length > 0 ? JSON.stringify(errors) : null,
-        status: 'error',
+        error_details: serializeRunDetails(errors, skips),
+        status: runStatus(errors, skips, false, tradesExecuted),
       });
       return;
     }
@@ -262,7 +269,8 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         ...diagnostics,
         requiredFilteredCandidates: 20,
       };
-      errors.push(JSON.stringify(degradedStatus));
+      skips.add('SWING_DATA_DEGRADED', 'cycle', degradedStatus.message, diagnostics);
+
       console.warn(`Swing: ${JSON.stringify(degradedStatus)}`);
 
       // Protective handling is deliberately preserved: existing positions
@@ -271,14 +279,14 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       // With no valid universe at all, there are no new-entry decisions.
       if (filtered.length === 0) {
         await db.logRun({
-          trigger: 'swing_cron',
+          trigger,
           market_open: clock.is_open ? 1 : 0,
           duration_ms: Date.now() - startTime,
           decisions_made: 0,
           trades_executed: 0,
           errors: errors.length,
-          error_details: JSON.stringify(errors),
-          status: 'degraded',
+          error_details: serializeRunDetails(errors, skips),
+          status: runStatus(errors, skips, true),
         });
         return;
       }
@@ -307,9 +315,11 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         // signal. Preserve the existing position until a complete, fresh
         // cross-section is available again.
         if (entryDataDegraded) {
+          skips.add('HELD_DEGRADED_DATA', 'position', 'Held position preserved because no fresh score was available during a degraded run', { symbol: pos.symbol });
           console.warn(`Swing: preserving ${pos.symbol}; no fresh score during degraded data run`);
           continue;
         }
+        skips.add('HELD_NO_SCORE', 'position', 'Held position has no current score; it was preserved only when data was degraded', { symbol: pos.symbol });
         // Stock not in current universe (could be delisted, illiquid, etc.) — exit
         proposedSells.push({ symbol: pos.symbol, value: Math.abs(pos.market_value), reason: 'Not in current universe' });
         decisionsMade++;
@@ -380,7 +390,10 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
 
     for (const score of entryDataDegraded ? [] : buyCandidates) {
       // Skip if already holding
-      if (heldSymbols.has(score.symbol)) continue;
+      if (heldSymbols.has(score.symbol)) {
+        skips.add('HELD_POSITION', 'decision', 'Entry skipped because the symbol is already held', { symbol: score.symbol });
+        continue;
+      }
 
       // Earnings blackout (placeholder — would need earnings calendar API)
       // const earningsCal = new Map(); // TODO: integrate earnings calendar
@@ -392,6 +405,8 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
 
       if (riskCheck.approved && riskCheck.adjustedQty) {
         proposedBuys.push({ symbol: score.symbol, value: riskCheck.adjustedValue || 0, score });
+      } else {
+        skips.add('NO_ENTRY_RISK', 'decision', 'Swing entry skipped by risk controls', { symbol: score.symbol, reason: riskCheck.reason });
       }
     }
 
@@ -411,19 +426,24 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     const buyTradeMap = new Map(turnoverFiltered.filter(t => t.side === 'buy').map(t => [t.symbol, t]));
 
     if (entryDataDegraded) {
+      skips.add('SWING_NO_ENTRY_DEGRADED', 'cycle', 'All new swing entries skipped because the fresh filtered universe is below 20 candidates', { filtered: filtered.length, required: 20 });
       console.warn('Swing: skipping all new entries because the fresh filtered universe is below 20 candidates');
     }
 
     for (const buy of entryDataDegraded ? [] : proposedBuys) {
       const tradeInfo = buyTradeMap.get(buy.symbol);
       if (tradeInfo?.skipped) {
+        skips.add('TURNOVER_LIMIT', 'decision', 'Entry skipped by swing turnover control', { symbol: buy.symbol, reason: tradeInfo.reason });
         console.log(`Swing: skip buy ${buy.symbol}: ${tradeInfo.reason}`);
         continue;
       }
 
       const price = buy.score.indicators.price;
       const qty = Math.floor((buy.value) / price) || Math.round((buy.value / price) * 100) / 100;
-      if (qty < 0.01) continue;
+      if (qty < 0.01) {
+        skips.add('MIN_ORDER_SIZE', 'decision', 'Entry skipped because calculated quantity is below minimum order size', { symbol: buy.symbol, qty });
+        continue;
+      }
 
       try {
         const order = await alpaca.submitOrder({
@@ -500,14 +520,14 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
 
     // Log run
     await db.logRun({
-      trigger: 'swing_cron',
+      trigger,
       market_open: clock.is_open ? 1 : 0,
       duration_ms: Date.now() - startTime,
       decisions_made: decisionsMade,
       trades_executed: tradesExecuted,
       errors: errors.length,
-      error_details: errors.length > 0 ? JSON.stringify(errors) : null,
-      status: entryDataDegraded ? 'degraded' : errors.length > 5 ? 'error' : 'ok',
+      error_details: serializeRunDetails(errors, skips),
+      status: runStatus(errors, skips, entryDataDegraded, tradesExecuted),
     });
 
     console.log(`Swing cycle complete: ${decisionsMade} decisions, ${tradesExecuted} trades, ${errors.length} errors, ${Date.now() - startTime}ms`);
@@ -517,13 +537,13 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     console.error('Swing cycle failed:', error);
 
     await db.logRun({
-      trigger: 'swing_cron',
+      trigger,
       market_open: 0,
       duration_ms: Date.now() - startTime,
       decisions_made: decisionsMade,
       trades_executed: tradesExecuted,
       errors: errors.length,
-      error_details: JSON.stringify(errors),
+      error_details: serializeRunDetails(errors, skips),
       status: 'error',
     });
   }

@@ -11,6 +11,7 @@ import { DashboardAPI } from './api';
 import { runSwingCycle } from './swing-strategy';
 import { runCryptoCycle } from './crypto-strategy';
 import { projectBrokerPositions, summarizeByCategory } from './position-projection';
+import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 
 export interface Env {
   DB: D1Database;
@@ -91,10 +92,14 @@ export default {
 // ============================================================
 
 async function runTradingCycleWithLease(env: Env, trigger: string): Promise<void> {
+  const leaseStart = Date.now();
   const owner = `daytrading:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const db = new Database(env.DB);
   if (!await db.acquireCycleLease(owner)) {
+    const skips = new SkipReasonCollector();
+    skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another strategy cycle holds the global lease', { strategy: 'daytrading', trigger });
     console.log(`Skipping ${trigger}: another strategy cycle holds the global lease`);
+    await db.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 0, error_details: serializeRunDetails([], skips), status: 'skipped' });
     return;
   }
   try {
@@ -108,6 +113,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
   const startTime = Date.now();
   const db = new Database(env.DB);
   const errors: string[] = [];
+  const skips = new SkipReasonCollector();
   let decisionsMade = 0;
   let tradesExecuted = 0;
 
@@ -135,6 +141,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     // 3. Check market status
     const clock = await alpaca.getClock();
     if (!clock.is_open) {
+      skips.add('MARKET_CLOSED', 'cycle', 'Market is closed; no daytrading actions were evaluated', { nextOpen: clock.next_open });
       console.log('Market closed, skipping cycle');
       await db.logRun({
         trigger,
@@ -143,8 +150,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         decisions_made: 0,
         trades_executed: 0,
         errors: 0,
-        error_details: null,
-        status: 'skipped',
+        error_details: serializeRunDetails([], skips),
+        status: runStatus(errors, skips, false, tradesExecuted),
       });
       return;
     }
@@ -476,12 +483,14 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       // Skip HOLD
       if (decision.action === 'HOLD') {
         await db.updateDecisionStatus(decisionId, 2, 'HOLD — no action needed');
+        skips.add('DECISION_HOLD', 'decision', 'Decision was HOLD; no order was needed', { symbol: signal.indicators.symbol });
         continue;
       }
 
       // Anti-churn: max trades per cycle limit
       if (cycleTradeCount >= maxTradesPerCycle) {
         await db.updateDecisionStatus(decisionId, 2, `Max trades per cycle reached (${maxTradesPerCycle})`);
+        skips.add('MAX_TRADES_PER_CYCLE', 'decision', 'Skipped because the per-cycle trade limit was reached', { symbol: signal.indicators.symbol, limit: maxTradesPerCycle });
         continue;
       }
 
@@ -492,6 +501,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           // Anti-churn: check minimum hold time (unless stop loss was hit via checkPositions already)
           if (isWithinMinHold(signal.indicators.symbol)) {
             await db.updateDecisionStatus(decisionId, 2, `Min hold time not reached (${minHoldMin}min)`);
+            skips.add('MIN_HOLD_TIME', 'decision', 'Skipped because the position has not reached its minimum hold time', { symbol: signal.indicators.symbol, minutes: minHoldMin });
             console.log(`Skip CLOSE ${signal.indicators.symbol}: held < ${minHoldMin} min`);
             continue;
           }
@@ -530,6 +540,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           // Anti-churn: check minimum hold time
           if (isWithinMinHold(signal.indicators.symbol)) {
             await db.updateDecisionStatus(decisionId, 2, `Min hold time not reached (${minHoldMin}min)`);
+            skips.add('MIN_HOLD_TIME', 'decision', 'Skipped because the position has not reached its minimum hold time', { symbol: signal.indicators.symbol, minutes: minHoldMin });
             console.log(`Skip SELL ${signal.indicators.symbol}: held < ${minHoldMin} min`);
             continue;
           }
@@ -560,12 +571,14 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       if (decision.action === 'BUY' && riskCheck.adjustedQty) {
         if (noNewEntries) {
           await db.updateDecisionStatus(decisionId, 2, 'No new BUY entries during EOD flatten window');
+          skips.add('EOD_NO_ENTRY', 'decision', 'New entries are disabled during the end-of-day flatten window', { symbol: signal.indicators.symbol });
           console.log(`Skip BUY ${signal.indicators.symbol}: EOD no-entry cutoff active`);
           continue;
         }
         // Anti-churn: re-entry cooldown check
         if (recentlySold.has(signal.indicators.symbol)) {
           await db.updateDecisionStatus(decisionId, 2, `Re-entry cooldown active (${cooldownMin}min)`);
+          skips.add('REENTRY_COOLDOWN', 'decision', 'Skipped because the symbol was recently sold', { symbol: signal.indicators.symbol, minutes: cooldownMin });
           console.log(`Skip BUY ${signal.indicators.symbol}: sold within last ${cooldownMin} min`);
           continue;
         }
@@ -655,8 +668,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       decisions_made: decisionsMade,
       trades_executed: tradesExecuted,
       errors: errors.length,
-      error_details: errors.length > 0 ? JSON.stringify(errors) : null,
-      status: errors.length > 5 ? 'error' : 'ok',
+      error_details: serializeRunDetails(errors, skips),
+      status: runStatus(errors, skips, false, tradesExecuted),
     });
 
     console.log(`Cycle complete: ${decisionsMade} decisions, ${tradesExecuted} trades, ${errors.length} errors, ${Date.now() - startTime}ms`);
@@ -672,7 +685,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       decisions_made: decisionsMade,
       trades_executed: tradesExecuted,
       errors: errors.length,
-      error_details: JSON.stringify(errors),
+      error_details: serializeRunDetails(errors, skips),
       status: 'error',
     });
   }

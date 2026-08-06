@@ -848,6 +848,28 @@
       }
       return text.replace(/\s+/g, ' ').trim() || '-';
     }
+    function parseRunDetails(value) {
+      if (Array.isArray(value)) return value;
+      if (value == null || value === '') return [];
+      if (typeof value !== 'string') return [String(value)];
+      try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : [value]; } catch (e) { return [value]; }
+    }
+    function readableRunDetail(detail) {
+      if (typeof detail === 'string') return detail;
+      if (!detail || typeof detail !== 'object') return String(detail);
+      const count = detail.count && detail.count > 1 ? ' (x' + detail.count + ')' : '';
+      const context = detail.context && Object.keys(detail.context).length
+        ? ' — ' + Object.entries(detail.context).map(([k, v]) => k + '=' + v).join(', ')
+        : '';
+      return (detail.type === 'skip' ? 'Skipped: ' : '') + (detail.message || detail.code || 'Detail') + count + context;
+    }
+    function runDetails(r) {
+      const details = parseRunDetails(r.run_details != null ? r.run_details : r.error_details);
+      return details.map(readableRunDetail).filter(Boolean).join(' | ');
+    }
+    function decisionExecutionReason(d) {
+      return readableDecisionReason(d.execution_reason || d.reason || '-');
+    }
     function renderDecisions(ds, elId) {
       const el = document.getElementById(elId);
       if (!ds || !ds.length) { el.innerHTML = '<div class="loading">No decisions yet</div>'; return; }
@@ -856,7 +878,7 @@
         const cc = d.confidence >= 0.7 ? '#00c853' : d.confidence >= 0.5 ? '#ff9100' : d.confidence >= 0 ? '#546e7a' : '#ff1744';
         const st = d.executed === 1 ? '<span style="color:var(--green)">Executed</span>' : d.executed === 2 ? '<span style="color:var(--text-muted)">Skipped</span>' : d.executed === 3 ? '<span style="color:var(--red)">Failed</span>' : '<span style="color:var(--yellow)">Pending</span>';
         let src; if (d.signal_source === 'swing') src = '<span class="signal-source signal-swing">SWING</span>'; else if ((d.signal_source || '').startsWith('crypto')) src = '<span class="signal-source signal-crypto">CRYPTO+AI</span>'; else if (d.signal_source === 'ta+ai') src = '<span class="signal-source signal-ai">TA+AI</span>'; else if (d.signal_source === 'ai') src = '<span class="signal-source signal-ai">AI</span>'; else src = '<span class="signal-source signal-ta">TA</span>';
-        const reason = readableDecisionReason(d.reason);
+        const reason = decisionExecutionReason(d);
         h += '<tr><td>' + escapeHtml(fmtTime(d.timestamp)) + '</td><td><strong>' + escapeHtml(d.ticker) + '</strong></td><td><span class="action-badge action-' + escapeHtml(d.action) + '">' + escapeHtml(d.action) + '</span></td><td><span class="conf-bar"><span class="conf-fill" style="width:' + Math.abs(d.confidence)*50 + '%;background:' + cc + '"></span></span>' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + src + '</td><td class="reason-text" title="' + escapeHtml(reason) + '">' + escapeHtml(reason) + '</td><td>' + st + '</td></tr>';
       }
       h += '</tbody></table>'; el.innerHTML = h;
@@ -869,7 +891,7 @@
         const st = d.executed === 1 ? '<span style="color:var(--green)">Executed</span>' : d.executed === 2 ? '<span style="color:var(--text-muted)">Skipped</span>' : d.executed === 3 ? '<span style="color:var(--red)">Failed</span>' : '<span style="color:var(--yellow)">Pending</span>';
         let rank = '-', signals = '-'; try { const ai = JSON.parse(d.ai_reasoning||'{}'); if (ai.rank) rank = '#' + ai.rank; if (ai.signals) signals = ai.signals.join(', '); } catch(e) {}
         const zColor = d.confidence >= 1 ? 'var(--green)' : d.confidence >= 0.5 ? 'var(--blue)' : d.confidence >= 0 ? 'var(--text-muted)' : 'var(--red)';
-        const swingReason = readableDecisionReason(signals || d.reason);
+        const swingReason = decisionExecutionReason(d) || readableDecisionReason(signals || d.reason);
         h += '<tr><td>' + escapeHtml(fmtDateTime(d.timestamp)) + '</td><td><strong>' + escapeHtml(d.ticker) + '</strong></td><td><span class="action-badge action-' + escapeHtml(d.action) + '">' + escapeHtml(d.action) + '</span></td><td style="color:' + zColor + '">' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + escapeHtml(rank) + '</td><td class="reason-text" title="' + escapeHtml(swingReason) + '">' + escapeHtml(swingReason) + '</td><td>' + st + '</td></tr>';
       }
       h += '</tbody></table>'; el.innerHTML = h;
@@ -884,8 +906,13 @@
     function renderRuns(rs, elId) {
       const el = document.getElementById(elId);
       if (!rs || !rs.length) { el.innerHTML = '<div class="loading">No runs yet</div>'; return; }
-      let h = '<table><thead><tr><th>Time</th><th>Trigger</th><th>Market</th><th>Decisions</th><th>Orders submitted</th><th>Errors</th><th>Duration</th><th>Status</th></tr></thead><tbody>';
-      for (const r of rs.slice(0, 15)) { const sc = r.status === 'ok' ? 'var(--green)' : r.status === 'error' ? 'var(--red)' : 'var(--text-muted)'; const tl = r.trigger === 'swing_cron' ? '<span style="color:var(--teal)">swing_cron</span>' : r.trigger; h += '<tr><td>' + fmtDateTime(r.timestamp) + '</td><td>' + tl + '</td><td>' + (r.market_open?'Open':'Closed') + '</td><td>' + r.decisions_made + '</td><td>' + r.trades_executed + '</td><td style="color:' + (r.errors>0?'var(--red)':'var(--text-muted)') + '">' + r.errors + '</td><td>' + (r.duration_ms?(r.duration_ms/1000).toFixed(1)+'s':'-') + '</td><td style="color:' + sc + '">' + r.status + '</td></tr>'; }
+      let h = '<table><thead><tr><th>Time</th><th>Trigger</th><th>Market</th><th>Decisions</th><th>Orders submitted</th><th>Errors</th><th>Duration</th><th>Status</th><th>Reason / details</th></tr></thead><tbody>';
+      for (const r of rs.slice(0, 15)) {
+        const sc = r.status === 'ok' ? 'var(--green)' : r.status === 'error' ? 'var(--red)' : r.status === 'degraded' ? 'var(--orange)' : 'var(--text-muted)';
+        const tl = r.trigger === 'swing_cron' ? '<span style="color:var(--teal)">swing_cron</span>' : escapeHtml(r.trigger);
+        const details = runDetails(r) || '-';
+        h += '<tr><td>' + fmtDateTime(r.timestamp) + '</td><td>' + tl + '</td><td>' + (r.market_open?'Open':'Closed') + '</td><td>' + r.decisions_made + '</td><td>' + r.trades_executed + '</td><td style="color:' + (r.errors>0?'var(--red)':'var(--text-muted)') + '">' + r.errors + '</td><td>' + (r.duration_ms?(r.duration_ms/1000).toFixed(1)+'s':'-') + '</td><td style="color:' + sc + '">' + escapeHtml(r.status || 'unknown') + '</td><td class="reason-text" title="' + escapeHtml(details) + '">' + escapeHtml(details) + '</td></tr>';
+      }
       h += '</tbody></table>'; el.innerHTML = h;
     }
     async function closePosition(s) { if (!confirm('Close position for ' + s + '?')) return; const r = await fetch(API_BASE + '/api/positions/close?symbol=' + s, { method: 'POST' }); if (r.ok) { alert('Closed ' + s); loadDashboard(); } else alert('Failed'); }

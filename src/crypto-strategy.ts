@@ -17,6 +17,7 @@ import { RiskManager, type RiskConfig } from './risk-manager';
 import { Database } from './database';
 import { projectBrokerPositions, summarizeByCategory } from './position-projection';
 import type { Env } from './index';
+import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 
 // Curated crypto universe — major liquid coins on Alpaca
 const CRYPTO_UNIVERSE = [
@@ -64,10 +65,14 @@ const CRYPTO_FALLBACK_CONFIG = {
 };
 
 export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
+  const leaseStart = Date.now();
   const owner = `crypto:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const leaseDb = new Database(env.DB);
   if (!await leaseDb.acquireCycleLease(owner)) {
+    const skips = new SkipReasonCollector();
+    skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another strategy cycle holds the global lease', { strategy: 'crypto', trigger });
     console.log(`Skipping ${trigger}: another strategy cycle holds the global lease`);
+    await leaseDb.logRun({ trigger, market_open: 1, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 0, error_details: serializeRunDetails([], skips), status: 'skipped' });
     return;
   }
   try {
@@ -81,6 +86,7 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
   const startTime = Date.now();
   const db = new Database(env.DB);
   const errors: string[] = [];
+  const skips = new SkipReasonCollector();
   let decisionsMade = 0;
   let tradesExecuted = 0;
 
@@ -181,6 +187,7 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
     riskManager.updateEquitySnapshot(account.equity);
 
     if (riskManager.isTradingHalted()) {
+      skips.add('RISK_HALTED', 'cycle', 'Crypto trading is halted by risk controls', { reason: riskManager.isTradingHalted() });
       console.error(`Crypto: trading halted — ${riskManager.isTradingHalted()}`);
       await db.logRun({
         trigger,
@@ -189,8 +196,8 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
         decisions_made: 0,
         trades_executed: 0,
         errors: 0,
-        error_details: null,
-        status: 'error',
+        error_details: serializeRunDetails([], skips),
+        status: runStatus(errors, skips, false, tradesExecuted),
       });
       return;
     }
@@ -289,7 +296,8 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
     console.log(`Crypto: ${validTA.length} coins with valid TA`);
 
     if (validTA.length < 3) {
-      errors.push(`Too few crypto coins with valid TA: ${validTA.length}`);
+      skips.add('CRYPTO_DATA_INSUFFICIENT', 'cycle', 'Crypto decision cycle skipped because too few coins had valid technical analysis', { validTA: validTA.length, required: 3 });
+
       await db.logRun({
         trigger,
         market_open: 1,
@@ -297,8 +305,8 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
         decisions_made: 0,
         trades_executed: 0,
         errors: errors.length,
-        error_details: JSON.stringify(errors),
-        status: 'error',
+        error_details: serializeRunDetails(errors, skips),
+        status: runStatus(errors, skips, false, tradesExecuted),
       });
       return;
     }
@@ -384,11 +392,13 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
 
       if (decision.action === 'HOLD') {
         await db.updateDecisionStatus(decisionId, 2, 'HOLD');
+        skips.add('DECISION_HOLD', 'decision', 'Crypto decision was HOLD; no order was needed', { symbol });
         continue;
       }
 
       if (cycleTradeCount >= maxTradesPerCycle) {
         await db.updateDecisionStatus(decisionId, 2, `Max trades per cycle (${maxTradesPerCycle})`);
+        skips.add('MAX_TRADES_PER_CYCLE', 'decision', 'Skipped because the crypto per-cycle trade limit was reached', { symbol, limit: maxTradesPerCycle });
         continue;
       }
 
@@ -398,6 +408,7 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
         if (existingPos) {
           if (isWithinMinHold(symbol)) {
             await db.updateDecisionStatus(decisionId, 2, `Min hold time not reached (${minHoldMin}min)`);
+            skips.add('MIN_HOLD_TIME', 'decision', 'Crypto exit skipped because the position has not reached its minimum hold time', { symbol, minutes: minHoldMin });
             continue;
           }
           try {
@@ -418,6 +429,7 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
           }
         } else {
           await db.updateDecisionStatus(decisionId, 0, 'No existing position to sell — skipped');
+          skips.add('NO_POSITION_TO_EXIT', 'decision', 'Crypto exit skipped because no existing position was found', { symbol });
         }
         continue;
       }
@@ -426,12 +438,14 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
       if (decision.action === 'BUY') {
         if (recentlySold.has(symbol)) {
           await db.updateDecisionStatus(decisionId, 2, `Re-entry cooldown (${cooldownMin}min)`);
+          skips.add('REENTRY_COOLDOWN', 'decision', 'Crypto entry skipped because the symbol was recently sold', { symbol, minutes: cooldownMin });
           continue;
         }
 
         const riskCheck = riskManager.checkTrade(decision, account, updatedCryptoPositions, indicators);
         if (!riskCheck.approved) {
           await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
+          skips.add('RISK_DECISION', 'decision', 'Crypto entry skipped by risk controls', { symbol, reason: riskCheck.reason });
           continue;
         }
 
@@ -517,8 +531,8 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
       decisions_made: decisionsMade,
       trades_executed: tradesExecuted,
       errors: errors.length,
-      error_details: errors.length > 0 ? JSON.stringify(errors) : null,
-      status: errors.length > 5 ? 'error' : 'ok',
+      error_details: serializeRunDetails(errors, skips),
+      status: runStatus(errors, skips, false, tradesExecuted),
     });
 
     console.log(`Crypto cycle: ${decisionsMade} decisions, ${tradesExecuted} trades, ${errors.length} errors, ${Date.now() - startTime}ms`);
@@ -533,7 +547,7 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
       decisions_made: decisionsMade,
       trades_executed: tradesExecuted,
       errors: errors.length,
-      error_details: JSON.stringify(errors),
+      error_details: serializeRunDetails(errors, skips),
       status: 'error',
     });
   }

@@ -10,6 +10,7 @@ import {
   type PositionAttributionMetadata,
 } from './crypto-attribution';
 import type { CategoryPositionSummary, CategoryStrategy } from './position-projection';
+import { parseRunDetails } from './skip-reasons';
 
 export interface DecisionRecord {
   ticker: string;
@@ -177,7 +178,7 @@ export class Database {
     const result = await this.db.prepare(
       'SELECT * FROM decisions ORDER BY timestamp DESC LIMIT ?'
     ).bind(limit).all();
-    return result.results as any[];
+    return (result.results as any[]).map(row => ({ ...row, execution_reason: row.execution_reason || row.reason || '' }));
   }
 
   async getRecentDecisionsByStrategy(strategy: 'daytrading' | 'swing' | 'crypto', limit: number = 100): Promise<any[]> {
@@ -189,7 +190,7 @@ export class Database {
     const result = await this.db.prepare(
       `SELECT * FROM decisions WHERE ${predicate} ORDER BY timestamp DESC LIMIT ?`
     ).bind(limit).all();
-    return result.results as any[];
+    return (result.results as any[]).map(row => ({ ...row, execution_reason: row.execution_reason || row.reason || '' }));
   }
 
   // ============================================================
@@ -589,7 +590,7 @@ export class Database {
     const result = await this.db.prepare(
       'SELECT * FROM run_log ORDER BY timestamp DESC, id DESC LIMIT ?'
     ).bind(limit).all();
-    return result.results as any[];
+    return (result.results as any[]).map(row => ({ ...row, run_details: parseRunDetails(row.error_details) }));
   }
 
   async getRecentRunsByStrategy(strategy: 'daytrading' | 'swing' | 'crypto', limit: number = 100): Promise<any[]> {
@@ -601,7 +602,7 @@ export class Database {
     const result = await this.db.prepare(
       `SELECT * FROM run_log WHERE ${triggerPredicate} ORDER BY timestamp DESC, id DESC LIMIT ?`
     ).bind(limit).all();
-    return result.results as any[];
+    return (result.results as any[]).map(row => ({ ...row, run_details: parseRunDetails(row.error_details) }));
   }
 
   // ============================================================
