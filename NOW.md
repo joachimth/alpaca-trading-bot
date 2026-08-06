@@ -1,13 +1,11 @@
 # NOW
 
-## 2026-08-05 08:29 CEST - Category performance deployed
-- Commit `fa8a37e` pushed to GitHub; Cloudflare version 48 (`ebfe01d1`) active at 100% traffic.
-- Live API now exposes category `dailyPl`, `portfolioValue`, `categoryHistory`, and `categoryHistoryAvailable`.
-- Account equity/cash remain account-level; category value is broker-marked position value only.
-- Current live verification: Alpaca account ACTIVE, positions source `alpaca`, 2 broker positions available.
-- Category history is intentionally empty until deployed cycles record at least two snapshots per category.
-- Cron schedules unchanged; no trading cycle or broker order was started during deployment.
+## 2026-08-06 10:12 CEST - Swing cron fix live
+- Swing data-window fix committed as `c3db68b`; degraded-entry guard committed as `27ea342`.
+- Cloudflare Worker version 50 (`46677609-f3e7-4f37-94a1-c0be17a7c836`) is active at 100% traffic.
+- Swing now requests buffered completed-session daily bars and skips new entries when fewer than 20 fresh candidates remain.
+- Alpaca account is ACTIVE; schedules unchanged: swing `0 22 * * 1-5` UTC, next test Aug 7 00:00 CEST.
+- Historical failures: Aug 4 was Alpaca 401; Aug 5 was empty swing universe. No orders were placed during the fix.
 
 ## Open
-- Verify the next daytrading and crypto cycles populate `category_snapshots`; swing remains dependent on its scheduled run.
-- Partial fills, TypeScript errors, duplicate warning, and limited integration tests remain open.
+- Verify the next swing run and its `ok` or `degraded` status.
