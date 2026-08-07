@@ -221,8 +221,7 @@ export class SwingRiskManager {
 
   checkExit(
     score: SwingScore,
-    position: Position,
-    allScores: SwingScore[]
+    position: Position
   ): { shouldExit: boolean; reason: string; isHysteresisSkip: boolean } {
     // Hysteresis: don't exit just because stock dropped slightly below entry threshold
     // Only exit if z-score drops below exitZScore (lower than entry threshold)

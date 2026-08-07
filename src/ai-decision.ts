@@ -2,7 +2,7 @@
 // Takes TA signals and refines them using LLM reasoning
 // Falls back to pure TA if LLM is unavailable or fails
 
-import type { TASignal, TAIndicators } from './technical-analysis';
+import type { TASignal } from './technical-analysis';
 import type { Position } from './alpaca';
 
 export interface AIDecision {

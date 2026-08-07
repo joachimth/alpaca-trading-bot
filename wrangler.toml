@@ -14,7 +14,7 @@ database_id = "2bc505a2-d744-4322-8c3b-5f5ebe35f9a1"
 # 2. Swing: once daily after market close at 22:00 UTC, Mon-Fri.
 # 3. Crypto: 24/7 at :07 and :37 UTC, every 30 minutes.
 [triggers]
-crons = ["*/5 13-21 * * 1-5", "0 22 * * 1-5", "7-59/30 * * * *"]
+crons = ["*/5 13-21 * * 1-5", "0 22 * * 1-5", "7-59/30 * * * *", "*/10 * * * *"]
 
 # Secrets (set via wrangler secret put or dashboard):
 # ALPACA_API_KEY

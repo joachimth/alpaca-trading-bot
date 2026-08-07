@@ -360,7 +360,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         continue;
       }
 
-      const exitCheck = riskManager.checkExit(score, pos, ranked);
+      const exitCheck = riskManager.checkExit(score, pos);
       decisionsMade++;
 
       // Log decision

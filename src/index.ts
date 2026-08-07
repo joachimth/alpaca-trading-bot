@@ -2,7 +2,7 @@
 // Handles cron triggers, manual API calls, and the full trading cycle
 
 import { AlpacaClient } from './alpaca';
-import { analyze, generateSignal, ema, atr } from './technical-analysis';
+import { analyze, generateSignal, ema, atr, type TASignal } from './technical-analysis';
 import { refineWithLLM, detectMarketRegime, type AIMarketContext } from './ai-decision';
 import { RiskManager, type RiskConfig } from './risk-manager';
 import { Database } from './database';

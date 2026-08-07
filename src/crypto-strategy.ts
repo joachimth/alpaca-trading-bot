@@ -10,7 +10,7 @@
 // - Separate capital cap
 
 import { AlpacaClient } from './alpaca';
-import { analyze, generateSignal, type TAIndicators } from './technical-analysis';
+import { analyze, generateSignal } from './technical-analysis';
 import { refineWithLLM } from './ai-decision';
 import { getCryptoSentiment, formatSentimentForPrompt } from './crypto-sentiment';
 import { RiskManager, type RiskConfig } from './risk-manager';
@@ -380,7 +380,6 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
               model: config.llmModel,
               temperature: config.llmTemperature,
               minConfidence: config.minConfidence,
-              marketRegime: 'crypto',
             });
             if (refined) decision = { ...signal, ...refined, reason: refined.reasoning };
           } catch (e) {
