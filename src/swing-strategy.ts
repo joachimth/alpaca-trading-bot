@@ -2,7 +2,7 @@
 // Runs once daily after US market close
 // Cross-sectional ranking: computes alpha scores for entire universe, rebalances portfolio
 
-import { AlpacaClient } from './alpaca';
+import { AlpacaClient, type Bar } from './alpaca';
 import { Database } from './database';
 import { UniverseScanner } from './scanner';
 import {
@@ -215,6 +215,9 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     const diagnostics = {
       candidates: candidates.length,
       barsRequested: SWING_BAR_LIMIT,
+      barsPages: 0,
+      barsSymbolsWithData: 0,
+      barsSymbolsMissing: 0,
       barsWindowStart: barsWindow.start,
       barsWindowEnd: barsWindow.end,
       barsOk: 0,
@@ -226,14 +229,37 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       filtered: 0,
     };
 
+    // Fetch all candidate histories through Alpaca's multi-symbol endpoint.
+    // The old one-request-per-symbol loop could exceed Cloudflare's external
+    // subrequest budget before the strategy reached the decision phase.
+    let barsBySymbol: Map<string, Bar[]>;
+    try {
+      const batchBars = await alpaca.getBarsBatch(candidates, '1Day', SWING_BAR_LIMIT, {
+        start: barsWindow.start,
+        end: barsWindow.end,
+      });
+      barsBySymbol = batchBars.barsBySymbol;
+      diagnostics.barsPages = batchBars.pages;
+      diagnostics.barsSymbolsWithData = candidates.filter(symbol => (barsBySymbol.get(symbol) || []).length > 0).length;
+      diagnostics.barsSymbolsMissing = candidates.length - diagnostics.barsSymbolsWithData;
+    } catch (e) {
+      diagnostics.indicatorFailures = candidates.length;
+      diagnostics.barsSymbolsMissing = candidates.length;
+      const reason = e instanceof Error ? e.message : 'unknown batch-bars failure';
+      skips.add('SWING_BARS_BATCH_FAILED', 'cycle', 'Swing historical-bars batch failed; new entries remain blocked until fresh data is available', {
+        reason,
+        candidates: candidates.length,
+        maxPages: 8,
+      });
+      console.error('Swing: batch bars request failed:', e);
+      barsBySymbol = new Map(candidates.map(symbol => [symbol, []]));
+    }
+
     // Compute swing indicators for all candidates. Data quality is assessed
     // before indicators; no stale/partial series can create an entry.
-    const indicatorPromises = candidates.map(async symbol => {
+    const indicatorResults = candidates.map(symbol => {
       try {
-        const rawBars = await alpaca.getBars(symbol, '1Day', SWING_BAR_LIMIT, {
-          start: barsWindow.start,
-          end: barsWindow.end,
-        });
+        const rawBars = barsBySymbol.get(symbol) || [];
         const assessment = assessSwingBars(rawBars, barsWindow.endDate);
         if (assessment.quality === 'ok') diagnostics.barsOk++;
         else if (assessment.quality === 'empty') diagnostics.barsEmpty++;
@@ -251,8 +277,6 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         return null;
       }
     });
-
-    const indicatorResults = await Promise.all(indicatorPromises);
     const validIndicators = indicatorResults.filter((i): i is NonNullable<typeof i> => i !== null);
 
     // Filter universe by liquidity; existing price/volume/history thresholds

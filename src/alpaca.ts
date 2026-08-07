@@ -75,6 +75,12 @@ export interface Bar {
   v: number;   // volume
 }
 
+export interface BatchBarsResult {
+  barsBySymbol: Map<string, Bar[]>;
+  pages: number;
+  symbolsRequested: number;
+}
+
 export interface Quote {
   symbol: string;
   bid_price: number;
@@ -433,6 +439,84 @@ export class AlpacaClient {
       c: Number(b.c),
       v: Number(b.v),
     }));
+  }
+
+  async getBarsBatch(
+    symbols: string[],
+    timeframe: string = '5Min',
+    limit: number = 200,
+    options: { start?: string; end?: string } = {},
+  ): Promise<BatchBarsResult> {
+    const result = new Map<string, Bar[]>();
+    const requestedSymbols = Array.from(new Set(symbols.filter(Boolean)));
+    requestedSymbols.forEach(symbol => result.set(symbol, []));
+    if (requestedSymbols.length === 0) return { barsBySymbol: result, pages: 0, symbolsRequested: 0 };
+
+    const dataUrl = this.getDataBaseUrl();
+    let pageToken: string | undefined;
+    const seenPageTokens = new Set<string>();
+    let pages = 0;
+    const maxPages = 8; // 150 symbols × 400 daily bars needs at most 6 pages at 10,000/page.
+    // Alpaca's multi-symbol limit applies to the total number of bars in a
+    // response page, not per symbol. Request the documented maximum so a full
+    // swing universe needs only a handful of pages, then follow pagination so
+    // every requested symbol gets the same historical window.
+    const pageLimit = Math.min(Math.max(limit, 1) * requestedSymbols.length, 10000);
+    for (let page = 0; page < maxPages; page++) {
+      const params = new URLSearchParams({
+        symbols: requestedSymbols.join(','),
+        timeframe,
+        limit: String(pageLimit),
+        sort: 'asc',
+      });
+      if (options.start) params.set('start', options.start);
+      if (options.end) params.set('end', options.end);
+      if (pageToken) params.set('page_token', pageToken);
+      const url = `${dataUrl}/v2/stocks/bars?${params.toString()}`;
+
+      const resp = await fetch(url, {
+        headers: this.getHeaders(),
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Alpaca getBarsBatch failed: ${resp.status} ${text}`);
+      }
+      pages++;
+
+      const data = await resp.json() as any;
+      const barsBySymbol = data.bars && typeof data.bars === 'object' ? data.bars : {};
+      for (const [symbol, rawBars] of Object.entries(barsBySymbol)) {
+        const normalized = Array.isArray(rawBars) ? rawBars.map((b: any) => ({
+          t: typeof b.t === 'string' ? Date.parse(b.t) / 1000 : Number(b.t),
+          o: Number(b.o),
+          h: Number(b.h),
+          l: Number(b.l),
+          c: Number(b.c),
+          v: Number(b.v),
+        })) : [];
+        const existing = result.get(symbol) || [];
+        result.set(symbol, existing.concat(normalized));
+      }
+
+      const nextPageToken = typeof data.next_page_token === 'string' && data.next_page_token.length > 0
+        ? data.next_page_token
+        : undefined;
+      if (!nextPageToken) {
+        pageToken = undefined;
+        break;
+      }
+      if (seenPageTokens.has(nextPageToken)) {
+        throw new Error(`Alpaca getBarsBatch repeated next_page_token after ${pages} pages`);
+      }
+      seenPageTokens.add(nextPageToken);
+      pageToken = nextPageToken;
+    }
+
+    if (pageToken) {
+      throw new Error(`Alpaca getBarsBatch exceeded ${maxPages}-page budget`);
+    }
+    return { barsBySymbol: result, pages, symbolsRequested: requestedSymbols.length };
   }
 
   async getLatestQuote(symbol: string): Promise<Quote | null> {
