@@ -355,7 +355,4 @@ export class SwingRiskManager {
     return swingCapital > 0 ? (cappedExposure / swingCapital) * 100 : 0;
   }
 
-  isTradingHalted(): boolean {
-    return this.killState.tradingHalted;
-  }
 }
