@@ -58,7 +58,7 @@ ls -l /workspace/alpaca-worker-bundle-release/index.js
 
 The file uploaded below must be the `index.js` from this explicit build.
 
-## 4. Upload directly through the Cloudflare API
+## 4. Upload directly through the Cloudflare multipart API
 
 The production Worker is:
 
