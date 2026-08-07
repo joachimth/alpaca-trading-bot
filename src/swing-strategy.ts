@@ -16,6 +16,7 @@ import { SwingRiskManager, type SwingRiskConfig } from './swing-risk';
 import { projectBrokerPositions, summarizeByCategory } from './position-projection';
 import type { Env } from './index';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
+import { syncBrokerLedger } from './broker-ledger';
 import {
   assessSwingBars,
   getSwingBarsWindow,
@@ -76,6 +77,13 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       apiSecret: env.ALPACA_API_SECRET,
       baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
     });
+
+    try {
+      const ledger = await syncBrokerLedger(db, alpaca);
+      console.log(`Broker ledger synced: ${ledger.activities} activities, ${ledger.fills} fills, ${ledger.fees} fees`);
+    } catch (error) {
+      errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
 
     // Load swing config from D1 (merge with fallback)
     const dbConfig = await db.getConfig();

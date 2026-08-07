@@ -46,6 +46,27 @@ export interface Position {
   change_today_pct: number;
 }
 
+export interface AccountActivity {
+  id: string;
+  activity_type: string;
+  activity_sub_type?: string | null;
+  date?: string | null;
+  created_at?: string | null;
+  transaction_time?: string | null;
+  type?: string | null;
+  order_id?: string | null;
+  symbol?: string | null;
+  side?: string | null;
+  qty?: number | null;
+  price?: number | null;
+  cum_qty?: number | null;
+  leaves_qty?: number | null;
+  net_amount?: number | null;
+  currency?: string | null;
+  description?: string | null;
+  status?: string | null;
+}
+
 export interface Order {
   id: string;
   client_order_id: string;
@@ -358,6 +379,58 @@ export class AlpacaClient {
   async cancelOrder(orderId: string): Promise<void> {
     const resp = await this.request(`/v2/orders/${orderId}`, { method: 'DELETE' });
     if (!resp.ok) throw new Error(`Alpaca cancelOrder failed: ${resp.status}`);
+  }
+
+  async getAccountActivities(
+    activityTypes: string[],
+    after?: string,
+    until?: string,
+  ): Promise<AccountActivity[]> {
+    const activities: AccountActivity[] = [];
+    let pageToken: string | undefined;
+    for (let page = 0; page < 30; page++) {
+      const params = new URLSearchParams({
+        activity_types: activityTypes.join(','),
+        direction: 'asc',
+        page_size: '100',
+      });
+      if (after) params.set('after', after);
+      if (until) params.set('until', until);
+      if (pageToken) params.set('page_token', pageToken);
+      const resp = await this.request(`/v2/account/activities?${params.toString()}`);
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Alpaca getAccountActivities failed: ${resp.status} ${text}`);
+      }
+      const data = await resp.json() as any[];
+      if (!Array.isArray(data) || data.length === 0) break;
+      for (const a of data) {
+        activities.push({
+          id: String(a.id),
+          activity_type: String(a.activity_type || ''),
+          activity_sub_type: a.activity_sub_type ?? null,
+          date: a.date ?? null,
+          created_at: a.created_at ?? null,
+          transaction_time: a.transaction_time ?? null,
+          type: a.type ?? null,
+          order_id: a.order_id ?? null,
+          symbol: a.symbol ?? null,
+          side: a.side ?? null,
+          qty: a.qty == null ? null : Number(a.qty),
+          price: a.price == null ? null : Number(a.price),
+          cum_qty: a.cum_qty == null ? null : Number(a.cum_qty),
+          leaves_qty: a.leaves_qty == null ? null : Number(a.leaves_qty),
+          net_amount: a.net_amount == null ? null : Number(a.net_amount),
+          currency: a.currency ?? null,
+          description: a.description ?? null,
+          status: a.status ?? null,
+        });
+      }
+      const next = data[data.length - 1]?.id;
+      if (!next || data.length < 100 || next === pageToken) break;
+      pageToken = String(next);
+    }
+    return activities;
   }
 
   async getRecentOrders(limit: number = 50): Promise<Order[]> {

@@ -2,7 +2,7 @@
 // All D1 interactions for the trading bot
 
 import type { D1Database } from '@cloudflare/workers-types';
-import type { Order } from './alpaca';
+import type { AccountActivity, Order } from './alpaca';
 import {
   DEFAULT_CRYPTO_UNIVERSE,
   inferCryptoSellStrategy,
@@ -52,6 +52,7 @@ export class Database {
       this.ensureTradeStrategyColumn(),
       this.ensureCycleLeaseSchema(),
       this.ensureCategorySnapshotSchema(),
+      this.ensureBrokerLedgerSchema(),
     ]).then(() => undefined);
   }
 
@@ -99,8 +100,150 @@ export class Database {
     ).run();
   }
 
+  private async ensureBrokerLedgerSchema(): Promise<void> {
+    await this.db.prepare(`
+      CREATE TABLE IF NOT EXISTS broker_fills (
+        activity_id TEXT PRIMARY KEY,
+        order_id TEXT,
+        symbol TEXT NOT NULL,
+        side TEXT,
+        qty REAL,
+        price REAL,
+        transaction_time TEXT,
+        fill_type TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `).run();
+    await this.db.prepare(`
+      CREATE TABLE IF NOT EXISTS broker_fees (
+        activity_id TEXT PRIMARY KEY,
+        fee_type TEXT NOT NULL,
+        activity_sub_type TEXT,
+        created_date TEXT,
+        created_at TEXT,
+        symbol TEXT,
+        order_id TEXT,
+        asset_or_currency TEXT,
+        qty REAL,
+        price REAL,
+        net_amount REAL,
+        usd_value REAL,
+        attribution_status TEXT NOT NULL DEFAULT 'unattributed',
+        strategy TEXT,
+        description TEXT,
+        created_record_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `).run();
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_broker_fills_order ON broker_fills(order_id)').run();
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_broker_fees_date ON broker_fees(created_date)').run();
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_broker_fees_strategy ON broker_fees(strategy)').run();
+  }
+
   private async ensureTradeSchema(): Promise<void> {
     await this.schemaReady;
+  }
+
+  async upsertBrokerActivities(activities: readonly AccountActivity[]): Promise<{ activities: number; fills: number; fees: number }> {
+    await this.ensureTradeSchema();
+    let fills = 0;
+    let fees = 0;
+    for (const activity of activities) {
+      if (!activity.id) continue;
+      if (activity.activity_type === 'FILL') {
+        const result = await this.db.prepare(`
+          INSERT INTO broker_fills (activity_id, order_id, symbol, side, qty, price, transaction_time, fill_type)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(activity_id) DO UPDATE SET
+            order_id = excluded.order_id,
+            symbol = excluded.symbol,
+            side = excluded.side,
+            qty = excluded.qty,
+            price = excluded.price,
+            transaction_time = excluded.transaction_time,
+            fill_type = excluded.fill_type
+        `).bind(
+          activity.id,
+          activity.order_id ?? null,
+          (activity.symbol ?? '').replace('/', '').toUpperCase(),
+          activity.side ?? null,
+          activity.qty ?? null,
+          activity.price ?? null,
+          activity.transaction_time ?? activity.created_at ?? null,
+          activity.type ?? null,
+        ).run();
+        fills += result.meta.changes ?? 0;
+      } else if (activity.activity_type === 'CFEE' || activity.activity_type === 'FEE') {
+        const isCryptoFee = activity.activity_type === 'CFEE';
+        const qty = activity.qty ?? null;
+        const price = activity.price ?? null;
+        const netAmount = activity.net_amount ?? null;
+        const derivedUsd = isCryptoFee && qty !== null && price !== null && Number.isFinite(qty * price)
+          ? Math.abs(qty * price)
+          : (netAmount !== null ? Math.abs(netAmount) : null);
+        const result = await this.db.prepare(`
+          INSERT INTO broker_fees (
+            activity_id, fee_type, activity_sub_type, created_date, created_at, symbol,
+            order_id, asset_or_currency, qty, price, net_amount, usd_value,
+            attribution_status, strategy, description
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unattributed', NULL, ?)
+          ON CONFLICT(activity_id) DO UPDATE SET
+            fee_type = excluded.fee_type,
+            activity_sub_type = excluded.activity_sub_type,
+            created_date = excluded.created_date,
+            created_at = excluded.created_at,
+            symbol = excluded.symbol,
+            order_id = excluded.order_id,
+            asset_or_currency = excluded.asset_or_currency,
+            qty = excluded.qty,
+            price = excluded.price,
+            net_amount = excluded.net_amount,
+            usd_value = excluded.usd_value,
+            description = excluded.description
+        `).bind(
+          activity.id,
+          activity.activity_type,
+          activity.activity_sub_type ?? null,
+          activity.date ?? null,
+          activity.created_at ?? null,
+          activity.symbol?.replace('/', '').toUpperCase() ?? null,
+          activity.order_id ?? null,
+          activity.currency ?? (activity.symbol ? activity.symbol.replace('/', '').toUpperCase().replace(/USD$/, '') : 'USD'),
+          qty,
+          price,
+          netAmount,
+          derivedUsd,
+          activity.description ?? null,
+        ).run();
+        fees += result.meta.changes ?? 0;
+      }
+    }
+    return { activities: activities.length, fills, fees };
+  }
+
+  async getBrokerFeeSummary(): Promise<{
+    totalUsd: number;
+    cryptoUsd: number;
+    regulatoryUsd: number;
+    unattributedUsd: number;
+    cryptoRateBps: number;
+  }> {
+    await this.ensureTradeSchema();
+    const row = await this.db.prepare(`
+      SELECT
+        COALESCE(SUM(usd_value), 0) as total_usd,
+        COALESCE(SUM(CASE WHEN fee_type = 'CFEE' THEN usd_value ELSE 0 END), 0) as crypto_usd,
+        COALESCE(SUM(CASE WHEN fee_type = 'FEE' THEN usd_value ELSE 0 END), 0) as regulatory_usd,
+        COALESCE(SUM(CASE WHEN attribution_status = 'unattributed' THEN usd_value ELSE 0 END), 0) as unattributed_usd,
+      COALESCE((SELECT SUM(usd_value) FROM broker_fees WHERE fee_type = 'CFEE') * 10000.0 / NULLIF((SELECT SUM(ABS(qty * price)) FROM broker_fills WHERE symbol LIKE '%USD'), 0), 0) as crypto_rate_bps
+      FROM broker_fees
+    `).first() as any;
+    return {
+      totalUsd: Number(row?.total_usd ?? 0),
+      cryptoUsd: Number(row?.crypto_usd ?? 0),
+      regulatoryUsd: Number(row?.regulatory_usd ?? 0),
+      unattributedUsd: Number(row?.unattributed_usd ?? 0),
+      cryptoRateBps: Number(row?.crypto_rate_bps ?? 0),
+    };
   }
 
   async acquireCycleLease(owner: string, ttlMs = 30 * 60 * 1000, leaseKey = 'global'): Promise<boolean> {
@@ -682,6 +825,8 @@ export class Database {
        ORDER BY closed_at ASC`
     ).all();
 
+    const feeSummary = await this.getBrokerFeeSummary();
+
     // Merge all into one structure
     const strategies: Record<string, any> = {};
     const ensure = (s: string) => {
@@ -699,6 +844,8 @@ export class Database {
           executedDecisions: 0,
           totalTrades: 0,
           filledTrades: 0,
+          feesUsd: 0,
+          netTotalPl: 0,
         };
       }
       return strategies[s];
@@ -728,9 +875,16 @@ export class Database {
       s.filledTrades = r.filled_trades;
     }
 
-    // Compute derived fields
-    const result = Object.values(strategies);
-    for (const s of result) {
+    // Fees are only assigned to crypto when Alpaca identifies them as CFEE.
+    // Periodic/regulatory FEE records remain account-level and unattributed.
+    const crypto = ensure('crypto');
+    crypto.feesUsd = feeSummary.cryptoUsd;
+    crypto.netTotalPl = crypto.realizedPl + crypto.unrealizedPl - crypto.feesUsd;
+    for (const s of Object.values(strategies) as any[]) {
+      if (s.strategy !== 'crypto') {
+        s.feesUsd = 0;
+        s.netTotalPl = s.realizedPl + s.unrealizedPl;
+      }
       s.totalPl = s.realizedPl + s.unrealizedPl;
       s.winRate = (s.wins + s.losses) > 0 ? (s.wins / (s.wins + s.losses)) * 100 : 0;
     }
@@ -770,7 +924,13 @@ export class Database {
       timeSeries[strat].push({ timestamp: r.closed_at, cumulativePl: runningTotals[strat] });
     }
 
-    return { strategies: result, timeSeries };
+    const strategyRows = Object.values(strategies);
+    return {
+      strategies: strategyRows,
+      timeSeries,
+      fees: feeSummary,
+      netTotalPl: strategyRows.reduce((sum: number, s: any) => sum + s.realizedPl + s.unrealizedPl, 0) - feeSummary.totalUsd,
+    };
   }
 
   // ============================================================

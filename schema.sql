@@ -64,6 +64,43 @@ CREATE INDEX IF NOT EXISTS idx_trades_alpaca_id ON trades(alpaca_order_id);
 CREATE INDEX IF NOT EXISTS idx_trades_strategy ON trades(strategy);
 
 -- ============================================================
+-- Broker fills and fees: immutable, idempotent Alpaca activity ledger
+-- ============================================================
+CREATE TABLE IF NOT EXISTS broker_fills (
+  activity_id TEXT PRIMARY KEY,
+  order_id TEXT,
+  symbol TEXT NOT NULL,
+  side TEXT,
+  qty REAL,
+  price REAL,
+  transaction_time TEXT,
+  fill_type TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_broker_fills_order ON broker_fills(order_id);
+
+CREATE TABLE IF NOT EXISTS broker_fees (
+  activity_id TEXT PRIMARY KEY,
+  fee_type TEXT NOT NULL,
+  activity_sub_type TEXT,
+  created_date TEXT,
+  created_at TEXT,
+  symbol TEXT,
+  order_id TEXT,
+  asset_or_currency TEXT,
+  qty REAL,
+  price REAL,
+  net_amount REAL,
+  usd_value REAL,
+  attribution_status TEXT NOT NULL DEFAULT 'unattributed',
+  strategy TEXT,
+  description TEXT,
+  created_record_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_broker_fees_date ON broker_fees(created_date);
+CREATE INDEX IF NOT EXISTS idx_broker_fees_strategy ON broker_fees(strategy);
+
+-- ============================================================
 -- Positions: current and closed positions tracked by the bot
 -- ============================================================
 CREATE TABLE IF NOT EXISTS positions (

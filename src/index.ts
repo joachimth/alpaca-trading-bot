@@ -12,6 +12,7 @@ import { runSwingCycle } from './swing-strategy';
 import { runCryptoCycle } from './crypto-strategy';
 import { projectBrokerPositions, summarizeByCategory } from './position-projection';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
+import { syncBrokerLedger } from './broker-ledger';
 
 export interface Env {
   DB: D1Database;
@@ -156,8 +157,14 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       return;
     }
 
-    // Reconcile broker orders before reading positions or generating signals.
+    // Reconcile broker orders and import delayed fills/fees before reading positions.
     await db.reconcileOrders(await alpaca.getRecentOrders(100));
+    try {
+      const ledger = await syncBrokerLedger(db, alpaca);
+      console.log(`Broker ledger synced: ${ledger.activities} activities, ${ledger.fills} fills, ${ledger.fees} fees`);
+    } catch (error) {
+      errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
 
     // 4. Get account and stock positions only. Crypto and swing positions are
     // owned by their respective strategies and must not enter this risk loop.

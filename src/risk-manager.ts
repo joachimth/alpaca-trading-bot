@@ -26,6 +26,7 @@ export interface RiskConfig {
   targetVolatilityPct: number;    // target daily portfolio vol (for position sizing)
   maxOrderRatePerMin: number;     // kill switch: max orders per minute
   minEdgeAfterCosts: number;      // minimum expected return after estimated costs (bps)
+  observedFeeBps?: number;         // broker-observed fee rate added to estimated costs
   maxCapitalUsd: number;          // hard cap on total daytrading capital (0 = use full account)
 }
 
@@ -263,9 +264,10 @@ export class RiskManager {
 
     // SEC/FINRA fees: ~$0.01 per $10k traded = ~0.1 bps
     const regulatoryBps = 0.1;
+    const observedFeeBps = this.config.observedFeeBps ?? 0;
 
-    // Total in basis points
-    const totalBps = spreadBps + slippageBps + commissionBps + regulatoryBps;
+    // Include broker-observed fees in addition to spread/slippage assumptions.
+    const totalBps = spreadBps + slippageBps + commissionBps + regulatoryBps + observedFeeBps;
 
     // Convert to dollar amount (per share)
     const dollarPerShare = price * (totalBps / 10000);

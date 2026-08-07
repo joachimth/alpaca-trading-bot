@@ -18,6 +18,7 @@ import { Database } from './database';
 import { projectBrokerPositions, summarizeByCategory } from './position-projection';
 import type { Env } from './index';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
+import { syncBrokerLedger } from './broker-ledger';
 
 // Curated crypto universe — major liquid coins on Alpaca
 const CRYPTO_UNIVERSE = [
@@ -97,6 +98,13 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
       baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
     });
 
+    try {
+      const ledger = await syncBrokerLedger(db, alpaca);
+      console.log(`Broker ledger synced: ${ledger.activities} activities, ${ledger.fills} fills, ${ledger.fees} fees`);
+    } catch (error) {
+      errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
     // Load crypto config from D1 (crypto_ prefixed keys)
     const dbConfig = await db.getConfig();
     const config = { ...CRYPTO_FALLBACK_CONFIG };
@@ -167,6 +175,7 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
     }
 
     // Initialize risk manager with crypto-specific config
+    const feeSummary = await db.getBrokerFeeSummary();
     const riskConfig: RiskConfig = {
       maxPositions: config.maxPositions,
       maxPositionPct: config.maxPositionPct,
@@ -181,6 +190,7 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
       targetVolatilityPct: config.targetVolatilityPct || 3.0,
       maxOrderRatePerMin: config.maxOrderRatePerMin || 5,
       minEdgeAfterCosts: config.minEdgeAfterCosts || 8,
+      observedFeeBps: feeSummary.cryptoRateBps,
       maxCapitalUsd: config.maxCapitalUsd || 0,
     };
     const riskManager = new RiskManager(riskConfig);
