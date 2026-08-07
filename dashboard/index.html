@@ -342,12 +342,26 @@
     const API_BASE = 'https://alpaca-trading-bot.joachim-763.workers.dev';
     let currentTab = 'overview';
     let dashboardData = null;
+    let dashboardRefreshInFlight = false;
     let chartRangeMode = 'recent'; // 'recent' or 'all'
     let allTimeHistory = null; // cached all-time performance data
     let cmpViewMode = 'bars'; // 'bars' or 'line'
     async function fetchAPI(path) {
-      try { const r = await fetch(API_BASE + path); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.json(); }
-      catch (e) { console.error('API error for ' + path, e); return null; }
+      let lastError;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 12000);
+        try {
+          const r = await fetch(API_BASE + path, { signal: controller.signal });
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return await r.json();
+        } catch (e) {
+          lastError = e;
+          if (attempt === 0) console.warn('Retrying API request for ' + path, e);
+        } finally { clearTimeout(timeout); }
+      }
+      console.error('API error for ' + path, lastError);
+      return null;
     }
     function fmtMoney(v, d = 2) { if (v == null || isNaN(v)) return '-'; return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }); }
     function fmtPct(v, s = true) { if (v == null || isNaN(v)) return '-'; return (s && v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%'; }
@@ -362,8 +376,17 @@
       renderTab(tab);
     }
     async function loadDashboard() {
-      const data = await fetchAPI('/api/dashboard');
-      if (!data) { const b = document.getElementById('statusBadge'); b.className = 'status-badge offline'; b.innerHTML = '<div class="pulse" style="background:var(--red)"></div><span>Connection Error</span>'; return; }
+      if (dashboardRefreshInFlight) return;
+      dashboardRefreshInFlight = true;
+      document.getElementById('statusBadge').innerHTML = '<div class="pulse" style="background:var(--orange)"></div><span>Refreshing...</span>';
+      try {
+        const data = await fetchAPI('/api/dashboard');
+        if (!data) {
+          const b = document.getElementById('statusBadge');
+          b.className = 'status-badge offline';
+          b.innerHTML = '<div class="pulse" style="background:var(--orange)"></div><span>' + (dashboardData ? 'Refresh failed - showing last update' : 'Unable to connect - retrying') + '</span>';
+          return;
+        }
       dashboardData = data;
       const hasAcc = data.account && !data.account.error;
       const badge = document.getElementById('statusBadge');
@@ -395,10 +418,18 @@
         document.getElementById('mTrades').textContent = data.stats.totalTrades;
         document.getElementById('mTradesSub').textContent = data.stats.totalDecisions + ' decisions';
       }
-      if (data.performanceHistory && data.performanceHistory.length > 0) updateEquityChart();
-      drawStrategyChart();
-      renderStrategySummary();
-      renderTab(currentTab);
+        if (data.performanceHistory && data.performanceHistory.length > 0) updateEquityChart();
+        drawStrategyChart();
+        renderStrategySummary();
+        renderTab(currentTab);
+      } catch (e) {
+        console.error('Dashboard refresh failed', e);
+        const b = document.getElementById('statusBadge');
+        b.className = 'status-badge offline';
+        b.innerHTML = '<div class="pulse" style="background:var(--orange)"></div><span>' + (dashboardData ? 'Refresh failed - showing last update' : 'Unable to load dashboard - retrying') + '</span>';
+      } finally {
+        dashboardRefreshInFlight = false;
+      }
     }
     async function setChartRange(mode) {
       chartRangeMode = mode;
