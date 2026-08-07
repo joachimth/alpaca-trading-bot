@@ -187,11 +187,9 @@ export class DashboardAPI {
 
   private async getDashboard(cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB);
-    try {
-      await this.reconcileTrades(db, this.getAlpacaClient());
-    } catch (e) {
-      console.error('Trade reconciliation failed:', e);
-    }
+    // Keep the dashboard read-only. Order reconciliation can fan out into many
+    // Alpaca/D1 requests and must run from trading cycles or explicit trade APIs,
+    // not on every browser refresh.
     const [stats, recentDecisions, recentTrades, runs, snapshots, dbPositions, strategyHistory] = await Promise.all([
       db.getStats(),
       db.getRecentDecisions(20),
