@@ -67,7 +67,7 @@ The strategies use explicit asset and strategy isolation. A strategy may use D1 
 - Universe scanner for liquid US equities
 - D1 logging for decisions, trades, runs, snapshots, and position metadata
 - GitHub Pages dashboard with equity history, strategy history, broker-backed positions, decisions, trades, and run history
-- Global D1 cycle lease and pre-cycle broker/order reconciliation
+- Global D1 cycle lease, scheduled read-only broker/order reconciliation, and pre-cycle status refresh
 
 ## Setup and development
 
@@ -155,7 +155,7 @@ All Alpaca access is server-side inside the Worker.
 | `/api/account` | GET | Account data fetched server-side from Alpaca, returned as `{ account }` |
 | `/api/positions` | GET | Current broker positions projected with D1 metadata; includes `positionsAvailable` and `source: "alpaca"`; returns HTTP 503 when broker positions are unavailable |
 | `/api/decisions` | GET | Recent decisions from D1, returned as `{ decisions }` |
-| `/api/trades` | GET | Recent trades from D1 with broker reconciliation where available, returned as `{ trades }` |
+| `/api/trades` | GET | Recent trades from D1, returned as `{ trades }`; broker reconciliation runs only on scheduled/cycle paths |
 | `/api/performance` | GET | Performance snapshots from D1, returned as `{ performance }` |
 | `/api/runs` | GET | Run history from D1, returned as `{ runs }` |
 | `/api/stats` | GET | Aggregate statistics from D1 |

@@ -19,6 +19,7 @@ import { projectBrokerPositions, summarizeByCategory } from './position-projecti
 import type { Env } from './index';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 import { syncBrokerLedger } from './broker-ledger';
+import { reconcileBrokerOrders } from './order-reconciliation';
 
 // Curated crypto universe — major liquid coins on Alpaca
 const CRYPTO_UNIVERSE = [
@@ -122,8 +123,9 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
       }
     }
 
-    // No market hours check — crypto trades 24/7
-    await db.reconcileOrders(await alpaca.getRecentOrders(100));
+    // No market hours check — crypto trades 24/7.
+    const reconciliation = await reconcileBrokerOrders(db, alpaca);
+    console.log(`Crypto order reconciliation: ${reconciliation.brokerOrders} broker orders, ${reconciliation.pendingLookups} pending lookups, ${reconciliation.lookupFailures} lookup failures`);
 
     // Get account and crypto positions
     const account = await alpaca.getAccount();
@@ -480,7 +482,7 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
               status: order.status,
               order_type: 'market',
               limit_price: null,
-              stop_price: riskCheck.stopLossPrice,
+              stop_price: riskCheck.stopLossPrice ?? null,
               estimated_value: riskCheck.adjustedQty * indicators.price,
               decision_id: decisionId,
               error_message: null,
@@ -496,8 +498,8 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
               market_value: riskCheck.adjustedQty * indicators.price,
               unrealized_pl: 0,
               unrealized_plpc: 0,
-              stop_loss_price: riskCheck.stopLossPrice,
-              take_profit_price: riskCheck.takeProfitPrice,
+              stop_loss_price: riskCheck.stopLossPrice ?? null,
+              take_profit_price: riskCheck.takeProfitPrice ?? null,
               strategy: 'crypto',
             });
 

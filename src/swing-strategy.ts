@@ -17,6 +17,7 @@ import { projectBrokerPositions, summarizeByCategory } from './position-projecti
 import type { Env } from './index';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 import { syncBrokerLedger } from './broker-ledger';
+import { reconcileBrokerOrders } from './order-reconciliation';
 import {
   assessSwingBars,
   getSwingBarsWindow,
@@ -127,8 +128,9 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       return;
     }
 
-    // Reconcile broker orders before evaluating swing positions.
-    await db.reconcileOrders(await alpaca.getRecentOrders(100));
+    // Read-only broker status reconciliation before evaluating swing positions.
+    const reconciliation = await reconcileBrokerOrders(db, alpaca);
+    console.log(`Swing order reconciliation: ${reconciliation.brokerOrders} broker orders, ${reconciliation.pendingLookups} pending lookups, ${reconciliation.lookupFailures} lookup failures`);
 
     // Swing may only manage positions explicitly tagged as swing.
     const account = await alpaca.getAccount();

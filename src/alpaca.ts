@@ -67,20 +67,37 @@ export interface AccountActivity {
   status?: string | null;
 }
 
+export type AlpacaOrderStatus =
+  | 'new' | 'partially_filled' | 'filled' | 'done_for_day'
+  | 'canceled' | 'cancelled' | 'expired' | 'replaced'
+  | 'pending_cancel' | 'pending_replace' | 'accepted' | 'pending_new'
+  | 'accepted_for_bidding' | 'stopped' | 'rejected' | 'calculated' | string;
+
+/** Broker terminal states: reconciliation never retries or mutates the broker order. */
+export const TERMINAL_ORDER_STATUSES = new Set([
+  'filled', 'canceled', 'cancelled', 'rejected', 'expired', 'replaced', 'done_for_day', 'stopped',
+]);
+
 export interface Order {
   id: string;
   client_order_id: string;
   symbol: string;
   qty: number;
   filled_qty: number;
+  leaves_qty: number | null;
   filled_avg_price: number | null;
-  type: 'market' | 'limit' | 'stop' | 'stop_limit' | 'trailing_stop';
+  type: 'market' | 'limit' | 'stop' | 'stop_limit' | 'trailing_stop' | string;
   side: 'buy' | 'sell';
-  status: 'new' | 'partially_filled' | 'filled' | 'done_for_day' | 'canceled' | 'expired' | 'replaced' | 'pending_cancel' | 'pending_replace' | 'accepted' | 'pending_new' | 'accepted_for_bidding' | 'stopped' | 'rejected' | 'calculated';
+  status: AlpacaOrderStatus;
   time_in_force: string;
   created_at: string;
   updated_at: string;
-  submitted_at: string;
+  submitted_at: string | null;
+  filled_at: string | null;
+  canceled_at: string | null;
+  expired_at: string | null;
+  failed_at: string | null;
+  replaced_at: string | null;
   limit_price: number | null;
   stop_price: number | null;
   trail_price: number | null;
@@ -253,6 +270,7 @@ export class AlpacaClient {
       symbol: data.symbol,
       qty: parseFloat(data.qty),
       filled_qty: parseFloat(data.filled_qty || '0'),
+      leaves_qty: data.leaves_qty == null ? null : parseFloat(data.leaves_qty),
       filled_avg_price: data.filled_avg_price ? parseFloat(data.filled_avg_price) : null,
       type: data.type,
       side: data.side,
@@ -260,7 +278,12 @@ export class AlpacaClient {
       time_in_force: data.time_in_force,
       created_at: data.created_at,
       updated_at: data.updated_at,
-      submitted_at: data.submitted_at,
+      submitted_at: data.submitted_at ?? null,
+      filled_at: data.filled_at ?? null,
+      canceled_at: data.canceled_at ?? null,
+      expired_at: data.expired_at ?? null,
+      failed_at: data.failed_at ?? null,
+      replaced_at: data.replaced_at ?? null,
       limit_price: data.limit_price ? parseFloat(data.limit_price) : null,
       stop_price: data.stop_price ? parseFloat(data.stop_price) : null,
       trail_price: data.trail_price ? parseFloat(data.trail_price) : null,
@@ -273,7 +296,7 @@ export class AlpacaClient {
   }
 
   private isTerminalOrder(status: string): boolean {
-    return ['filled', 'partially_filled', 'canceled', 'cancelled', 'rejected', 'expired', 'done_for_day', 'stopped'].includes(status);
+    return TERMINAL_ORDER_STATUSES.has(status);
   }
 
   async waitForOrder(orderId: string, timeoutMs: number = 5000): Promise<Order> {
@@ -305,7 +328,7 @@ export class AlpacaClient {
     const data: any = await resp.json().catch(() => [] as any);
     const rawOrders = Array.isArray(data) ? data : (data?.orders || data?.results || []);
     const orders = rawOrders.filter((order: any) => order?.id).map((order: any) => this.parseOrder(order));
-    return await Promise.all(orders.map(order => this.waitForOrder(order.id)));
+    return await Promise.all(orders.map((order: Order) => this.waitForOrder(order.id)));
   }
 
   // ============================================================
@@ -354,26 +377,7 @@ export class AlpacaClient {
   async getOrder(orderId: string): Promise<Order> {
     const resp = await this.request(`/v2/orders/${orderId}`);
     if (!resp.ok) throw new Error(`Alpaca getOrder failed: ${resp.status}`);
-    const data = await resp.json() as any;
-    return {
-      id: data.id,
-      client_order_id: data.client_order_id,
-      symbol: data.symbol,
-      qty: parseFloat(data.qty),
-      filled_qty: parseFloat(data.filled_qty),
-      filled_avg_price: data.filled_avg_price ? parseFloat(data.filled_avg_price) : null,
-      type: data.type,
-      side: data.side,
-      status: data.status,
-      time_in_force: data.time_in_force,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-      submitted_at: data.submitted_at,
-      limit_price: data.limit_price ? parseFloat(data.limit_price) : null,
-      stop_price: data.stop_price ? parseFloat(data.stop_price) : null,
-      trail_price: data.trail_price ? parseFloat(data.trail_price) : null,
-      trail_percent: data.trail_percent ? parseFloat(data.trail_percent) : null,
-    };
+    return this.parseOrder(await resp.json());
   }
 
   async cancelOrder(orderId: string): Promise<void> {
@@ -433,29 +437,18 @@ export class AlpacaClient {
     return activities;
   }
 
-  async getRecentOrders(limit: number = 50): Promise<Order[]> {
-    const resp = await this.request(`/v2/orders?limit=${limit}&status=all`);
+  async getRecentOrders(limit: number = 50, options: { after?: string; until?: string; direction?: 'asc' | 'desc' } = {}): Promise<Order[]> {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      status: 'all',
+      direction: options.direction || 'desc',
+    });
+    if (options.after) params.set('after', options.after);
+    if (options.until) params.set('until', options.until);
+    const resp = await this.request(`/v2/orders?${params.toString()}`);
     if (!resp.ok) throw new Error(`Alpaca getRecentOrders failed: ${resp.status}`);
     const data = await resp.json() as any[];
-    return data.map(o => ({
-      id: o.id,
-      client_order_id: o.client_order_id,
-      symbol: o.symbol,
-      qty: parseFloat(o.qty),
-      filled_qty: parseFloat(o.filled_qty),
-      filled_avg_price: o.filled_avg_price ? parseFloat(o.filled_avg_price) : null,
-      type: o.type,
-      side: o.side,
-      status: o.status,
-      time_in_force: o.time_in_force,
-      created_at: o.created_at,
-      updated_at: o.updated_at,
-      submitted_at: o.submitted_at,
-      limit_price: o.limit_price ? parseFloat(o.limit_price) : null,
-      stop_price: o.stop_price ? parseFloat(o.stop_price) : null,
-      trail_price: o.trail_price ? parseFloat(o.trail_price) : null,
-      trail_percent: o.trail_percent ? parseFloat(o.trail_percent) : null,
-    }));
+    return data.map(o => this.parseOrder(o));
   }
 
   // ============================================================

@@ -13,6 +13,7 @@ import { runCryptoCycle } from './crypto-strategy';
 import { projectBrokerPositions, summarizeByCategory } from './position-projection';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 import { syncBrokerLedger } from './broker-ledger';
+import { reconcileBrokerOrders } from './order-reconciliation';
 
 export interface Env {
   DB: D1Database;
@@ -75,6 +76,8 @@ export default {
       ctx.waitUntil(runCryptoCycle(env, 'crypto_cron'));
     } else if (event.cron === '*/5 13-21 * * 1-5') {
       ctx.waitUntil(runTradingCycleWithLease(env, 'cron'));
+    } else if (event.cron === '*/10 * * * *') {
+      ctx.waitUntil(runScheduledMaintenance(env, 'reconcile_cron'));
     } else {
       console.warn(`Ignoring unknown cron expression: ${event.cron}`);
     }
@@ -87,6 +90,72 @@ export default {
     return api.handle(request);
   },
 };
+
+/**
+ * Lease-protected, read-only broker maintenance. This path deliberately does
+ * not evaluate signals or submit/cancel/retry orders. It only imports recent
+ * broker order state and the fee/fill ledger, then records a structured run.
+ */
+export async function runScheduledMaintenance(env: Env, trigger = 'maintenance'): Promise<void> {
+  const started = Date.now();
+  const owner = `maintenance:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+  const db = new Database(env.DB);
+  const skips = new SkipReasonCollector();
+  const errors: string[] = [];
+  if (!await db.acquireCycleLease(owner)) {
+    skips.add('CYCLE_LEASE_HELD', 'maintenance', 'Maintenance skipped because another cycle holds the global lease', { trigger });
+    console.log(JSON.stringify({ event: 'maintenance_skipped', trigger, reason: 'cycle_lease_held' }));
+    await db.logRun({
+      trigger,
+      market_open: 0,
+      duration_ms: Date.now() - started,
+      decisions_made: 0,
+      trades_executed: 0,
+      errors: 0,
+      error_details: serializeRunDetails([], skips),
+      status: 'skipped',
+    });
+    return;
+  }
+
+  try {
+    const alpaca = new AlpacaClient({
+      apiKey: env.ALPACA_API_KEY,
+      apiSecret: env.ALPACA_API_SECRET,
+      baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
+    });
+    const reconciliation = await reconcileBrokerOrders(db, alpaca);
+    let ledger: { activities: number; fills: number; fees: number } | null = null;
+    try {
+      ledger = await syncBrokerLedger(db, alpaca);
+    } catch (error) {
+      errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (errors.length === 0) {
+      skips.add('MAINTENANCE_ONLY', 'maintenance', 'Scheduled maintenance reconciled broker state without running a trading strategy', {
+        brokerOrders: reconciliation.brokerOrders,
+        imported: reconciliation.imported,
+        ledgerActivities: ledger?.activities ?? 0,
+      });
+    }
+    console.log(JSON.stringify({ event: 'maintenance_complete', trigger, reconciliation, ledger, errors }));
+  } catch (error) {
+    errors.push(`Order reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(JSON.stringify({ event: 'maintenance_error', trigger, errors }));
+  } finally {
+    await db.logRun({
+      trigger,
+      market_open: 0,
+      duration_ms: Date.now() - started,
+      decisions_made: 0,
+      trades_executed: 0,
+      errors: errors.length,
+      error_details: serializeRunDetails(errors, skips),
+      status: errors.length > 0 ? 'error' : 'skipped',
+    });
+    await db.releaseCycleLease(owner);
+  }
+}
 
 // ============================================================
 // Main Trading Cycle
@@ -126,6 +195,15 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
     });
 
+    // Reconcile broker order lifecycle before any strategy reads state. This
+    // is read-only against Alpaca: no submit, cancel, retry, or replace.
+    try {
+      const reconciliation = await reconcileBrokerOrders(db, alpaca);
+      console.log(JSON.stringify({ event: 'order_reconciliation', trigger, ...reconciliation }));
+    } catch (error) {
+      errors.push(`Order reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
     // 2. Load config
     const dbConfig = await db.getConfig();
     const config = { ...FALLBACK_CONFIG };
@@ -157,8 +235,6 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       return;
     }
 
-    // Reconcile broker orders and import delayed fills/fees before reading positions.
-    await db.reconcileOrders(await alpaca.getRecentOrders(100));
     try {
       const ledger = await syncBrokerLedger(db, alpaca);
       console.log(`Broker ledger synced: ${ledger.activities} activities, ${ledger.fills} fills, ${ledger.fees} fees`);

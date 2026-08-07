@@ -58,9 +58,12 @@ CREATE TABLE IF NOT EXISTS trades (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   timestamp TEXT NOT NULL DEFAULT (datetime('now')),
   alpaca_order_id TEXT,
+  client_order_id TEXT,
   ticker TEXT NOT NULL,
   side TEXT NOT NULL,
   qty REAL NOT NULL,
+  filled_qty REAL,
+  leaves_qty REAL,
   fill_price REAL,
   avg_fill_price REAL,
   status TEXT NOT NULL DEFAULT 'submitted',
@@ -72,6 +75,8 @@ CREATE TABLE IF NOT EXISTS trades (
   decision_id INTEGER,
   strategy TEXT,
   error_message TEXT,
+  broker_updated_at TEXT,
+  last_reconciled_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

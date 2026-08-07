@@ -1,11 +1,13 @@
 # NOW
 
-## 2026-08-06 10:12 CEST - Swing cron fix live
-- Swing data-window fix committed as `c3db68b`; degraded-entry guard committed as `27ea342`.
-- Cloudflare Worker version 50 (`46677609-f3e7-4f37-94a1-c0be17a7c836`) is active at 100% traffic.
-- Swing now requests buffered completed-session daily bars and skips new entries when fewer than 20 fresh candidates remain.
-- Alpaca account is ACTIVE; schedules unchanged: swing `0 22 * * 1-5` UTC, next test Aug 7 00:00 CEST.
-- Historical failures: Aug 4 was Alpaca 401; Aug 5 was empty swing universe. No orders were placed during the fix.
+## 2026-08-07 - Alpaca reconciliation live
+- Read-only scheduled order reconciliation deployed in Worker version `16562b40-af4f-4647-b482-f8c4fe33ed8d` at 100% traffic.
+- Remote D1 lifecycle migration succeeded; existing trade count remained 363.
+- Four schedules are registered: daytrading, swing, crypto, and reconciliation `*/10 * * * *` UTC.
+- `/health`, `/api/dashboard`, `/api/trades`, and `/api/runs` returned HTTP 200 after deploy.
+- No manual trading cycle or order was run during implementation or deployment.
+- First `reconcile_cron` run was still pending at the last verification; existing lifecycle fields were therefore still empty.
 
 ## Open
-- Verify the next swing run and its `ok` or `degraded` status.
+- Verify the first scheduled `reconcile_cron` run and confirm lifecycle fields populate without order mutations.
+- Existing repo typecheck debt and duplicate `isTradingHalted` warning remain.

@@ -32,12 +32,15 @@ CREATE TABLE IF NOT EXISTS trades (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   timestamp TEXT NOT NULL DEFAULT (datetime('now')),
   alpaca_order_id TEXT,
+  client_order_id TEXT,
   ticker TEXT NOT NULL,
   side TEXT NOT NULL CHECK(side IN ('buy','sell')),
   qty REAL NOT NULL,
+  filled_qty REAL,
+  leaves_qty REAL,
   fill_price REAL,
   avg_fill_price REAL,
-  status TEXT NOT NULL DEFAULT 'submitted',   -- submitted, filled, partial, canceled, rejected
+  status TEXT NOT NULL DEFAULT 'submitted',   -- broker lifecycle status
   order_type TEXT NOT NULL DEFAULT 'market',  -- market, limit, stop, stop_limit
   limit_price REAL,
   stop_price REAL,
@@ -46,11 +49,15 @@ CREATE TABLE IF NOT EXISTS trades (
   decision_id INTEGER REFERENCES decisions(id),
   strategy TEXT,                              -- nullable: known strategy only
   error_message TEXT,
+  broker_updated_at TEXT,
+  last_reconciled_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp);
 CREATE INDEX IF NOT EXISTS idx_trades_ticker ON trades(ticker);
+CREATE INDEX IF NOT EXISTS idx_trades_client_order_id ON trades(client_order_id);
+CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
 
 -- Global account-wide lease preventing overlapping strategy cycles.
 CREATE TABLE IF NOT EXISTS cycle_leases (

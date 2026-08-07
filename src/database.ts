@@ -2,7 +2,7 @@
 // All D1 interactions for the trading bot
 
 import type { D1Database } from '@cloudflare/workers-types';
-import type { AccountActivity, Order } from './alpaca';
+import { TERMINAL_ORDER_STATUSES, type AccountActivity, type Order } from './alpaca';
 import {
   DEFAULT_CRYPTO_UNIVERSE,
   inferCryptoSellStrategy,
@@ -40,6 +40,10 @@ export interface TradeRecord {
   decision_id: number | null;
   error_message: string | null;
   strategy?: 'daytrading' | 'swing' | 'crypto' | null;
+  client_order_id?: string | null;
+  filled_qty?: number | null;
+  leaves_qty?: number | null;
+  broker_updated_at?: string | null;
 }
 
 export class Database {
@@ -49,25 +53,36 @@ export class Database {
   constructor(db: D1Database) {
     this.db = db;
     this.schemaReady = Promise.all([
-      this.ensureTradeStrategyColumn(),
+      this.ensureTradeLifecycleColumns(),
       this.ensureCycleLeaseSchema(),
       this.ensureCategorySnapshotSchema(),
       this.ensureBrokerLedgerSchema(),
     ]).then(() => undefined);
   }
 
-  private async ensureTradeStrategyColumn(): Promise<void> {
-    const column = await this.db.prepare(
-      `SELECT 1 FROM pragma_table_info('trades') WHERE name = 'strategy' LIMIT 1`
-    ).first();
-    if (!column) {
+  private async ensureTradeLifecycleColumns(): Promise<void> {
+    const columns = [
+      ['strategy', 'TEXT'],
+      ['client_order_id', 'TEXT'],
+      ['filled_qty', 'REAL'],
+      ['leaves_qty', 'REAL'],
+      ['broker_updated_at', 'TEXT'],
+      ['last_reconciled_at', 'TEXT'],
+    ] as const;
+    for (const [name, type] of columns) {
+      const column = await this.db.prepare(
+        `SELECT 1 FROM pragma_table_info('trades') WHERE name = ? LIMIT 1`
+      ).bind(name).first();
+      if (column) continue;
       try {
-        await this.db.prepare('ALTER TABLE trades ADD COLUMN strategy TEXT').run();
+        await this.db.prepare(`ALTER TABLE trades ADD COLUMN ${name} ${type}`).run();
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (!message.toLowerCase().includes('duplicate column')) throw error;
       }
     }
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_trades_client_order_id ON trades(client_order_id)').run();
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)').run();
   }
 
   private async ensureCycleLeaseSchema(): Promise<void> {
@@ -343,13 +358,16 @@ export class Database {
   async logTrade(record: TradeRecord): Promise<number> {
     await this.ensureTradeSchema();
     const result = await this.db.prepare(
-      `INSERT INTO trades (alpaca_order_id, ticker, side, qty, fill_price, avg_fill_price, status, order_type, limit_price, stop_price, estimated_value, decision_id, error_message, strategy)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO trades (alpaca_order_id, client_order_id, ticker, side, qty, filled_qty, leaves_qty, fill_price, avg_fill_price, status, order_type, limit_price, stop_price, estimated_value, decision_id, error_message, strategy, broker_updated_at, last_reconciled_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
     ).bind(
       record.alpaca_order_id,
+      record.client_order_id ?? null,
       record.ticker,
       record.side,
       record.qty,
+      record.filled_qty ?? null,
+      record.leaves_qty ?? null,
       record.fill_price,
       record.avg_fill_price,
       record.status,
@@ -359,7 +377,8 @@ export class Database {
       record.estimated_value,
       record.decision_id,
       record.error_message,
-      record.strategy ?? null
+      record.strategy ?? null,
+      record.broker_updated_at ?? null
     ).run();
 
     return result.meta.last_row_id as number;
@@ -373,26 +392,46 @@ export class Database {
   } = {}): Promise<number> {
     await this.ensureTradeSchema();
     const existing = await this.db.prepare(
-      'SELECT id FROM trades WHERE alpaca_order_id = ? LIMIT 1'
-    ).bind(order.id).first();
+      'SELECT id, filled_qty, leaves_qty, fill_price, avg_fill_price, broker_updated_at, strategy FROM trades WHERE alpaca_order_id = ? LIMIT 1'
+    ).bind(order.id).first() as {
+      id?: number;
+      filled_qty?: number | null;
+      leaves_qty?: number | null;
+      fill_price?: number | null;
+      avg_fill_price?: number | null;
+      broker_updated_at?: string | null;
+      strategy?: TradeRecord['strategy'];
+    } | null;
     if (existing?.id !== undefined && existing?.id !== null) {
       await this.db.prepare(
-        `UPDATE trades SET status = ?, fill_price = ?, avg_fill_price = ?,
+        `UPDATE trades SET client_order_id = COALESCE(?, client_order_id),
+             status = CASE WHEN broker_updated_at IS NULL OR ? >= broker_updated_at THEN ? ELSE status END,
+             filled_qty = MAX(COALESCE(filled_qty, 0), COALESCE(?, 0)),
+             leaves_qty = COALESCE(?, leaves_qty),
+             fill_price = COALESCE(?, fill_price), avg_fill_price = COALESCE(?, avg_fill_price),
+             broker_updated_at = CASE WHEN broker_updated_at IS NULL OR ? >= broker_updated_at THEN ? ELSE broker_updated_at END,
+             last_reconciled_at = datetime('now'),
              decision_id = COALESCE(decision_id, ?), strategy = COALESCE(strategy, ?)
          WHERE alpaca_order_id = ?`
-      ).bind(order.status, order.filled_avg_price, order.filled_avg_price,
+      ).bind(order.client_order_id ?? null, order.updated_at ?? null, order.status,
+        order.filled_qty, order.leaves_qty, order.filled_avg_price, order.filled_avg_price,
+        order.updated_at ?? null, order.updated_at ?? null,
         options.decisionId ?? null, options.strategy ?? null, order.id).run();
       return existing.id as number;
     }
 
     return this.logTrade({
       alpaca_order_id: order.id,
+      client_order_id: order.client_order_id,
       ticker: order.symbol,
       side: order.side,
       qty: order.qty,
+      filled_qty: order.filled_qty,
+      leaves_qty: order.leaves_qty ?? Math.max(0, order.qty - order.filled_qty),
       fill_price: order.filled_avg_price,
       avg_fill_price: order.filled_avg_price,
       status: order.status,
+      broker_updated_at: order.updated_at,
       order_type: order.type,
       limit_price: order.limit_price,
       stop_price: order.stop_price,
@@ -403,11 +442,27 @@ export class Database {
     });
   }
 
-  async updateTradeStatus(orderId: string, status: string, fillPrice: number | null, avgFillPrice: number | null): Promise<void> {
+  async updateTradeStatus(orderId: string, status: string, fillPrice: number | null, avgFillPrice: number | null, order?: Order): Promise<void> {
     await this.ensureTradeSchema();
     await this.db.prepare(
-      'UPDATE trades SET status = ?, fill_price = ?, avg_fill_price = ? WHERE alpaca_order_id = ?'
-    ).bind(status, fillPrice, avgFillPrice, orderId).run();
+      `UPDATE trades SET
+         status = CASE WHEN broker_updated_at IS NULL OR ? IS NULL OR ? >= broker_updated_at THEN ? ELSE status END,
+         filled_qty = CASE WHEN ? IS NULL THEN filled_qty ELSE MAX(COALESCE(filled_qty, 0), ?) END,
+         leaves_qty = COALESCE(?, leaves_qty),
+         fill_price = COALESCE(?, fill_price),
+         avg_fill_price = COALESCE(?, avg_fill_price),
+         client_order_id = COALESCE(?, client_order_id),
+         broker_updated_at = CASE WHEN ? IS NULL OR broker_updated_at IS NULL OR ? >= broker_updated_at THEN ? ELSE broker_updated_at END,
+         last_reconciled_at = datetime('now')
+       WHERE alpaca_order_id = ?`
+    ).bind(
+      order?.updated_at ?? null, order?.updated_at ?? null, status,
+      order?.filled_qty ?? null, order?.filled_qty ?? null,
+      order ? order.qty - order.filled_qty : null,
+      fillPrice, avgFillPrice, order?.client_order_id ?? null,
+      order?.updated_at ?? null, order?.updated_at ?? null, order?.updated_at ?? null,
+      orderId,
+    ).run();
   }
 
   private async inferCryptoSellStrategy(
@@ -438,35 +493,59 @@ export class Database {
   }
 
   /**
-   * Import broker sells and attribute them without changing broker-authoritative
-   * positions. Existing non-null strategy values are always preserved.
+   * Apply broker order snapshots to D1 without broker side effects.
+   * Both buys and sells are imported. Status and fill progress are monotonic:
+   * an older broker snapshot cannot overwrite a newer status/timestamp or reduce
+   * filled_qty. Terminal statuses are documented in alpaca.ts.
    */
   async reconcileOrders(orders: Order[]): Promise<number> {
     await this.ensureTradeSchema();
     let imported = 0;
     for (const order of orders) {
-      if (order.side !== 'sell') continue;
+      if (!order?.id || (order.side !== 'buy' && order.side !== 'sell')) continue;
       const existing = await this.db.prepare(
-        'SELECT id, strategy FROM trades WHERE alpaca_order_id = ? LIMIT 1'
-      ).bind(order.id).first() as { id?: number; strategy?: TradeRecord['strategy'] } | null;
-      const strategy = await this.inferCryptoSellStrategy(
-        order.symbol,
-        order.created_at,
-        existing?.strategy ?? null,
-      );
-      if (existing) {
-        await this.db.prepare(
-          `UPDATE trades SET status = ?, fill_price = ?, avg_fill_price = ?, strategy = COALESCE(strategy, ?)
-           WHERE alpaca_order_id = ?`
-        ).bind(order.status, order.filled_avg_price, order.filled_avg_price, strategy, order.id).run();
-        continue;
+        'SELECT id, strategy, status, broker_updated_at, leaves_qty FROM trades WHERE alpaca_order_id = ? LIMIT 1'
+      ).bind(order.id).first() as {
+        id?: number;
+        strategy?: TradeRecord['strategy'];
+        status?: string | null;
+        broker_updated_at?: string | null;
+        leaves_qty?: number | null;
+      } | null;
+      let strategy: TradeRecord['strategy'] = existing?.strategy ?? null;
+      if (order.side === 'sell') {
+        strategy = (await this.inferCryptoSellStrategy(order.symbol, order.created_at, strategy)) ?? null;
       }
-      await this.logOrderTrade(order, { strategy });
-      imported++;
+      if (existing?.id !== undefined && existing.id !== null) {
+        const incomingUpdatedAt = order.updated_at ?? null;
+        const isNewerOrEqual = !existing.broker_updated_at || !incomingUpdatedAt || incomingUpdatedAt >= existing.broker_updated_at;
+        const preserveTerminalStatus = Boolean(existing.status && TERMINAL_ORDER_STATUSES.has(existing.status) && !TERMINAL_ORDER_STATUSES.has(order.status));
+        const status = preserveTerminalStatus || !isNewerOrEqual ? (existing.status ?? order.status) : order.status;
+        const leavesQty = isNewerOrEqual
+          ? (order.leaves_qty ?? Math.max(0, order.qty - order.filled_qty))
+          : existing.leaves_qty ?? null;
+        const brokerUpdatedAt = isNewerOrEqual ? incomingUpdatedAt : existing.broker_updated_at ?? null;
+        await this.db.prepare(
+          `UPDATE trades SET
+             client_order_id = COALESCE(?, client_order_id),
+             status = ?,
+             filled_qty = MAX(COALESCE(filled_qty, 0), COALESCE(?, 0)),
+             leaves_qty = COALESCE(?, leaves_qty),
+             fill_price = COALESCE(?, fill_price),
+             avg_fill_price = COALESCE(?, avg_fill_price),
+             broker_updated_at = ?,
+             strategy = COALESCE(strategy, ?), last_reconciled_at = datetime('now')
+           WHERE alpaca_order_id = ?`
+        ).bind(
+          order.client_order_id ?? null, status, order.filled_qty, leavesQty,
+          order.filled_avg_price, order.filled_avg_price, brokerUpdatedAt,
+          strategy, order.id,
+        ).run();
+      } else {
+        await this.logOrderTrade(order, { strategy });
+        imported++;
+      }
     }
-
-    // Keep legacy NULL-strategy crypto sells repairable on every normal
-    // reconciliation pass; the UPDATE itself is guarded and idempotent.
     await this.backfillCryptoSellAttribution();
     return imported;
   }
@@ -507,8 +586,9 @@ export class Database {
     await this.ensureTradeSchema();
     const result = await this.db.prepare(
       `SELECT * FROM trades
-       WHERE status NOT IN ('filled', 'canceled', 'cancelled', 'rejected', 'expired')
-       ORDER BY timestamp DESC LIMIT ?`
+       WHERE alpaca_order_id IS NOT NULL
+         AND status NOT IN ('filled', 'canceled', 'cancelled', 'rejected', 'expired', 'replaced', 'done_for_day', 'stopped')
+       ORDER BY COALESCE(last_reconciled_at, timestamp) ASC LIMIT ?`
     ).bind(limit).all();
     return result.results as any[];
   }
@@ -741,7 +821,7 @@ export class Database {
       ? `trigger IN ('swing_cron', 'manual_swing')`
       : strategy === 'crypto'
         ? `trigger IN ('crypto_cron', 'manual_crypto')`
-        : `trigger NOT IN ('swing_cron', 'manual_swing', 'crypto_cron', 'manual_crypto')`;
+        : `trigger NOT IN ('swing_cron', 'manual_swing', 'crypto_cron', 'manual_crypto', 'reconcile_cron')`;
     const result = await this.db.prepare(
       `SELECT * FROM run_log WHERE ${triggerPredicate} ORDER BY timestamp DESC, id DESC LIMIT ?`
     ).bind(limit).all();

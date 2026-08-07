@@ -165,26 +165,6 @@ export class DashboardAPI {
     });
   }
 
-  private async reconcileTrades(db: Database, alpaca: AlpacaClient): Promise<void> {
-    // Import broker sells as well as refreshing locally-known orders. The import is
-    // keyed by Alpaca order ID and is safe to call on every live/dashboard request.
-    const orders = await alpaca.getRecentOrders(100);
-    await db.reconcileOrders(orders);
-
-    const pending = await db.getTradesNeedingSync(200);
-    const byId = new Map(orders.map(order => [order.id, order]));
-    for (const trade of pending) {
-      const order = byId.get(trade.alpaca_order_id);
-      if (!order) continue;
-      await db.updateTradeStatus(
-        order.id,
-        order.status,
-        order.filled_avg_price,
-        order.filled_avg_price,
-      );
-    }
-  }
-
   private async getDashboard(cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB);
     // Keep the dashboard read-only. Order reconciliation can fan out into many
@@ -272,7 +252,6 @@ export class DashboardAPI {
 
   private async getPositions(cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB);
-    try { await this.reconcileTrades(db, this.getAlpacaClient()); } catch (e) { console.error('Trade reconciliation failed:', e); }
     const dbPositions = await db.getOpenPositions();
     try {
       const livePositions = await this.getBrokerPositions();
@@ -293,7 +272,6 @@ export class DashboardAPI {
 
   private async getTrades(url: URL, cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB);
-    try { await this.reconcileTrades(db, this.getAlpacaClient()); } catch (e) { console.error('Trade reconciliation failed:', e); }
     const limit = parseInt(url.searchParams.get('limit') || '50');
     const trades = await db.getRecentTrades(limit);
     return this.json({ trades }, cors);
@@ -314,14 +292,12 @@ export class DashboardAPI {
 
   private async getStats(cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB);
-    try { await this.reconcileTrades(db, this.getAlpacaClient()); } catch (e) { console.error('Trade reconciliation failed:', e); }
     const stats = await db.getStats();
     return this.json({ stats }, cors);
   }
 
   private async getStrategyComparison(cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB);
-    try { await this.reconcileTrades(db, this.getAlpacaClient()); } catch (e) { console.error('Trade reconciliation failed:', e); }
     try {
       const dbPositions = await db.getOpenPositions();
       const livePositions = await this.getBrokerPositions();
