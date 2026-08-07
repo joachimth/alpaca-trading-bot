@@ -231,7 +231,8 @@
       <div class="metrics-grid" id="metricsGrid">
         <div class="metric-card"><div class="metric-label">Portfolio Value</div><div class="metric-value neutral" id="mPortfolio">-</div><div class="metric-sub" id="mPortfolioSub">Loading...</div></div>
         <div class="metric-card"><div class="metric-label">Cash Available</div><div class="metric-value neutral" id="mCash">-</div><div class="metric-sub" id="mCashSub">Buying power: -</div></div>
-        <div class="metric-card"><div class="metric-label">Daily P&L</div><div class="metric-value neutral" id="mDailyPL">-</div><div class="metric-sub" id="mDailyPLSub">-</div></div>
+        <div class="metric-card"><div class="metric-label">Daily P&L</div><div class="metric-value neutral" id="mDailyPL">-</div><div class="metric-sub" id="mDailyPLSub">Broker-reported intraday</div></div>
+        <div class="metric-card"><div class="metric-label">Net P&L after fees</div><div class="metric-value neutral" id="mNetPL">-</div><div class="metric-sub" id="mNetPLSub">Model P&L minus recorded fees</div></div>
         <div class="metric-card"><div class="metric-label">Open Positions</div><div class="metric-value neutral" id="mPositions">-</div><div class="metric-sub" id="mPositionsSub">-</div></div>
         <div class="metric-card"><div class="metric-label">Win Rate</div><div class="metric-value neutral" id="mWinRate">-</div><div class="metric-sub" id="mWinRateSub">-</div></div>
         <div class="metric-card"><div class="metric-label">Total Trades</div><div class="metric-value neutral" id="mTrades">-</div><div class="metric-sub" id="mTradesSub">-</div></div>
@@ -405,7 +406,19 @@
         document.getElementById('mCashSub').textContent = 'Buying power: ' + fmtMoney(a.buying_power);
         document.getElementById('mDailyPL').textContent = fmtMoney(a.change_today);
         document.getElementById('mDailyPL').className = 'metric-value ' + (a.change_today >= 0 ? 'positive' : 'negative');
-        document.getElementById('mDailyPLSub').textContent = fmtPct(a.change_today_pct);
+        document.getElementById('mDailyPLSub').textContent = fmtPct(a.change_today_pct) + ' broker-reported';
+        const netPl = data.strategyComparison && data.strategyComparison.netTotalPl != null ? data.strategyComparison.netTotalPl : null;
+        const netPlEl = document.getElementById('mNetPL');
+        const netPlSubEl = document.getElementById('mNetPLSub');
+        if (netPl != null) {
+          netPlEl.textContent = fmtMoney(netPl);
+          netPlEl.className = 'metric-value ' + (netPl >= 0 ? 'positive' : 'negative');
+          const feeTotal = data.strategyComparison.fees ? data.strategyComparison.fees.totalUsd : 0;
+          netPlSubEl.textContent = 'Recorded fees: ' + fmtMoney(feeTotal);
+        } else {
+          netPlEl.textContent = '—';
+          netPlSubEl.textContent = 'Fee-aware model unavailable';
+        }
         if (data.positionsAvailable !== false) {
           document.getElementById('mPositions').textContent = data.positions ? data.positions.length : 0;
           const lv = data.positions ? data.positions.reduce((s, p) => s + Math.abs(p.market_value || 0), 0) : 0;
@@ -815,9 +828,10 @@
       if (!cmp || !cmp.strategies || cmp.strategies.length === 0) { el.innerHTML = ''; return; }
       const order = ['daytrading', 'swing', 'crypto'];
       const sorted = order.map(o => cmp.strategies.find(s => s.strategy === o)).filter(Boolean);
-      let h = '<div class="strategy-summary-scroll"><table><thead><tr><th>Strategy</th><th>Decisions</th><th>Trades</th><th>Open Pos</th><th>Realized P&L</th><th>Unrealized P&L</th><th>Total P&L</th><th>Win Rate</th><th>Mkt Value</th></tr></thead><tbody>';
+      let h = '<div class="strategy-summary-scroll"><table><thead><tr><th>Strategy</th><th>Decisions</th><th>Trades</th><th>Open Pos</th><th>Realized P&L</th><th>Unrealized P&L</th><th>Fees</th><th>Net P&L</th><th>Win Rate</th><th>Mkt Value</th></tr></thead><tbody>';
       for (const s of sorted) {
-        const tp = s.totalPl || 0;
+        const tp = s.netTotalPl != null ? s.netTotalPl : (s.totalPl || 0);
+        const fee = s.feesUsd || 0;
         const tc = tp >= 0 ? 'positive' : 'negative';
         const rc = (s.realizedPl || 0) >= 0 ? 'positive' : 'negative';
         const uc = (s.unrealizedPl || 0) >= 0 ? 'positive' : 'negative';
@@ -828,6 +842,7 @@
         h += '<td>' + (s.openPositions || 0) + '</td>';
         h += '<td class="' + rc + '">' + fmtMoney(s.realizedPl || 0) + '</td>';
         h += '<td class="' + uc + '">' + fmtMoney(s.unrealizedPl || 0) + '</td>';
+        h += '<td class="negative">' + (fee > 0 ? '-' : '') + fmtMoney(fee, 2) + '</td>';
         h += '<td class="' + tc + '">' + (tp >= 0 ? '+' : '') + fmtMoney(tp, 2) + '</td>';
         h += '<td>' + (s.winRate || 0).toFixed(0) + '% <span style="color:var(--text-muted)">(' + (s.wins || 0) + 'W ' + (s.losses || 0) + 'L)</span></td>';
         h += '<td>' + fmtMoney(s.marketValue || 0, 0) + '</td>';
