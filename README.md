@@ -7,8 +7,9 @@ Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persis
 - **Repository:** `joachimth/alpaca-trading-bot`
 - **Worker:** `alpaca-trading-bot.joachim-763.workers.dev`
 - **Dashboard:** `joachimth.github.io/alpaca-trading-bot/`
-- **Current implementation commit:** `ee17068` (`make dashboard positions broker authoritative`)
-- **Active Worker version:** Cloudflare version `43`, deployed at 100% traffic on August 4, 2026
+- **Current implementation commit:** `86def4f` (`clean up TypeScript errors`)
+- **Active Worker version:** Cloudflare version `0f05e645-b33c-4335-92d9-68b8237eb62a`, deployed at 100% traffic on August 7, 2026
+- **Current deployment:** Cloudflare deployment `da419696-2fb6-498c-86f4-d659f4bac8f3`
 - **Account mode:** Alpaca paper trading
 
 The dashboard is a static GitHub Pages frontend. It calls the Cloudflare Worker API only. It never calls Alpaca directly and never contains Alpaca credentials.
@@ -48,13 +49,14 @@ A D1-only row is not an open current position. The API projection emits only sym
 
 If the Worker cannot fetch Alpaca positions, it does **not** fall back to D1 rows. The dashboard receives an unavailable state, and `/api/positions` returns HTTP 503 with an error payload.
 
-The `ee17068` change updated the API/dashboard projection and strategy comparison. It did not change order placement, scheduled cycle timing, or broker execution behavior.
+The current release includes broker-authoritative position projection, fee-aware ledger reporting, scheduled read-only order reconciliation, and the TypeScript cleanup. It does not change the intended trading cadence or add deployment-time trading actions.
 
 ## Trading strategies and schedules
 
 - **Daytrading:** every 5 minutes during the configured UTC window, `*/5 13-21 * * 1-5`; Alpaca's market clock remains authoritative.
 - **Swing:** once daily after market close, `0 22 * * 1-5`.
 - **Crypto:** every 30 minutes at approximately `:07` and `:37` UTC, `7-59/30 * * * *`; crypto is intentionally kept at this cadence pending telemetry.
+- **Maintenance/reconciliation:** every 10 minutes, `*/10 * * * *`; read-only broker/order reconciliation under the global cycle lease.
 
 The strategies use explicit asset and strategy isolation. A strategy may use D1 ownership and risk metadata, but current broker quantity and valuation must come from Alpaca.
 
@@ -132,15 +134,19 @@ bun run typecheck
 bunx wrangler deploy --dry-run
 ```
 
-The focused broker-position regression tests live in `test/position-projection.test.ts` and cover stale D1-only rows and broker-only unattributed positions. The repository still has pre-existing TypeScript errors and a duplicate `isTradingHalted` warning in unrelated swing/risk code; a clean typecheck is not currently a release gate.
+The test suite currently passes with 46 tests and 127 assertions. The focused broker-position regression tests live in `test/position-projection.test.ts`; order lifecycle and read-only reconciliation coverage lives in `test/order-reconciliation.test.ts`. `bun run typecheck` is a release gate and must pass before deployment.
 
 ### Deploy
 
-```bash
-CLOUDFLARE_API_TOKEN="..." bunx wrangler deploy
-```
+Use [`docs/DEPLOYMENT_RUNBOOK.md`](docs/DEPLOYMENT_RUNBOOK.md). In this proxy environment, `bunx wrangler deploy` can return exit code 0 without creating a new Worker version, so the canonical path is:
 
-For this Worker, always verify the active Cloudflare deployment after upload. A successful upload or exit code does not by itself prove that the new version is receiving traffic. Confirm the active version in Cloudflare and verify the public API response before calling a deployment complete.
+1. Pass typecheck, tests, dry-run, and `git diff --check`.
+2. Commit and push to `origin/main`, then verify the remote hash.
+3. Build a fresh explicit bundle with `bunx wrangler deploy --dry-run --outdir <new-directory>`.
+4. Upload that exact bundle through the direct Cloudflare multipart API using the encrypted credential store.
+5. Verify a new Cloudflare version at 100% traffic, all four cron schedules, and read-only HTTP 200 smoke tests.
+
+Never put `CLOUDFLARE_API_TOKEN` in source, documentation, chat, or commits. Never use trigger, cycle, order, or close endpoints as deployment tests.
 
 The dashboard is the static file `dashboard/index.html`. It uses the Worker URL in `API_BASE` and must never be changed to call Alpaca directly.
 
@@ -208,10 +214,10 @@ Before declaring a deployment complete:
 
 - Partial-fill retry/cancel handling needs a fuller lifecycle model and more automated coverage.
 - There are 91 historical trades with `strategy IS NULL`; they must not be bulk-attributed without deterministic evidence.
-- Swing logging still needs consistency work before the first real swing run, including trigger attribution and decision-row accounting.
+- The swing production path has been verified with bounded batch-bar handling and degraded-data safeguards; trigger attribution and decision-row accounting remain follow-up consistency work.
 - Some position upsert/reconciliation paths still need stronger strategy attribution and lifecycle correlation.
-- Existing TypeScript errors remain in unrelated files, and `swing-risk.ts` has a duplicate `isTradingHalted` member warning.
-- Automated test coverage is still limited; the broker projection currently has focused deterministic tests only.
+- Partial-fill retry/cancel handling still needs a fuller lifecycle model beyond the current read-only reconciliation.
+- Automated coverage is improving but does not yet provide full broker integration coverage for every partial-fill and retry edge case.
 - D1-only historical rows may remain open in storage until a separate, complete reconciliation policy is implemented. GET handlers do not close or synthesize positions.
 
 ## License
