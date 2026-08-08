@@ -142,7 +142,9 @@ Expected result: HTTP 200 for all four endpoints.
 
 Also check `/api/positions` when validating broker availability. Do not use `/api/trigger`, `/api/trigger-swing`, `/api/trigger-crypto`, close endpoints, or any order endpoint for smoke testing.
 
-## 7. Release receipt
+## 7. Documentation and release receipt
+
+Documentation is part of every release. Before declaring work complete, update the relevant README, `docs/OPERATIONS.md`, this runbook, and the workspace status note. The update must state what changed, why it changed, validation results, deployment state, known risks, and concrete next steps. Do not leave documentation for a later cleanup pass.
 
 Record these values in the release note or conversation:
 
@@ -164,3 +166,11 @@ As of August 7, 2026:
 - Traffic: 100%
 - Validation: TypeScript passed; 46 tests passed; `/health`, `/api/dashboard`, `/api/trades`, and `/api/runs` returned HTTP 200
 - No manual trading cycle or order action was run during deployment
+
+## Current follow-up queue
+
+1. Verify the first `reconcile_cron` run, lifecycle-field population, run-log evidence, and absence of broker mutations.
+2. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
+3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
+4. Add targeted live-broker integration checks without using trading actions as smoke tests.
+5. Finish swing trigger attribution and decision-row accounting consistency work.

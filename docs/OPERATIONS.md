@@ -25,6 +25,10 @@
 
 See [`docs/DEPLOYMENT_RUNBOOK.md`](DEPLOYMENT_RUNBOOK.md) for exact commands and the direct-upload procedure.
 
+## Documentation rule
+
+Documentation is a release requirement. Every source, configuration, schema, migration, test, or operational change must update the relevant README, operations/runbook, release receipt, and next-step status in the same work item. Work is not complete until documented behavior, validation results, deployment state, known risks, and remaining follow-ups match reality.
+
 ## Position-state contract
 
 Alpaca supplies current symbol, quantity, side, prices, market value, and unrealized P&L. D1 supplies matching strategy, stop, timestamp, and historical metadata only. D1-only rows are excluded from current API positions. Broker-only symbols are `unattributed` until ownership is established. A broker-fetch failure is surfaced as unavailable; D1 is never used as a silent live fallback.
@@ -38,10 +42,17 @@ Alpaca supplies current symbol, quantity, side, prices, market value, and unreal
 
 ## Known risks
 
-- Partial-fill retry/cancel lifecycle is incomplete.
-- Historical trades with `strategy IS NULL` remain excluded from strategy-attributed history unless deterministic attribution is available.
+- Partial-fill retry/cancel lifecycle is incomplete; scheduled reconciliation is intentionally read-only and does not replace that future design.
+- At the last verified D1 query on August 8, 2026, 365 trades existed and 84 had `strategy IS NULL`; those rows remain excluded from strategy-attributed history unless deterministic attribution is available.
 - Swing batch-bar and degraded-data safeguards have been verified in production; future changes should preserve the bounded request and completed-session checks.
 - Daytrading/crypto position sync can preserve an existing strategy-less row.
-- Scheduled reconciliation is intentionally read-only: it never submits, cancels, closes, replaces, or retries broker orders.
-- Partial-fill retry/cancel lifecycle is still incomplete beyond reconciliation and requires separate design/test work.
+- Some historical and broker-only trades still need stronger deterministic strategy attribution and lifecycle correlation.
 - Automated coverage includes reconciliation, partial-fill persistence, terminal statuses, idempotency, broker projection, and no-side-effect assertions, but not full live-broker integration.
+
+## Next steps
+
+1. Verify the first `reconcile_cron` run, lifecycle-field population, run-log evidence, and absence of broker mutations.
+2. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
+3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
+4. Add targeted live-broker integration checks without using trading actions as smoke tests.
+5. Finish swing trigger attribution and decision-row accounting consistency work.

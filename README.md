@@ -202,23 +202,38 @@ Run history labels `trades_executed` as **Orders submitted**. A submitted order 
 
 Before declaring a deployment complete:
 
-1. Run the focused projection tests.
-2. Run a Wrangler dry-run build.
-3. Confirm the active Cloudflare version and traffic percentage.
-4. Fetch `/api/dashboard` and `/api/positions` through the Worker URL.
-5. Confirm `positionsAvailable: true`, `source: "alpaca"`, and that symbols match the broker account.
-6. Confirm the GitHub Pages HTML contains the Worker API URL and no direct Alpaca URL.
-7. Do not use trigger or close endpoints as deployment tests.
+1. Update the documentation for every source, configuration, schema, migration, test, or operational change.
+2. Run `git diff --check`, `bunx tsc --noEmit`, `bun test`, and a Wrangler dry-run.
+3. Commit and push the code and documentation; confirm local `HEAD` equals `origin/main`.
+4. Build and upload a fresh explicit Worker bundle through the documented direct Cloudflare multipart API.
+5. Confirm the newest Cloudflare version is receiving 100% traffic and all four schedules are present.
+6. Fetch `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, and `/api/positions` through the Worker URL.
+7. Confirm broker availability fields and that symbols match the broker account.
+8. Confirm the GitHub Pages HTML contains the Worker API URL and no direct Alpaca URL.
+9. Record the release result and open next steps in `README.md`, `docs/OPERATIONS.md`, `docs/DEPLOYMENT_RUNBOOK.md`, and the workspace status note.
+10. Do not use trigger, cycle, order, or close endpoints as deployment tests.
+
+## Documentation rule
+
+Documentation is part of the implementation, not a follow-up task. Every future change must update the relevant README, operations/runbook, release receipt, and next-step status in the same work item. A change is not complete until the documented behavior, validation results, deployment state, known risks, and remaining follow-ups match reality.
 
 ## Known risks and follow-up work
 
 - Partial-fill retry/cancel handling needs a fuller lifecycle model and more automated coverage.
-- There are 91 historical trades with `strategy IS NULL`; they must not be bulk-attributed without deterministic evidence.
+- At the last verified D1 query on August 8, 2026, 365 trades existed and 84 had `strategy IS NULL`; they must not be bulk-attributed without deterministic evidence.
 - The swing production path has been verified with bounded batch-bar handling and degraded-data safeguards; trigger attribution and decision-row accounting remain follow-up consistency work.
 - Some position upsert/reconciliation paths still need stronger strategy attribution and lifecycle correlation.
-- Partial-fill retry/cancel handling still needs a fuller lifecycle model beyond the current read-only reconciliation.
-- Automated coverage is improving but does not yet provide full broker integration coverage for every partial-fill and retry edge case.
+- Scheduled reconciliation is intentionally read-only and does not replace a future explicit retry/cancel lifecycle design.
+- Automated coverage is improving but does not yet provide full live-broker integration coverage for every partial-fill and retry edge case.
 - D1-only historical rows may remain open in storage until a separate, complete reconciliation policy is implemented. GET handlers do not close or synthesize positions.
+
+## Next steps
+
+1. Verify the first `reconcile_cron` run, lifecycle-field population, run-log evidence, and absence of broker mutations.
+2. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
+3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
+4. Add targeted live-broker integration checks without using trading actions as smoke tests.
+5. Finish swing trigger attribution and decision-row accounting consistency work.
 
 ## License
 
