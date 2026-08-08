@@ -49,7 +49,7 @@ A D1-only row is not an open current position. The API projection emits only sym
 
 If the Worker cannot fetch Alpaca positions, it does **not** fall back to D1 rows. The dashboard receives an unavailable state, and `/api/positions` returns HTTP 503 with an error payload.
 
-The current release includes broker-authoritative position projection, fee-aware ledger reporting, scheduled read-only order reconciliation, and the TypeScript cleanup. It does not change the intended trading cadence or add deployment-time trading actions.
+The current working release adds broker-authoritative fee-aware P&L presentation, conservative CFEE attribution, quantity-aware transaction-cost estimates, discretionary exit gates, swing cost logging with an explicit calibrated-edge switch, and scheduled read-only order reconciliation. It does not change the intended trading cadence or add deployment-time trading actions. Historical realized P&L remains model/gross-style until fill-lot matching is implemented.
 
 ## Trading strategies and schedules
 
@@ -65,7 +65,10 @@ The strategies use explicit asset and strategy isolation. A strategy may use D1 
 - Autonomous paper trading with separate daytrading, swing, and crypto paths
 - Technical analysis: RSI, MACD, EMA, ATR, Stochastic, Bollinger Bands, ADX, and OBV
 - Optional LLM refinement of technical signals
-- Risk controls: account block checks, daily loss limits, position limits, sizing, stops, take-profits, trailing stops, cooldowns, and order-rate limits
+- Risk controls: account block checks, daily loss limits, position limits, sizing, stops, take-profits, trailing stops, cooldowns, order-rate limits, quantity-aware cost gates, and discretionary exit protection
+- Fee-aware P&L: strategy tabs expose gross P&L, recorded attributable fees, and net P&L; CFEE is attributed only to crypto, while orderless/account-level fees remain explicitly unattributed
+- Exit policy: only signal-driven discretionary SELL/CLOSE actions may be held when estimated costs consume a small positive gross gain; protective, EOD, and manual closes bypass that gate
+- Swing edge policy: spread/slippage/fee costs are logged with explicit bps units; BUY rejection is disabled until a calibrated `expectedEdgeBps` is configured
 - Universe scanner for liquid US equities
 - D1 logging for decisions, trades, runs, snapshots, and position metadata
 - GitHub Pages dashboard with equity history, strategy history, broker-backed positions, decisions, trades, and run history
@@ -134,7 +137,7 @@ bun run typecheck
 bunx wrangler deploy --dry-run
 ```
 
-The test suite currently passes with 46 tests and 127 assertions. The focused broker-position regression tests live in `test/position-projection.test.ts`; order lifecycle and read-only reconciliation coverage lives in `test/order-reconciliation.test.ts`. `bun run typecheck` is a release gate and must pass before deployment.
+The test suite currently passes with 53 tests and 151 assertions. Fee-aware regression coverage lives in `test/risk-fee-aware.test.ts` and `test/category-performance.test.ts`; broker-position and read-only reconciliation coverage remains in `test/position-projection.test.ts` and `test/order-reconciliation.test.ts`. `bunx tsc --noEmit`, `bun test`, `git diff --check`, and `bunx wrangler deploy --dry-run` are release gates and must pass before deployment.
 
 ### Deploy
 
@@ -220,6 +223,9 @@ Documentation is part of the implementation, not a follow-up task. Every future 
 ## Known risks and follow-up work
 
 - Partial-fill retry/cancel handling needs a fuller lifecycle model and more automated coverage.
+- Strategy `grossTotalPl` and `netTotalPl` are model values: closed P&L still comes from broker-position/unrealized snapshots, not matched fills. The fee ledger currently imports a bounded three-day overlap, so net figures mean gross model P&L less fees currently present in the ledger.
+- Regulatory/account-level fees are intentionally not assigned to daytrading or swing; unmatched broker positions are shown as `Unattributed` rather than hidden from the overview.
+- A true swing trailing stop still needs persisted peak-price state; the current swing protective path uses the hard stop and explicit data-integrity protection.
 - At the last verified D1 query on August 8, 2026, 365 trades existed and 84 had `strategy IS NULL`; they must not be bulk-attributed without deterministic evidence.
 - The swing production path has been verified with bounded batch-bar handling and degraded-data safeguards; trigger attribution and decision-row accounting remain follow-up consistency work.
 - Some position upsert/reconciliation paths still need stronger strategy attribution and lifecycle correlation.

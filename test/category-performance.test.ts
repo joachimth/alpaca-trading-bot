@@ -172,6 +172,49 @@ describe('Database category snapshots (real SQLite, UTC day boundaries)', () => 
     expect(swing?.portfolioValue ?? 0).toBe(0);
   });
 
+  test('strategy comparison exposes gross, fee, net, and fee-attribution fields without assigning account-level fees to a strategy', async () => {
+    const { sqlite, db } = setup();
+    sqlite.run(
+      `INSERT INTO positions (ticker, side, qty, avg_entry_price, market_value, unrealized_pl, closed_at, closed_pl, strategy)
+       VALUES ('AAPL', 'long', 1, 100, 0, 0, '2026-08-07 10:00:00', 100, 'daytrading')`,
+    );
+    sqlite.run(
+      `INSERT INTO positions (ticker, side, qty, avg_entry_price, market_value, unrealized_pl, closed_at, closed_pl, strategy)
+       VALUES ('BTCUSD', 'long', 1, 100, 0, 0, '2026-08-07 10:00:00', 50, 'crypto')`,
+    );
+    await db.upsertBrokerActivities([
+      {
+        id: 'cfee-comparison', activity_type: 'CFEE', date: '2026-08-07',
+        created_at: '2026-08-07T11:00:00Z', symbol: 'BTCUSD', qty: '-0.02', price: '10',
+        net_amount: '0', currency: 'USD', status: 'executed',
+      },
+      {
+        id: 'reg-comparison', activity_type: 'FEE', date: '2026-08-07',
+        created_at: '2026-08-07T11:00:00Z', activity_sub_type: 'REG',
+        net_amount: '-3', currency: 'USD', status: 'executed',
+      },
+    ] as any);
+
+    const comparison = await db.getStrategyComparison();
+    const day = comparison.strategies.find((s: any) => s.strategy === 'daytrading');
+    const crypto = comparison.strategies.find((s: any) => s.strategy === 'crypto');
+
+    expect(day).toMatchObject({
+      grossTotalPl: 100,
+      feesUsd: 0,
+      netTotalPl: 100,
+      feeAttribution: 'account-level-unattributed',
+    });
+    expect(crypto).toMatchObject({
+      grossTotalPl: 50,
+      feesUsd: 0.2,
+      netTotalPl: 49.8,
+      feeAttribution: 'broker-attributed',
+    });
+    expect(comparison.accountLevelFeesUsd).toBe(3);
+    expect(comparison.netTotalPl).toBeCloseTo(146.8, 10);
+  });
+
   test('without live broker positions, dailyPl/portfolioValue are left unset rather than derived from stale D1 data', async () => {
     const { sqlite, db } = setup();
     // An open D1-tracked position exists, but with no broker-authoritative

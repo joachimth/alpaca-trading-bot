@@ -252,7 +252,7 @@
           <div class="section-title"><span>Strategy Comparison</span>
             <div style="display:flex;gap:6px;align-items:center;">
               <button class="range-btn active" id="cmpViewBars" onclick="setCmpView('bars')">P&L Bars</button>
-              <button class="range-btn" id="cmpViewLine" onclick="setCmpView('line')">Cumulative P&L</button>
+              <button class="range-btn" id="cmpViewLine" onclick="setCmpView('line')">Cumulative gross P&L</button>
             </div>
           </div>
           <div class="chart-container" style="height:220px"><canvas id="strategyChart"></canvas></div>
@@ -280,6 +280,9 @@
       <div class="metrics-grid">
         <div class="metric-card"><div class="metric-label">Daytrading Daily P&L</div><div class="metric-value neutral" id="mDayCatDailyPL">-</div><div class="metric-sub" id="mDayCatDailyPLSub">Loading...</div></div>
         <div class="metric-card"><div class="metric-label">Daytrading Portfolio Value</div><div class="metric-value neutral" id="mDayCatPortfolio">-</div><div class="metric-sub" id="mDayCatPortfolioSub">Loading...</div></div>
+        <div class="metric-card"><div class="metric-label">Daytrading Gross P&L</div><div class="metric-value neutral" id="mDayCatGrossPL">-</div><div class="metric-sub" id="mDayCatGrossPLSub">Realized + unrealized</div></div>
+        <div class="metric-card"><div class="metric-label">Daytrading Recorded Fees</div><div class="metric-value negative" id="mDayCatFees">-</div><div class="metric-sub" id="mDayCatFeesSub">Attribution pending where needed</div></div>
+        <div class="metric-card"><div class="metric-label">Daytrading Net P&L</div><div class="metric-value neutral" id="mDayCatNetPL">-</div><div class="metric-sub" id="mDayCatNetPLSub">Gross P&L minus attributable fees</div></div>
       </div>
       <div class="chart-section">
         <div class="section-title"><span>Daytrading Portfolio Value History</span><span style="font-size:11px;color:var(--text-muted)" id="catChartNoteDaytrading"></span></div>
@@ -302,6 +305,9 @@
       <div class="metrics-grid">
         <div class="metric-card"><div class="metric-label">Swing Daily P&L</div><div class="metric-value neutral" id="mSwingCatDailyPL">-</div><div class="metric-sub" id="mSwingCatDailyPLSub">Loading...</div></div>
         <div class="metric-card"><div class="metric-label">Swing Portfolio Value</div><div class="metric-value neutral" id="mSwingCatPortfolio">-</div><div class="metric-sub" id="mSwingCatPortfolioSub">Loading...</div></div>
+        <div class="metric-card"><div class="metric-label">Swing Gross P&L</div><div class="metric-value neutral" id="mSwingCatGrossPL">-</div><div class="metric-sub" id="mSwingCatGrossPLSub">Realized + unrealized</div></div>
+        <div class="metric-card"><div class="metric-label">Swing Recorded Fees</div><div class="metric-value negative" id="mSwingCatFees">-</div><div class="metric-sub" id="mSwingCatFeesSub">Account-level fees stay unattributed</div></div>
+        <div class="metric-card"><div class="metric-label">Swing Net P&L</div><div class="metric-value neutral" id="mSwingCatNetPL">-</div><div class="metric-sub" id="mSwingCatNetPLSub">Gross P&L minus attributable fees</div></div>
       </div>
       <div class="chart-section">
         <div class="section-title"><span>Swing Portfolio Value History</span><span style="font-size:11px;color:var(--text-muted)" id="catChartNoteSwing"></span></div>
@@ -324,6 +330,9 @@
       <div class="metrics-grid">
         <div class="metric-card"><div class="metric-label">Crypto Daily P&L</div><div class="metric-value neutral" id="mCryptoCatDailyPL">-</div><div class="metric-sub" id="mCryptoCatDailyPLSub">Loading...</div></div>
         <div class="metric-card"><div class="metric-label">Crypto Portfolio Value</div><div class="metric-value neutral" id="mCryptoCatPortfolio">-</div><div class="metric-sub" id="mCryptoCatPortfolioSub">Loading...</div></div>
+        <div class="metric-card"><div class="metric-label">Crypto Gross P&L</div><div class="metric-value neutral" id="mCryptoCatGrossPL">-</div><div class="metric-sub" id="mCryptoCatGrossPLSub">Realized + unrealized</div></div>
+        <div class="metric-card"><div class="metric-label">Crypto Recorded Fees</div><div class="metric-value negative" id="mCryptoCatFees">-</div><div class="metric-sub" id="mCryptoCatFeesSub">Broker-attributed CFEE</div></div>
+        <div class="metric-card"><div class="metric-label">Crypto Net P&L</div><div class="metric-value neutral" id="mCryptoCatNetPL">-</div><div class="metric-sub" id="mCryptoCatNetPLSub">Gross P&L minus attributable fees</div></div>
       </div>
       <div class="chart-section">
         <div class="section-title"><span>Crypto Portfolio Value History</span><span style="font-size:11px;color:var(--text-muted)" id="catChartNoteCrypto"></span></div>
@@ -522,9 +531,9 @@
       }
     }
     const CATEGORY_TAB_IDS = {
-      daytrading: { dailyPl: 'mDayCatDailyPL', dailyPlSub: 'mDayCatDailyPLSub', portfolio: 'mDayCatPortfolio', portfolioSub: 'mDayCatPortfolioSub', canvas: 'categoryChartDaytrading', note: 'catChartNoteDaytrading' },
-      swing: { dailyPl: 'mSwingCatDailyPL', dailyPlSub: 'mSwingCatDailyPLSub', portfolio: 'mSwingCatPortfolio', portfolioSub: 'mSwingCatPortfolioSub', canvas: 'categoryChartSwing', note: 'catChartNoteSwing' },
-      crypto: { dailyPl: 'mCryptoCatDailyPL', dailyPlSub: 'mCryptoCatDailyPLSub', portfolio: 'mCryptoCatPortfolio', portfolioSub: 'mCryptoCatPortfolioSub', canvas: 'categoryChartCrypto', note: 'catChartNoteCrypto' },
+      daytrading: { dailyPl: 'mDayCatDailyPL', dailyPlSub: 'mDayCatDailyPLSub', portfolio: 'mDayCatPortfolio', portfolioSub: 'mDayCatPortfolioSub', grossPl: 'mDayCatGrossPL', grossPlSub: 'mDayCatGrossPLSub', fees: 'mDayCatFees', feesSub: 'mDayCatFeesSub', netPl: 'mDayCatNetPL', netPlSub: 'mDayCatNetPLSub', canvas: 'categoryChartDaytrading', note: 'catChartNoteDaytrading' },
+      swing: { dailyPl: 'mSwingCatDailyPL', dailyPlSub: 'mSwingCatDailyPLSub', portfolio: 'mSwingCatPortfolio', portfolioSub: 'mSwingCatPortfolioSub', grossPl: 'mSwingCatGrossPL', grossPlSub: 'mSwingCatGrossPLSub', fees: 'mSwingCatFees', feesSub: 'mSwingCatFeesSub', netPl: 'mSwingCatNetPL', netPlSub: 'mSwingCatNetPLSub', canvas: 'categoryChartSwing', note: 'catChartNoteSwing' },
+      crypto: { dailyPl: 'mCryptoCatDailyPL', dailyPlSub: 'mCryptoCatDailyPLSub', portfolio: 'mCryptoCatPortfolio', portfolioSub: 'mCryptoCatPortfolioSub', grossPl: 'mCryptoCatGrossPL', grossPlSub: 'mCryptoCatGrossPLSub', fees: 'mCryptoCatFees', feesSub: 'mCryptoCatFeesSub', netPl: 'mCryptoCatNetPL', netPlSub: 'mCryptoCatNetPLSub', canvas: 'categoryChartCrypto', note: 'catChartNoteCrypto' },
     };
     // Category daily P&L / portfolio value: broker-marked market value and
     // today's intraday unrealized + realized-today P&L for that category's
@@ -539,10 +548,20 @@
       const dailyPlSubEl = document.getElementById(ids.dailyPlSub);
       const pvEl = document.getElementById(ids.portfolio);
       const pvSubEl = document.getElementById(ids.portfolioSub);
+      const grossEl = document.getElementById(ids.grossPl);
+      const grossSubEl = document.getElementById(ids.grossPlSub);
+      const feesEl = document.getElementById(ids.fees);
+      const feesSubEl = document.getElementById(ids.feesSub);
+      const netEl = document.getElementById(ids.netPl);
+      const netSubEl = document.getElementById(ids.netPlSub);
       if (!cmp || cmp.positionsAvailable === false) {
         dailyPlEl.textContent = '—'; dailyPlEl.className = 'metric-value neutral';
         dailyPlSubEl.textContent = 'Broker positions unavailable';
         pvEl.textContent = '—'; pvSubEl.textContent = 'Broker positions unavailable';
+        [grossEl, feesEl, netEl].forEach(el => { if (el) { el.textContent = '—'; el.className = 'metric-value neutral'; } });
+        if (grossSubEl) grossSubEl.textContent = 'Broker positions unavailable';
+        if (feesSubEl) feesSubEl.textContent = 'Broker positions unavailable';
+        if (netSubEl) netSubEl.textContent = 'Broker positions unavailable';
       } else {
         const dailyPl = entry && entry.dailyPl != null ? entry.dailyPl : 0;
         const portfolioValue = entry && entry.portfolioValue != null ? entry.portfolioValue : (entry ? entry.marketValue : 0);
@@ -551,6 +570,15 @@
         dailyPlSubEl.textContent = 'Intraday unrealized + realized today';
         pvEl.textContent = fmtMoney(portfolioValue);
         pvSubEl.textContent = (entry ? (entry.openPositions || 0) : 0) + ' open broker position' + ((entry && entry.openPositions === 1) ? '' : 's');
+        const grossPl = entry ? (entry.grossTotalPl != null ? entry.grossTotalPl : ((entry.realizedPl || 0) + (entry.unrealizedPl || 0))) : 0;
+        const fees = entry ? (entry.feesUsd || 0) : 0;
+        const netPl = entry ? (entry.netTotalPl != null ? entry.netTotalPl : grossPl - fees) : 0;
+        if (grossEl) { grossEl.textContent = fmtMoney(grossPl); grossEl.className = 'metric-value ' + (grossPl > 0 ? 'positive' : grossPl < 0 ? 'negative' : 'neutral'); }
+        if (grossSubEl) grossSubEl.textContent = 'Realized + unrealized';
+        if (feesEl) { feesEl.textContent = '-' + fmtMoney(fees); feesEl.className = 'metric-value ' + (fees > 0 ? 'negative' : 'neutral'); }
+        if (feesSubEl) feesSubEl.textContent = entry && entry.feeAttribution === 'account-level-unattributed' ? 'Account-level, not assigned to this strategy' : (entry && entry.feeAttribution === 'broker-attributed' ? 'Broker-attributed to this strategy' : 'No attributable fees recorded');
+        if (netEl) { netEl.textContent = fmtMoney(netPl); netEl.className = 'metric-value ' + (netPl > 0 ? 'positive' : netPl < 0 ? 'negative' : 'neutral'); }
+        if (netSubEl) netSubEl.textContent = 'Gross P&L minus attributable fees';
       }
       const catHistory = dashboardData.categoryHistory || {};
       const catAvailable = dashboardData.categoryHistoryAvailable || {};
@@ -647,8 +675,8 @@
         ctx.fillText(label, x, h - 8);
       }
     }
-    const STRATEGY_COLORS = { daytrading: '#2979ff', swing: '#ff9100', crypto: '#aa00ff' };
-    const STRATEGY_LABELS = { daytrading: 'Daytrading', swing: 'Swing', crypto: 'Crypto' };
+    const STRATEGY_COLORS = { daytrading: '#2979ff', swing: '#ff9100', crypto: '#aa00ff', unattributed: '#6b7689' };
+    const STRATEGY_LABELS = { daytrading: 'Daytrading', swing: 'Swing', crypto: 'Crypto', unattributed: 'Unattributed' };
     function setCmpView(mode) {
       cmpViewMode = mode;
       document.getElementById('cmpViewBars').classList.toggle('active', mode === 'bars');
@@ -673,9 +701,9 @@
       }
     }
     function drawStrategyBars(ctx, w, h, p, cw, ch, strategies) {
-      const allStrats = ['daytrading', 'swing', 'crypto'];
-      const metrics = ['realizedPl', 'unrealizedPl', 'totalPl'];
-      const metricLabels = ['Realized', 'Unrealized', 'Total'];
+      const allStrats = ['daytrading', 'swing', 'crypto', 'unattributed'];
+      const metrics = ['realizedPl', 'unrealizedPl', 'grossTotalPl'];
+      const metricLabels = ['Realized', 'Unrealized', 'Gross'];
       const metricColors = ['#00c853', '#ff9100', '#2979ff'];
       // Find max abs value for scaling
       let maxAbs = 0;
@@ -701,7 +729,7 @@
       const groupPad = (groupW - barW * metrics.length) / 2;
       for (let si = 0; si < allStrats.length; si++) {
         const strat = allStrats[si];
-        const data = strategies.find(s => s.strategy === strat) || { strategy: strat, realizedPl: 0, unrealizedPl: 0, totalPl: 0 };
+        const data = strategies.find(s => s.strategy === strat) || { strategy: strat, realizedPl: 0, unrealizedPl: 0, grossTotalPl: 0 };
         const gx = p.l + si * groupW + groupPad;
         for (let mi = 0; mi < metrics.length; mi++) {
           const val = data[metrics[mi]] || 0;
@@ -735,7 +763,7 @@
     }
     function drawStrategyLines(ctx, w, h, p, cw, ch, cmp) {
       const ts = cmp.timeSeries || {};
-      const allStrats = ['daytrading', 'swing', 'crypto'];
+      const allStrats = ['daytrading', 'swing', 'crypto', 'unattributed'];
       // Check if any data
       let totalPoints = 0;
       for (const s of allStrats) { totalPoints += (ts[s] || []).length; }
@@ -826,7 +854,7 @@
       const cmp = dashboardData ? dashboardData.strategyComparison : null;
       if (cmp && cmp.positionsAvailable === false) { el.innerHTML = '<div class="loading">Current positions unavailable from broker API</div>'; return; }
       if (!cmp || !cmp.strategies || cmp.strategies.length === 0) { el.innerHTML = ''; return; }
-      const order = ['daytrading', 'swing', 'crypto'];
+      const order = ['daytrading', 'swing', 'crypto', 'unattributed'];
       const sorted = order.map(o => cmp.strategies.find(s => s.strategy === o)).filter(Boolean);
       let h = '<div class="strategy-summary-scroll"><table><thead><tr><th>Strategy</th><th>Decisions</th><th>Trades</th><th>Open Pos</th><th>Realized P&L</th><th>Unrealized P&L</th><th>Fees</th><th>Net P&L</th><th>Win Rate</th><th>Mkt Value</th></tr></thead><tbody>';
       for (const s of sorted) {

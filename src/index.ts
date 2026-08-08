@@ -4,7 +4,7 @@
 import { AlpacaClient } from './alpaca';
 import { analyze, generateSignal, ema, atr, type TASignal } from './technical-analysis';
 import { refineWithLLM, detectMarketRegime, type AIMarketContext } from './ai-decision';
-import { RiskManager, type RiskConfig } from './risk-manager';
+import { RiskManager, type RiskConfig, type RiskCheckResult } from './risk-manager';
 import { Database } from './database';
 import { UniverseScanner } from './scanner';
 import { DashboardAPI } from './api';
@@ -296,6 +296,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       targetVolatilityPct: config.targetVolatilityPct || 2.0,
       maxOrderRatePerMin: config.maxOrderRatePerMin || 10,
       minEdgeAfterCosts: config.minEdgeAfterCosts || 5,
+      observedFeeBps: 0,
       maxCapitalUsd: config.maxCapitalUsd || 0,
     };
     const riskManager = new RiskManager(riskConfig);
@@ -346,7 +347,10 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       }
     }
 
-    // 6. Check existing positions for stop loss / take profit (ATR-based)
+    // 6. Check existing positions for stop loss / take profit (ATR-based).
+    // Keep a local closed-symbol set so later EOD/signal phases cannot submit
+    // duplicate close orders against the stale broker snapshot from this cycle.
+    const closedSymbols = new Set<string>();
     const positionActions = riskManager.checkPositions(positions, dbPositions);
     for (const action of positionActions) {
       if (action.priority === 'critical' || action.priority === 'high') {
@@ -357,6 +361,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           const pos = positions.find(p => p.symbol === action.symbol);
           if (pos && alpaca.isOrderFullyFilled(order)) {
             await db.closePosition(action.symbol, pos.unrealized_pl, action.reason);
+            closedSymbols.add(action.symbol);
           } else if (pos) {
             errors.push(`Exit order for ${action.symbol} not fully filled: ${order.status}`);
           }
@@ -378,11 +383,13 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       try {
         const closeOrders = [];
         for (const pos of positions) {
+          if (closedSymbols.has(pos.symbol)) continue;
           const order = await alpaca.closePosition(pos.symbol);
           closeOrders.push(order);
           await db.logOrderTrade(order, { strategy: 'daytrading' });
           if (alpaca.isOrderFullyFilled(order)) {
             await db.closePosition(pos.symbol, pos.unrealized_pl, 'eod_flatten');
+            closedSymbols.add(pos.symbol);
           } else {
             errors.push(`EOD exit for ${pos.symbol} not fully filled`);
           }
@@ -579,13 +586,19 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
       // CLOSE: close existing position
       if (decision.action === 'CLOSE') {
-        const existingPos = positions.find(p => p.symbol === signal.indicators.symbol);
+        const existingPos = closedSymbols.has(signal.indicators.symbol) ? undefined : positions.find(p => p.symbol === signal.indicators.symbol);
         if (existingPos) {
           // Anti-churn: check minimum hold time (unless stop loss was hit via checkPositions already)
           if (isWithinMinHold(signal.indicators.symbol)) {
             await db.updateDecisionStatus(decisionId, 2, `Min hold time not reached (${minHoldMin}min)`);
             skips.add('MIN_HOLD_TIME', 'decision', 'Skipped because the position has not reached its minimum hold time', { symbol: signal.indicators.symbol, minutes: minHoldMin });
             console.log(`Skip CLOSE ${signal.indicators.symbol}: held < ${minHoldMin} min`);
+            continue;
+          }
+          const exitCostCheck = riskManager.checkExitCost(existingPos, signal.indicators);
+          if (!exitCostCheck.approved) {
+            await db.updateDecisionStatus(decisionId, 2, exitCostCheck.reason);
+            skips.add('EXIT_COST_GATE', 'decision', 'Daytrading discretionary close skipped because estimated exit costs consumed the gross edge', { symbol: signal.indicators.symbol, reason: exitCostCheck.reason });
             continue;
           }
           try {
@@ -608,23 +621,33 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         continue;
       }
 
-      // BUY / SELL: risk check then execute
-      const riskCheck = riskManager.checkTrade(decision, account, positions, signal.indicators);
-      if (!riskCheck.approved) {
-        await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
-        console.log(`Skipped ${signal.indicators.symbol}: ${riskCheck.reason}`);
-        continue;
+      // BUY: apply entry sizing and entry cost gate. SELL is an exit and must
+      // never pass through BUY-oriented sizing/cost checks.
+      let riskCheck: RiskCheckResult | null = null;
+      if (decision.action === 'BUY') {
+        riskCheck = riskManager.checkTrade(decision, account, positions, signal.indicators);
+        if (!riskCheck.approved) {
+          await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
+          console.log(`Skipped ${signal.indicators.symbol}: ${riskCheck.reason}`);
+          continue;
+        }
       }
 
       // SELL: close existing long position
       if (decision.action === 'SELL') {
-        const existingPos = positions.find(p => p.symbol === signal.indicators.symbol);
+        const existingPos = closedSymbols.has(signal.indicators.symbol) ? undefined : positions.find(p => p.symbol === signal.indicators.symbol);
         if (existingPos) {
           // Anti-churn: check minimum hold time
           if (isWithinMinHold(signal.indicators.symbol)) {
             await db.updateDecisionStatus(decisionId, 2, `Min hold time not reached (${minHoldMin}min)`);
             skips.add('MIN_HOLD_TIME', 'decision', 'Skipped because the position has not reached its minimum hold time', { symbol: signal.indicators.symbol, minutes: minHoldMin });
             console.log(`Skip SELL ${signal.indicators.symbol}: held < ${minHoldMin} min`);
+            continue;
+          }
+          const exitCostCheck = riskManager.checkExitCost(existingPos, signal.indicators);
+          if (!exitCostCheck.approved) {
+            await db.updateDecisionStatus(decisionId, 2, exitCostCheck.reason);
+            skips.add('EXIT_COST_GATE', 'decision', 'Daytrading discretionary sell skipped because estimated exit costs consumed the gross edge', { symbol: signal.indicators.symbol, reason: exitCostCheck.reason });
             continue;
           }
           try {
@@ -651,7 +674,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       }
 
       // BUY: submit new order
-      if (decision.action === 'BUY' && riskCheck.adjustedQty) {
+      if (decision.action === 'BUY' && riskCheck?.adjustedQty) {
         if (noNewEntries) {
           await db.updateDecisionStatus(decisionId, 2, 'No new BUY entries during EOD flatten window');
           skips.add('EOD_NO_ENTRY', 'decision', 'New entries are disabled during the end-of-day flatten window', { symbol: signal.indicators.symbol });

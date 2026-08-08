@@ -20,6 +20,9 @@ export interface SwingRiskConfig {
   dailyLossLimitPct: number;       // stop trading if down this much on the day
   rollingDrawdownLimitPct: number; // stop if drawdown from peak exceeds this
   minConfidence: number;           // min composite z-score to buy
+  minEdgeAfterCosts: number;        // minimum expected edge after estimated costs (bps)
+  expectedEdgeBps?: number;         // calibrated expected edge; 0 disables BUY cost rejection
+  observedFeeBps?: number;          // broker-observed fee rate
   exitZScore: number;              // sell if z-score drops below this (hysteresis)
   enableMargin: boolean;
   earningsBlackoutDays: number;    // don't enter within N days of earnings
@@ -36,6 +39,7 @@ export interface SwingRiskCheckResult {
   adjustedValue?: number;
   stopLossPrice?: number;
   estimatedCosts?: number;
+  edgeAfterCosts?: number;
   isHysteresisSkip?: boolean;      // true = position retained despite lower rank
 }
 
@@ -194,11 +198,25 @@ export class SwingRiskManager {
     // Set wider than daytrading since swings tolerate more volatility
     const stopLossPrice = price * (1 - this.config.stopLossPct / 100);
 
-    // Transaction cost estimate
-    const spreadBps = Math.min(15, Math.max(2, worstCaseGapPct * 2));
-    const slippageBps = 3; // daily horizon = more liquid, less slippage
-    const totalBps = spreadBps + slippageBps;
+    // Transaction cost estimate. worstCaseGapPct is percentage points,
+    // so convert explicitly to bps before using it in the round-trip model.
+    const gapBps = worstCaseGapPct * 100;
+    const spreadBps = gapBps;
+    const slippageBps = 3;
+    const regulatoryBps = 0.1;
+    const observedFeeBps = this.config.observedFeeBps ?? 0;
+    const totalBps = (2 * spreadBps) + (2 * slippageBps) + regulatoryBps + observedFeeBps;
     const estimatedCosts = positionValue * (totalBps / 10000);
+    const expectedEdgeBps = this.config.expectedEdgeBps ?? 0;
+    const edgeAfterCosts = expectedEdgeBps > 0 ? expectedEdgeBps - totalBps : undefined;
+    if (edgeAfterCosts != null && edgeAfterCosts < this.config.minEdgeAfterCosts) {
+      return {
+        approved: false,
+        reason: `Edge after costs insufficient: ${edgeAfterCosts.toFixed(1)}bps < ${this.config.minEdgeAfterCosts}bps (est. costs: ${totalBps.toFixed(1)}bps)`,
+        estimatedCosts,
+        edgeAfterCosts,
+      };
+    }
 
     // Order rate
     if (!this.recordOrder()) {
@@ -207,11 +225,12 @@ export class SwingRiskManager {
 
     return {
       approved: true,
-      reason: `Approved (gap-aware size: $${positionValue.toFixed(0)}, worst-case gap: ${worstCaseGapPct.toFixed(1)}%, costs: ${totalBps}bps)`,
+      reason: `Approved (gap-aware size: $${positionValue.toFixed(0)}, worst-case gap: ${worstCaseGapPct.toFixed(1)}%, costs: ${totalBps.toFixed(1)}bps${expectedEdgeBps > 0 ? `, edge after costs: ${edgeAfterCosts?.toFixed(1)}bps` : ', edge gate not calibrated'})`,
       adjustedQty: finalQty,
       adjustedValue: positionValue,
       stopLossPrice,
       estimatedCosts,
+      edgeAfterCosts,
     };
   }
 
@@ -222,14 +241,42 @@ export class SwingRiskManager {
   checkExit(
     score: SwingScore,
     position: Position
-  ): { shouldExit: boolean; reason: string; isHysteresisSkip: boolean } {
+  ): { shouldExit: boolean; reason: string; isHysteresisSkip: boolean; exitType: 'protective' | 'discretionary' | 'none' } {
+    // Protective exits are evaluated before signal exits and always bypass the
+    // discretionary fee gate. A true trailing stop needs peak-price state,
+    // which is not present in the current broker/D1 position contract.
+    if (position.unrealized_pl < 0 && Math.abs(position.unrealized_plpc) >= this.config.stopLossPct / 100) {
+      return {
+        shouldExit: true,
+        reason: `Stop loss: ${(position.unrealized_plpc * 100).toFixed(1)}% loss`,
+        isHysteresisSkip: false,
+        exitType: 'protective',
+      };
+    }
+
+    const dailyVol = (score.indicators.vol20d > 0 ? score.indicators.vol20d : 0.3) / Math.sqrt(252);
+    const worstCaseGapPct = 3 * dailyVol * 100;
+    const spreadBps = worstCaseGapPct * 100;
+    const exitCostBps = spreadBps + 3 + 0.1 + (this.config.observedFeeBps ?? 0);
+    const estimatedExitCosts = Math.abs(position.market_value) * (exitCostBps / 10000);
+    const discretionaryExitBlocked = position.unrealized_pl > 0 && position.unrealized_pl <= estimatedExitCosts;
+
     // Hysteresis: don't exit just because stock dropped slightly below entry threshold
     // Only exit if z-score drops below exitZScore (lower than entry threshold)
     if (score.compositeScore < this.config.exitZScore) {
+      if (discretionaryExitBlocked) {
+        return {
+          shouldExit: false,
+          reason: `Exit held: gross P&L $${position.unrealized_pl.toFixed(2)} does not cover estimated exit costs $${estimatedExitCosts.toFixed(2)}`,
+          isHysteresisSkip: true,
+          exitType: 'discretionary',
+        };
+      }
       return {
         shouldExit: true,
-        reason: `Z-score ${score.compositeScore.toFixed(2)} below exit threshold ${this.config.exitZScore}`,
+        reason: `Z-score ${score.compositeScore.toFixed(2)} below exit threshold ${this.config.exitZScore}; estimated exit costs $${estimatedExitCosts.toFixed(2)}`,
         isHysteresisSkip: false,
+        exitType: 'discretionary',
       };
     }
 
@@ -239,28 +286,11 @@ export class SwingRiskManager {
         shouldExit: false,
         reason: `Hysteresis: z-score ${score.compositeScore.toFixed(2)} in hold zone (between exit ${this.config.exitZScore} and entry ${this.config.minConfidence})`,
         isHysteresisSkip: true,
+        exitType: 'none',
       };
     }
 
-    // Trailing stop: position was profitable but giving back gains
-    if (position.unrealized_pl > 0 && position.unrealized_plpc < -this.config.trailingStopPct / 100) {
-      return {
-        shouldExit: true,
-        reason: `Trailing stop: giving back ${(position.unrealized_plpc * 100).toFixed(1)}%`,
-        isHysteresisSkip: false,
-      };
-    }
-
-    // Hard stop loss (emergency gap protection)
-    if (position.unrealized_pl < 0 && Math.abs(position.unrealized_plpc) >= this.config.stopLossPct / 100) {
-      return {
-        shouldExit: true,
-        reason: `Stop loss: ${(position.unrealized_plpc * 100).toFixed(1)}% loss`,
-        isHysteresisSkip: false,
-      };
-    }
-
-    return { shouldExit: false, reason: 'Position retained', isHysteresisSkip: false };
+    return { shouldExit: false, reason: 'Position retained', isHysteresisSkip: false, exitType: 'none' };
   }
 
   // ============================================================

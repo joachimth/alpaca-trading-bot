@@ -925,6 +925,8 @@ export class Database {
           totalTrades: 0,
           filledTrades: 0,
           feesUsd: 0,
+          feeAttribution: 'none-recorded',
+          grossTotalPl: 0,
           netTotalPl: 0,
         };
       }
@@ -955,17 +957,20 @@ export class Database {
       s.filledTrades = r.filled_trades;
     }
 
-    // Fees are only assigned to crypto when Alpaca identifies them as CFEE.
-    // Periodic/regulatory FEE records remain account-level and unattributed.
+    // Only fees with reliable strategy evidence are assigned to a strategy.
+    // CFEE is crypto-specific; regulatory/account-level FEE stays explicitly
+    // unattributed instead of being fabricated into daytrading or swing.
     const crypto = ensure('crypto');
     crypto.feesUsd = feeSummary.cryptoUsd;
-    crypto.netTotalPl = crypto.realizedPl + crypto.unrealizedPl - crypto.feesUsd;
+    crypto.feeAttribution = crypto.feesUsd > 0 ? 'broker-attributed' : 'none-recorded';
     for (const s of Object.values(strategies) as any[]) {
       if (s.strategy !== 'crypto') {
         s.feesUsd = 0;
-        s.netTotalPl = s.realizedPl + s.unrealizedPl;
+        s.feeAttribution = feeSummary.regulatoryUsd > 0 ? 'account-level-unattributed' : 'none-recorded';
       }
-      s.totalPl = s.realizedPl + s.unrealizedPl;
+      s.grossTotalPl = s.realizedPl + s.unrealizedPl;
+      s.totalPl = s.grossTotalPl;
+      s.netTotalPl = s.grossTotalPl - s.feesUsd;
       s.winRate = (s.wins + s.losses) > 0 ? (s.wins / (s.wins + s.losses)) * 100 : 0;
     }
 
@@ -1009,7 +1014,8 @@ export class Database {
       strategies: strategyRows,
       timeSeries,
       fees: feeSummary,
-      netTotalPl: strategyRows.reduce((sum: number, s: any) => sum + s.realizedPl + s.unrealizedPl, 0) - feeSummary.totalUsd,
+      accountLevelFeesUsd: feeSummary.regulatoryUsd,
+      netTotalPl: strategyRows.reduce((sum: number, s: any) => sum + s.netTotalPl, 0) - feeSummary.regulatoryUsd,
     };
   }
 

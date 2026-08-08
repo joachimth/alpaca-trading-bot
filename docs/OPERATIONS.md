@@ -8,7 +8,7 @@
 - Traffic: `100%`
 - Dashboard: GitHub Pages, calling only the Worker API
 - Account: Alpaca paper trading
-- Validation: TypeScript passed; 46 tests passed; read-only smoke endpoints returned HTTP 200
+- Validation of the current uncommitted fee-aware patch: `bunx tsc --noEmit` passed; 53 tests passed with 151 assertions; `git diff --check` passed; Wrangler dry-run passed. No live deployment has been made for this patch.
 
 ## Release verification
 
@@ -29,6 +29,15 @@ See [`docs/DEPLOYMENT_RUNBOOK.md`](DEPLOYMENT_RUNBOOK.md) for exact commands and
 
 Documentation is a release requirement. Every source, configuration, schema, migration, test, or operational change must update the relevant README, operations/runbook, release receipt, and next-step status in the same work item. Work is not complete until documented behavior, validation results, deployment state, known risks, and remaining follow-ups match reality.
 
+## Fee-aware P&L and decision policy
+
+- Strategy comparison exposes `grossTotalPl`, `feesUsd`, `netTotalPl`, and `feeAttribution` for each row.
+- CFEE is defensibly attributed to crypto. Orderless/regulatory FEE remains account-level and is exposed as `accountLevelFeesUsd`; it is not fabricated into daytrading or swing.
+- Current category snapshots and historical cumulative curves remain gross-only. The fee ledger uses a bounded three-day overlap because Alpaca fee records can be delayed, so all-time net P&L is not yet a fill-exact accounting statement.
+- Daytrading and crypto BUY decisions use quantity/notional-aware estimated costs. Signal-driven SELL/CLOSE decisions use a separate discretionary exit gate. Loss-reducing, protective, EOD, and manual closes bypass that gate.
+- Swing logs round-trip spread/slippage/fee costs with explicit bps units. `expectedEdgeBps` defaults to zero, so swing BUY is not rejected from an invented z-score-to-bps conversion; configure a calibrated edge before enabling rejection.
+- All fee-gate skips must retain the estimated costs and reason in decision/run observability.
+
 ## Position-state contract
 
 Alpaca supplies current symbol, quantity, side, prices, market value, and unrealized P&L. D1 supplies matching strategy, stop, timestamp, and historical metadata only. D1-only rows are excluded from current API positions. Broker-only symbols are `unattributed` until ownership is established. A broker-fetch failure is surfaced as unavailable; D1 is never used as a silent live fallback.
@@ -47,7 +56,7 @@ Alpaca supplies current symbol, quantity, side, prices, market value, and unreal
 - Swing batch-bar and degraded-data safeguards have been verified in production; future changes should preserve the bounded request and completed-session checks.
 - Daytrading/crypto position sync can preserve an existing strategy-less row.
 - Some historical and broker-only trades still need stronger deterministic strategy attribution and lifecycle correlation.
-- Automated coverage includes reconciliation, partial-fill persistence, terminal statuses, idempotency, broker projection, and no-side-effect assertions, but not full live-broker integration.
+- Automated coverage includes reconciliation, partial-fill persistence, terminal statuses, idempotency, broker projection, fee attribution, quantity-aware costs, calibrated swing-edge behavior, and no-side-effect assertions, but not full live-broker integration.
 
 ## Next steps
 

@@ -37,6 +37,8 @@ const SWING_FALLBACK_CONFIG = {
   dailyLossLimitPct: 5,
   rollingDrawdownLimitPct: 15,
   minConfidence: 0.5,       // z-score threshold for entry
+  minEdgeAfterCosts: 5,     // minimum expected edge after spread/slippage/fees
+  expectedEdgeBps: 0,        // disabled until swing edge calibration is available
   exitZScore: -0.5,         // hysteresis: exit below -0.5 sigma
   enableMargin: false,      // no margin on swing (gap risk + margin = ruin)
   earningsBlackoutDays: 3,
@@ -164,7 +166,8 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       console.error('Category snapshot logging failed:', e);
     }
 
-    // Initialize risk manager
+    // Initialize risk manager. Broker CFEE is crypto-specific; stock FEE
+    // remains account-level and is not fabricated into swing attribution.
     const riskConfig: SwingRiskConfig = {
       maxPositions: config.maxPositions,
       maxPositionPct: config.maxPositionPct,
@@ -176,6 +179,9 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       dailyLossLimitPct: config.dailyLossLimitPct,
       rollingDrawdownLimitPct: config.rollingDrawdownLimitPct,
       minConfidence: config.minConfidence,
+      minEdgeAfterCosts: config.minEdgeAfterCosts || 5,
+      expectedEdgeBps: config.expectedEdgeBps || 0,
+      observedFeeBps: 0,
       exitZScore: config.exitZScore,
       enableMargin: config.enableMargin,
       earningsBlackoutDays: config.earningsBlackoutDays,
@@ -338,7 +344,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     // Phase 1: Check exits for held positions
     // ============================================================
 
-    const proposedSells: Array<{ symbol: string; value: number; reason: string }> = [];
+    const proposedSells: Array<{ symbol: string; value: number; reason: string; exitType: 'protective' | 'discretionary' }> = [];
 
     for (const pos of positions) {
       if (pos.qty <= 0) continue;
@@ -355,7 +361,9 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         }
         skips.add('HELD_NO_SCORE', 'position', 'Held position has no current score; it was preserved only when data was degraded', { symbol: pos.symbol });
         // Stock not in current universe (could be delisted, illiquid, etc.) — exit
-        proposedSells.push({ symbol: pos.symbol, value: Math.abs(pos.market_value), reason: 'Not in current universe' });
+        const reason = 'Protective data-integrity exit: held symbol has no current score';
+        skips.add('HELD_NO_SCORE_EXIT', 'position', reason, { symbol: pos.symbol, exitType: 'protective' });
+        proposedSells.push({ symbol: pos.symbol, value: Math.abs(pos.market_value), reason, exitType: 'protective' });
         decisionsMade++;
         continue;
       }
@@ -379,6 +387,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
           momentum: score.momentumScore,
           proximity: score.proximityScore,
           isHysteresis: exitCheck.isHysteresisSkip,
+          exitType: exitCheck.exitType,
         }),
         price_at_decision: pos.current_price,
         executed: 0,
@@ -386,7 +395,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       });
 
       if (exitCheck.shouldExit) {
-        proposedSells.push({ symbol: pos.symbol, value: Math.abs(pos.market_value), reason: exitCheck.reason });
+        proposedSells.push({ symbol: pos.symbol, value: Math.abs(pos.market_value), reason: exitCheck.reason, exitType: exitCheck.exitType === 'protective' ? 'protective' : 'discretionary' });
       }
     }
 
@@ -396,6 +405,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         const pos = positions.find(p => p.symbol === sell.symbol);
         const order = await alpaca.closePosition(sell.symbol);
         await db.logOrderTrade(order, { strategy: 'swing' });
+        console.log(`Swing ${sell.exitType} exit ${sell.symbol}: ${sell.reason}`);
         if (pos && alpaca.isOrderFullyFilled(order)) {
           await db.closePosition(sell.symbol, pos.unrealized_pl, sell.reason);
           tradesExecuted++;

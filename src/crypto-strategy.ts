@@ -422,6 +422,12 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
             skips.add('MIN_HOLD_TIME', 'decision', 'Crypto exit skipped because the position has not reached its minimum hold time', { symbol, minutes: minHoldMin });
             continue;
           }
+          const exitCostCheck = riskManager.checkExitCost(existingPos, indicators);
+          if (!exitCostCheck.approved) {
+            await db.updateDecisionStatus(decisionId, 2, exitCostCheck.reason);
+            skips.add('EXIT_COST_GATE', 'decision', 'Crypto discretionary exit skipped because estimated exit costs consumed the gross edge', { symbol, reason: exitCostCheck.reason });
+            continue;
+          }
           try {
             const order = await alpaca.closePosition(symbol);
             await db.logOrderTrade(order, { decisionId, strategy: 'crypto' });

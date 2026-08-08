@@ -24,8 +24,10 @@ bunx wrangler deploy --dry-run
 Expected current baseline:
 
 - TypeScript check passes.
-- 46 tests pass, 0 fail, 127 assertions.
+- 53 tests pass, 0 fail, 151 assertions, including fee-aware risk and strategy-comparison coverage.
+- `git diff --check` passes.
 - Wrangler dry-run succeeds.
+- The current fee-aware patch remains uncommitted and undeployed; the live Worker stays on the previously verified version until commit/push/direct upload verification is complete.
 - A dry-run warning must be investigated rather than ignored if it is new.
 
 Do not run trading triggers, close endpoints, manual cycles, or order actions as deployment tests.
@@ -166,6 +168,14 @@ As of August 7, 2026:
 - Traffic: 100%
 - Validation: TypeScript passed; 46 tests passed; `/health`, `/api/dashboard`, `/api/trades`, and `/api/runs` returned HTTP 200
 - No manual trading cycle or order action was run during deployment
+
+## Fee-aware release notes
+
+This patch is additive at the dashboard/API level: strategy tabs show gross P&L, recorded attributable fees, and net P&L, while account-level fees and unmatched broker P&L remain visible as unattributed. It does not rewrite historical realized P&L, category snapshots, or fill attribution.
+
+BUY cost checks are quantity/notional-aware. Discretionary signal SELL/CLOSE checks are separate from BUY sizing, and protective, EOD, and manual exits bypass them. Swing cost estimates use explicit bps conversion and round-trip costs; BUY rejection remains disabled until calibrated `expectedEdgeBps` is configured.
+
+Before deployment, rerun the full local gates, review the direct diff, commit/push, build an explicit bundle, upload through the documented Cloudflare multipart path, then verify a new version, 100% traffic, all four schedules, and read-only endpoints. Do not use trading actions as smoke tests.
 
 ## Current follow-up queue
 

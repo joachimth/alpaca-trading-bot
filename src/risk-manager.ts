@@ -163,17 +163,18 @@ export class RiskManager {
       }
     }
 
-    // 5. Transaction cost estimation
-    const estimatedCosts = this.estimateTransactionCosts(price, indicators);
-    const edgeBps = decision.confidence * 100; // rough: confidence as bps expected edge
-    const edgeAfterCosts = edgeBps - estimatedCosts.bps;
+    // 5. Transaction cost estimation. The bps gate is evaluated before sizing,
+    // while the dollar amount is recalculated after the final quantity exists.
+    const costRate = this.estimateTransactionCosts(price, indicators, 1);
+    const edgeBps = decision.confidence * 100; // conservative confidence-derived edge proxy
+    const edgeAfterCosts = edgeBps - costRate.bps;
 
     if (edgeAfterCosts < this.config.minEdgeAfterCosts) {
       return {
         approved: false,
-        reason: `Edge after costs insufficient: ${edgeAfterCosts.toFixed(1)}bps < ${this.config.minEdgeAfterCosts}bps (est. costs: ${estimatedCosts.bps}bps)`,
-        estimatedCosts: estimatedCosts.dollar,
-        edgeAfterCosts: edgeAfterCosts,
+        reason: `Edge after costs insufficient: ${edgeAfterCosts.toFixed(1)}bps < ${this.config.minEdgeAfterCosts}bps (est. costs: ${costRate.bps}bps)`,
+        estimatedCosts: costRate.dollar,
+        edgeAfterCosts,
       };
     }
 
@@ -229,6 +230,8 @@ export class RiskManager {
       ? price + (this.config.takeProfitATRMultiplier * atrValue)
       : undefined;
 
+    const estimatedCosts = this.estimateTransactionCosts(price, indicators, finalQty);
+
     // 8. Order rate check
     if (!this.recordOrder()) {
       return { approved: false, reason: 'Order rate limit exceeded' };
@@ -236,13 +239,37 @@ export class RiskManager {
 
     return {
       approved: true,
-      reason: `Approved (vol-scaled ${(volScale * 100).toFixed(0)}%, ATR stop ${this.config.stopLossATRMultiplier}x, costs ${estimatedCosts.bps}bps)`,
+      reason: `Approved (vol-scaled ${(volScale * 100).toFixed(0)}%, ATR stop ${this.config.stopLossATRMultiplier}x, costs ${estimatedCosts.bps.toFixed(1)}bps / $${estimatedCosts.dollar.toFixed(2)})`,
       adjustedQty: finalQty,
       stopLossPrice,
       takeProfitPrice,
       trailingStopPct: this.config.trailingStopPct,
       estimatedCosts: estimatedCosts.dollar,
-      edgeAfterCosts: edgeAfterCosts,
+      edgeAfterCosts,
+    };
+  }
+
+  /**
+   * Evaluate a discretionary exit against the estimated exit cost. Losing
+   * positions remain eligible for risk reduction; profitable exits are not
+   * approved when the expected exit fee/slippage consumes the gross profit.
+   */
+  checkExitCost(position: Position, indicators: TAIndicators, protective = false): RiskCheckResult {
+    const estimatedCosts = this.estimateTransactionCosts(indicators.price, indicators, position.qty);
+    const edgeAfterCosts = position.unrealized_pl - estimatedCosts.dollar;
+    if (!protective && position.unrealized_pl > 0 && edgeAfterCosts <= 0) {
+      return {
+        approved: false,
+        reason: `Exit skipped: gross P&L $${position.unrealized_pl.toFixed(2)} does not cover estimated exit costs $${estimatedCosts.dollar.toFixed(2)}`,
+        estimatedCosts: estimatedCosts.dollar,
+        edgeAfterCosts,
+      };
+    }
+    return {
+      approved: true,
+      reason: `${protective ? 'Protective' : 'Discretionary'} exit cost check: est. $${estimatedCosts.dollar.toFixed(2)}, net mark $${edgeAfterCosts.toFixed(2)}`,
+      estimatedCosts: estimatedCosts.dollar,
+      edgeAfterCosts,
     };
   }
 
@@ -250,7 +277,7 @@ export class RiskManager {
   // Transaction cost estimation
   // ============================================================
 
-  private estimateTransactionCosts(price: number, indicators: TAIndicators): { bps: number; dollar: number } {
+  private estimateTransactionCosts(price: number, indicators: TAIndicators, qty = 1): { bps: number; dollar: number } {
     // Spread cost: estimate from ATR (higher vol = wider spread)
     // Typical US large cap spread: 1-5 bps. Scale with volatility.
     const spreadBps = Math.min(10, Math.max(1, indicators.atrPct * 1.5));
@@ -269,10 +296,10 @@ export class RiskManager {
     // Include broker-observed fees in addition to spread/slippage assumptions.
     const totalBps = spreadBps + slippageBps + commissionBps + regulatoryBps + observedFeeBps;
 
-    // Convert to dollar amount (per share)
-    const dollarPerShare = price * (totalBps / 10000);
+    // Convert the rate into the total estimated order cost.
+    const dollar = Math.abs(price * qty) * (totalBps / 10000);
 
-    return { bps: totalBps, dollar: dollarPerShare };
+    return { bps: totalBps, dollar };
   }
 
   // ============================================================
