@@ -172,6 +172,12 @@ As of August 8, 2026:
 - GitHub Pages workflow run `31249077806` completed successfully for the same commit
 - No manual trading cycle, order, cancel, close, retry, or reconciliation trigger was run during deployment
 
+## Natural reconciliation aftercheck
+
+Read-only live verification on August 8, 2026 confirmed that the first natural maintenance schedule had run. `/api/runs` returned 23 `reconcile_cron` entries from `2026-08-08 06:40:53` through `2026-08-08 10:30:51` UTC, including 16 `MAINTENANCE_ONLY` completions and 7 `CYCLE_LEASE_HELD` skips. `/api/trades` returned 19 rows with populated `client_order_id`, `filled_qty`, `leaves_qty`, `broker_updated_at`, and `last_reconciled_at` fields, with reconciliation timestamps from `2026-08-07 20:09:02` through `2026-08-08 10:20:06` UTC.
+
+No mutating endpoint was called. The run details reported `trades_executed: 0` and `imported: 0`, and the reconciler implementation is limited to broker order GETs plus D1 updates. This supports “no broker mutation observed or indicated.” It does not provide a strict broker order before/after proof because `/api/orders` is unsupported and no same-window order snapshot pair was available.
+
 ## Fee-aware release notes
 
 This patch is additive at the dashboard/API level: strategy tabs show gross P&L, recorded attributable fees, and net P&L, while account-level fees and unmatched broker P&L remain visible as unattributed. It does not rewrite historical realized P&L, category snapshots, or fill attribution.
@@ -182,8 +188,9 @@ Before deployment, rerun the full local gates, review the direct diff, commit/pu
 
 ## Current follow-up queue
 
-1. Verify the first `reconcile_cron` run, lifecycle-field population, run-log evidence, and absence of broker mutations.
-2. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
+The active weekly read-only deferred-risk review is `Alpaca deferred-risk review` (schedule ID `56199d0b-dd75-4f3b-acb6-14c58c4e055b`), every Monday at 10:00 Europe/Copenhagen. It is verified active and must not trigger broker mutations.
+
+1. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
 3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
 4. Add targeted live-broker integration checks without using trading actions as smoke tests.
 5. Finish swing trigger attribution and decision-row accounting consistency work.

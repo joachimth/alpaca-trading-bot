@@ -2,9 +2,10 @@
 
 ## Current release
 
-- Commit: `86def4f22ecdb30fdc919b74f84115a112b3bd17` (`clean up TypeScript errors`)
-- Cloudflare deployment ID: `da419696-2fb6-498c-86f4-d659f4bac8f3`
-- Cloudflare Worker version: `0f05e645-b33c-4335-92d9-68b8237eb62a`
+- Runtime source commit: `bc451d61631f8b34f05aac00c8e95b10b96e5c9d`
+- Documentation follow-up commit: `304a7d3cd004bf4829133c5db1347e29b1ab4efb`
+- Cloudflare deployment ID: `a51dfa749d8f47d280a658342dc98e40`
+- Cloudflare Worker version: `a51dfa74-9d8f-47d2-80a6-58342dc98e40`
 - Traffic: `100%`
 - Dashboard: GitHub Pages, calling only the Worker API
 - Account: Alpaca paper trading
@@ -48,6 +49,16 @@ Alpaca supplies current symbol, quantity, side, prices, market value, and unreal
 - Swing: `0 22 * * 1-5` UTC.
 - Crypto: `7-59/30 * * * *` UTC, at approximately `:07` and `:37`, 24/7.
 - Maintenance/reconciliation: `*/10 * * * *` UTC, read-only broker/order reconciliation under the global lease.
+
+## Natural reconciliation verification
+
+The first natural post-release check completed on August 8, 2026 using only live GET endpoints. `/api/runs` recorded 23 `reconcile_cron` entries between `2026-08-08 06:40:53` and `2026-08-08 10:30:51` UTC. Sixteen runs completed with `MAINTENANCE_ONLY`; seven recorded `CYCLE_LEASE_HELD`. `/api/trades` showed 19 rows with all five lifecycle fields populated: `client_order_id`, `filled_qty`, `leaves_qty`, `broker_updated_at`, and `last_reconciled_at`; the observed reconciliation window was `2026-08-07 20:09:02` through `2026-08-08 10:20:06` UTC.
+
+The maintenance run details reported `trades_executed: 0` and `imported: 0`, and source inspection shows reconciliation calls only Alpaca order reads (`getRecentOrders` and `getOrder`) before persisting D1 state. No reconciliation-caused broker mutation was observed or indicated. A categorical broker before/after conclusion is not available because the Worker exposes no read-only `/api/orders` route and no same-window order snapshot pair exists.
+
+## Deferred-risk monitoring
+
+The active weekly read-only review job `Alpaca deferred-risk review` (schedule ID `56199d0b-dd75-4f3b-acb6-14c58c4e055b`) runs Mondays at 10:00 Europe/Copenhagen. It reviews partial-fill/retry lifecycle, deterministic attribution, fill/FIFO accounting, swing peak-price state, and live integration coverage without triggering broker mutations.
 
 ## Known risks
 

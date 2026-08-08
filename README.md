@@ -233,13 +233,20 @@ Documentation is part of the implementation, not a follow-up task. Every future 
 - Automated coverage is improving but does not yet provide full live-broker integration coverage for every partial-fill and retry edge case.
 - D1-only historical rows may remain open in storage until a separate, complete reconciliation policy is implemented. GET handlers do not close or synthesize positions.
 
+## Natural reconciliation verification
+
+The first natural post-release check completed on August 8, 2026 using only GET requests to the live Worker. The `/api/runs` response recorded 23 `reconcile_cron` entries from `2026-08-08 06:40:53` through `2026-08-08 10:30:51` UTC; 16 completed with the `MAINTENANCE_ONLY` marker and 7 were explicitly skipped because the global cycle lease was held. The live `/api/trades` response contained 19 rows with `client_order_id`, `filled_qty`, `leaves_qty`, `broker_updated_at`, and `last_reconciled_at`; reconciliation timestamps ranged from `2026-08-07 20:09:02` through `2026-08-08 10:20:06` UTC. Maintenance logs reported `trades_executed: 0`, `imported: 0`, and no order submission, cancel, replace, retry, or close action. Source inspection confirms the maintenance reconciler only reads recent/individual broker orders and writes D1 lifecycle state.
+
+This confirms scheduled execution and lifecycle population without broker-side mutation evidence. A strict broker order before/after comparison remains unavailable because the supported Worker API has no read-only `/api/orders` route and no same-window order snapshot pair was captured; the result is therefore “no mutation observed or indicated,” not a categorical broker audit assertion.
+
+A verified weekly read-only follow-up job, `Alpaca deferred-risk review` (schedule ID `56199d0b-dd75-4f3b-acb6-14c58c4e055b`), runs Mondays at 10:00 Europe/Copenhagen and reviews the remaining accounting, lifecycle, attribution, swing-state, and live-integration risks.
+
 ## Next steps
 
-1. Verify the first `reconcile_cron` run, lifecycle-field population, run-log evidence, and absence of broker mutations.
-2. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
-3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
-4. Add targeted live-broker integration checks without using trading actions as smoke tests.
-5. Finish swing trigger attribution and decision-row accounting consistency work.
+1. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
+2. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
+3. Add targeted live-broker integration checks without using trading actions as smoke tests.
+4. Finish swing trigger attribution and decision-row accounting consistency work.
 
 ## License
 
