@@ -8,7 +8,7 @@
 - Traffic: `100%`
 - Dashboard: GitHub Pages, calling only the Worker API
 - Account: Alpaca paper trading
-- Validation of the current uncommitted fee-aware patch: `bunx tsc --noEmit` passed; 53 tests passed with 151 assertions; `git diff --check` passed; Wrangler dry-run passed. No live deployment has been made for this patch.
+- Validation of the deployed fee-aware patch: `bunx tsc --noEmit` passed; 53 tests passed with 151 assertions; `git diff --check` passed; Wrangler dry-run passed. Commit `bc451d61631f8b34f05aac00c8e95b10b96e5c9d` is pushed to `origin/main`; Worker deployment `a51dfa749d8f47d280a658342dc98e40` is active at 100% traffic; read-only smoke endpoints returned HTTP 200; the GitHub Pages workflow completed successfully.
 
 ## Release verification
 

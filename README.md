@@ -49,7 +49,7 @@ A D1-only row is not an open current position. The API projection emits only sym
 
 If the Worker cannot fetch Alpaca positions, it does **not** fall back to D1 rows. The dashboard receives an unavailable state, and `/api/positions` returns HTTP 503 with an error payload.
 
-The current working release adds broker-authoritative fee-aware P&L presentation, conservative CFEE attribution, quantity-aware transaction-cost estimates, discretionary exit gates, swing cost logging with an explicit calibrated-edge switch, and scheduled read-only order reconciliation. It does not change the intended trading cadence or add deployment-time trading actions. Historical realized P&L remains model/gross-style until fill-lot matching is implemented.
+The current deployed release adds broker-authoritative fee-aware P&L presentation, conservative CFEE attribution, quantity-aware transaction-cost estimates, discretionary exit gates, swing cost logging with an explicit calibrated-edge switch, and scheduled read-only order reconciliation. It does not change the intended trading cadence or add deployment-time trading actions. Historical realized P&L remains model/gross-style until fill-lot matching is implemented. Source commit: `bc451d61631f8b34f05aac00c8e95b10b96e5c9d`; active Worker version: `a51dfa74-9d8f-47d2-80a6-58342dc98e40` at 100% traffic.
 
 ## Trading strategies and schedules
 

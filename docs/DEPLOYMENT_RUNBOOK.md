@@ -27,7 +27,7 @@ Expected current baseline:
 - 53 tests pass, 0 fail, 151 assertions, including fee-aware risk and strategy-comparison coverage.
 - `git diff --check` passes.
 - Wrangler dry-run succeeds.
-- The current fee-aware patch remains uncommitted and undeployed; the live Worker stays on the previously verified version until commit/push/direct upload verification is complete.
+- The fee-aware patch is deployed and verified: commit `bc451d61631f8b34f05aac00c8e95b10b96e5c9d` is pushed; Worker deployment `a51dfa749d8f47d280a658342dc98e40` is live at 100% traffic; all four schedules are present; `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, and `/api/positions` returned HTTP 200; the Pages workflow for the commit completed successfully.
 - A dry-run warning must be investigated rather than ignored if it is new.
 
 Do not run trading triggers, close endpoints, manual cycles, or order actions as deployment tests.
@@ -160,14 +160,17 @@ Record these values in the release note or conversation:
 
 ## Current verified release
 
-As of August 7, 2026:
+As of August 8, 2026:
 
-- Git commit: `86def4f22ecdb30fdc919b74f84115a112b3bd17`
-- Cloudflare deployment ID: `da419696-2fb6-498c-86f4-d659f4bac8f3`
-- Cloudflare version ID: `0f05e645-b33c-4335-92d9-68b8237eb62a`
+- Git commit: `bc451d61631f8b34f05aac00c8e95b10b96e5c9d`
+- Cloudflare deployment ID: `a51dfa749d8f47d280a658342dc98e40`
+- Cloudflare version ID: `a51dfa74-9d8f-47d2-80a6-58342dc98e40`
 - Traffic: 100%
-- Validation: TypeScript passed; 46 tests passed; `/health`, `/api/dashboard`, `/api/trades`, and `/api/runs` returned HTTP 200
-- No manual trading cycle or order action was run during deployment
+- Schedules: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`
+- Validation: TypeScript passed; 53 tests passed with 151 assertions; diff-check passed; Wrangler dry-run passed
+- Read-only HTTP: `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, and `/api/positions` returned HTTP 200
+- GitHub Pages workflow run `31249077806` completed successfully for the same commit
+- No manual trading cycle, order, cancel, close, retry, or reconciliation trigger was run during deployment
 
 ## Fee-aware release notes
 
