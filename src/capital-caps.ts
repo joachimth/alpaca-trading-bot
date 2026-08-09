@@ -8,11 +8,12 @@ export const CAPITAL_CAP_DEFAULTS: Readonly<Record<CapitalCapStrategy, number>> 
   crypto: 2000,
 };
 
-const CAPITAL_CAP_KEYS: Readonly<Record<CapitalCapStrategy, string>> = {
-  // These are the exact D1 key forms the existing runtime loaders accept.
-  daytrading: 'maxCapitalUsd',
-  swing: 'swing_maxCapitalUsd',
-  crypto: 'crypto_maxCapitalUsd',
+const CAPITAL_CAP_KEYS: Readonly<Record<CapitalCapStrategy, readonly string[]>> = {
+  // D1 schema uses snake_case keys; runtime loaders reference camelCase internally.
+  // Both forms are checked so the resolver works with either format.
+  daytrading: ['maxCapitalUsd', 'max_capital_usd'],
+  swing: ['swing_maxCapitalUsd', 'swing_max_capital_usd'],
+  crypto: ['crypto_maxCapitalUsd', 'crypto_max_capital_usd'],
 };
 
 /**
@@ -23,8 +24,14 @@ const CAPITAL_CAP_KEYS: Readonly<Record<CapitalCapStrategy, string>> = {
 export function resolveCapitalCaps(dbConfig: Record<string, string>): CapitalCaps {
   const caps = {} as CapitalCaps;
   for (const strategy of Object.keys(CAPITAL_CAP_KEYS) as CapitalCapStrategy[]) {
-    const key = CAPITAL_CAP_KEYS[strategy];
-    const raw = dbConfig[key];
+    const keys = CAPITAL_CAP_KEYS[strategy];
+    let raw: string | undefined;
+    for (const key of keys) {
+      if (key in dbConfig) {
+        raw = dbConfig[key];
+        break;
+      }
+    }
     caps[strategy] = raw === undefined
       ? CAPITAL_CAP_DEFAULTS[strategy]
       : validateCapitalCap(raw);
