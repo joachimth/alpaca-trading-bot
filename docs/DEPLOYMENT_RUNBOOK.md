@@ -162,7 +162,7 @@ Record these values in the release note or conversation:
 
 As of August 9, 2026:
 
-- Git commit: lease-starvation fix commit pending push
+- Git commit: `32ea4b9bb5655a40cc0a603e589831a58f660f0b` (`isolate strategy leases and bound broker requests`)
 - Cloudflare deployment ID: `a11e9bfe-5839-4a96-9157-c21d7d03bc40`
 - Cloudflare version ID: `ea7314de-e651-46a3-82b3-2c06e724e4b8`
 - Traffic: 100%
@@ -170,7 +170,7 @@ As of August 9, 2026:
 - Validation: TypeScript passed; 54 tests passed with 156 assertions; diff-check passed; Wrangler dry-run passed
 - Read-only HTTP: `/health`, `/api/runs`, `/api/trades`, and `/api/positions` returned HTTP 200 after deployment
 - No manual trading cycle, order, cancel, close, retry, or reconciliation trigger was run during deployment
-- Remaining verification: a read-only check is scheduled for Monday, August 10, 2026 at 15:40 Europe/Copenhagen, after the first market-open daytrading window
+- Remaining verification: schedule `6aa1defe-4807-4831-91df-fb408537316d` performs a read-only check on Monday, August 10, 2026 at 15:40 Europe/Copenhagen, after the first market-open daytrading window
 
 ## Natural reconciliation aftercheck
 

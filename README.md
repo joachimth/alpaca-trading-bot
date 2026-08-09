@@ -7,7 +7,7 @@ Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persis
 - **Repository:** `joachimth/alpaca-trading-bot`
 - **Worker:** `alpaca-trading-bot.joachim-763.workers.dev`
 - **Dashboard:** `joachimth.github.io/alpaca-trading-bot/`
-- **Current implementation commit:** lease-starvation fix commit pending push
+- **Current implementation commit:** `32ea4b9bb5655a40cc0a603e589831a58f660f0b` (`isolate strategy leases and bound broker requests`)
 - **Active Worker version:** Cloudflare version `ea7314de-e651-46a3-82b3-2c06e724e4b8`, deployed at 100% traffic on August 9, 2026
 - **Current deployment:** Cloudflare deployment `a11e9bfe-5839-4a96-9157-c21d7d03bc40`
 - **Account mode:** Alpaca paper trading
@@ -49,7 +49,7 @@ A D1-only row is not an open current position. The API projection emits only sym
 
 If the Worker cannot fetch Alpaca positions, it does **not** fall back to D1 rows. The dashboard receives an unavailable state, and `/api/positions` returns HTTP 503 with an error payload.
 
-The current deployed release adds broker-authoritative fee-aware P&L presentation, conservative CFEE attribution, quantity-aware transaction-cost estimates, discretionary exit gates, swing cost logging with an explicit calibrated-edge switch, and scheduled read-only order reconciliation. It does not change the intended trading cadence or add deployment-time trading actions. Historical realized P&L remains model/gross-style until fill-lot matching is implemented. Source commit: lease-starvation fix commit pending push; active Worker version: `ea7314de-e651-46a3-82b3-2c06e724e4b8` at 100% traffic.
+The current deployed release adds broker-authoritative fee-aware P&L presentation, conservative CFEE attribution, quantity-aware transaction-cost estimates, discretionary exit gates, swing cost logging with an explicit calibrated-edge switch, and scheduled read-only order reconciliation. It does not change the intended trading cadence or add deployment-time trading actions. Historical realized P&L remains model/gross-style until fill-lot matching is implemented. Source commit: `32ea4b9bb5655a40cc0a603e589831a58f660f0b`; active Worker version: `ea7314de-e651-46a3-82b3-2c06e724e4b8` at 100% traffic.
 
 ## Trading strategies and schedules
 

@@ -2,8 +2,7 @@
 
 ## Current release
 
-- Runtime source commit: lease-starvation fix commit pending push
-- Documentation follow-up commit: pending
+- Runtime and documentation commit: `32ea4b9bb5655a40cc0a603e589831a58f660f0b` (`isolate strategy leases and bound broker requests`)
 - Cloudflare deployment ID: `a11e9bfe-5839-4a96-9157-c21d7d03bc40`
 - Cloudflare Worker version: `ea7314de-e651-46a3-82b3-2c06e724e4b8`
 - Traffic: `100%`
