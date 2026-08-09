@@ -117,6 +117,8 @@ bunx wrangler secret put LLM_API_KEY
 
 The runtime fallback defaults are strategy-specific and can be overridden through D1 configuration:
 
+The dashboard's **Capital cap** cards are read-only. `/api/dashboard` returns a server-resolved `capitalCaps` object using the exact runtime-compatible configuration keys and fallback defaults: `maxCapitalUsd` = `$5,000`, `swing_maxCapitalUsd` = `$3,700`, and `crypto_maxCapitalUsd` = `$2,000`. Raw snake_case values from `/api/config` are diagnostic only because the current loaders do not consume them. The frontend never derives a cap from Alpaca buying power, cash, equity, portfolio value, positions, or any other account metric. Missing runtime-compatible D1 overrides use the documented fallback; malformed or negative overrides, and invalid or unavailable `capitalCaps` API payloads, render as `Unavailable`.
+
 | Setting | Daytrading | Swing | Crypto |
 |---------|------------|-------|--------|
 | Minimum confidence / entry score | `0.7` | `0.5` composite z-score | `0.7` |
@@ -160,7 +162,7 @@ All Alpaca access is server-side inside the Worker.
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` or `/health` | GET | Worker health response |
-| `/api/dashboard` | GET | Combined account, broker-backed positions, decisions, trades, runs, snapshots, strategy comparison, and strategy history; returns `positionsAvailable`, `positionsError`, and `strategyComparison: null` when the broker position fetch fails |
+| `/api/dashboard` | GET | Combined account, broker-backed positions, decisions, trades, runs, snapshots, strategy comparison, strategy history, and server-resolved `capitalCaps`; returns `positionsAvailable`, `positionsError`, and `strategyComparison: null` when the broker position fetch fails |
 | `/api/account` | GET | Account data fetched server-side from Alpaca, returned as `{ account }` |
 | `/api/positions` | GET | Current broker positions projected with D1 metadata; includes `positionsAvailable` and `source: "alpaca"`; returns HTTP 503 when broker positions are unavailable |
 | `/api/decisions` | GET | Recent decisions from D1, returned as `{ decisions }` |
@@ -169,7 +171,7 @@ All Alpaca access is server-side inside the Worker.
 | `/api/runs` | GET | Run history from D1, returned as `{ runs }` |
 | `/api/stats` | GET | Aggregate statistics from D1 |
 | `/api/strategy-comparison` | GET | Historical strategy metrics plus broker-backed current exposure; returns an unavailable state if positions cannot be fetched |
-| `/api/config` | GET | Bot configuration from D1 |
+| `/api/config` | GET | Raw bot configuration from D1 for diagnostics; the dashboard does not infer capital caps from this raw response |
 | `/api/trigger` | POST | Requests the daytrading path to run on its scheduled path; treat as an operational action |
 | `/api/trigger-swing` | POST | Runs a swing cycle immediately; treat as an operational action |
 | `/api/trigger-crypto` | POST | Runs a crypto cycle immediately; treat as an operational action |

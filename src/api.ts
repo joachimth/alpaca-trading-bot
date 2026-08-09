@@ -9,6 +9,7 @@ import { runCryptoCycle } from './crypto-strategy';
 import { getCryptoSentiment } from './crypto-sentiment';
 import { analyze } from './technical-analysis';
 import { projectBrokerPositions } from './position-projection';
+import { resolveCapitalCaps } from './capital-caps';
 
 export class DashboardAPI {
     private env: Env;
@@ -170,7 +171,7 @@ export class DashboardAPI {
     // Keep the dashboard read-only. Order reconciliation can fan out into many
     // Alpaca/D1 requests and must run from trading cycles or explicit trade APIs,
     // not on every browser refresh.
-    const [stats, recentDecisions, recentTrades, runs, snapshots, dbPositions, strategyHistory] = await Promise.all([
+    const [stats, recentDecisions, recentTrades, runs, snapshots, dbPositions, strategyHistory, dbConfig] = await Promise.all([
       db.getStats(),
       db.getRecentDecisions(20),
       db.getRecentTrades(20),
@@ -183,9 +184,11 @@ export class DashboardAPI {
         trades: await db.getRecentTradesByStrategy(strategy, 100),
         runs: await db.getRecentRunsByStrategy(strategy, 100),
       }))),
+      db.getConfig(),
     ]);
 
     const latestSnapshot = snapshots[0] || null;
+    const capitalCaps = resolveCapitalCaps(dbConfig);
     const account = await this.tryGetAccount();
     let positions: ReturnType<typeof projectBrokerPositions> = [];
     let positionsAvailable = true;
@@ -215,6 +218,7 @@ export class DashboardAPI {
       recentRuns: runs,
       performanceHistory: snapshots.reverse(), // chronological for charting
       strategyComparison,
+      capitalCaps,
       strategyHistory: Object.fromEntries(strategyHistory.map(item => [item.strategy, item])),
       categoryHistory: categoryHistory.series,
       categoryHistoryAvailable: categoryHistory.available,

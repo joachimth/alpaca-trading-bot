@@ -7,6 +7,8 @@
 - Cloudflare Worker version: `ea7314de-e651-46a3-82b3-2c06e724e4b8`
 - Traffic: `100%`
 - Dashboard: GitHub Pages, calling only the Worker API
+- Dashboard capital-cap source: read-only `capitalCaps` in `GET /api/dashboard`, resolved server-side from runtime-compatible configuration with `$5,000`, `$3,700`, and `$2,000` fallbacks
+- Capital-cap failure semantics: missing runtime-compatible configuration overrides use the fallback; malformed, non-finite, negative, HTTP-failed, or otherwise unavailable API payloads display `Unavailable`. The UI never substitutes buying power, cash, equity, portfolio value, or positions.
 - Account: Alpaca paper trading
 - Validation of the deployed lease fix: `bunx tsc --noEmit` passed; 54 tests passed with 156 assertions; `git diff --check` passed; Wrangler dry-run passed; all four Cloudflare schedules and read-only Worker endpoints were verified after deployment.
 
@@ -18,7 +20,7 @@
 4. Upload that exact bundle through the direct Cloudflare multipart API. In this proxy environment, do not trust a successful `wrangler deploy` exit code as proof of a new version.
 5. Verify the newest Cloudflare deployment has a new version at `100%` traffic.
 6. Verify all four schedules, including the read-only `*/10 * * * *` maintenance schedule.
-7. Query `/health`, `/api/dashboard`, `/api/trades`, and `/api/runs`; expect HTTP 200.
+7. Query `/health`, `/api/dashboard`, `/api/trades`, and `/api/runs`; expect HTTP 200. Confirm `/api/dashboard.capitalCaps` contains only finite, non-negative numbers or `null`, and confirm each strategy tab shows either a USD cap or `Unavailable` without using account metrics as a fallback.
 8. Query `/api/positions` when checking broker availability and confirm `positionsAvailable: true`, `source: "alpaca"`, and broker-matching symbols.
 9. Confirm GitHub Pages contains the Worker URL and no direct Alpaca URL.
 10. Never use trading triggers, cycle endpoints, order endpoints, or close endpoints as deployment tests.
@@ -76,4 +78,4 @@ The active weekly read-only review job `Alpaca deferred-risk review` (schedule I
 2. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
 3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
 4. Add targeted live-broker integration checks without using trading actions as smoke tests.
-5. Finish swing trigger attribution and decision-row accounting consistency work.
+6. Finish swing trigger attribution and decision-row accounting consistency work.

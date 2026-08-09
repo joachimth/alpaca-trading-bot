@@ -132,6 +132,8 @@ If a schedule is missing, stop and repair the schedule configuration before decl
 
 ## 6. Run read-only live smoke tests
 
+For this dashboard change, also inspect the JSON from `GET /api/dashboard`: `capitalCaps.daytrading`, `.swing`, and `.crypto` must be finite, non-negative resolved values or `null`. Verify the Pages dashboard renders the three clearly labeled **Capital cap** cards. A missing or malformed cap, dashboard HTTP failure, or timeout must show `Unavailable`; do not use buying power, cash, equity, portfolio value, or positions to fill it. This check is read-only and must not call trigger, close, submit, cancel, replace, or any other broker mutation endpoint.
+
 ```bash
 base='https://alpaca-trading-bot.joachim-763.workers.dev'
 for path in health api/dashboard api/trades api/runs; do
@@ -197,4 +199,5 @@ The active weekly read-only deferred-risk review is `Alpaca deferred-risk review
 1. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
 3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
 4. Add targeted live-broker integration checks without using trading actions as smoke tests.
-5. Finish swing trigger attribution and decision-row accounting consistency work.
+5. After deploying the capital-cap dashboard change, capture read-only `/api/dashboard` and Pages evidence for all three cap cards, including an unavailable-path check for malformed/missing/HTTP-failed cap data.
+6. Finish swing trigger attribution and decision-row accounting consistency work.

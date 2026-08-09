@@ -278,6 +278,7 @@
         <strong>TA + AI strategy:</strong> RSI, MACD, EMA, ATR, Bollinger + Fireworks GLM LLM. Every 5 min during market hours. EOD flatten. Max 15 positions, 20% each.
       </div>
       <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-label">Capital cap</div><div class="metric-value neutral" id="mDayCapitalCap">Unavailable</div><div class="metric-sub" id="mDayCapitalCapSub">Server-resolved USD limit</div></div>
         <div class="metric-card"><div class="metric-label">Daytrading Daily P&L</div><div class="metric-value neutral" id="mDayCatDailyPL">-</div><div class="metric-sub" id="mDayCatDailyPLSub">Loading...</div></div>
         <div class="metric-card"><div class="metric-label">Daytrading Portfolio Value</div><div class="metric-value neutral" id="mDayCatPortfolio">-</div><div class="metric-sub" id="mDayCatPortfolioSub">Loading...</div></div>
         <div class="metric-card"><div class="metric-label">Daytrading Gross P&L</div><div class="metric-value neutral" id="mDayCatGrossPL">-</div><div class="metric-sub" id="mDayCatGrossPLSub">Realized + unrealized</div></div>
@@ -303,6 +304,7 @@
         <div style="margin-top: 8px;"><button class="trigger-btn" onclick="triggerSwing()">Trigger Swing Cycle</button></div>
       </div>
       <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-label">Capital cap</div><div class="metric-value neutral" id="mSwingCapitalCap">Unavailable</div><div class="metric-sub" id="mSwingCapitalCapSub">Server-resolved USD limit</div></div>
         <div class="metric-card"><div class="metric-label">Swing Daily P&L</div><div class="metric-value neutral" id="mSwingCatDailyPL">-</div><div class="metric-sub" id="mSwingCatDailyPLSub">Loading...</div></div>
         <div class="metric-card"><div class="metric-label">Swing Portfolio Value</div><div class="metric-value neutral" id="mSwingCatPortfolio">-</div><div class="metric-sub" id="mSwingCatPortfolioSub">Loading...</div></div>
         <div class="metric-card"><div class="metric-label">Swing Gross P&L</div><div class="metric-value neutral" id="mSwingCatGrossPL">-</div><div class="metric-sub" id="mSwingCatGrossPLSub">Realized + unrealized</div></div>
@@ -328,6 +330,7 @@
         <div style="margin-top: 8px;"><button class="trigger-btn" onclick="triggerCrypto()">Trigger Crypto Cycle</button></div>
       </div>
       <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-label">Capital cap</div><div class="metric-value neutral" id="mCryptoCapitalCap">Unavailable</div><div class="metric-sub" id="mCryptoCapitalCapSub">Server-resolved USD limit</div></div>
         <div class="metric-card"><div class="metric-label">Crypto Daily P&L</div><div class="metric-value neutral" id="mCryptoCatDailyPL">-</div><div class="metric-sub" id="mCryptoCatDailyPLSub">Loading...</div></div>
         <div class="metric-card"><div class="metric-label">Crypto Portfolio Value</div><div class="metric-value neutral" id="mCryptoCatPortfolio">-</div><div class="metric-sub" id="mCryptoCatPortfolioSub">Loading...</div></div>
         <div class="metric-card"><div class="metric-label">Crypto Gross P&L</div><div class="metric-value neutral" id="mCryptoCatGrossPL">-</div><div class="metric-sub" id="mCryptoCatGrossPLSub">Realized + unrealized</div></div>
@@ -397,8 +400,8 @@
           b.innerHTML = '<div class="pulse" style="background:var(--orange)"></div><span>' + (dashboardData ? 'Refresh failed - showing last update' : 'Unable to connect - retrying') + '</span>';
           return;
         }
-      dashboardData = data;
-      const hasAcc = data.account && !data.account.error;
+        dashboardData = data;
+          const hasAcc = data.account && !data.account.error;
       const badge = document.getElementById('statusBadge');
       if (hasAcc) { const open = !data.account.trading_blocked; badge.className = 'status-badge ' + (open ? 'live' : 'offline'); badge.innerHTML = '<div class="pulse" style="background:var(--' + (open ? 'green' : 'red') + ')"></div><span>' + (open ? 'Live - Paper Trading' : 'Account Blocked') + '</span>'; }
       else { badge.className = 'status-badge offline'; badge.innerHTML = '<div class="pulse" style="background:var(--red)"></div><span>Account Error</span>'; }
@@ -531,9 +534,9 @@
       }
     }
     const CATEGORY_TAB_IDS = {
-      daytrading: { dailyPl: 'mDayCatDailyPL', dailyPlSub: 'mDayCatDailyPLSub', portfolio: 'mDayCatPortfolio', portfolioSub: 'mDayCatPortfolioSub', grossPl: 'mDayCatGrossPL', grossPlSub: 'mDayCatGrossPLSub', fees: 'mDayCatFees', feesSub: 'mDayCatFeesSub', netPl: 'mDayCatNetPL', netPlSub: 'mDayCatNetPLSub', canvas: 'categoryChartDaytrading', note: 'catChartNoteDaytrading' },
-      swing: { dailyPl: 'mSwingCatDailyPL', dailyPlSub: 'mSwingCatDailyPLSub', portfolio: 'mSwingCatPortfolio', portfolioSub: 'mSwingCatPortfolioSub', grossPl: 'mSwingCatGrossPL', grossPlSub: 'mSwingCatGrossPLSub', fees: 'mSwingCatFees', feesSub: 'mSwingCatFeesSub', netPl: 'mSwingCatNetPL', netPlSub: 'mSwingCatNetPLSub', canvas: 'categoryChartSwing', note: 'catChartNoteSwing' },
-      crypto: { dailyPl: 'mCryptoCatDailyPL', dailyPlSub: 'mCryptoCatDailyPLSub', portfolio: 'mCryptoCatPortfolio', portfolioSub: 'mCryptoCatPortfolioSub', grossPl: 'mCryptoCatGrossPL', grossPlSub: 'mCryptoCatGrossPLSub', fees: 'mCryptoCatFees', feesSub: 'mCryptoCatFeesSub', netPl: 'mCryptoCatNetPL', netPlSub: 'mCryptoCatNetPLSub', canvas: 'categoryChartCrypto', note: 'catChartNoteCrypto' },
+      daytrading: { capitalCap: 'mDayCapitalCap', capitalCapSub: 'mDayCapitalCapSub', dailyPl: 'mDayCatDailyPL', dailyPlSub: 'mDayCatDailyPLSub', portfolio: 'mDayCatPortfolio', portfolioSub: 'mDayCatPortfolioSub', grossPl: 'mDayCatGrossPL', grossPlSub: 'mDayCatGrossPLSub', fees: 'mDayCatFees', feesSub: 'mDayCatFeesSub', netPl: 'mDayCatNetPL', netPlSub: 'mDayCatNetPLSub', canvas: 'categoryChartDaytrading', note: 'catChartNoteDaytrading' },
+      swing: { capitalCap: 'mSwingCapitalCap', capitalCapSub: 'mSwingCapitalCapSub', dailyPl: 'mSwingCatDailyPL', dailyPlSub: 'mSwingCatDailyPLSub', portfolio: 'mSwingCatPortfolio', portfolioSub: 'mSwingCatPortfolioSub', grossPl: 'mSwingCatGrossPL', grossPlSub: 'mSwingCatGrossPLSub', fees: 'mSwingCatFees', feesSub: 'mSwingCatFeesSub', netPl: 'mSwingCatNetPL', netPlSub: 'mSwingCatNetPLSub', canvas: 'categoryChartSwing', note: 'catChartNoteSwing' },
+      crypto: { capitalCap: 'mCryptoCapitalCap', capitalCapSub: 'mCryptoCapitalCapSub', dailyPl: 'mCryptoCatDailyPL', dailyPlSub: 'mCryptoCatDailyPLSub', portfolio: 'mCryptoCatPortfolio', portfolioSub: 'mCryptoCatPortfolioSub', grossPl: 'mCryptoCatGrossPL', grossPlSub: 'mCryptoCatGrossPLSub', fees: 'mCryptoCatFees', feesSub: 'mCryptoCatFeesSub', netPl: 'mCryptoCatNetPL', netPlSub: 'mCryptoCatNetPLSub', canvas: 'categoryChartCrypto', note: 'catChartNoteCrypto' },
     };
     // Category daily P&L / portfolio value: broker-marked market value and
     // today's intraday unrealized + realized-today P&L for that category's
@@ -544,6 +547,29 @@
       if (!ids || !dashboardData) return;
       const cmp = dashboardData.strategyComparison;
       const entry = cmp && cmp.strategies ? cmp.strategies.find(s => s.strategy === strategy) : null;
+      const capEl = document.getElementById(ids.capitalCap);
+      const capSubEl = document.getElementById(ids.capitalCapSub);
+      const capValue = dashboardData.capitalCaps && dashboardData.capitalCaps[strategy];
+      const numericCap = capValue == null ? null : Number(capValue);
+      if (numericCap == null || !Number.isFinite(numericCap) || numericCap < 0) {
+        capEl.textContent = 'Unavailable';
+        capEl.className = 'metric-value neutral';
+        capSubEl.textContent = 'Runtime configuration unavailable';
+      } else if (numericCap === 0) {
+        capEl.textContent = 'Uncapped';
+        capEl.className = 'metric-value neutral';
+        capSubEl.textContent = 'Full account; display-only ceiling';
+      } else {
+        capEl.textContent = fmtMoney(numericCap, 0);
+        capEl.className = 'metric-value neutral';
+        if (!cmp || cmp.positionsAvailable === false || !entry) {
+          capSubEl.textContent = 'Deployed unavailable; broker positions unavailable';
+        } else {
+          const deployed = Number(entry.marketValue || 0);
+          const utilization = (deployed / numericCap) * 100;
+          capSubEl.textContent = 'Deployed ' + fmtMoney(deployed, 0) + ' · ' + utilization.toFixed(1) + '%';
+        }
+      }
       const dailyPlEl = document.getElementById(ids.dailyPl);
       const dailyPlSubEl = document.getElementById(ids.dailyPlSub);
       const pvEl = document.getElementById(ids.portfolio);
