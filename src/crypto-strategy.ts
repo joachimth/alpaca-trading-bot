@@ -20,6 +20,7 @@ import type { Env } from './index';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 import { syncBrokerLedger } from './broker-ledger';
 import { reconcileBrokerOrders } from './order-reconciliation';
+import { classifyCryptoSkip, createCycleExposure, cryptoBudgetDecision, evaluateCryptoProtectiveExit, projectedPositions, rankCryptoCandidates, reserveEntry, resolveCryptoConfig, type FeeTelemetry } from './crypto-runtime';
 
 // Curated crypto universe — major liquid coins on Alpaca
 const CRYPTO_UNIVERSE = [
@@ -54,7 +55,9 @@ const CRYPTO_FALLBACK_CONFIG = {
   takeProfitATRMultiplier: 3.0,
   targetVolatilityPct: 3.0,    // higher target vol for crypto
   maxOrderRatePerMin: 5,
-  minEdgeAfterCosts: 8,        // higher bar — crypto has wider spreads
+  maxEntriesPerCycle: 1,       // conservative while net-edge calibration is pending
+  maxDiscretionaryExitsPerCycle: 2,
+  minEdgeAfterCosts: 8,        // telemetry/config gate; no confidence-to-edge conversion
   useAiRefinement: true,
   llmModel: 'accounts/fireworks/models/glm-5p2',
   llmTemperature: 0.3,
@@ -100,29 +103,18 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
       baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
     });
 
+    let feeLedgerSyncFailed = false;
     try {
       const ledger = await syncBrokerLedger(db, alpaca);
       console.log(`Broker ledger synced: ${ledger.activities} activities, ${ledger.fills} fills, ${ledger.fees} fees`);
     } catch (error) {
+      feeLedgerSyncFailed = true;
       errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     // Load crypto config from D1 (crypto_ prefixed keys)
     const dbConfig = await db.getConfig();
-    const config = { ...CRYPTO_FALLBACK_CONFIG };
-    for (const [key, value] of Object.entries(dbConfig)) {
-      if (key.startsWith('crypto_')) {
-        const cleanKey = key.replace('crypto_', '');
-        const numVal = parseFloat(value);
-        if (!isNaN(numVal) && cleanKey in config) {
-          (config as any)[cleanKey] = numVal;
-        } else if (value === 'true' && cleanKey in config) {
-          (config as any)[cleanKey] = true;
-        } else if (value === 'false' && cleanKey in config) {
-          (config as any)[cleanKey] = false;
-        }
-      }
-    }
+    const config = resolveCryptoConfig(dbConfig, CRYPTO_FALLBACK_CONFIG);
 
     // No market hours check — crypto trades 24/7.
     const reconciliation = await reconcileBrokerOrders(db, alpaca);
@@ -178,7 +170,19 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
     }
 
     // Initialize risk manager with crypto-specific config
-    const feeSummary = await db.getBrokerFeeSummary();
+    let feeSummary: Awaited<ReturnType<Database['getBrokerFeeSummary']>> | null = null;
+    try {
+      feeSummary = await db.getBrokerFeeSummary();
+    } catch (error) {
+      errors.push(`Broker fee summary failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const feeTelemetry: FeeTelemetry = feeLedgerSyncFailed || !feeSummary
+      ? { status: 'unavailable', reason: feeLedgerSyncFailed ? 'broker fee ledger sync failed this cycle' : 'broker fee summary unavailable' }
+      : feeSummary.cryptoFeeTelemetryStatus === 'available' && feeSummary.cryptoRateBps !== null && Number.isFinite(feeSummary.cryptoRateBps) && feeSummary.cryptoRateBps > 0 && feeSummary.cryptoFeeAsOf
+        ? { status: 'available', rateBps: feeSummary.cryptoRateBps, sampleCount: feeSummary.cryptoFeeSampleCount, notionalUsd: feeSummary.cryptoTradedNotionalUsd, asOf: feeSummary.cryptoFeeAsOf }
+        : feeSummary.cryptoFeeTelemetryStatus === 'insufficient'
+          ? { status: 'insufficient', reason: 'insufficient or invalid crypto fee samples' }
+          : { status: 'unavailable', reason: 'crypto fee telemetry unavailable, stale, or non-positive' };
     const riskConfig: RiskConfig = {
       maxPositions: config.maxPositions,
       maxPositionPct: config.maxPositionPct,
@@ -193,94 +197,76 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
       targetVolatilityPct: config.targetVolatilityPct || 3.0,
       maxOrderRatePerMin: config.maxOrderRatePerMin || 5,
       minEdgeAfterCosts: config.minEdgeAfterCosts || 8,
-      observedFeeBps: feeSummary.cryptoRateBps,
+      observedFeeBps: feeTelemetry.status === 'available' ? feeTelemetry.rateBps : undefined,
+      feeTelemetryStatus: feeTelemetry.status,
+      requireFeeTelemetry: true,
       maxCapitalUsd: config.maxCapitalUsd || 0,
     };
     const riskManager = new RiskManager(riskConfig);
     riskManager.updateEquitySnapshot(account.equity);
 
-    if (riskManager.isTradingHalted()) {
-      skips.add('RISK_HALTED', 'cycle', 'Crypto trading is halted by risk controls', { reason: riskManager.isTradingHalted() });
-      console.error(`Crypto: trading halted — ${riskManager.isTradingHalted()}`);
+    // Protective exits are evaluated before discretionary risk halts. A halt
+    // blocks new exposure, but must never leave an existing loss unmanaged.
+    const dbCryptoPositions = allDbPositions.filter(position => position.strategy === 'crypto');
+    const dbCryptoPositionMap = new Map(dbCryptoPositions.map(position => [position.ticker, position]));
+    for (const pos of cryptoPositions) {
+      const protectiveExit = evaluateCryptoProtectiveExit(
+        pos,
+        dbCryptoPositionMap.get(pos.symbol),
+        config.stopLossPct,
+        config.trailingStopPct,
+      );
+      if (!protectiveExit) continue;
+
+      try {
+        const order = await alpaca.closePosition(pos.symbol);
+        await db.logOrderTrade(order, { strategy: 'crypto' });
+        if (alpaca.isOrderFullyFilled(order)) {
+          await db.closePosition(pos.symbol, pos.unrealized_pl, `crypto_${protectiveExit.kind}`);
+          await db.logDecision({
+            ticker: pos.symbol,
+            action: 'CLOSE',
+            confidence: 1.0,
+            signal_source: 'crypto',
+            reason: protectiveExit.reason,
+            ta_data: '{}',
+            ai_reasoning: '{}',
+            price_at_decision: pos.current_price,
+            executed: 1,
+            execution_reason: `crypto_${protectiveExit.kind}`,
+          });
+          tradesExecuted++;
+        } else {
+          errors.push(`Crypto ${protectiveExit.kind} exit not fully filled ${pos.symbol}: ${order.status}`);
+        }
+        console.log(`Crypto ${protectiveExit.kind.toUpperCase()} ${pos.symbol}: ${protectiveExit.reason}`);
+      } catch (e) {
+        errors.push(`Crypto ${protectiveExit.kind} failed ${pos.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
+      }
+    }
+
+    const riskHaltReason = riskManager.isTradingHalted() ? riskManager.getKillState().reason : null;
+    if (riskHaltReason) {
+      skips.add('RISK_HALTED', 'cycle', 'Crypto discretionary trading is halted by risk controls after protective exits were processed', { reason: riskHaltReason });
+      console.error(`Crypto: discretionary trading halted — ${riskHaltReason}`);
       await db.logRun({
         trigger,
-        market_open: 1, // crypto always "open"
+        market_open: 1,
         duration_ms: Date.now() - startTime,
         decisions_made: 0,
-        trades_executed: 0,
-        errors: 0,
-        error_details: serializeRunDetails([], skips),
+        trades_executed: tradesExecuted,
+        errors: errors.length,
+        error_details: serializeRunDetails(errors, skips),
         status: runStatus(errors, skips, false, tradesExecuted),
       });
       return;
     }
 
-    // Check stop losses on existing crypto positions
-    for (const pos of cryptoPositions) {
-      const stopLoss = -config.stopLossPct / 100;
-      const trailingStop = -config.trailingStopPct / 100;
-
-      if (pos.unrealized_pl < 0 && pos.unrealized_plpc <= stopLoss) {
-        try {
-          const order = await alpaca.closePosition(pos.symbol);
-          await db.logOrderTrade(order, { strategy: 'crypto' });
-          if (alpaca.isOrderFullyFilled(order)) {
-            await db.closePosition(pos.symbol, pos.unrealized_pl, 'crypto_stop_loss');
-            await db.logDecision({
-              ticker: pos.symbol,
-              action: 'CLOSE',
-              confidence: 1.0,
-              signal_source: 'crypto',
-              reason: `Stop loss: ${(pos.unrealized_plpc * 100).toFixed(1)}% loss`,
-              ta_data: '{}',
-              ai_reasoning: '{}',
-              price_at_decision: pos.current_price,
-              executed: 1,
-              execution_reason: 'crypto_stop_loss',
-            });
-            tradesExecuted++;
-          } else {
-            errors.push(`Crypto stop exit not fully filled ${pos.symbol}: ${order.status}`);
-          }
-          console.log(`Crypto STOP LOSS ${pos.symbol}: ${(pos.unrealized_plpc * 100).toFixed(1)}%`);
-        } catch (e) {
-          errors.push(`Crypto stop loss failed ${pos.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
-        }
-        continue;
-      }
-
-      if (pos.unrealized_pl > 0 && pos.unrealized_plpc <= trailingStop) {
-        try {
-          const order = await alpaca.closePosition(pos.symbol);
-          await db.logOrderTrade(order, { strategy: 'crypto' });
-          if (alpaca.isOrderFullyFilled(order)) {
-            await db.closePosition(pos.symbol, pos.unrealized_pl, 'crypto_trailing_stop');
-            await db.logDecision({
-              ticker: pos.symbol,
-              action: 'CLOSE',
-              confidence: 0.8,
-              signal_source: 'crypto',
-              reason: `Trailing stop: giving back ${(pos.unrealized_plpc * 100).toFixed(1)}%`,
-              ta_data: '{}',
-              ai_reasoning: '{}',
-              price_at_decision: pos.current_price,
-              executed: 1,
-              execution_reason: 'crypto_trailing_stop',
-            });
-            tradesExecuted++;
-          } else {
-            errors.push(`Crypto trailing exit not fully filled ${pos.symbol}: ${order.status}`);
-          }
-          console.log(`Crypto TRAILING STOP ${pos.symbol}: ${(pos.unrealized_plpc * 100).toFixed(1)}%`);
-        } catch (e) {
-          errors.push(`Crypto trailing stop failed ${pos.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
-        }
-      }
-    }
-
-    // Refresh positions after stops
+    // Refresh positions after stops. Broker state is authoritative; the cycle
+    // projection below additionally reserves submitted entries conservatively.
     const updatedPositions = await alpaca.getPositions();
     const updatedCryptoPositions = updatedPositions.filter(p => CRYPTO_UNIVERSE.includes(p.symbol));
+    const exposure = createCycleExposure(updatedCryptoPositions);
 
     // Scan crypto universe — get 15-min bars and compute TA
     const symbolsToScan = CRYPTO_UNIVERSE.slice(0, config.scanUniverseSize);
@@ -336,7 +322,10 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
     const actionable = signals.filter(s => s.signal.action !== 'HOLD' || s.signal.confidence > 0.7);
     const heldCryptoSymbols = new Set(updatedCryptoPositions.map(p => p.symbol));
     const heldSignals = signals.filter(s => heldCryptoSymbols.has(s.symbol));
-    const signalsToProcess = [...new Set([...actionable, ...heldSignals])];
+    const signalsToProcess = rankCryptoCandidates(
+      [...new Map([...actionable, ...heldSignals].map(candidate => [candidate.symbol, candidate])).values()]
+        .map(candidate => ({ ...candidate, feeTelemetryStatus: feeTelemetry.status }))
+    );
 
     console.log(`Crypto: ${signals.length} analyzed, ${signalsToProcess.length} to process`);
 
@@ -357,8 +346,14 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
     };
 
     let cycleTradeCount = 0;
-    const maxTradesPerCycle = config.maxTradesPerCycle || 2;
+    const maxEntriesPerCycle = config.maxEntriesPerCycle || 1;
+    const maxDiscretionaryExitsPerCycle = config.maxDiscretionaryExitsPerCycle || config.maxTradesPerCycle || 2;
+    let entryCount = 0;
+    let discretionaryExitCount = 0;
 
+    // Process signals in deterministic ranked order. No uncalibrated edge is
+    // invented from confidence; ranking falls back to fee status, confidence,
+    // and symbol order.
     // Process signals
     for (const { symbol, indicators, signal } of signalsToProcess) {
       // AI refinement
@@ -408,9 +403,20 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
         continue;
       }
 
-      if (cycleTradeCount >= maxTradesPerCycle) {
-        await db.updateDecisionStatus(decisionId, 2, `Max trades per cycle (${maxTradesPerCycle})`);
-        skips.add('MAX_TRADES_PER_CYCLE', 'decision', 'Skipped because the crypto per-cycle trade limit was reached', { symbol, limit: maxTradesPerCycle });
+      // Protective exits ran before this loop and never consume either
+      // discretionary budget. Entries and discretionary exits have separate
+      // limits so one class cannot starve the other.
+      const budget = cryptoBudgetDecision({
+        action: decision.action,
+        entryCount,
+        maxEntriesPerCycle,
+        discretionaryExitCount,
+        maxDiscretionaryExitsPerCycle,
+      });
+      if (!budget.allowed) {
+        const limit = decision.action === 'BUY' ? maxEntriesPerCycle : maxDiscretionaryExitsPerCycle;
+        await db.updateDecisionStatus(decisionId, 2, `${budget.reasonCode} (${limit})`);
+        skips.add(budget.reasonCode ?? 'BUDGET_LIMIT', 'decision', 'Crypto decision skipped because its independent cycle budget was reached', { symbol, limit });
         continue;
       }
 
@@ -437,6 +443,7 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
               await db.updateDecisionStatus(decisionId, 1, 'Position closed');
               tradesExecuted++;
               cycleTradeCount++;
+              discretionaryExitCount++;
             } else {
               await db.updateDecisionStatus(decisionId, 0, `Exit order pending: ${order.status}`);
             }
@@ -460,10 +467,25 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
           continue;
         }
 
-        const riskCheck = riskManager.checkTrade(decision, account, updatedCryptoPositions, indicators);
+        let recentEntryOrders = 0;
+        try {
+          recentEntryOrders = await db.countRecentSubmittedOrders('crypto', 'buy', 60);
+        } catch (error) {
+          await db.updateDecisionStatus(decisionId, 2, 'Persistent entry order-rate state unavailable');
+          skips.add('ORDER_RATE_STATE_UNAVAILABLE', 'decision', 'Crypto entry skipped because persistent order-rate state could not be read', { symbol, reason: error instanceof Error ? error.message : String(error) });
+          continue;
+        }
+        if (recentEntryOrders >= (config.maxOrderRatePerMin || 5)) {
+          await db.updateDecisionStatus(decisionId, 2, `Persistent entry order-rate limit reached (${recentEntryOrders}/${config.maxOrderRatePerMin || 5})`);
+          skips.add('ORDER_RATE_LIMIT', 'decision', 'Crypto entry skipped by persistent D1 order-rate protection', { symbol, recentEntryOrders, limit: config.maxOrderRatePerMin || 5 });
+          continue;
+        }
+
+        const projected = projectedPositions(exposure);
+        const riskCheck = riskManager.checkTrade(decision, account, projected, indicators, exposure.reservedNotionalUsd);
         if (!riskCheck.approved) {
           await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
-          skips.add('RISK_DECISION', 'decision', 'Crypto entry skipped by risk controls', { symbol, reason: riskCheck.reason });
+          skips.add(classifyCryptoSkip(riskCheck.reason), 'decision', 'Crypto entry skipped by risk controls', { symbol, reason: riskCheck.reason, decisionId });
           continue;
         }
 
@@ -477,6 +499,13 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
               time_in_force: 'gtc', // GTC for crypto (24/7 market)
               client_order_id: `crypto_${Date.now()}_${symbol}`,
             });
+
+            const terminalRejected = order.status === 'rejected' || order.status === 'canceled' || order.status === 'expired';
+            if (!terminalRejected) {
+              // Reserve only accepted/pending orders; terminal rejection does not
+              // consume cycle exposure or capital.
+              reserveEntry(exposure, symbol, riskCheck.adjustedQty * indicators.price);
+            }
 
             await db.logTrade({
               alpaca_order_id: order.id,
@@ -495,23 +524,15 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
               strategy: 'crypto',
             });
 
-            await db.upsertPosition({
-              ticker: symbol,
-              side: 'long',
-              qty: riskCheck.adjustedQty,
-              avg_entry_price: indicators.price,
-              current_price: indicators.price,
-              market_value: riskCheck.adjustedQty * indicators.price,
-              unrealized_pl: 0,
-              unrealized_plpc: 0,
-              stop_loss_price: riskCheck.stopLossPrice ?? null,
-              take_profit_price: riskCheck.takeProfitPrice ?? null,
-              strategy: 'crypto',
-            });
-
-            await db.updateDecisionStatus(decisionId, 1, `Order: ${riskCheck.adjustedQty} units`);
-            tradesExecuted++;
-            cycleTradeCount++;
+            const accepted = !terminalRejected;
+            await db.updateDecisionStatus(decisionId, accepted ? 0 : 2, accepted
+              ? `Order submitted: ${riskCheck.adjustedQty} units; broker status ${order.status}`
+              : `Order not accepted: ${order.status}`);
+            if (accepted) {
+              tradesExecuted++;
+              cycleTradeCount++;
+              entryCount++;
+            }
             console.log(`Crypto BUY ${symbol}: ${riskCheck.adjustedQty} @ ~$${indicators.price.toFixed(2)}`);
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : 'unknown';

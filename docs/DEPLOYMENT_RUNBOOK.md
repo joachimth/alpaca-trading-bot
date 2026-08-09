@@ -24,7 +24,7 @@ bunx wrangler deploy --dry-run
 Expected current baseline:
 
 - TypeScript check passes.
-- 58 tests pass, 0 fail, 171 assertions, including fee-aware risk and strategy-comparison coverage.
+- 65 tests pass, 0 fail, 183 assertions, including crypto reservation, fee telemetry, budget, risk, strategy-comparison, and reconciliation coverage.
 - `git diff --check` passes.
 - Wrangler dry-run succeeds.
 - The current capital-cap release is deployed and verified: source commit `fd8be3be647e0a4cdae8f79de89206f9a65172bb` is pushed; Worker deployment `5088dbe0-31f9-4892-a149-a74702bbad4e` with version `cb88271c-8712-42a8-88a9-de58c841d3ec` is live at 100% traffic; all four schedules are present; read-only `/health`, `/api/dashboard`, `/api/trades`, and `/api/runs` returned HTTP 200; Pages contains exactly three Capital cap cards.
@@ -162,6 +162,8 @@ Record these values in the release note or conversation:
 
 ## Current verified release
 
+- The crypto economics hardening patch currently in the worktree is not deployed or committed. Do not update the live deployment identifiers below until a separate, explicitly authorized release is completed. No broker mutations were used for this patch.
+
 As of August 9, 2026:
 
 - Git commit: `fd8be3be647e0a4cdae8f79de89206f9a65172bb` (`Add read-only strategy capital cap cards`)
@@ -186,7 +188,7 @@ The August 9, 2026 live audit found that read-only `reconcile_cron` shared the s
 
 ## Fee-aware release notes
 
-This patch is additive at the dashboard/API level: strategy tabs show gross P&L, recorded attributable fees, and net P&L, while account-level fees and unmatched broker P&L remain visible as unattributed. It does not rewrite historical realized P&L, category snapshots, or fill attribution.
+This local patch hardens crypto execution economics without changing the $2,000 crypto cap: protective exits run before discretionary halts, entries default to one per cycle, discretionary exits default to two per cycle, pending entries reserve position/capital capacity, D1 supplies persistent recent-order rate state, and fee telemetry is scoped to positive curated-universe samples from seven days. Strategy tabs still show gross P&L, recorded attributable fees, and net P&L; historical realized P&L remains model/gross-style until fill-lot matching is implemented.
 
 BUY cost checks are quantity/notional-aware. Discretionary signal SELL/CLOSE checks are separate from BUY sizing, and protective, EOD, and manual exits bypass them. Swing cost estimates use explicit bps conversion and round-trip costs; BUY rejection remains disabled until calibrated `expectedEdgeBps` is configured.
 

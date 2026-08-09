@@ -1,8 +1,8 @@
 # NOW
 ## 2026-08-09
-- Lease-starvation fix committed as `32ea4b9bb5655a40cc0a603e589831a58f660f0b` and deployed: Worker version `ea7314de-e651-46a3-82b3-2c06e724e4b8`, deployment `a11e9bfe-5839-4a96-9157-c21d7d03bc40`, 100% traffic.
-- Root cause: maintenance shared the global lease; fix isolates maintenance/daytrading/swing/crypto leases, uses 10-minute TTL, and 12-second Alpaca request timeout.
-- Validation: 54 tests/156 assertions, typecheck, diff-check, dry-run; read-only `/health`, `/api/runs`, `/api/trades`, `/api/positions` returned HTTP 200.
-- All four Cloudflare schedules were verified; no broker mutation was used.
-- Monday Aug 10, 15:40 Europe/Copenhagen read-only session verification is scheduled; Friday Aug 7 delivery gap remains separately unproven.
-- Capital-cap dashboard deployed from `fd8be3b`: Worker deployment `5088dbe0`, version `cb88271c`, 100% traffic; live caps 5000/3700/2000, Pages has 3 cards, 58 tests/171 assertions, no broker mutation.
+- Crypto hardening is local, uncommitted, and not deployed; no broker mutation was used.
+- Protective exits precede halts; entries default to 1/cycle; discretionary exits default to 2/cycle.
+- Same-cycle reservations, strict config aliases, seven-day crypto fee telemetry, fail-closed fee sync, D1 entry-rate protection, and unified ATR/fallback/trailing exit evaluation are implemented.
+- Validation: 67 tests, 193 assertions, typecheck, schema validation, diff-check, Wrangler dry-run pass.
+- Remaining before release: review lifecycle/fill accounting, then commit/push and separately verify deployment.
+- Live Worker remains the prior capital-cap release; caps unchanged at day 5000, swing 3700, crypto 2000.

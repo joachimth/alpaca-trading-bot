@@ -27,6 +27,9 @@ export interface RiskConfig {
   maxOrderRatePerMin: number;     // kill switch: max orders per minute
   minEdgeAfterCosts: number;      // minimum expected return after estimated costs (bps)
   observedFeeBps?: number;         // broker-observed fee rate added to estimated costs
+  feeTelemetryStatus?: 'available' | 'insufficient' | 'unavailable';
+  requireFeeTelemetry?: boolean;   // fail closed for discretionary entries when true
+  rawEdgeBps?: number;              // calibrated/telemetry input only; never inferred from confidence
   maxCapitalUsd: number;          // hard cap on total daytrading capital (0 = use full account)
 }
 
@@ -38,7 +41,7 @@ export interface RiskCheckResult {
   takeProfitPrice?: number;
   trailingStopPct?: number;
   estimatedCosts?: number;        // estimated transaction costs in $
-  edgeAfterCosts?: number;        // expected edge after costs in $
+  edgeAfterCosts?: number;        // calibrated/telemetry edge after costs; not confidence-derived
 }
 
 export interface KillSwitchState {
@@ -128,7 +131,8 @@ export class RiskManager {
     decision: AIDecision,
     account: AccountInfo,
     positions: Position[],
-    indicators: TAIndicators
+    indicators: TAIndicators,
+    reservedNotionalUsd = 0
   ): RiskCheckResult {
     const price = indicators.price;
 
@@ -148,12 +152,17 @@ export class RiskManager {
       return { approved: false, reason: `Daily loss limit reached (${account.change_today_pct.toFixed(2)}%)` };
     }
 
-    // 3. Confidence threshold
+    // 3. Confidence threshold. Confidence is a gate, not an expected-return estimate.
     if (decision.confidence < this.config.minConfidence) {
       return { approved: false, reason: `Confidence ${decision.confidence.toFixed(2)} below minimum ${this.config.minConfidence}` };
     }
 
-    // 4. Position count limit (for new buys)
+    // 4. Fee-sensitive crypto entries fail closed when telemetry is unavailable.
+    if (decision.action === 'BUY' && this.config.requireFeeTelemetry && this.config.feeTelemetryStatus !== 'available') {
+      return { approved: false, reason: `Fee telemetry unavailable (${this.config.feeTelemetryStatus ?? 'unavailable'})` };
+    }
+
+    // 5. Position count limit (for new buys)
     if (decision.action === 'BUY') {
       const currentLongs = positions.filter(p => p.side === 'long' && p.qty > 0).length;
       const existingPosition = positions.find(p => p.symbol === indicators.symbol);
@@ -163,13 +172,13 @@ export class RiskManager {
       }
     }
 
-    // 5. Transaction cost estimation. The bps gate is evaluated before sizing,
-    // while the dollar amount is recalculated after the final quantity exists.
+    // 6. Transaction cost estimation. Only a real calibrated raw edge may
+    // activate the edge gate; confidence is intentionally not converted to bps.
     const costRate = this.estimateTransactionCosts(price, indicators, 1);
-    const edgeBps = decision.confidence * 100; // conservative confidence-derived edge proxy
-    const edgeAfterCosts = edgeBps - costRate.bps;
+    const edgeBps = this.config.rawEdgeBps;
+    const edgeAfterCosts = edgeBps === undefined ? undefined : edgeBps - costRate.bps;
 
-    if (edgeAfterCosts < this.config.minEdgeAfterCosts) {
+    if (edgeAfterCosts !== undefined && edgeAfterCosts < this.config.minEdgeAfterCosts) {
       return {
         approved: false,
         reason: `Edge after costs insufficient: ${edgeAfterCosts.toFixed(1)}bps < ${this.config.minEdgeAfterCosts}bps (est. costs: ${costRate.bps}bps)`,
@@ -178,7 +187,7 @@ export class RiskManager {
       };
     }
 
-    // 6. Volatility-targeting position sizing
+    // 7. Volatility-targeting position sizing
     // Determine trading capital: use maxCapitalUsd if set, otherwise full account
     const tradingCapital = this.config.maxCapitalUsd > 0
       ? Math.min(this.config.maxCapitalUsd, account.portfolio_value)
@@ -187,8 +196,9 @@ export class RiskManager {
     const maxPositionValue = tradingCapital * (this.config.maxPositionPct / 100);
     // Available cash: respect the capital cap
     const currentGross = positions.reduce((s, p) => s + Math.abs(p.market_value), 0);
+    const safeReservedNotional = Number.isFinite(reservedNotionalUsd) ? Math.max(0, reservedNotionalUsd) : 0;
     const capRemaining = this.config.maxCapitalUsd > 0
-      ? Math.max(0, this.config.maxCapitalUsd - currentGross)
+      ? Math.max(0, this.config.maxCapitalUsd - currentGross - safeReservedNotional)
       : Infinity;
     const availableCash = this.config.enableMargin
       ? Math.min(account.buying_power, capRemaining)

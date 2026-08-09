@@ -2,6 +2,8 @@
 
 ## Current release
 
+The crypto correctness patch in the current worktree is not deployed as of August 9, 2026. No broker order, cancellation, close, or deployment mutation was used while applying or validating it. The deployment identifiers below refer to the prior documented release only.
+
 - Source implementation commit: `fd8be3be647e0a4cdae8f79de89206f9a65172bb` (`Add read-only strategy capital cap cards`)
 - Cloudflare deployment ID: `5088dbe0-31f9-4892-a149-a74702bbad4e`
 - Cloudflare Worker version: `cb88271c-8712-42a8-88a9-de58c841d3ec`
@@ -36,8 +38,8 @@ Documentation is a release requirement. Every source, configuration, schema, mig
 
 - Strategy comparison exposes `grossTotalPl`, `feesUsd`, `netTotalPl`, and `feeAttribution` for each row.
 - CFEE is defensibly attributed to crypto. Orderless/regulatory FEE remains account-level and is exposed as `accountLevelFeesUsd`; it is not fabricated into daytrading or swing.
-- Current category snapshots and historical cumulative curves remain gross-only. The fee ledger uses a bounded three-day overlap because Alpaca fee records can be delayed, so all-time net P&L is not yet a fill-exact accounting statement.
-- Daytrading and crypto BUY decisions use quantity/notional-aware estimated costs. Signal-driven SELL/CLOSE decisions use a separate discretionary exit gate. Loss-reducing, protective, EOD, and manual closes bypass that gate.
+- Current category snapshots and historical cumulative curves remain gross-only. The fee ledger uses a bounded three-day import overlap, while the crypto entry fee-rate uses only positive curated-universe samples from the most recent seven days; all-time net P&L is not yet a fill-exact accounting statement.
+- Daytrading and crypto BUY decisions use quantity/notional-aware estimated costs. Crypto entries default to one per cycle and discretionary signal SELL/CLOSE actions default to a separate two-exit budget; protective exits bypass both budgets and the fee gate. Loss-reducing, EOD, and manual closes bypass the discretionary fee gate.
 - Swing logs round-trip spread/slippage/fee costs with explicit bps units. `expectedEdgeBps` defaults to zero, so swing BUY is not rejected from an invented z-score-to-bps conversion; configure a calibrated edge before enabling rejection.
 - All fee-gate skips must retain the estimated costs and reason in decision/run observability.
 
@@ -65,6 +67,12 @@ The August 9, 2026 audit found lease starvation: maintenance shared the strategy
 The active weekly read-only review job `Alpaca deferred-risk review` (schedule ID `56199d0b-dd75-4f3b-acb6-14c58c4e055b`) runs Mondays at 10:00 Europe/Copenhagen. It reviews partial-fill/retry lifecycle, deterministic attribution, fill/FIFO accounting, swing peak-price state, and live integration coverage without triggering broker mutations.
 
 ## Known risks
+
+- The crypto patch is local and uncommitted; the previously deployed Worker does not contain these fixes.
+- Local validation currently passes: 65 tests, 183 assertions, TypeScript, diff-check, and Wrangler dry-run. No live deployment or broker mutation has been performed for this patch.
+- `git diff --check` from the workspace root is contaminated by unrelated generated `/workspace/data` changes; the bot repository diff must be checked with `git -C /workspace/alpaca-trading-bot diff --check`.
+- Wrangler dry-run remains validation-only and was not used as a deployment.
+
 
 - Partial-fill retry/cancel lifecycle is incomplete; scheduled reconciliation is intentionally read-only and does not replace that future design.
 - At the last verified D1 query on August 8, 2026, 365 trades existed and 84 had `strategy IS NULL`; those rows remain excluded from strategy-attributed history unless deterministic attribution is available.

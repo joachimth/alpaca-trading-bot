@@ -242,24 +242,61 @@ export class Database {
     cryptoUsd: number;
     regulatoryUsd: number;
     unattributedUsd: number;
-    cryptoRateBps: number;
+    cryptoRateBps: number | null;
+    cryptoFeeSampleCount: number;
+    cryptoTradedNotionalUsd: number;
+    cryptoFeeAsOf: string | null;
+    cryptoFeeTelemetryStatus: 'available' | 'insufficient' | 'unavailable';
   }> {
     await this.ensureTradeSchema();
     const row = await this.db.prepare(`
       SELECT
         COALESCE(SUM(usd_value), 0) as total_usd,
-        COALESCE(SUM(CASE WHEN fee_type = 'CFEE' THEN usd_value ELSE 0 END), 0) as crypto_usd,
+        COALESCE(SUM(CASE WHEN fee_type = 'CFEE' AND usd_value > 0 THEN usd_value ELSE 0 END), 0) as crypto_usd,
+        (SELECT COALESCE(SUM(usd_value), 0)
+           FROM broker_fees
+          WHERE fee_type = 'CFEE'
+            AND usd_value > 0
+            AND symbol IN (${DEFAULT_CRYPTO_UNIVERSE.map(symbol => `'${symbol}'`).join(',')})
+            AND COALESCE(created_at, created_date) >= datetime('now', '-7 days')) as crypto_usd_recent,
         COALESCE(SUM(CASE WHEN fee_type = 'FEE' THEN usd_value ELSE 0 END), 0) as regulatory_usd,
         COALESCE(SUM(CASE WHEN attribution_status = 'unattributed' THEN usd_value ELSE 0 END), 0) as unattributed_usd,
-      COALESCE((SELECT SUM(usd_value) FROM broker_fees WHERE fee_type = 'CFEE') * 10000.0 / NULLIF((SELECT SUM(ABS(qty * price)) FROM broker_fills WHERE symbol LIKE '%USD'), 0), 0) as crypto_rate_bps
+        (SELECT COUNT(*)
+           FROM broker_fees
+          WHERE fee_type = 'CFEE'
+            AND usd_value IS NOT NULL
+            AND usd_value > 0
+            AND symbol IN (${DEFAULT_CRYPTO_UNIVERSE.map(symbol => `'${symbol}'`).join(',')})
+            AND COALESCE(created_at, created_date) >= datetime('now', '-7 days')) as crypto_fee_samples,
+        (SELECT COALESCE(SUM(ABS(qty * price)), 0)
+           FROM broker_fills
+          WHERE symbol IN (${DEFAULT_CRYPTO_UNIVERSE.map(symbol => `'${symbol}'`).join(',')})
+            AND qty IS NOT NULL AND qty > 0
+            AND price IS NOT NULL AND price > 0
+            AND transaction_time >= datetime('now', '-7 days')) as crypto_notional_usd,
+        (SELECT MAX(COALESCE(created_at, created_date))
+           FROM broker_fees
+          WHERE fee_type = 'CFEE'
+            AND usd_value IS NOT NULL
+            AND usd_value > 0
+            AND symbol IN (${DEFAULT_CRYPTO_UNIVERSE.map(symbol => `'${symbol}'`).join(',')})) as crypto_fee_as_of
       FROM broker_fees
     `).first() as any;
+    const cryptoUsd = Number(row?.crypto_usd ?? 0);
+    const recentCryptoUsd = Number(row?.crypto_usd_recent ?? 0);
+    const notionalUsd = Number(row?.crypto_notional_usd ?? 0);
+    const sampleCount = Number(row?.crypto_fee_samples ?? 0);
+    const cryptoRateBps = recentCryptoUsd > 0 && notionalUsd > 0 ? (recentCryptoUsd / notionalUsd) * 10000 : null;
     return {
       totalUsd: Number(row?.total_usd ?? 0),
-      cryptoUsd: Number(row?.crypto_usd ?? 0),
+      cryptoUsd,
       regulatoryUsd: Number(row?.regulatory_usd ?? 0),
       unattributedUsd: Number(row?.unattributed_usd ?? 0),
-      cryptoRateBps: Number(row?.crypto_rate_bps ?? 0),
+      cryptoRateBps,
+      cryptoFeeSampleCount: sampleCount,
+      cryptoTradedNotionalUsd: notionalUsd,
+      cryptoFeeAsOf: row?.crypto_fee_as_of ? String(row.crypto_fee_as_of) : null,
+      cryptoFeeTelemetryStatus: sampleCount >= 3 && cryptoRateBps !== null ? 'available' : sampleCount > 0 ? 'insufficient' : 'unavailable',
     };
   }
 
@@ -384,6 +421,20 @@ export class Database {
     ).run();
 
     return result.meta.last_row_id as number;
+  }
+
+  async countRecentSubmittedOrders(strategy: 'daytrading' | 'swing' | 'crypto', side: 'buy' | 'sell', windowSeconds: number): Promise<number> {
+    await this.ensureTradeSchema();
+    const safeWindowSeconds = Math.max(1, Math.floor(windowSeconds));
+    const row = await this.db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM trades
+      WHERE strategy = ?
+        AND side = ?
+        AND timestamp >= datetime('now', ?)
+        AND status NOT IN ('rejected', 'canceled', 'cancelled', 'expired')
+    `).bind(strategy, side, `-${safeWindowSeconds} seconds`).first() as { count?: number } | null;
+    return Number(row?.count ?? 0);
   }
 
   async logOrderTrade(order: Order, options: {

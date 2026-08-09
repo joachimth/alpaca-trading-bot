@@ -2,7 +2,12 @@
 
 Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persistence, Alpaca paper trading, and a GitHub Pages dashboard.
 
-## Live deployment
+## Live deployment and current worktree
+
+This repository is currently being maintained locally. The targeted crypto correctness patch described below has not been deployed. No broker orders were submitted, canceled, or closed during this maintenance work.
+
+The deployment identifiers below describe the previously documented release only; they are not evidence that this uncommitted patch is live.
+
 
 - **Repository:** `joachimth/alpaca-trading-bot`
 - **Worker:** `alpaca-trading-bot.joachim-763.workers.dev`
@@ -53,7 +58,7 @@ A D1-only row is not an open current position. The API projection emits only sym
 
 If the Worker cannot fetch Alpaca positions, it does **not** fall back to D1 rows. The dashboard receives an unavailable state, and `/api/positions` returns HTTP 503 with an error payload.
 
-The current deployed release adds read-only Capital cap cards for Daytrading, Swing, and Crypto, while preserving broker-authoritative positions, fee-aware P&L presentation, conservative fee attribution, scheduled read-only reconciliation, and the existing trading cadence. Historical realized P&L remains model/gross-style until fill-lot matching is implemented. Source commit: `fd8be3be647e0a4cdae8f79de89206f9a65172bb`; active Worker version: `cb88271c-8712-42a8-88a9-de58c841d3ec` at 100% traffic.
+- The previously deployed release added read-only Capital cap cards for Daytrading, Swing, and Crypto. This worktree additionally contains an undeployed crypto correctness patch: protective exits run before discretionary halts, entries are limited to one per cycle by default, discretionary exits have a separate two-exit budget, pending entries reserve capital and position capacity, recent D1 orders provide persistent entry-rate protection, fee telemetry is scoped to the curated crypto universe and a seven-day window, reopened positions receive a fresh `opened_at`, and schema version correction is explicit. Historical realized P&L remains model/gross-style until fill-lot matching is implemented.
 
 ## Trading strategies and schedules
 
@@ -121,14 +126,16 @@ bunx wrangler secret put LLM_API_KEY
 
 The runtime fallback defaults are strategy-specific and can be overridden through D1 configuration:
 
-The dashboard's **Capital cap** cards are read-only. `/api/dashboard` returns a server-resolved `capitalCaps` object using the exact runtime-compatible configuration keys and fallback defaults: `maxCapitalUsd` = `$5,000`, `swing_maxCapitalUsd` = `$3,700`, and `crypto_maxCapitalUsd` = `$2,000`. Raw snake_case values from `/api/config` are diagnostic only because the current loaders do not consume them. The frontend never derives a cap from Alpaca buying power, cash, equity, portfolio value, positions, or any other account metric. Missing runtime-compatible D1 overrides use the documented fallback; malformed or negative overrides, and invalid or unavailable `capitalCaps` API payloads, render as `Unavailable`.
+The dashboard's **Capital cap** cards are read-only. `/api/dashboard` returns a server-resolved `capitalCaps` object using the exact runtime-compatible configuration keys and fallback defaults: `maxCapitalUsd` = `$5,000`, `swing_maxCapitalUsd` = `$3,700`, and `crypto_maxCapitalUsd` = `$2,000`. The runtime accepts both camelCase and snake_case aliases, with the documented resolver precedence; `/api/config` remains raw diagnostic configuration and is not used by the frontend for cap inference. The frontend never derives a cap from Alpaca buying power, cash, equity, portfolio value, positions, or any other account metric. Missing runtime-compatible D1 overrides use the documented fallback; malformed or negative overrides, and invalid or unavailable `capitalCaps` API payloads, render as `Unavailable`.
 
 | Setting | Daytrading | Swing | Crypto |
 |---------|------------|-------|--------|
 | Minimum confidence / entry score | `0.7` | `0.5` composite z-score | `0.7` |
 | Max positions | `15` | `30` | `5` |
 | Max capital | `$5,000` | `$3,700` | `$2,000` |
-| Max order rate | `10/min` | `15/min` | `5/min` |
+| Max order rate | `10/min` | `15/min` | `5/min` persistent entry guard |
+| Max new entries / cycle | strategy-specific | strategy-specific | `1` default |
+| Max discretionary exits / cycle | strategy-specific | strategy-specific | `2` default |
 | Minimum hold | `15 min` | strategy-specific | `30 min` |
 | Re-entry cooldown | `30 min` | strategy-specific | `60 min` |
 | EOD flatten | `true` | not applicable | `false` |
@@ -143,7 +150,7 @@ bun run typecheck
 bunx wrangler deploy --dry-run
 ```
 
-The test suite currently passes with 53 tests and 151 assertions. Fee-aware regression coverage lives in `test/risk-fee-aware.test.ts` and `test/category-performance.test.ts`; broker-position and read-only reconciliation coverage remains in `test/position-projection.test.ts` and `test/order-reconciliation.test.ts`. `bunx tsc --noEmit`, `bun test`, `git diff --check`, and `bunx wrangler deploy --dry-run` are release gates and must pass before deployment.
+The local suite currently passes with 65 tests and 183 assertions. Crypto correctness coverage lives in `crypto-runtime.test.ts`, fee-aware regression coverage lives in `test/risk-fee-aware.test.ts` and `test/category-performance.test.ts`, and broker-position/read-only reconciliation coverage remains in `test/position-projection.test.ts` and `test/order-reconciliation.test.ts`. `bunx tsc --noEmit`, `bun test`, `git diff --check`, and `bunx wrangler deploy --dry-run` are release gates and must pass before deployment.
 
 ### Deploy
 

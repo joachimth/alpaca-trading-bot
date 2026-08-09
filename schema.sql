@@ -239,7 +239,8 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
   ('reentry_cooldown_minutes', '30'),   -- anti-churn: cooldown after selling before re-buy
   ('max_trades_per_cycle', '3'),        -- anti-churn: max new trades per 5-min cycle
   ('min_confidence', '0.7'),            -- raised from 0.6 to reduce low-conviction trades
-  ('max_capital_usd', '5000'),          -- daytrading capital cap (~33,000 DKK)
+  ('max_capital_usd', '5000');          -- daytrading capital cap (~33,000 DKK)
+
 -- ============================================================
 -- Swing trading config (swing_ prefixed keys)
 -- ============================================================
@@ -272,7 +273,8 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
   ('swing_min_trade_size', '0.25'),
   ('swing_max_order_rate_per_min', '15'),
   ('swing_scan_universe_size', '150'),
-  ('swing_max_capital_usd', '3700'),   -- ~25,000 DKK cap for private person use
+  ('swing_max_capital_usd', '3700');   -- ~25,000 DKK cap for private person use
+
 -- ============================================================
 -- Crypto trading config (crypto_ prefixed keys)
 -- ============================================================
@@ -289,6 +291,8 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
     ('crypto_take_profit_atr_multiplier', '3.0'),
     ('crypto_target_volatility_pct', '3.0'),
     ('crypto_max_order_rate_per_min', '5'),
+    ('crypto_max_entries_per_cycle', '1'),
+    ('crypto_max_discretionary_exits_per_cycle', '2'),
     ('crypto_min_edge_after_costs', '8'),
     ('crypto_enable_margin', 'false'),
     ('crypto_min_hold_minutes', '30'),
@@ -296,6 +300,9 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
     ('crypto_max_trades_per_cycle', '2'),
     ('crypto_max_capital_usd', '2000'),
     ('crypto_use_ai_refinement', 'true'),
-    ('crypto_scan_universe_size', '15'),
-    ('version', '2.6.0');
-  ('version', '2.0.0');
+    ('crypto_scan_universe_size', '15');
+
+-- Authoritative schema/config version. This update is idempotent for existing DBs.
+INSERT INTO bot_config (key, value, updated_at)
+VALUES ('version', '2.6.0', datetime('now'))
+ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at;
