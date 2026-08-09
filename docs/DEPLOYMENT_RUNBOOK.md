@@ -24,10 +24,10 @@ bunx wrangler deploy --dry-run
 Expected current baseline:
 
 - TypeScript check passes.
-- 53 tests pass, 0 fail, 151 assertions, including fee-aware risk and strategy-comparison coverage.
+- 58 tests pass, 0 fail, 171 assertions, including fee-aware risk and strategy-comparison coverage.
 - `git diff --check` passes.
 - Wrangler dry-run succeeds.
-- The fee-aware patch is deployed and verified: commit `bc451d61631f8b34f05aac00c8e95b10b96e5c9d` is pushed; Worker deployment `a51dfa749d8f47d280a658342dc98e40` is live at 100% traffic; all four schedules are present; `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, and `/api/positions` returned HTTP 200; the Pages workflow for the commit completed successfully.
+- The current capital-cap release is deployed and verified: source commit `fd8be3be647e0a4cdae8f79de89206f9a65172bb` is pushed; Worker deployment `5088dbe0-31f9-4892-a149-a74702bbad4e` with version `cb88271c-8712-42a8-88a9-de58c841d3ec` is live at 100% traffic; all four schedules are present; read-only `/health`, `/api/dashboard`, `/api/trades`, and `/api/runs` returned HTTP 200; Pages contains exactly three Capital cap cards.
 - A dry-run warning must be investigated rather than ignored if it is new.
 
 Do not run trading triggers, close endpoints, manual cycles, or order actions as deployment tests.
@@ -164,14 +164,14 @@ Record these values in the release note or conversation:
 
 As of August 9, 2026:
 
-- Git commit: `32ea4b9bb5655a40cc0a603e589831a58f660f0b` (`isolate strategy leases and bound broker requests`)
-- Cloudflare deployment ID: `a11e9bfe-5839-4a96-9157-c21d7d03bc40`
-- Cloudflare version ID: `ea7314de-e651-46a3-82b3-2c06e724e4b8`
+- Git commit: `fd8be3be647e0a4cdae8f79de89206f9a65172bb` (`Add read-only strategy capital cap cards`)
+- Cloudflare deployment ID: `5088dbe0-31f9-4892-a149-a74702bbad4e`
+- Cloudflare version ID: `cb88271c-8712-42a8-88a9-de58c841d3ec`
 - Traffic: 100%
 - Schedules: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`
-- Validation: TypeScript passed; 54 tests passed with 156 assertions; diff-check passed; Wrangler dry-run passed
-- Read-only HTTP: `/health`, `/api/runs`, `/api/trades`, and `/api/positions` returned HTTP 200 after deployment
-- No manual trading cycle, order, cancel, close, retry, or reconciliation trigger was run during deployment
+- Validation: TypeScript passed; 58 tests passed with 171 assertions; diff-check passed; fresh Wrangler dry-run and inline dashboard-JavaScript syntax validation passed
+- Read-only HTTP: `/health`, `/api/dashboard`, `/api/runs`, and `/api/trades` returned HTTP 200; `/api/dashboard.capitalCaps` returned daytrading `5000`, swing `3700`, crypto `2000`; Pages contained exactly three cap cards
+- No manual trading cycle, order, cancel, close, retry, or reconciliation trigger was run during deployment or validation
 - Remaining verification: schedule `6aa1defe-4807-4831-91df-fb408537316d` performs a read-only check on Monday, August 10, 2026 at 15:40 Europe/Copenhagen, after the first market-open daytrading window
 
 ## Natural reconciliation aftercheck

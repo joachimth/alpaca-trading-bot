@@ -2,15 +2,16 @@
 
 ## Current release
 
-- Runtime and documentation commit: `32ea4b9bb5655a40cc0a603e589831a58f660f0b` (`isolate strategy leases and bound broker requests`)
-- Cloudflare deployment ID: `a11e9bfe-5839-4a96-9157-c21d7d03bc40`
-- Cloudflare Worker version: `ea7314de-e651-46a3-82b3-2c06e724e4b8`
+- Source implementation commit: `fd8be3be647e0a4cdae8f79de89206f9a65172bb` (`Add read-only strategy capital cap cards`)
+- Cloudflare deployment ID: `5088dbe0-31f9-4892-a149-a74702bbad4e`
+- Cloudflare Worker version: `cb88271c-8712-42a8-88a9-de58c841d3ec`
 - Traffic: `100%`
 - Dashboard: GitHub Pages, calling only the Worker API
 - Dashboard capital-cap source: read-only `capitalCaps` in `GET /api/dashboard`, resolved server-side from runtime-compatible configuration with `$5,000`, `$3,700`, and `$2,000` fallbacks
 - Capital-cap failure semantics: missing runtime-compatible configuration overrides use the fallback; malformed, non-finite, negative, HTTP-failed, or otherwise unavailable API payloads display `Unavailable`. The UI never substitutes buying power, cash, equity, portfolio value, or positions.
+- Live capital-cap evidence: `/api/dashboard` returned `{ daytrading: 5000, swing: 3700, crypto: 2000 }` with `positionsAvailable: true`; Pages contained exactly three capital-cap cards.
 - Account: Alpaca paper trading
-- Validation of the deployed lease fix: `bunx tsc --noEmit` passed; 54 tests passed with 156 assertions; `git diff --check` passed; Wrangler dry-run passed; all four Cloudflare schedules and read-only Worker endpoints were verified after deployment.
+- Capital-cap release validation: `bunx tsc --noEmit` passed; 58 tests passed with 171 assertions; `git diff --check` passed; fresh Wrangler dry-run and inline dashboard-JavaScript syntax validation passed; all four Cloudflare schedules and read-only Worker endpoints were verified after deployment.
 
 ## Release verification
 

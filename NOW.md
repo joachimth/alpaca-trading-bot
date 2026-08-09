@@ -5,3 +5,4 @@
 - Validation: 54 tests/156 assertions, typecheck, diff-check, dry-run; read-only `/health`, `/api/runs`, `/api/trades`, `/api/positions` returned HTTP 200.
 - All four Cloudflare schedules were verified; no broker mutation was used.
 - Monday Aug 10, 15:40 Europe/Copenhagen read-only session verification is scheduled; Friday Aug 7 delivery gap remains separately unproven.
+- Capital-cap dashboard deployed from `fd8be3b`: Worker deployment `5088dbe0`, version `cb88271c`, 100% traffic; live caps 5000/3700/2000, Pages has 3 cards, 58 tests/171 assertions, no broker mutation.
