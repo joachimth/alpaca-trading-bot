@@ -2,14 +2,14 @@
 
 ## Current release
 
-- Runtime source commit: `bc451d61631f8b34f05aac00c8e95b10b96e5c9d`
-- Documentation follow-up commit: `304a7d3cd004bf4829133c5db1347e29b1ab4efb`
-- Cloudflare deployment ID: `a51dfa749d8f47d280a658342dc98e40`
-- Cloudflare Worker version: `a51dfa74-9d8f-47d2-80a6-58342dc98e40`
+- Runtime source commit: lease-starvation fix commit pending push
+- Documentation follow-up commit: pending
+- Cloudflare deployment ID: `a11e9bfe-5839-4a96-9157-c21d7d03bc40`
+- Cloudflare Worker version: `ea7314de-e651-46a3-82b3-2c06e724e4b8`
 - Traffic: `100%`
 - Dashboard: GitHub Pages, calling only the Worker API
 - Account: Alpaca paper trading
-- Validation of the deployed fee-aware patch: `bunx tsc --noEmit` passed; 53 tests passed with 151 assertions; `git diff --check` passed; Wrangler dry-run passed. Commit `bc451d61631f8b34f05aac00c8e95b10b96e5c9d` is pushed to `origin/main`; Worker deployment `a51dfa749d8f47d280a658342dc98e40` is active at 100% traffic; read-only smoke endpoints returned HTTP 200; the GitHub Pages workflow completed successfully.
+- Validation of the deployed lease fix: `bunx tsc --noEmit` passed; 54 tests passed with 156 assertions; `git diff --check` passed; Wrangler dry-run passed; all four Cloudflare schedules and read-only Worker endpoints were verified after deployment.
 
 ## Release verification
 
@@ -48,13 +48,15 @@ Alpaca supplies current symbol, quantity, side, prices, market value, and unreal
 - Daytrading: `*/5 13-21 * * 1-5` UTC, gated by Alpaca's market clock.
 - Swing: `0 22 * * 1-5` UTC.
 - Crypto: `7-59/30 * * * *` UTC, at approximately `:07` and `:37`, 24/7.
-- Maintenance/reconciliation: `*/10 * * * *` UTC, read-only broker/order reconciliation under the global lease.
+- Maintenance/reconciliation: `*/10 * * * *` UTC, read-only broker/order reconciliation under a separate `maintenance` lease. Daytrading, swing, and crypto use isolated leases; each lease expires after 10 minutes so a stalled broker call cannot block unrelated strategies indefinitely.
 
 ## Natural reconciliation verification
 
 The first natural post-release check completed on August 8, 2026 using only live GET endpoints. `/api/runs` recorded 23 `reconcile_cron` entries between `2026-08-08 06:40:53` and `2026-08-08 10:30:51` UTC. Sixteen runs completed with `MAINTENANCE_ONLY`; seven recorded `CYCLE_LEASE_HELD`. `/api/trades` showed 19 rows with all five lifecycle fields populated: `client_order_id`, `filled_qty`, `leaves_qty`, `broker_updated_at`, and `last_reconciled_at`; the observed reconciliation window was `2026-08-07 20:09:02` through `2026-08-08 10:20:06` UTC.
 
 The maintenance run details reported `trades_executed: 0` and `imported: 0`, and source inspection shows reconciliation calls only Alpaca order reads (`getRecentOrders` and `getOrder`) before persisting D1 state. No reconciliation-caused broker mutation was observed or indicated. A categorical broker before/after conclusion is not available because the Worker exposes no read-only `/api/orders` route and no same-window order snapshot pair exists.
+
+The August 9, 2026 audit found lease starvation: maintenance shared the strategy lease and repeated `CYCLE_LEASE_HELD` skips could block trading. The deployed fix uses separate `maintenance`, `daytrading`, `swing`, and `crypto` lease keys, a 10-minute default TTL, and a 12-second timeout for each Alpaca HTTP request. A maintenance run may still be skipped by another maintenance run, but it must not block a strategy lease.
 
 ## Deferred-risk monitoring
 

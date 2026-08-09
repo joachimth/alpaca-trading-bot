@@ -156,14 +156,25 @@ export class AlpacaClient {
 
   private async request(path: string, options: RequestInit = {}): Promise<Response> {
     const url = `${this.getBaseUrl()}${path}`;
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...this.getHeaders(),
-        ...options.headers,
-      },
-    });
-    return response;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort('alpaca_request_timeout'), 12_000);
+    const upstreamSignal = options.signal;
+    if (upstreamSignal) {
+      if (upstreamSignal.aborted) controller.abort(upstreamSignal.reason);
+      else upstreamSignal.addEventListener('abort', () => controller.abort(upstreamSignal.reason), { once: true });
+    }
+    try {
+      return await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          ...this.getHeaders(),
+          ...options.headers,
+        },
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   // ============================================================

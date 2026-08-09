@@ -46,6 +46,8 @@ export interface TradeRecord {
   broker_updated_at?: string | null;
 }
 
+export const CYCLE_LEASE_TTL_MS = 10 * 60 * 1000;
+
 export class Database {
   private db: D1Database;
   private schemaReady: Promise<void>;
@@ -261,7 +263,7 @@ export class Database {
     };
   }
 
-  async acquireCycleLease(owner: string, ttlMs = 30 * 60 * 1000, leaseKey = 'global'): Promise<boolean> {
+  async acquireCycleLease(owner: string, ttlMs = CYCLE_LEASE_TTL_MS, leaseKey = 'global'): Promise<boolean> {
     await this.ensureTradeSchema();
     const now = Date.now();
     const result = await this.db.prepare(`

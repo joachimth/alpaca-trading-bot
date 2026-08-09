@@ -52,17 +52,18 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
   const leaseStart = Date.now();
   const owner = `swing:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const leaseDb = new Database(env.DB);
-  if (!await leaseDb.acquireCycleLease(owner)) {
+  const leaseKey = 'swing';
+  if (!await leaseDb.acquireCycleLease(owner, undefined, leaseKey)) {
     const skips = new SkipReasonCollector();
-    skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another strategy cycle holds the global lease', { strategy: 'swing', trigger });
-    console.log(`Skipping ${trigger}: another strategy cycle holds the global lease`);
+    skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another swing cycle holds the swing lease', { strategy: 'swing', trigger });
+    console.log(`Skipping ${trigger}: another swing cycle holds the swing lease`);
     await leaseDb.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 0, error_details: serializeRunDetails([], skips), status: 'skipped' });
     return;
   }
   try {
     await runSwingCycleInner(env, trigger);
   } finally {
-    await leaseDb.releaseCycleLease(owner);
+    await leaseDb.releaseCycleLease(owner, leaseKey);
   }
 }
 

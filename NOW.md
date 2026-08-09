@@ -1,8 +1,7 @@
 # NOW
-## 2026-08-08
-- Fee-aware release deployed: Worker a51dfa74 at 100%, Pages success.
-- Natural reconciliation verified: 23 runs, 19 lifecycle-populated trades, no mutation observed or indicated.
-- Weekly deferred-risk review 56199d0b is active Mondays at 10:00 Europe/Copenhagen.
-- Validation green: 53 tests/151 assertions, typecheck, diff-check, dry-run; five read-only endpoints HTTP 200.
-- Historical realized P&L remains model/gross-style; unknown fees remain unattributed.
-- No manual trading/order action was used; strict broker before/after proof remains unavailable.
+## 2026-08-09
+- Lease-starvation fix deployed: Worker version `ea7314de-e651-46a3-82b3-2c06e724e4b8`, deployment `a11e9bfe-5839-4a96-9157-c21d7d03bc40`, 100% traffic.
+- Root cause: maintenance shared the global lease; fix isolates maintenance/daytrading/swing/crypto leases, uses 10-minute TTL, and 12-second Alpaca request timeout.
+- Validation: 54 tests/156 assertions, typecheck, diff-check, dry-run; read-only `/health`, `/api/runs`, `/api/trades`, `/api/positions` returned HTTP 200.
+- All four Cloudflare schedules were verified; no broker mutation was used.
+- Monday Aug 10, 15:40 Europe/Copenhagen read-only session verification is scheduled; Friday Aug 7 delivery gap remains separately unproven.

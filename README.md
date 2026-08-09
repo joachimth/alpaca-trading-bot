@@ -7,9 +7,9 @@ Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persis
 - **Repository:** `joachimth/alpaca-trading-bot`
 - **Worker:** `alpaca-trading-bot.joachim-763.workers.dev`
 - **Dashboard:** `joachimth.github.io/alpaca-trading-bot/`
-- **Current implementation commit:** `86def4f` (`clean up TypeScript errors`)
-- **Active Worker version:** Cloudflare version `0f05e645-b33c-4335-92d9-68b8237eb62a`, deployed at 100% traffic on August 7, 2026
-- **Current deployment:** Cloudflare deployment `da419696-2fb6-498c-86f4-d659f4bac8f3`
+- **Current implementation commit:** lease-starvation fix commit pending push
+- **Active Worker version:** Cloudflare version `ea7314de-e651-46a3-82b3-2c06e724e4b8`, deployed at 100% traffic on August 9, 2026
+- **Current deployment:** Cloudflare deployment `a11e9bfe-5839-4a96-9157-c21d7d03bc40`
 - **Account mode:** Alpaca paper trading
 
 The dashboard is a static GitHub Pages frontend. It calls the Cloudflare Worker API only. It never calls Alpaca directly and never contains Alpaca credentials.
@@ -49,14 +49,14 @@ A D1-only row is not an open current position. The API projection emits only sym
 
 If the Worker cannot fetch Alpaca positions, it does **not** fall back to D1 rows. The dashboard receives an unavailable state, and `/api/positions` returns HTTP 503 with an error payload.
 
-The current deployed release adds broker-authoritative fee-aware P&L presentation, conservative CFEE attribution, quantity-aware transaction-cost estimates, discretionary exit gates, swing cost logging with an explicit calibrated-edge switch, and scheduled read-only order reconciliation. It does not change the intended trading cadence or add deployment-time trading actions. Historical realized P&L remains model/gross-style until fill-lot matching is implemented. Source commit: `bc451d61631f8b34f05aac00c8e95b10b96e5c9d`; active Worker version: `a51dfa74-9d8f-47d2-80a6-58342dc98e40` at 100% traffic.
+The current deployed release adds broker-authoritative fee-aware P&L presentation, conservative CFEE attribution, quantity-aware transaction-cost estimates, discretionary exit gates, swing cost logging with an explicit calibrated-edge switch, and scheduled read-only order reconciliation. It does not change the intended trading cadence or add deployment-time trading actions. Historical realized P&L remains model/gross-style until fill-lot matching is implemented. Source commit: lease-starvation fix commit pending push; active Worker version: `ea7314de-e651-46a3-82b3-2c06e724e4b8` at 100% traffic.
 
 ## Trading strategies and schedules
 
 - **Daytrading:** every 5 minutes during the configured UTC window, `*/5 13-21 * * 1-5`; Alpaca's market clock remains authoritative.
 - **Swing:** once daily after market close, `0 22 * * 1-5`.
 - **Crypto:** every 30 minutes at approximately `:07` and `:37` UTC, `7-59/30 * * * *`; crypto is intentionally kept at this cadence pending telemetry.
-- **Maintenance/reconciliation:** every 10 minutes, `*/10 * * * *`; read-only broker/order reconciliation under the global cycle lease.
+- **Maintenance/reconciliation:** every 10 minutes, `*/10 * * * *`; read-only broker/order reconciliation under a separate maintenance lease, so it cannot block daytrading, swing, or crypto. Strategy leases are isolated and expire after 10 minutes for bounded recovery.
 
 The strategies use explicit asset and strategy isolation. A strategy may use D1 ownership and risk metadata, but current broker quantity and valuation must come from Alpaca.
 
@@ -72,7 +72,7 @@ The strategies use explicit asset and strategy isolation. A strategy may use D1 
 - Universe scanner for liquid US equities
 - D1 logging for decisions, trades, runs, snapshots, and position metadata
 - GitHub Pages dashboard with equity history, strategy history, broker-backed positions, decisions, trades, and run history
-- Global D1 cycle lease, scheduled read-only broker/order reconciliation, and pre-cycle status refresh
+- Isolated D1 leases per strategy plus a separate maintenance lease, scheduled read-only broker/order reconciliation, bounded broker requests, and pre-cycle status refresh
 
 ## Setup and development
 

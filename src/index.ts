@@ -100,10 +100,11 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
   const started = Date.now();
   const owner = `maintenance:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const db = new Database(env.DB);
+  const leaseKey = 'maintenance';
   const skips = new SkipReasonCollector();
   const errors: string[] = [];
-  if (!await db.acquireCycleLease(owner)) {
-    skips.add('CYCLE_LEASE_HELD', 'maintenance', 'Maintenance skipped because another cycle holds the global lease', { trigger });
+  if (!await db.acquireCycleLease(owner, undefined, leaseKey)) {
+    skips.add('CYCLE_LEASE_HELD', 'maintenance', 'Maintenance skipped because another maintenance run holds the maintenance lease', { trigger });
     console.log(JSON.stringify({ event: 'maintenance_skipped', trigger, reason: 'cycle_lease_held' }));
     await db.logRun({
       trigger,
@@ -153,29 +154,30 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
       error_details: serializeRunDetails(errors, skips),
       status: errors.length > 0 ? 'error' : 'skipped',
     });
-    await db.releaseCycleLease(owner);
+    await db.releaseCycleLease(owner, leaseKey);
   }
 }
 
 // ============================================================
 // Main Trading Cycle
-// ============================================================
+
 
 async function runTradingCycleWithLease(env: Env, trigger: string): Promise<void> {
   const leaseStart = Date.now();
   const owner = `daytrading:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const db = new Database(env.DB);
-  if (!await db.acquireCycleLease(owner)) {
+  const leaseKey = 'daytrading';
+  if (!await db.acquireCycleLease(owner, undefined, leaseKey)) {
     const skips = new SkipReasonCollector();
-    skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another strategy cycle holds the global lease', { strategy: 'daytrading', trigger });
-    console.log(`Skipping ${trigger}: another strategy cycle holds the global lease`);
+    skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another daytrading cycle holds the daytrading lease', { strategy: 'daytrading', trigger });
+    console.log(`Skipping ${trigger}: another daytrading cycle holds the daytrading lease`);
     await db.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 0, error_details: serializeRunDetails([], skips), status: 'skipped' });
     return;
   }
   try {
     await runTradingCycle(env, trigger);
   } finally {
-    await db.releaseCycleLease(owner);
+    await db.releaseCycleLease(owner, leaseKey);
   }
 }
 

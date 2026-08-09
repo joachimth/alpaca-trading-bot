@@ -160,23 +160,27 @@ Record these values in the release note or conversation:
 
 ## Current verified release
 
-As of August 8, 2026:
+As of August 9, 2026:
 
-- Git commit: `bc451d61631f8b34f05aac00c8e95b10b96e5c9d`
-- Cloudflare deployment ID: `a51dfa749d8f47d280a658342dc98e40`
-- Cloudflare version ID: `a51dfa74-9d8f-47d2-80a6-58342dc98e40`
+- Git commit: lease-starvation fix commit pending push
+- Cloudflare deployment ID: `a11e9bfe-5839-4a96-9157-c21d7d03bc40`
+- Cloudflare version ID: `ea7314de-e651-46a3-82b3-2c06e724e4b8`
 - Traffic: 100%
 - Schedules: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`
-- Validation: TypeScript passed; 53 tests passed with 151 assertions; diff-check passed; Wrangler dry-run passed
-- Read-only HTTP: `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, and `/api/positions` returned HTTP 200
-- GitHub Pages workflow run `31249077806` completed successfully for the same commit
+- Validation: TypeScript passed; 54 tests passed with 156 assertions; diff-check passed; Wrangler dry-run passed
+- Read-only HTTP: `/health`, `/api/runs`, `/api/trades`, and `/api/positions` returned HTTP 200 after deployment
 - No manual trading cycle, order, cancel, close, retry, or reconciliation trigger was run during deployment
+- Remaining verification: a read-only check is scheduled for Monday, August 10, 2026 at 15:40 Europe/Copenhagen, after the first market-open daytrading window
 
 ## Natural reconciliation aftercheck
 
 Read-only live verification on August 8, 2026 confirmed that the first natural maintenance schedule had run. `/api/runs` returned 23 `reconcile_cron` entries from `2026-08-08 06:40:53` through `2026-08-08 10:30:51` UTC, including 16 `MAINTENANCE_ONLY` completions and 7 `CYCLE_LEASE_HELD` skips. `/api/trades` returned 19 rows with populated `client_order_id`, `filled_qty`, `leaves_qty`, `broker_updated_at`, and `last_reconciled_at` fields, with reconciliation timestamps from `2026-08-07 20:09:02` through `2026-08-08 10:20:06` UTC.
 
 No mutating endpoint was called. The run details reported `trades_executed: 0` and `imported: 0`, and the reconciler implementation is limited to broker order GETs plus D1 updates. This supports “no broker mutation observed or indicated.” It does not provide a strict broker order before/after proof because `/api/orders` is unsupported and no same-window order snapshot pair was available.
+
+## Lease starvation incident and fix
+
+The August 9, 2026 live audit found that read-only `reconcile_cron` shared the strategy lease and could hold it while bounded broker imports were still in flight. That produced repeated `CYCLE_LEASE_HELD` skips and could starve trading. The fix isolates `maintenance`, `daytrading`, `swing`, and `crypto` lease keys, bounds the default lease TTL to 10 minutes, and applies a 12-second timeout to each Alpaca HTTP request. The fix is read-only with respect to broker trading actions; deployment verification must confirm independent lease behavior through run logs, not by triggering a cycle or submitting an order.
 
 ## Fee-aware release notes
 

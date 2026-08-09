@@ -70,17 +70,18 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
   const leaseStart = Date.now();
   const owner = `crypto:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const leaseDb = new Database(env.DB);
-  if (!await leaseDb.acquireCycleLease(owner)) {
+  const leaseKey = 'crypto';
+  if (!await leaseDb.acquireCycleLease(owner, undefined, leaseKey)) {
     const skips = new SkipReasonCollector();
-    skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another strategy cycle holds the global lease', { strategy: 'crypto', trigger });
-    console.log(`Skipping ${trigger}: another strategy cycle holds the global lease`);
+    skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another crypto cycle holds the crypto lease', { strategy: 'crypto', trigger });
+    console.log(`Skipping ${trigger}: another crypto cycle holds the crypto lease`);
     await leaseDb.logRun({ trigger, market_open: 1, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 0, error_details: serializeRunDetails([], skips), status: 'skipped' });
     return;
   }
   try {
     await runCryptoCycleInner(env, trigger);
   } finally {
-    await leaseDb.releaseCycleLease(owner);
+    await leaseDb.releaseCycleLease(owner, leaseKey);
   }
 }
 

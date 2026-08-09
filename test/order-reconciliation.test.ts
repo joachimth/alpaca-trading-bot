@@ -50,6 +50,21 @@ describe('scheduled order reconciliation', () => {
     expect((await rows(sqlite)).map(row => row.status)).toEqual(statuses);
   });
 
+  test('strategy leases are isolated and expired leases can be recovered', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+
+    expect(await db.acquireCycleLease('day-owner', 0, 'daytrading')).toBe(true);
+    expect(await db.acquireCycleLease('maintenance-owner', undefined, 'maintenance')).toBe(true);
+    expect(sqlite.query('SELECT lease_key FROM cycle_leases ORDER BY lease_key').all()).toEqual([
+      { lease_key: 'daytrading' },
+      { lease_key: 'maintenance' },
+    ]);
+
+    expect(await db.acquireCycleLease('replacement-owner', 0, 'daytrading')).toBe(true);
+    expect(sqlite.query('SELECT owner FROM cycle_leases WHERE lease_key = \'daytrading\'').get()).toEqual({ owner: 'replacement-owner' });
+  });
+
   test('shared scheduled reconciliation only reads the broker and performs no order side effects', async () => {
     const sqlite = createTestDatabase();
     const db = new Database(createFakeD1(sqlite));
