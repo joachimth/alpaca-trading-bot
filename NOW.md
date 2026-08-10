@@ -1,9 +1,10 @@
 # NOW
-## 2026-08-10 02:16
-- Crypto hardening and dashboard CPU hotfix are deployed from pushed `4261009` (includes `8280696`).
-- Live Cloudflare deployment `24b7df43` serves Worker `d304d14c` at 100% traffic.
-- Remote D1 reservations table/index and write-path lifecycle columns are verified read-only.
-- Live `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, `/api/positions`, and `/api/config` all return 200.
-- Dashboard caps are 5000/3700/2000; performance/category histories are bounded to 90; schedules unchanged.
-- Validation: 85 tests, 257 assertions, typecheck, diff-check, and dry-run passed.
-- No broker mutation or trading trigger was used; first natural-session observation remains pending.
+## 2026-08-10 08:02 UTC
+- Weekly review completed read-only; no trading, reconciliation trigger, order, close, cancel, retry, or broker mutation was used.
+- Worker health and all checked GET endpoints returned HTTP 200; account was ACTIVE and Pages returned HTTP 200.
+- 85 Bun tests passed with 257 assertions; TypeScript passed.
+- Latest `reconcile_cron` runs at 07:10, 07:30, and 07:50 UTC were safely skipped with `CYCLE_LEASE_HELD`; recent completed reconciliation is not confirmed.
+- The Aug 8 natural reconciliation evidence predates the Aug 10 release and is now labeled prior-release evidence.
+- Confirmed lifecycle defect: Aug 6 live evidence showed repeated partial-filled exits and quantity mismatches; daytrading/swing lack pending-exit guards and create full D1 positions before BUY fills are confirmed.
+- Retry protection is incomplete because daytrading/swing client IDs use `Date.now()`; deterministic attribution, fill/FIFO accounting, and persisted swing peak state also remain open.
+- Captured deployment artifacts conflict with the last documented deployment identity; fresh Cloudflare revalidation was unavailable because `CLOUDFLARE_API_TOKEN` was not present.

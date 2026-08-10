@@ -10,8 +10,8 @@ The crypto-hardening release is deployed to the Alpaca paper-trading Worker. No 
 - **Worker:** `alpaca-trading-bot.joachim-763.workers.dev`
 - **Dashboard:** `joachimth.github.io/alpaca-trading-bot/`
 - **Release source:** commit `4261009` (`Bound dashboard reads and remove GET schema mutations`), including crypto hardening `8280696`
-- **Active Worker version:** `d304d14c-c6ea-45ca-97ce-47fd6d350c33`, deployed at 100% traffic on August 10, 2026
-- **Current deployment:** `24b7df43-a710-479a-96f8-46b879fc9171`
+- **Last documented Worker version:** `d304d14c-c6ea-45ca-97ce-47fd6d350c33`, recorded at 100% traffic on August 10, 2026
+- **Last documented deployment:** `24b7df43-a710-479a-96f8-46b879fc9171`
 - **Account mode:** Alpaca paper trading
 - **Source mapping note:** Cloudflare does not embed the Git SHA in the deployment artifact; the bundle-to-commit mapping is recorded by the release process.
 
@@ -23,7 +23,7 @@ The dashboard is a static GitHub Pages frontend. It calls the Cloudflare Worker 
 
 Validation for the deployed release: 85 Bun tests passed with 257 assertions, TypeScript typecheck passed, `git diff --check` passed, and the Wrangler dry-run passed. The explicit reservations migration was applied and verified in remote D1; the direct Cloudflare upload was used because Wrangler deploy can be false-positive in this proxy environment.
 
-Live verification: deployment `24b7df43-a710-479a-96f8-46b879fc9171` serves version `d304d14c-c6ea-45ca-97ce-47fd6d350c33` at 100%; `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, `/api/positions`, and `/api/config` returned HTTP 200; dashboard history is bounded to 90 performance rows and 90 rows per category; all four schedules are unchanged.
+Last documented live verification recorded deployment `24b7df43-a710-479a-96f8-46b879fc9171` serving version `d304d14c-c6ea-45ca-97ce-47fd6d350c33` at 100%; `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, `/api/positions`, and `/api/config` returned HTTP 200; dashboard history is bounded to 90 performance rows and 90 rows per category; all four schedules are unchanged. A later captured Cloudflare artifact reports deployment `5088dbe0-31f9-4892-a149-a74702bbad4e` and version `cb88271c-8712-42a8-88a9-de58c841d3ec` at 100%, but fresh revalidation was unavailable on August 10 because `CLOUDFLARE_API_TOKEN` was absent.
 
 ### Capital-cap release evidence
 
@@ -64,7 +64,7 @@ A D1-only row is not an open current position. The API projection emits only sym
 
 If the Worker cannot fetch Alpaca positions, it does **not** fall back to D1 rows. The dashboard receives an unavailable state, and `/api/positions` returns HTTP 503 with an error payload.
 
-- The previously deployed release added read-only Capital cap cards for Daytrading, Swing, and Crypto. This worktree additionally contains an undeployed crypto correctness patch: protective exits run before discretionary halts, entries are limited to one per cycle by default, discretionary exits have a separate two-exit budget, pending entries reserve capital and position capacity, recent D1 orders provide persistent entry-rate protection, fee telemetry is scoped to the curated crypto universe and a seven-day window, reopened positions receive a fresh `opened_at`, and schema version correction is explicit. Historical realized P&L remains model/gross-style until fill-lot matching is implemented.
+- The August 10 hardening release includes the crypto correctness patch: protective exits run before discretionary halts, entries are limited to one per cycle by default, discretionary exits have a separate two-exit budget, pending entries reserve capital and position capacity, recent D1 orders provide persistent entry-rate protection, fee telemetry is scoped to the curated crypto universe and a seven-day window, reopened positions receive a fresh `opened_at`, and schema version correction is explicit. Historical realized P&L remains model/gross-style until fill-lot matching is implemented.
 
 ## Trading strategies and schedules
 
@@ -250,7 +250,8 @@ Documentation is part of the implementation, not a follow-up task. Every future 
 
 ## Known risks and follow-up work
 
-- Partial-fill retry/cancel handling needs a fuller lifecycle model and more automated coverage.
+- Partial-fill/retry/cancel handling has a confirmed lifecycle defect: August 6 live evidence showed repeated partial-filled exits and subsequent quantity mismatches. Daytrading and swing have no pending-exit guard, and a failed/partial close can be submitted again on a later cycle.
+- Daytrading and swing BUY paths also create a full D1 position immediately after order submission using requested quantity/decision price instead of broker fill quantity. A partial or pending BUY can therefore inflate internal quantity before reconciliation; August 6 live evidence showed this pattern alongside partial exits. Client IDs using `Date.now()` are not deterministic across retries, so duplicate-submit protection is incomplete.
 - Strategy `grossTotalPl` and `netTotalPl` are model values: closed P&L still comes from broker-position/unrealized snapshots, not matched fills. The fee ledger currently imports a bounded three-day overlap, so net figures mean gross model P&L less fees currently present in the ledger.
 - Regulatory/account-level fees are intentionally not assigned to daytrading or swing; unmatched broker positions are shown as `Unattributed` rather than hidden from the overview.
 - A true swing trailing stop still needs persisted peak-price state; the current swing protective path uses the hard stop and explicit data-integrity protection.
@@ -261,11 +262,11 @@ Documentation is part of the implementation, not a follow-up task. Every future 
 - Automated coverage is improving but does not yet provide full live-broker integration coverage for every partial-fill and retry edge case.
 - D1-only historical rows may remain open in storage until a separate, complete reconciliation policy is implemented. GET handlers do not close or synthesize positions.
 
-## Natural reconciliation verification
+## Prior-release natural reconciliation evidence
 
-The first natural post-release check completed on August 8, 2026 using only GET requests to the live Worker. The `/api/runs` response recorded 23 `reconcile_cron` entries from `2026-08-08 06:40:53` through `2026-08-08 10:30:51` UTC; 16 completed with the `MAINTENANCE_ONLY` marker and 7 were explicitly skipped because the global cycle lease was held. The live `/api/trades` response contained 19 rows with `client_order_id`, `filled_qty`, `leaves_qty`, `broker_updated_at`, and `last_reconciled_at`; reconciliation timestamps ranged from `2026-08-07 20:09:02` through `2026-08-08 10:20:06` UTC. Maintenance logs reported `trades_executed: 0`, `imported: 0`, and no order submission, cancel, replace, retry, or close action. Source inspection confirms the maintenance reconciler only reads recent/individual broker orders and writes D1 lifecycle state.
+The prior-release natural reconciliation check completed on August 8, 2026 using only GET requests to the live Worker. The `/api/runs` response recorded 23 `reconcile_cron` entries from `2026-08-08 06:40:53` through `2026-08-08 10:30:51` UTC; 16 completed with the `MAINTENANCE_ONLY` marker and 7 were explicitly skipped because the global cycle lease was held. The live `/api/trades` response contained 19 rows with `client_order_id`, `filled_qty`, `leaves_qty`, `broker_updated_at`, and `last_reconciled_at`; reconciliation timestamps ranged from `2026-08-07 20:09:02` through `2026-08-08 10:20:06` UTC. Maintenance logs reported `trades_executed: 0`, `imported: 0`, and no order submission, cancel, replace, retry, or close action. Source inspection confirms the maintenance reconciler only reads recent/individual broker orders and writes D1 lifecycle state.
 
-This confirms scheduled execution and lifecycle population without broker-side mutation evidence. A strict broker order before/after comparison remains unavailable because the supported Worker API has no read-only `/api/orders` route and no same-window order snapshot pair was captured; the result is therefore “no mutation observed or indicated,” not a categorical broker audit assertion.
+This confirms prior-release scheduled execution and lifecycle population without broker-side mutation evidence. It does not establish post-August 10 behavior. The latest post-release `reconcile_cron` records observed on August 10 at 07:10, 07:30, and 07:50 UTC were skipped with `CYCLE_LEASE_HELD`, so recent completed reconciliation is not confirmed. A strict broker order before/after comparison remains unavailable because the supported Worker API has no read-only `/api/orders` route and no same-window order snapshot pair was captured; the result is therefore “no mutation observed or indicated,” not a categorical broker audit assertion.
 
 A verified weekly read-only follow-up job, `Alpaca deferred-risk review` (schedule ID `56199d0b-dd75-4f3b-acb6-14c58c4e055b`), runs Mondays at 10:00 Europe/Copenhagen and reviews the remaining accounting, lifecycle, attribution, swing-state, and live-integration risks.
 

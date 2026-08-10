@@ -6,15 +6,16 @@ The deployed dashboard hotfix makes all GET/read-only `Database` instances skip 
 
 Dashboard fan-out is reduced by removing duplicate per-strategy history queries and bounding performance and category history to 90 rows per series. Current positions remain Alpaca-authoritative; broker position failure returns an unavailable state and never falls back to D1 positions.
 
-Release evidence: commit `4261009` is pushed to `origin/main`; Cloudflare deployment `24b7df43-a710-479a-96f8-46b879fc9171` serves Worker version `d304d14c-c6ea-45ca-97ce-47fd6d350c33` at 100%. Remote D1 contains `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry`; 85 tests/257 assertions, typecheck, diff-check, and dry-run passed; all read-only smoke endpoints returned 200; no broker mutation was used.
+Release evidence: commit `4261009` is pushed to `origin/main`; the last documented Cloudflare check recorded deployment `24b7df43-a710-479a-96f8-46b879fc9171` serving Worker version `d304d14c-c6ea-45ca-97ce-47fd6d350c33` at 100%. A later captured artifact reports deployment `5088dbe0-31f9-4892-a149-a74702bbad4e` and version `cb88271c-8712-42a8-88a9-de58c841d3ec` at 100%; current identity is not revalidated because `CLOUDFLARE_API_TOKEN` was unavailable on August 10. Remote D1 contains `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry`; 85 tests/257 assertions, typecheck, diff-check, and dry-run passed; all read-only smoke endpoints returned 200; no broker mutation was used.
 
 ## Current release
 
 The crypto correctness and dashboard read-only hardening are deployed as of August 10, 2026. No broker order, cancellation, close, or manual trading trigger was used during release validation.
 
 - Release source commit: `4261009` (`Bound dashboard reads and remove GET schema mutations`), including crypto hardening `8280696`
-- Cloudflare deployment ID: `24b7df43-a710-479a-96f8-46b879fc9171`
-- Cloudflare Worker version: `d304d14c-c6ea-45ca-97ce-47fd6d350c33`
+- Last documented Cloudflare deployment ID: `24b7df43-a710-479a-96f8-46b879fc9171`
+- Last documented Cloudflare Worker version: `d304d14c-c6ea-45ca-97ce-47fd6d350c33`
+- Conflicting later captured artifact: deployment `5088dbe0-31f9-4892-a149-a74702bbad4e`, version `cb88271c-8712-42a8-88a9-de58c841d3ec`, 100%; fresh revalidation pending credential availability
 - Traffic: `100%`
 - Dashboard: GitHub Pages, calling only the Worker API
 - Dashboard capital-cap source: read-only `capitalCaps` in `GET /api/dashboard`, resolved server-side from runtime-compatible configuration with `$5,000`, `$3,700`, and `$2,000` fallbacks
@@ -25,7 +26,7 @@ The crypto correctness and dashboard read-only hardening are deployed as of Augu
 
 ## Release verification
 
-Before any deployment that can submit crypto BUY orders, an authorized operator must apply the idempotent reservation migration and complete the read-only verification. These commands are release procedures; they were not run against remote D1 during this work:
+Before any deployment that can submit crypto BUY orders, an authorized operator must apply the idempotent reservation migration and complete the read-only verification. The August 10 hardening release recorded that the migration was applied and verified in remote D1; these commands remain the reproducible release gate for future deployments:
 
 ```bash
 bun run db:migrate:crypto-reservations:remote
@@ -71,9 +72,9 @@ Alpaca supplies current symbol, quantity, side, prices, market value, and unreal
 - Crypto: `7-59/30 * * * *` UTC, at approximately `:07` and `:37`, 24/7.
 - Maintenance/reconciliation: `*/10 * * * *` UTC, read-only broker/order reconciliation under a separate `maintenance` lease. Daytrading, swing, and crypto use isolated leases; each lease expires after 10 minutes so a stalled broker call cannot block unrelated strategies indefinitely.
 
-## Natural reconciliation verification
+## Prior-release natural reconciliation evidence
 
-The first natural post-release check completed on August 8, 2026 using only live GET endpoints. `/api/runs` recorded 23 `reconcile_cron` entries between `2026-08-08 06:40:53` and `2026-08-08 10:30:51` UTC. Sixteen runs completed with `MAINTENANCE_ONLY`; seven recorded `CYCLE_LEASE_HELD`. `/api/trades` showed 19 rows with all five lifecycle fields populated: `client_order_id`, `filled_qty`, `leaves_qty`, `broker_updated_at`, and `last_reconciled_at`; the observed reconciliation window was `2026-08-07 20:09:02` through `2026-08-08 10:20:06` UTC.
+The prior-release natural reconciliation check completed on August 8, 2026 using only live GET endpoints. `/api/runs` recorded 23 `reconcile_cron` entries between `2026-08-08 06:40:53` and `2026-08-08 10:30:51` UTC. Sixteen runs completed with `MAINTENANCE_ONLY`; seven recorded `CYCLE_LEASE_HELD`. `/api/trades` showed 19 rows with all five lifecycle fields populated: `client_order_id`, `filled_qty`, `leaves_qty`, `broker_updated_at`, and `last_reconciled_at`; the observed reconciliation window was `2026-08-07 20:09:02` through `2026-08-08 10:20:06` UTC.
 
 The maintenance run details reported `trades_executed: 0` and `imported: 0`, and source inspection shows reconciliation calls only Alpaca order reads (`getRecentOrders` and `getOrder`) before persisting D1 state. No reconciliation-caused broker mutation was observed or indicated. A categorical broker before/after conclusion is not available because the Worker exposes no read-only `/api/orders` route and no same-window order snapshot pair exists.
 
@@ -91,7 +92,8 @@ The active weekly read-only review job `Alpaca deferred-risk review` (schedule I
 - Wrangler dry-run remains validation-only and was not used as a deployment.
 
 
-- Partial-fill retry/cancel lifecycle is incomplete; scheduled reconciliation is intentionally read-only and does not replace that future design.
+- Partial-fill/retry/cancel lifecycle has a confirmed defect: August 6 live evidence showed repeated partial-filled exits and quantity mismatches. Daytrading and swing lack a pending-exit guard, and partial/failed closes can be submitted again on a later cycle.
+- Daytrading and swing BUY paths create full D1 positions from requested quantity/decision price before broker fills are confirmed. Partial or pending BUYs can inflate internal quantity; deterministic client IDs are also missing because daytrading/swing IDs use `Date.now()`, so retry duplicate protection is incomplete. Scheduled reconciliation remains read-only and does not repair this lifecycle.
 - At the last verified D1 query on August 8, 2026, 365 trades existed and 84 had `strategy IS NULL`; those rows remain excluded from strategy-attributed history unless deterministic attribution is available.
 - Swing batch-bar and degraded-data safeguards have been verified in production; future changes should preserve the bounded request and completed-session checks.
 - Daytrading/crypto position sync can preserve an existing strategy-less row.
@@ -100,8 +102,9 @@ The active weekly read-only review job `Alpaca deferred-risk review` (schedule I
 
 ## Next steps
 
-1. Verify the first `reconcile_cron` run, lifecycle-field population, run-log evidence, and absence of broker mutations.
+1. Verify a completed post-August 10 `reconcile_cron` run, lifecycle-field population, run-log evidence, and absence of broker mutations without triggering reconciliation.
 2. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
 3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
 4. Add targeted live-broker integration checks without using trading actions as smoke tests.
-6. Finish swing trigger attribution and decision-row accounting consistency work.
+5. Finish swing trigger attribution and decision-row accounting consistency work.
+6. Revalidate the current Cloudflare deployment identity when read-only credentials are available; captured artifacts currently conflict with the documented deployment.

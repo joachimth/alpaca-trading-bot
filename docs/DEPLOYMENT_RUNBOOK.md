@@ -192,13 +192,15 @@ Record these values in the release note or conversation:
 - Read-only HTTP status results.
 - Confirmation that no manual cycle, order, cancel, close, or retry was run.
 
-## Current verified release
+## Last documented release evidence
 
 As of August 10, 2026:
 
-- Git release commit: `4261009` (`Bound dashboard reads and remove GET schema mutations`), including crypto hardening commit `8280696`
-- Cloudflare deployment ID: `24b7df43-a710-479a-96f8-46b879fc9171`
-- Cloudflare Worker version ID: `d304d14c-c6ea-45ca-97ce-47fd6d350c33`
+- Runtime source commit: `4261009` (`Bound dashboard reads and remove GET schema mutations`), including crypto hardening commit `8280696`
+- Documentation/release-receipt commit: `7cf03ed` (`Record crypto hardening live release`)
+- Last documented Cloudflare deployment ID: `24b7df43-a710-479a-96f8-46b879fc9171`
+- Last documented Cloudflare Worker version ID: `d304d14c-c6ea-45ca-97ce-47fd6d350c33`
+- Conflicting later captured artifact: deployment `5088dbe0-31f9-4892-a149-a74702bbad4e`, version `cb88271c-8712-42a8-88a9-de58c841d3ec`, 100%; fresh revalidation was unavailable on August 10 because `CLOUDFLARE_API_TOKEN` was absent
 - Traffic: 100%
 - Schedules: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`
 - Remote D1: `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry` verified; live `positions.strategy` and lifecycle trade columns verified
@@ -208,15 +210,19 @@ As of August 10, 2026:
 - No manual trading cycle, order, cancel, close, retry, or reconciliation trigger was run during deployment or validation
 - Source mapping note: Cloudflare deployment artifacts do not embed the Git SHA; the release bundle was built from the pushed repository state and uploaded directly.
 
-## Natural reconciliation aftercheck
+## Prior-release natural reconciliation evidence
 
-Read-only live verification on August 8, 2026 confirmed that the first natural maintenance schedule had run. `/api/runs` returned 23 `reconcile_cron` entries from `2026-08-08 06:40:53` through `2026-08-08 10:30:51` UTC, including 16 `MAINTENANCE_ONLY` completions and 7 `CYCLE_LEASE_HELD` skips. `/api/trades` returned 19 rows with populated `client_order_id`, `filled_qty`, `leaves_qty`, `broker_updated_at`, and `last_reconciled_at` fields, with reconciliation timestamps from `2026-08-07 20:09:02` through `2026-08-08 10:20:06` UTC.
+Read-only live verification on August 8, 2026 confirmed that the prior-release natural maintenance schedule had run. `/api/runs` returned 23 `reconcile_cron` entries from `2026-08-08 06:40:53` through `2026-08-08 10:30:51` UTC, including 16 `MAINTENANCE_ONLY` completions and 7 `CYCLE_LEASE_HELD` skips. `/api/trades` returned 19 rows with populated `client_order_id`, `filled_qty`, `leaves_qty`, `broker_updated_at`, and `last_reconciled_at` fields, with reconciliation timestamps from `2026-08-07 20:09:02` through `2026-08-08 10:20:06` UTC.
 
-No mutating endpoint was called. The run details reported `trades_executed: 0` and `imported: 0`, and the reconciler implementation is limited to broker order GETs plus D1 updates. This supports “no broker mutation observed or indicated.” It does not provide a strict broker order before/after proof because `/api/orders` is unsupported and no same-window order snapshot pair was available.
+No mutating endpoint was called. The run details reported `trades_executed: 0` and `imported: 0`, and the reconciler implementation is limited to broker order GETs plus D1 updates. This supports “no broker mutation observed or indicated” for that prior-release window. It does not provide a strict broker order before/after proof because `/api/orders` is unsupported and no same-window order snapshot pair was available. The latest post-August 10 `reconcile_cron` records observed at 07:10, 07:30, and 07:50 UTC were `CYCLE_LEASE_HELD` skips, so recent completed reconciliation remains unconfirmed.
 
 ## Lease starvation incident and fix
 
 The August 9, 2026 live audit found that read-only `reconcile_cron` shared the strategy lease and could hold it while bounded broker imports were still in flight. That produced repeated `CYCLE_LEASE_HELD` skips and could starve trading. The fix isolates `maintenance`, `daytrading`, `swing`, and `crypto` lease keys, bounds the default lease TTL to 10 minutes, and applies a 12-second timeout to each Alpaca HTTP request. The fix is read-only with respect to broker trading actions; deployment verification must confirm independent lease behavior through run logs, not by triggering a cycle or submitting an order.
+
+## Confirmed lifecycle evidence
+
+Read-only source and historical live evidence confirm a higher-severity lifecycle gap than reconciliation alone: the August 6, 2026 live audit recorded repeated partial-filled exits and subsequent quantity mismatches for daytrading/swing symbols. Those strategy paths have no pending-exit guard, so a partial or failed close can be submitted again on a later cycle. Their BUY paths also create a full D1 position immediately after order submission from requested quantity and decision price instead of confirmed broker fill quantity; a partial or pending BUY can therefore inflate internal quantity before reconciliation. Daytrading and swing client IDs use `Date.now()` and are not deterministic across retries, while swing order/decision linkage is incomplete. This remains an open production risk until pending-order state, fill-aware position creation, deterministic correlation, and retry/cancel/replace behavior are implemented and tested.
 
 ## Fee-aware release notes
 
@@ -230,8 +236,9 @@ Before deployment, rerun the full local gates, review the direct diff, commit/pu
 
 The active weekly read-only deferred-risk review is `Alpaca deferred-risk review` (schedule ID `56199d0b-dd75-4f3b-acb6-14c58c4e055b`), every Monday at 10:00 Europe/Copenhagen. It is verified active and must not trigger broker mutations.
 
-1. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
+1. Verify a completed post-August 10 `reconcile_cron` run, lifecycle-field population, run-log evidence, and absence of broker mutations without triggering reconciliation.
+2. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
 3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
 4. Add targeted live-broker integration checks without using trading actions as smoke tests.
-5. After deploying the capital-cap dashboard change, capture read-only `/api/dashboard` and Pages evidence for all three cap cards, including an unavailable-path check for malformed/missing/HTTP-failed cap data.
-6. Finish swing trigger attribution and decision-row accounting consistency work.
+5. Finish swing trigger attribution and decision-row accounting consistency work.
+6. Revalidate the current Cloudflare deployment identity when read-only credentials are available; captured artifacts currently conflict with the documented deployment.
