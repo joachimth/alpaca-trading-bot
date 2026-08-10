@@ -6,7 +6,7 @@ Apply/verify the additive trade-intent columns `intent_stop_loss_price` and `int
 
 After deployment, verify the new Worker version, 100% traffic, configured schedules, health, read-only GET endpoints, remote D1 schema, broker-authoritative positions, reservation counts/notional, pending/partial/filled decision convergence, and category exposure against caps. Read-only checks must not submit, cancel, replace, retry, or close orders. Roll back to the prior verified Worker version if schema readiness fails, broker/D1 lifecycle divergence persists, or cap enforcement is not evidenced.
 
-Current candidate validation: 89 tests passed with 264 assertions, typecheck and diff-check passed, and no broker mutation was used. Cloudflare deployment truth remains unverified until authenticated read-only credentials are available.
+Current candidate validation: 92 tests passed with 273 assertions, typecheck and diff-check passed, and no broker mutation was used. Cloudflare deployment truth remains unverified until authenticated read-only credentials are available.
 
 # Deployment runbook
 
