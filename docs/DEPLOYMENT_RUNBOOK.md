@@ -6,7 +6,7 @@ Apply/verify the additive trade-intent columns `intent_stop_loss_price` and `int
 
 After deployment, verify the new Worker version, 100% traffic, configured schedules, health, read-only GET endpoints, remote D1 schema, broker-authoritative positions, reservation counts/notional, pending/partial/filled decision convergence, and category exposure against caps. Read-only checks must not submit, cancel, replace, retry, or close orders. Roll back to the prior verified Worker version if schema readiness fails, broker/D1 lifecycle divergence persists, or cap enforcement is not evidenced.
 
-Current candidate validation: 92 tests passed with 273 assertions, typecheck and diff-check passed, and no broker mutation was used. Cloudflare deployment truth remains unverified until authenticated read-only credentials are available.
+Current candidate validation: 92 tests passed with 273 assertions, typecheck and diff-check passed, and no broker mutation was used. Remote D1 schema is verified; Worker deployment/version/traffic verification must still be completed after the final commit.
 
 # Deployment runbook
 
@@ -48,9 +48,11 @@ For the release environment, after source review and before deployment, an autho
 ```bash
 bun run db:migrate:crypto-reservations:remote
 bun run db:verify:crypto-reservations:remote
+bun run db:migrate:trade-intent:remote
+bun run db:verify:trade-intent:remote
 ```
 
-The verification must show the `crypto_entry_reservations` table and `idx_crypto_entry_reservations_expiry` index. A missing object blocks deployment; the Worker fails closed rather than creating this safety-critical table at runtime.
+The verification must show the `crypto_entry_reservations` table and `idx_crypto_entry_reservations_expiry` index, and the trade-intent verification must show both additive intent columns. A missing object blocks deployment; the Worker fails closed rather than creating this safety-critical table at runtime.
 
 Run from the repository root:
 

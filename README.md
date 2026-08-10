@@ -8,7 +8,7 @@ The current worktree contains a release candidate that preserves the vital risk 
 
 Committed crypto reservations are never released by local TTL alone; only terminal broker evidence releases them. Crypto entries now fail closed below the **$10** venue minimum, include cross-cycle reservation notional in cap sizing, enforce the total per-cycle trade limit, retain reservations while a broker order is live, release them only on terminal broker evidence, retain reservations after an unknown post-submit local failure, and persist ATR stop/target intent for broker-confirmed position reconstruction.
 
-Local validation on August 10, 2026: **92 tests passed, 273 assertions**, TypeScript typecheck passed, and repository diff-check passed. No trading cycle, order, close, cancel, replace, retry, or other broker mutation was used. Deployment of this candidate is not yet claimed: commit/push and authenticated Cloudflare read-only deployment verification remain required.
+Local validation on August 10, 2026: **92 tests passed, 273 assertions**, TypeScript typecheck passed, and repository diff-check passed. No trading cycle, order, close, cancel, replace, retry, or other broker mutation was used. The candidate is pushed on the hardening branch; authenticated remote D1 schema verification is complete. Worker deployment/version/traffic verification remains the final live gate.
 
 ## Live deployment and current worktree
 
@@ -127,6 +127,8 @@ Before deploying crypto BUY code, apply the explicit reservation migration once.
 ```bash
 bun run db:migrate:crypto-reservations:remote
 bun run db:verify:crypto-reservations:remote
+ bun run db:migrate:trade-intent:remote
+ bun run db:verify:trade-intent:remote
 ```
 
 The verification command is read-only and must show both `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry`. A missing table or index is a release blocker; runtime self-healing is intentionally not relied on for this safety-critical gate.

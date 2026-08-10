@@ -10,8 +10,12 @@ export interface ReconciliationResult {
 
 const OVERLAP_MS = 15 * 60 * 1000;
 
-function overlapAfter(): string {
-  return new Date(Date.now() - OVERLAP_MS).toISOString();
+function overlapAfter(oldestReservationCreatedAt?: number): string {
+  const overlapStart = Date.now() - OVERLAP_MS;
+  const reservationStart = Number.isFinite(oldestReservationCreatedAt)
+    ? Number(oldestReservationCreatedAt)
+    : overlapStart;
+  return new Date(Math.min(overlapStart, reservationStart)).toISOString();
 }
 
 const LOOKUP_CONCURRENCY = 4;
@@ -29,7 +33,18 @@ export async function reconcileBrokerOrders(
   alpaca: AlpacaClient,
   recentLimit = 100,
 ): Promise<ReconciliationResult> {
-  const recentOrders = await alpaca.getRecentOrders(recentLimit, { after: overlapAfter(), direction: 'desc' });
+  let reservations: Awaited<ReturnType<Database['getCryptoEntryReservations']>> = [];
+  try {
+    reservations = await db.getCryptoEntryReservations();
+  } catch (error) {
+    // The crypto reservation migration is optional for legacy stock-only
+    // reconciliation. A missing table is not evidence that any order is safe
+    // to release, so continue with the normal recent-order and trade lookup.
+    if (!(error instanceof Error && error.message.toLowerCase().includes('no such table'))) throw error;
+  }
+  const oldestReservationCreatedAt = reservations.reduce<number | undefined>((oldest, reservation) =>
+    oldest === undefined ? reservation.createdAt : Math.min(oldest, reservation.createdAt), undefined);
+  const recentOrders = await alpaca.getRecentOrders(recentLimit, { after: overlapAfter(oldestReservationCreatedAt), direction: 'desc' });
   const ordersById = new Map<string, Order>(recentOrders.map(order => [order.id, order]));
   const pending = await db.getTradesNeedingSync(200);
   const pendingIds = pending

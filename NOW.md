@@ -5,4 +5,4 @@
 - Validation: 92 tests / 273 assertions passed; TypeScript and repository diff-check passed.
 - No trading cycle, order, close, cancel, replace, retry, or broker mutation was used.
 - Documentation updated in README.md, docs/OPERATIONS.md, and docs/DEPLOYMENT_RUNBOOK.md.
-- Next: commit/push, verify remote D1 schema and authenticated Cloudflare deployment, then observe a natural paper session read-only.
+- Remote D1 schema now verified: reservations table/index plus both trade intent columns. Next: commit/push reservation-aware reconciliation, deploy final commit, verify Worker version/traffic read-only, then observe a natural paper session.

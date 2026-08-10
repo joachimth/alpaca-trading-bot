@@ -13,7 +13,9 @@
     "db:migrate:crypto-reservations:remote": "wrangler d1 execute alpaca-trading-bot --remote --file=crypto-entry-reservations-migration.sql",
     "db:verify:crypto-reservations:remote": "wrangler d1 execute alpaca-trading-bot --remote --command=\"SELECT type, name, tbl_name FROM sqlite_master WHERE name IN ('crypto_entry_reservations', 'idx_crypto_entry_reservations_expiry') ORDER BY name;\"",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:migrate:trade-intent:remote": "wrangler d1 execute alpaca-trading-bot --remote --file=trade-intent-columns-migration.sql",
+    "db:verify:trade-intent:remote": "wrangler d1 execute alpaca-trading-bot --remote --command=\"SELECT name, type FROM pragma_table_info('trades') WHERE name IN ('intent_stop_loss_price', 'intent_take_profit_price') ORDER BY name;\""
   },
   "dependencies": {},
   "devDependencies": {

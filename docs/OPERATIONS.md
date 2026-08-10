@@ -6,7 +6,7 @@ Daytrading admission now carries approved entry notional across the current cycl
 
 Committed crypto reservations are never released by local TTL alone; only terminal broker evidence releases them. Crypto BUYs below **$10** estimated notional are skipped before reservation/submission with an auditable `MIN_ORDER_NOTIONAL` reason. ATR stop/target intent is stored with the crypto entry trade and used to reconstruct missing position protection after broker-confirmed sync.
 
-Validation receipt: 92 tests, 273 assertions, typecheck, and diff-check passed locally on August 10, 2026. No broker mutation was used. Remaining release gates are authenticated Cloudflare deployment/version/traffic verification, remote D1 schema verification for the new trade intent columns and reservation table, and natural paper-session observation proving no cap breach or live-order reservation expiry.
+Validation receipt: 92 tests, 273 assertions, typecheck, and diff-check passed locally on August 10, 2026. No broker mutation was used. Remote D1 schema verification is complete for the reservation table/index and both trade intent columns. Remaining release gates are Worker deployment/version/traffic verification and natural paper-session observation proving no cap breach or live-order reservation expiry.
 
 # Operations and release notes
 
@@ -44,7 +44,7 @@ bun run db:migrate:crypto-reservations:remote
 bun run db:verify:crypto-reservations:remote
 ```
 
-The verification must return both `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry`. Do not substitute a Worker-triggered CREATE TABLE for this gate. If the table is absent, crypto BUY reservation calls fail closed and no BUY may proceed.
+The verification must return both `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry`; the trade-intent verification must return `intent_stop_loss_price` and `intent_take_profit_price`. Do not substitute a Worker-triggered CREATE TABLE for this gate. If the table is absent, crypto BUY reservation calls fail closed and no BUY may proceed.
 
 1. Run `git diff --check`, `bunx tsc --noEmit`, `bun test`, and `bunx wrangler deploy --dry-run`.
 2. Commit and push to `origin/main`; confirm local `HEAD` equals `git ls-remote origin refs/heads/main`.
