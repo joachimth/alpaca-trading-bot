@@ -93,7 +93,8 @@ The active weekly read-only review job `Alpaca deferred-risk review` (schedule I
 
 
 - Partial-fill/retry/cancel lifecycle has a confirmed defect: August 6 live evidence showed repeated partial-filled exits and quantity mismatches. Daytrading and swing lack a pending-exit guard, and partial/failed closes can be submitted again on a later cycle.
-- Daytrading and swing BUY paths create full D1 positions from requested quantity/decision price before broker fills are confirmed. Partial or pending BUYs can inflate internal quantity; deterministic client IDs are also missing because daytrading/swing IDs use `Date.now()`, so retry duplicate protection is incomplete. Scheduled reconciliation remains read-only and does not repair this lifecycle.
+- Daytrading and swing BUY paths create full D1 positions from requested quantity/decision price before broker fills are confirmed. Partial or pending BUYs can inflate internal quantity; deterministic client IDs are also missing because daytrading/swing IDs use `Date.now()`, so retry duplicate protection is incomplete. Scheduled reconciliation remains read-only and does not repair this lifecycle. Crypto has a pending-exit guard and deterministic client IDs, but no complete broker retry/cancel/replace lifecycle.
+- Order-to-decision correlation is incomplete: swing BUYs use `decision_id: null` and time-based client IDs, while swing exits omit the originating decision ID. Historical swing rows therefore cannot reliably support deterministic lifecycle attribution.
 - At the last verified D1 query on August 8, 2026, 365 trades existed and 84 had `strategy IS NULL`; those rows remain excluded from strategy-attributed history unless deterministic attribution is available.
 - Swing batch-bar and degraded-data safeguards have been verified in production; future changes should preserve the bounded request and completed-session checks.
 - Daytrading/crypto position sync can preserve an existing strategy-less row.
