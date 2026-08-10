@@ -60,7 +60,7 @@ describe('crypto persistent reservations', () => {
     const longAfterRateWindow = await reservation(db, { reservationKey: 'crypto_2_ETHUSD', owner: 'owner-2', nowMs: 1_060_000 });
     expect(longAfterRateWindow.reserved).toBe(false);
     expect(await db.getCryptoEntryReservationNotional(1_060_000)).toBe(100);
-    expect(await db.getCryptoEntryReservationNotional(400_000_000_000)).toBe(0);
+    expect(await db.getCryptoEntryReservationNotional(400_000_000_000)).toBe(100);
   });
 
   test('terminal broker reconciliation releases a committed reservation', async () => {
@@ -74,6 +74,24 @@ describe('crypto persistent reservations', () => {
       created_at: '2026-08-07T10:00:00Z', updated_at: '2026-08-07T10:01:00Z', submitted_at: null, filled_at: null, canceled_at: null, expired_at: null, failed_at: null, replaced_at: null, limit_price: null, stop_price: null, trail_price: null, trail_percent: null,
     });
     expect(await db.getCryptoEntryReservationNotional(1_060_000)).toBe(0);
+  });
+
+  test('lookup failure does not release an expired unresolved reservation', async () => {
+    const sqlite = createReservationDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    await reservation(db);
+    await db.finalizeCryptoEntryReservation('crypto_1_BTCUSD', 'owner-1', true, 1_000_000);
+    // No broker snapshot is equivalent to an unknown state, never a safe orphan.
+    expect(await db.getCryptoEntryReservationNotional(400_000_000_000)).toBe(100);
+    expect((await db.getCryptoEntryReservations())[0]?.reservationKey).toBe('crypto_1_BTCUSD');
+  });
+
+  test('only an explicitly verified pre-submit active orphan may be released', async () => {
+    const sqlite = createReservationDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    await reservation(db);
+    expect(await db.releaseExpiredCryptoEntryReservation('crypto_1_BTCUSD', 1_200_001)).toBe(true);
+    expect(await db.getCryptoEntryReservations()).toHaveLength(0);
   });
 
   test('imported terminal broker orders release matching reservations during reconciliation', async () => {

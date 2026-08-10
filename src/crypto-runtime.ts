@@ -283,7 +283,12 @@ export function cryptoBudgetDecision(input: {
   maxEntriesPerCycle: number;
   discretionaryExitCount: number;
   maxDiscretionaryExitsPerCycle: number;
+  totalTradeCount?: number;
+  maxTradesPerCycle?: number;
 }): { allowed: boolean; reasonCode?: string } {
+  if (input.action !== 'HOLD' && input.maxTradesPerCycle !== undefined && input.totalTradeCount !== undefined && input.totalTradeCount >= input.maxTradesPerCycle) {
+    return { allowed: false, reasonCode: 'MAX_TRADES_PER_CYCLE' };
+  }
   if (input.action === 'BUY' && input.entryCount >= input.maxEntriesPerCycle) {
     return { allowed: false, reasonCode: 'MAX_ENTRIES_PER_CYCLE' };
   }

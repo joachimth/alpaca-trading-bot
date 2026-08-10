@@ -6,9 +6,9 @@ Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persis
 
 The current worktree contains a release candidate that preserves the vital risk parameters: daytrading cap **$5,000**, swing cap **$3,700**, crypto cap **$2,000**, existing confidence gates, max-trade settings, and strategy universes. It removes premature stock/swing position upserts, enforces same-cycle daytrading entry notional against the existing cap, links swing entries to decisions, synchronizes newly broker-confirmed positions, closes stale D1 current-position rows only after a complete broker snapshot, and updates decision metadata from broker-confirmed order states.
 
-Crypto entries now fail closed below the **$10** venue minimum, include cross-cycle reservation notional in cap sizing, enforce the total per-cycle trade limit, retain reservations while a broker order is live, release them only on terminal broker evidence, retain reservations after an unknown post-submit local failure, and persist ATR stop/target intent for broker-confirmed position reconstruction.
+Committed crypto reservations are never released by local TTL alone; only terminal broker evidence releases them. Crypto entries now fail closed below the **$10** venue minimum, include cross-cycle reservation notional in cap sizing, enforce the total per-cycle trade limit, retain reservations while a broker order is live, release them only on terminal broker evidence, retain reservations after an unknown post-submit local failure, and persist ATR stop/target intent for broker-confirmed position reconstruction.
 
-Local validation on August 10, 2026: **88 tests passed, 262 assertions**, TypeScript typecheck passed, and repository diff-check passed. No trading cycle, order, close, cancel, replace, retry, or other broker mutation was used. Deployment of this candidate is not yet claimed: commit/push and authenticated Cloudflare read-only deployment verification remain required.
+Local validation on August 10, 2026: **92 tests passed, 273 assertions**, TypeScript typecheck passed, and repository diff-check passed. No trading cycle, order, close, cancel, replace, retry, or other broker mutation was used. Deployment of this candidate is not yet claimed: commit/push and authenticated Cloudflare read-only deployment verification remain required.
 
 ## Live deployment and current worktree
 

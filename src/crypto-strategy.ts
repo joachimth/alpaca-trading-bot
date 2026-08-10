@@ -271,7 +271,17 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
     // projection below additionally reserves submitted entries conservatively.
     const updatedPositions = await alpaca.getPositions();
     const updatedCryptoPositions = updatedPositions.filter(p => CRYPTO_UNIVERSE.includes(p.symbol));
-    const exposure = createCycleExposure(updatedCryptoPositions);
+    let persistedReservations: Awaited<ReturnType<Database['getCryptoEntryReservations']>>;
+    let reservationExposureAvailable = true;
+    try {
+      persistedReservations = await db.getCryptoEntryReservations();
+    } catch (error) {
+      reservationExposureAvailable = false;
+      errors.push(`Crypto reservation exposure unavailable: ${error instanceof Error ? error.message : String(error)}`);
+      persistedReservations = [];
+    }
+    const exposure = createCycleExposure(updatedCryptoPositions, persistedReservations);
+    const persistedReservationKeys = new Set(persistedReservations.map(reservation => reservation.reservationKey));
 
     // Scan crypto universe — get 15-min bars and compute TA
     const symbolsToScan = CRYPTO_UNIVERSE.slice(0, config.scanUniverseSize);
@@ -356,13 +366,6 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
     let entryCount = 0;
     let discretionaryExitCount = 0;
     const maxTradesPerCycle = config.maxTradesPerCycle ?? 2;
-    let persistentReservedNotionalUsd: number | null = null;
-    try {
-      persistentReservedNotionalUsd = await db.getCryptoEntryReservationNotional();
-    } catch (error) {
-      errors.push(`Crypto reservation exposure unavailable: ${error instanceof Error ? error.message : String(error)}`);
-    }
-
     // Process signals in deterministic ranked order. No uncalibrated edge is
     // invented from confidence; ranking falls back to fee status, confidence,
     // and symbol order.
@@ -430,6 +433,8 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
         maxEntriesPerCycle,
         discretionaryExitCount,
         maxDiscretionaryExitsPerCycle,
+        totalTradeCount: cycleTradeCount,
+        maxTradesPerCycle,
       });
       if (!budget.allowed) {
         const limit = decision.action === 'BUY' ? maxEntriesPerCycle : maxDiscretionaryExitsPerCycle;
@@ -486,12 +491,12 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
         }
 
         const projected = projectedPositions(exposure);
-        if (persistentReservedNotionalUsd === null) {
+        if (!reservationExposureAvailable) {
           await db.updateDecisionStatus(decisionId, 2, 'Crypto reservation exposure unavailable');
           skips.add('ORDER_RATE_STATE_UNAVAILABLE', 'decision', 'Crypto entry skipped because cross-cycle reservation exposure could not be verified', { symbol, decisionId });
           continue;
         }
-        const reservedNotionalUsd = persistentReservedNotionalUsd + exposure.reservedNotionalUsd;
+        const reservedNotionalUsd = exposure.reservedNotionalUsd;
         const riskCheck = riskManager.checkTrade(decision, account, projected, indicators, reservedNotionalUsd);
         if (!riskCheck.approved) {
           await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
@@ -543,9 +548,10 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
             const outcome = classifyCryptoOrder(order);
             const terminalRejected = outcome === 'rejected' || outcome === 'canceled' || outcome === 'expired';
             const reservationNotional = cryptoReservationNotional(order, indicators.price);
-            if (reservationNotional > 0) {
+            if (reservationNotional > 0 && !persistedReservationKeys.has(reservationKey)) {
               // Accepted/pending orders reserve the requested amount. A terminal
               // order with a partial fill reserves only the broker-confirmed fill.
+              // Do not add the same persisted reservation a second time.
               reserveEntry(exposure, symbol, reservationNotional);
             }
 

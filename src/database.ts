@@ -450,14 +450,14 @@ export class Database {
     }
   }
 
-  async getCryptoEntryReservations(nowMs = Date.now()): Promise<Array<{ reservationKey: string; owner: string; symbol: string; notionalUsd: number; status: 'active' | 'committed'; createdAt: number; expiresAt: number }>> {
+  async getCryptoEntryReservations(): Promise<Array<{ reservationKey: string; owner: string; symbol: string; notionalUsd: number; status: 'active' | 'committed'; createdAt: number; expiresAt: number }>> {
     await this.ensureTradeSchema();
     const result = await this.db.prepare(`
       SELECT reservation_key, owner, symbol, notional_usd, status, created_at, expires_at
       FROM crypto_entry_reservations
-      WHERE status IN ('active', 'committed') AND expires_at > ?
+      WHERE status IN ('active', 'committed')
       ORDER BY created_at ASC
-    `).bind(nowMs).all();
+    `).all();
     return (result.results as Array<Record<string, unknown>>).flatMap(row => {
       const notionalUsd = Number(row.notional_usd);
       const createdAt = Number(row.created_at);

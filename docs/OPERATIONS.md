@@ -4,9 +4,9 @@ The hardening candidate keeps broker positions authoritative and keeps GET/read-
 
 Daytrading admission now carries approved entry notional across the current cycle so the existing **$5,000** cap cannot be exceeded by multiple individually valid entries. Swing entries retain immutable decision linkage and newly filled positions are included in the post-submit broker sync. Crypto reservation state is persistent across cycles and fail-closed: active/committed reservation notional is included in the **$2,000** cap calculation, live orders keep reservations beyond the short rate window, unknown post-submit outcomes retain reservations, and terminal broker evidence releases them.
 
-Crypto BUYs below **$10** estimated notional are skipped before reservation/submission with an auditable `MIN_ORDER_NOTIONAL` reason. ATR stop/target intent is stored with the crypto entry trade and used to reconstruct missing position protection after broker-confirmed sync.
+Committed crypto reservations are never released by local TTL alone; only terminal broker evidence releases them. Crypto BUYs below **$10** estimated notional are skipped before reservation/submission with an auditable `MIN_ORDER_NOTIONAL` reason. ATR stop/target intent is stored with the crypto entry trade and used to reconstruct missing position protection after broker-confirmed sync.
 
-Validation receipt: 88 tests, 262 assertions, typecheck, and diff-check passed locally on August 10, 2026. No broker mutation was used. Remaining release gates are authenticated Cloudflare deployment/version/traffic verification, remote D1 schema verification for the new trade intent columns and reservation table, and natural paper-session observation proving no cap breach or live-order reservation expiry.
+Validation receipt: 92 tests, 273 assertions, typecheck, and diff-check passed locally on August 10, 2026. No broker mutation was used. Remaining release gates are authenticated Cloudflare deployment/version/traffic verification, remote D1 schema verification for the new trade intent columns and reservation table, and natural paper-session observation proving no cap breach or live-order reservation expiry.
 
 # Operations and release notes
 
