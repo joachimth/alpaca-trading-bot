@@ -33,6 +33,19 @@ describe('crypto runtime correctness helpers', () => {
     expect(cryptoBudgetDecision({ action: 'SELL', entryCount: 1, maxEntriesPerCycle: 1, discretionaryExitCount: 0, maxDiscretionaryExitsPerCycle: 2 }).allowed).toBe(true);
     expect(cryptoBudgetDecision({ action: 'SELL', entryCount: 0, maxEntriesPerCycle: 1, discretionaryExitCount: 2, maxDiscretionaryExitsPerCycle: 2 })).toEqual({ allowed: false, reasonCode: 'MAX_DISCRETIONARY_EXITS_PER_CYCLE' });
     expect(cryptoBudgetDecision({ action: 'HOLD', entryCount: 1, maxEntriesPerCycle: 1, discretionaryExitCount: 2, maxDiscretionaryExitsPerCycle: 2 }).allowed).toBe(true);
+    expect(cryptoBudgetDecision({ action: 'BUY', entryCount: 0, maxEntriesPerCycle: 1, discretionaryExitCount: 0, maxDiscretionaryExitsPerCycle: 2, totalTradeCount: 2, maxTradesPerCycle: 2 })).toEqual({ allowed: false, reasonCode: 'MAX_TRADES_PER_CYCLE' });
+    expect(cryptoBudgetDecision({ action: 'SELL', entryCount: 0, maxEntriesPerCycle: 1, discretionaryExitCount: 0, maxDiscretionaryExitsPerCycle: 2, totalTradeCount: 1, maxTradesPerCycle: 2 }).allowed).toBe(true);
+  });
+
+  test('loads persisted reservations into cap exposure without double counting same key', () => {
+    const exposure = createCycleExposure([], [
+      { reservationKey: 'crypto_1_BTCUSD', symbol: 'BTCUSD', notionalUsd: 700 },
+      { reservationKey: 'crypto_2_ETHUSD', symbol: 'ETHUSD', notionalUsd: 500 },
+    ]);
+    expect(exposure.reservedNotionalUsd).toBe(1200);
+    reserveEntry(exposure, 'SOLUSD', 300);
+    expect(exposure.reservedNotionalUsd).toBe(1500);
+    expect(projectedPositions(exposure)).toHaveLength(3);
   });
 
   test('reservations project position count and capital', () => {
