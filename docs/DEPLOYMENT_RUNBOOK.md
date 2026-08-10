@@ -1,5 +1,22 @@
 # Deployment runbook
 
+## Dashboard 1102 hotfix gate — August 10, 2026
+
+Before any release of the local dashboard hotfix, verify that every GET/read-only API construction uses `new Database(env.DB, { readOnly: true })`. Read-only construction must perform zero DDL, `ALTER TABLE`, index creation, pragma/schema checks, or other repair work; write/trading construction remains the only runtime schema-readiness path. Confirm `src/index.ts` has no unconditional fetch-time `ALTER TABLE positions` or equivalent schema repair.
+
+The dashboard must use bounded history windows (90 performance rows and 90 category rows per strategy) and must not issue the removed duplicate per-strategy decision/trade/run history fan-out. Verify broker-authoritative positions: when Alpaca positions fail, return `positionsAvailable: false` with no D1 fallback. Validation is local/read-only only: no push, deployment, remote D1 mutation, or broker mutation API calls.
+
+Required commands from `/workspace/alpaca-trading-bot`:
+
+```bash
+bun test
+bunx tsc --noEmit
+git diff --check
+bunx wrangler deploy --dry-run
+```
+
+Record exact pass counts and dry-run output in the release evidence. A failed or timed-out dashboard dry-run, any read-only DDL, an unbounded history query, or a broker-failure D1 fallback is a release blocker.
+
 This is the canonical release procedure for `alpaca-trading-bot`.
 
 ## Important environment fact

@@ -48,18 +48,25 @@ export interface TradeRecord {
 
 export const CYCLE_LEASE_TTL_MS = 10 * 60 * 1000;
 
+export interface DatabaseOptions {
+  /** Read paths must never attempt runtime schema repair or DDL. */
+  readOnly?: boolean;
+}
+
 export class Database {
   private db: D1Database;
   private schemaReady: Promise<void>;
 
-  constructor(db: D1Database) {
+  constructor(db: D1Database, options: DatabaseOptions = {}) {
     this.db = db;
-    this.schemaReady = Promise.all([
-      this.ensureTradeLifecycleColumns(),
-      this.ensureCycleLeaseSchema(),
-      this.ensureCategorySnapshotSchema(),
-      this.ensureBrokerLedgerSchema(),
-    ]).then(() => undefined);
+    this.schemaReady = options.readOnly
+      ? Promise.resolve()
+      : Promise.all([
+          this.ensureTradeLifecycleColumns(),
+          this.ensureCycleLeaseSchema(),
+          this.ensureCategorySnapshotSchema(),
+          this.ensureBrokerLedgerSchema(),
+        ]).then(() => undefined);
   }
 
   private async ensureTradeLifecycleColumns(): Promise<void> {

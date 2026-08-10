@@ -1,5 +1,13 @@
 # Operations and release notes
 
+## Dashboard 1102 hotfix — August 10, 2026
+
+The local hotfix for the confirmed `/api/dashboard` Cloudflare 1102 failure makes all GET/read-only `Database` instances skip runtime schema-repair DDL, `ALTER TABLE`, index creation, and schema checks. Trading and write paths still use the existing schema-readiness process. The Worker `fetch` path has no unconditional `ALTER TABLE positions` repair.
+
+Dashboard fan-out is reduced by removing duplicate per-strategy history queries and bounding both account performance and category history to 90 rows per series. Current positions remain Alpaca-authoritative; broker position failure returns an unavailable state and never falls back to D1 positions. This work is local and uncommitted: do not push, deploy, apply remote D1 migrations, or call broker mutation APIs as part of validation.
+
+Required local validation: `bun test`, `bunx tsc --noEmit`, `git diff --check`, and a Wrangler dry-run. Release evidence must additionally prove `/api/dashboard` is read-only and returns bounded payloads without broker mutation.
+
 ## Current release
 
 The crypto correctness patch in the current worktree is not deployed as of August 9, 2026. No broker order, cancellation, close, or deployment mutation was used while applying or validating it. The deployment identifiers below refer to the prior documented release only.

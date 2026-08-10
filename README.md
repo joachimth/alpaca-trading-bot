@@ -19,6 +19,12 @@ The deployment identifiers below describe the previously documented release only
 
 The dashboard is a static GitHub Pages frontend. It calls the Cloudflare Worker API only. It never calls Alpaca directly and never contains Alpaca credentials.
 
+### Dashboard read-only hotfix (August 10, 2026)
+
+`GET` API paths construct `Database` in explicit `readOnly` mode. That mode skips all runtime schema-repair DDL, `ALTER TABLE`, index creation, and schema checks; trading and write paths retain the existing schema-readiness behavior. The Worker fetch path contains no unconditional `ALTER TABLE positions` repair. `/api/dashboard` also uses bounded 90-row chart/category windows and no longer issues duplicate per-strategy history queries. Alpaca remains authoritative for current positions: if the broker position request fails, the response reports `positionsAvailable: false` and does not substitute D1 positions.
+
+Validation for this local, uncommitted hotfix: full Bun tests, TypeScript typecheck, `git diff --check`, and a Wrangler dry-run must pass before release. No push, deployment, remote D1 mutation, or broker mutation is part of this change.
+
 ### Capital-cap release evidence
 
 The read-only capital-cap dashboard change is deployed from source commit `fd8be3be647e0a4cdae8f79de89206f9a65172bb`. The live `/api/dashboard` response returned `capitalCaps.daytrading = 5000`, `capitalCaps.swing = 3700`, and `capitalCaps.crypto = 2000`, with `positionsAvailable: true`; the three Pages strategy tabs contain exactly three **Capital cap** cards. The Worker deployment is `5088dbe0-31f9-4892-a149-a74702bbad4e`, version `cb88271c-8712-42a8-88a9-de58c841d3ec`, at 100% traffic. Validation passed with 58 tests and 171 assertions, TypeScript, diff-check, fresh Wrangler dry-run, and inline dashboard-JavaScript syntax validation. No trading, order, close, cancel, replace, retry, or reconciliation trigger was used.
@@ -80,7 +86,7 @@ The strategies use explicit asset and strategy isolation. A strategy may use D1 
 - Swing edge policy: spread/slippage/fee costs are logged with explicit bps units; BUY rejection is disabled until a calibrated `expectedEdgeBps` is configured
 - Universe scanner for liquid US equities
 - D1 logging for decisions, trades, runs, snapshots, and position metadata
-- GitHub Pages dashboard with equity history, strategy history, broker-backed positions, decisions, trades, and run history
+- GitHub Pages dashboard with bounded equity history, broker-backed positions, decisions, trades, and run history
 - Isolated D1 leases per strategy plus a separate maintenance lease, scheduled read-only broker/order reconciliation, bounded broker requests, and pre-cycle status refresh
 
 ## Setup and development
@@ -182,7 +188,7 @@ All Alpaca access is server-side inside the Worker.
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` or `/health` | GET | Worker health response |
-| `/api/dashboard` | GET | Combined account, broker-backed positions, decisions, trades, runs, snapshots, strategy comparison, strategy history, and server-resolved `capitalCaps`; returns `positionsAvailable`, `positionsError`, and `strategyComparison: null` when the broker position fetch fails |
+| `/api/dashboard` | GET | Combined account, broker-backed positions, decisions, trades, runs, bounded snapshots, strategy comparison, and server-resolved `capitalCaps`; returns `positionsAvailable`, `positionsError`, and `strategyComparison: null` when the broker position fetch fails |
 | `/api/account` | GET | Account data fetched server-side from Alpaca, returned as `{ account }` |
 | `/api/positions` | GET | Current broker positions projected with D1 metadata; includes `positionsAvailable` and `source: "alpaca"`; returns HTTP 503 when broker positions are unavailable |
 | `/api/decisions` | GET | Recent decisions from D1, returned as `{ decisions }` |

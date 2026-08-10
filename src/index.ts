@@ -67,7 +67,7 @@ const FALLBACK_CONFIG = {
 
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    // Self-migration: add strategy column if missing (idempotent)
+    // Scheduled write/maintenance paths retain the existing idempotent schema readiness.
     try { await env.DB.prepare('ALTER TABLE positions ADD COLUMN strategy TEXT').run(); } catch (_) {}
     // Cloudflare passes the configured cron expression verbatim.
     if (event.cron === '0 22 * * 1-5') {
@@ -84,8 +84,6 @@ export default {
   },
 
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
-    // Self-migration: add strategy column if missing (idempotent)
-    try { await env.DB.prepare('ALTER TABLE positions ADD COLUMN strategy TEXT').run(); } catch (_) {}
     const api = new DashboardAPI(env);
     return api.handle(request);
   },

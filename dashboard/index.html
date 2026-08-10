@@ -486,7 +486,6 @@
       const allDec = dashboardData.recentDecisions || [];
       const allTr = dashboardData.recentTrades || [];
       const allRun = dashboardData.recentRuns || [];
-      const history = dashboardData.strategyHistory || {};
       const strategyForDecision = d => {
         const source = (d.signal_source || '').toLowerCase();
         if (source === 'swing') return 'swing';
@@ -505,30 +504,27 @@
         renderTrades(allTr, 'tradesTableAll');
         renderRuns(allRun, 'runsTableAll');
       } else if (tab === 'daytrading') {
-        const dayHistory = history.daytrading || {};
-        const dayDec = dayHistory.decisions || allDec.filter(d => strategyForDecision(d) === 'daytrading');
-        const dayRun = dayHistory.runs || allRun.filter(r => r.trigger !== 'swing_cron' && r.trigger !== 'crypto_cron' && r.trigger !== 'manual_crypto');
+        const dayDec = allDec.filter(d => strategyForDecision(d) === 'daytrading');
+        const dayRun = allRun.filter(r => r.trigger !== 'swing_cron' && r.trigger !== 'crypto_cron' && r.trigger !== 'manual_crypto');
         renderPositions(strategyPos('daytrading'), 'positionsTableDay', false);
         renderDecisions(dayDec, 'decisionsTableDay');
-        renderTrades(dayHistory.trades || strategyTrades('daytrading'), 'tradesTableDay');
+        renderTrades(strategyTrades('daytrading'), 'tradesTableDay');
         renderRuns(dayRun, 'runsTableDay');
         renderCategoryPanel('daytrading');
       } else if (tab === 'swing') {
-        const swingHistory = history.swing || {};
-        const swDec = swingHistory.decisions || allDec.filter(d => strategyForDecision(d) === 'swing');
-        const swRun = swingHistory.runs || allRun.filter(r => r.trigger === 'swing_cron' || r.trigger === 'manual_swing');
+        const swDec = allDec.filter(d => strategyForDecision(d) === 'swing');
+        const swRun = allRun.filter(r => r.trigger === 'swing_cron' || r.trigger === 'manual_swing');
         renderPositions(strategyPos('swing'), 'positionsTableSwing', false);
         renderSwingDecisions(swDec, 'decisionsTableSwing');
-        renderTrades(swingHistory.trades || strategyTrades('swing'), 'tradesTableSwing');
+        renderTrades(strategyTrades('swing'), 'tradesTableSwing');
         renderRuns(swRun, 'runsTableSwing');
         renderCategoryPanel('swing');
       } else if (tab === 'crypto') {
-        const cryptoHistory = history.crypto || {};
-        const crDec = cryptoHistory.decisions || allDec.filter(d => strategyForDecision(d) === 'crypto');
-        const crRun = cryptoHistory.runs || allRun.filter(r => r.trigger === 'crypto_cron' || r.trigger === 'manual_crypto');
+        const crDec = allDec.filter(d => strategyForDecision(d) === 'crypto');
+        const crRun = allRun.filter(r => r.trigger === 'crypto_cron' || r.trigger === 'manual_crypto');
         renderPositions(strategyPos('crypto'), 'positionsTableCrypto', false);
         renderDecisions(crDec, 'decisionsTableCrypto');
-        renderTrades(cryptoHistory.trades || strategyTrades('crypto'), 'tradesTableCrypto');
+        renderTrades(strategyTrades('crypto'), 'tradesTableCrypto');
         renderRuns(crRun, 'runsTableCrypto');
         renderCategoryPanel('crypto');
       }

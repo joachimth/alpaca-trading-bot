@@ -167,23 +167,17 @@ export class DashboardAPI {
   }
 
   private async getDashboard(cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
+    const db = new Database(this.env.DB, { readOnly: true });
     // Keep the dashboard read-only. Order reconciliation can fan out into many
     // Alpaca/D1 requests and must run from trading cycles or explicit trade APIs,
     // not on every browser refresh.
-    const [stats, recentDecisions, recentTrades, runs, snapshots, dbPositions, strategyHistory, dbConfig] = await Promise.all([
+    const [stats, recentDecisions, recentTrades, runs, snapshots, dbPositions, dbConfig] = await Promise.all([
       db.getStats(),
       db.getRecentDecisions(20),
       db.getRecentTrades(20),
       db.getRecentRuns(10),
-      db.getRecentSnapshots(500),
+      db.getRecentSnapshots(90),
       db.getOpenPositions(),
-      Promise.all((['daytrading', 'swing', 'crypto'] as const).map(async strategy => ({
-        strategy,
-        decisions: await db.getRecentDecisionsByStrategy(strategy, 100),
-        trades: await db.getRecentTradesByStrategy(strategy, 100),
-        runs: await db.getRecentRunsByStrategy(strategy, 100),
-      }))),
       db.getConfig(),
     ]);
 
@@ -219,7 +213,6 @@ export class DashboardAPI {
       performanceHistory: snapshots.reverse(), // chronological for charting
       strategyComparison,
       capitalCaps,
-      strategyHistory: Object.fromEntries(strategyHistory.map(item => [item.strategy, item])),
       categoryHistory: categoryHistory.series,
       categoryHistoryAvailable: categoryHistory.available,
     }, cors);
@@ -238,7 +231,7 @@ export class DashboardAPI {
     available: Record<string, boolean>;
   }> {
     const strategies = ['daytrading', 'swing', 'crypto'] as const;
-    const rows = await Promise.all(strategies.map(s => db.getCategorySnapshots(s, 500)));
+    const rows = await Promise.all(strategies.map(s => db.getCategorySnapshots(s, 90)));
     const series: Record<string, any[]> = {};
     const available: Record<string, boolean> = {};
     strategies.forEach((s, i) => {
@@ -255,7 +248,7 @@ export class DashboardAPI {
   }
 
   private async getPositions(cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
+    const db = new Database(this.env.DB, { readOnly: true });
     const dbPositions = await db.getOpenPositions();
     try {
       const livePositions = await this.getBrokerPositions();
@@ -268,40 +261,40 @@ export class DashboardAPI {
   }
 
   private async getDecisions(url: URL, cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
+    const db = new Database(this.env.DB, { readOnly: true });
     const limit = parseInt(url.searchParams.get('limit') || '50');
     const decisions = await db.getRecentDecisions(limit);
     return this.json({ decisions }, cors);
   }
 
   private async getTrades(url: URL, cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
+    const db = new Database(this.env.DB, { readOnly: true });
     const limit = parseInt(url.searchParams.get('limit') || '50');
     const trades = await db.getRecentTrades(limit);
     return this.json({ trades }, cors);
   }
 
   private async getPerformance(url: URL, cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
+    const db = new Database(this.env.DB, { readOnly: true });
     const limit = parseInt(url.searchParams.get('limit') || '100');
     const snapshots = await db.getRecentSnapshots(limit);
     return this.json({ performance: snapshots.reverse() }, cors);
   }
 
   private async getRuns(cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
+    const db = new Database(this.env.DB, { readOnly: true });
     const runs = await db.getRecentRuns(30);
     return this.json({ runs }, cors);
   }
 
   private async getStats(cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
+    const db = new Database(this.env.DB, { readOnly: true });
     const stats = await db.getStats();
     return this.json({ stats }, cors);
   }
 
   private async getStrategyComparison(cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
+    const db = new Database(this.env.DB, { readOnly: true });
     try {
       const dbPositions = await db.getOpenPositions();
       const livePositions = await this.getBrokerPositions();
@@ -321,7 +314,7 @@ export class DashboardAPI {
   }
 
   private async getConfig(cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
+    const db = new Database(this.env.DB, { readOnly: true });
     const config = await db.getConfig();
     return this.json({ config }, cors);
   }
