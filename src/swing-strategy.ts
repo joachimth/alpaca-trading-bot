@@ -431,7 +431,8 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     // Never buy a symbol already held by another strategy.
     const heldSymbols = new Set(updatedAllPositions.map(p => p.symbol));
 
-    const proposedBuys: Array<{ symbol: string; value: number; score: SwingScore }> = [];
+    const proposedBuys: Array<{ symbol: string; value: number; score: SwingScore; decisionId: number }> = [];
+    const submittedSwingEntrySymbols = new Set<string>();
 
     for (const score of entryDataDegraded ? [] : buyCandidates) {
       // Skip if already holding
@@ -448,9 +449,23 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       const riskCheck = riskManager.checkEntry(score, updatedAccount, updatedPositions, price);
       decisionsMade++;
 
+      const decisionId = await db.logDecision({
+        ticker: score.symbol,
+        action: 'BUY',
+        confidence: Math.max(0, Math.min(1, score.percentile / 100)),
+        signal_source: 'swing',
+        reason: riskCheck.reason,
+        ta_data: JSON.stringify(score.indicators),
+        ai_reasoning: JSON.stringify({ rank: score.rank, percentile: score.percentile, signals: score.signals }),
+        price_at_decision: price,
+        executed: 0,
+        execution_reason: '',
+      });
+
       if (riskCheck.approved && riskCheck.adjustedQty) {
-        proposedBuys.push({ symbol: score.symbol, value: riskCheck.adjustedValue || 0, score });
+        proposedBuys.push({ symbol: score.symbol, value: riskCheck.adjustedValue || 0, score, decisionId });
       } else {
+        await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
         skips.add('NO_ENTRY_RISK', 'decision', 'Swing entry skipped by risk controls', { symbol: score.symbol, reason: riskCheck.reason });
       }
     }
@@ -512,16 +527,22 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
           limit_price: null,
           stop_price: null,
           estimated_value: qty * price,
-          decision_id: null,
+          decision_id: buy.decisionId,
           error_message: null,
           strategy: 'swing',
         });
 
-        // NOTE: Position is NOT upserted here — broker sync below picks up the
-        // broker-confirmed fill data. Upserting prematurely uses requested qty/price
-        // before the broker confirms, causing qty mismatches on partial fills.
-
-        tradesExecuted++;
+        // Position is deliberately not upserted here. Broker-confirmed sync below
+        // creates/updates the current position using actual filled quantity.
+        submittedSwingEntrySymbols.add(buy.symbol);
+        const terminalRejected = ['rejected', 'canceled', 'cancelled', 'expired', 'done_for_day', 'stopped'].includes(order.status);
+        const fullyFilled = order.status === 'filled' && order.filled_qty > 0 && order.filled_qty >= order.qty * 0.999;
+        await db.updateDecisionStatus(buy.decisionId, fullyFilled ? 1 : terminalRejected ? 2 : 0, fullyFilled
+          ? `Broker confirmed fill: ${order.filled_qty}/${order.qty} @ ${order.filled_avg_price ?? 'unknown'}`
+          : terminalRejected
+            ? `Broker order terminal status: ${order.status}`
+            : `Broker order status: ${order.status}; filled ${order.filled_qty}/${order.qty}`);
+        if (fullyFilled) tradesExecuted++;
         console.log(`Swing BUY ${buy.symbol}: ${qty} shares @ ~$${price.toFixed(2)} (rank #${buy.score.rank}, z=${buy.score.compositeScore.toFixed(2)})`);
       } catch (e) {
         errors.push(`Swing buy failed ${buy.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
@@ -529,9 +550,13 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     }
 
     // Sync positions
+    const knownSwingTrades = await db.getRecentTradesByStrategy('swing', 200);
+    const knownSwingBuySymbols = new Set(knownSwingTrades
+      .filter(trade => trade.side === 'buy' && !['rejected', 'canceled', 'cancelled', 'expired', 'replaced', 'done_for_day', 'stopped'].includes(String(trade.status || '').toLowerCase()))
+      .map(trade => String(trade.ticker)));
     const finalPositions = (await alpaca.getPositions()).filter(p => {
       const existing = allDbPositions.find(x => x.ticker === p.symbol);
-      return existing?.strategy === 'swing';
+      return existing?.strategy === 'swing' || submittedSwingEntrySymbols.has(p.symbol) || knownSwingBuySymbols.has(p.symbol);
     });
     const syncDbPositions = await db.getOpenPositions();
     const dbPositionMap = new Map(syncDbPositions.filter(p => p.strategy === 'swing').map(p => [p.ticker, p]));
@@ -549,7 +574,18 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         unrealized_plpc: pos.unrealized_plpc,
         stop_loss_price: existing?.stop_loss_price ?? null,
         take_profit_price: existing?.take_profit_price ?? null,
+        strategy: 'swing',
       });
+    }
+
+    const pendingSwingSymbols = new Set((await db.getTradesNeedingSync(200))
+      .filter(trade => trade.strategy === 'swing')
+      .map(trade => String(trade.ticker)));
+    const finalBrokerSymbols = new Set(finalPositions.map(pos => pos.symbol));
+    for (const dbPos of syncDbPositions.filter(position => position.strategy === 'swing')) {
+      if (!finalBrokerSymbols.has(dbPos.ticker) && !pendingSwingSymbols.has(dbPos.ticker)) {
+        await db.closePosition(dbPos.ticker, 0, 'broker_authoritative_sync_absent');
+      }
     }
 
     // Log run

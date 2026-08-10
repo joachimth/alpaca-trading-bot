@@ -1,11 +1,20 @@
 import { describe, expect, test } from 'bun:test';
-import { classifyCryptoOrder, cryptoBudgetDecision, cryptoClientOrderId, cryptoFeeRateBps, cryptoReservationNotional, evaluateCryptoProtectiveExit, feeTelemetryFromAggregate, hasPendingCryptoExit, projectedPositions, rankCryptoCandidates, resolveCryptoConfig, createCycleExposure, reserveEntry, shouldFinalizeCryptoPosition } from '/workspace/alpaca-trading-bot/src/crypto-runtime';
+import { classifyCryptoOrder, cryptoBudgetDecision, cryptoClientOrderId, cryptoFeeRateBps, cryptoMinimumOrderCheck, cryptoReservationNotional, evaluateCryptoProtectiveExit, feeTelemetryFromAggregate, hasPendingCryptoExit, projectedPositions, rankCryptoCandidates, resolveCryptoConfig, createCycleExposure, reserveEntry, shouldFinalizeCryptoPosition } from '/workspace/alpaca-trading-bot/src/crypto-runtime';
 
 describe('crypto runtime correctness helpers', () => {
   test('resolves camelCase before snake_case and rejects numeric prefixes', () => {
     const cfg = resolveCryptoConfig({ crypto_max_positions: '3', crypto_maxPositions: '4junk', crypto_max_capital_usd: '1000', crypto_maxCapitalUsd: '1200' }, { maxPositions: 5, maxCapitalUsd: 2000, maxTradesPerCycle: 2, maxEntriesPerCycle: 1, maxDiscretionaryExitsPerCycle: 2, maxPositionPct: 25, minEdgeAfterCosts: 8, maxOrderRatePerMin: 5, minConfidence: 0.7 });
     expect(cfg.maxPositions).toBe(3);
     expect(cfg.maxCapitalUsd).toBe(1200);
+  });
+
+  test('blocks crypto entries below the broker minimum notional', () => {
+    expect(cryptoMinimumOrderCheck(9.99)).toEqual({
+      allowed: false,
+      reason: 'Crypto order notional $9.99 is below broker minimum $10.00',
+    });
+    expect(cryptoMinimumOrderCheck(10)).toEqual({ allowed: true });
+    expect(cryptoMinimumOrderCheck(Number.NaN).allowed).toBe(false);
   });
 
   test('converts USD fees to basis points using traded notional', () => {

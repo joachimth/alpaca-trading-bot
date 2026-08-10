@@ -1,3 +1,13 @@
+## Lifecycle hardening release gate — August 10, 2026
+
+Before deploying this candidate, run the full local gates: `bun test`, `bunx tsc --noEmit`, and `git diff --check`. Confirm that the release preserves daytrading **$5,000**, swing **$3,700**, and crypto **$2,000** caps and does not alter confidence thresholds, max-trade settings, universes, or fee gates.
+
+Apply/verify the additive trade-intent columns `intent_stop_loss_price` and `intent_take_profit_price` through the normal write-path schema readiness, and verify the existing `crypto_entry_reservations` migration remotely before any crypto entry cycle. Do not use a trading cycle as a migration or smoke test.
+
+After deployment, verify the new Worker version, 100% traffic, configured schedules, health, read-only GET endpoints, remote D1 schema, broker-authoritative positions, reservation counts/notional, pending/partial/filled decision convergence, and category exposure against caps. Read-only checks must not submit, cancel, replace, retry, or close orders. Roll back to the prior verified Worker version if schema readiness fails, broker/D1 lifecycle divergence persists, or cap enforcement is not evidenced.
+
+Current candidate validation: 88 tests passed with 262 assertions, typecheck and diff-check passed, and no broker mutation was used. Cloudflare deployment truth remains unverified until authenticated read-only credentials are available.
+
 # Deployment runbook
 
 ## Dashboard 1102 hotfix gate — August 10, 2026
@@ -198,23 +208,27 @@ As of August 10, 2026:
 
 - Runtime source commit: `4261009` (`Bound dashboard reads and remove GET schema mutations`), including crypto hardening commit `8280696`
 - Documentation/release-receipt commit: `7cf03ed` (`Record crypto hardening live release`)
-- Last documented Cloudflare deployment ID: `24b7df43-a710-479a-96f8-46b879fc9171`
-- Last documented Cloudflare Worker version ID: `d304d14c-c6ea-45ca-97ce-47fd6d350c33`
-- Conflicting later captured artifact: deployment `5088dbe0-31f9-4892-a149-a74702bbad4e`, version `cb88271c-8712-42a8-88a9-de58c841d3ec`, 100%; fresh revalidation was unavailable on August 10 because `CLOUDFLARE_API_TOKEN` was absent
-- Traffic: 100%
-- Schedules: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`
+- Documented deployment candidate: `24b7df43-a710-479a-96f8-46b879fc9171`
+- Documented Worker version candidate: `d304d14c-c6ea-45ca-97ce-47fd6d350c33`
+- Cloudflare control-plane verification was unavailable on August 10, 2026: Wrangler was unauthenticated and Cloudflare API requests returned HTTP 403
+- Conflicting later artifact remains unresolved: deployment `5088dbe0-31f9-4892-a149-a74702bbad4e`, version `cb88271c-8712-42a8-88a9-de58c841d3ec`, 100%
+- Local `wrangler.toml` schedules are `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, and `*/10 * * * *`; live scheduler state was not confirmed
+- Documented traffic candidate: 100% (not freshly verified)
 - Remote D1: `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry` verified; live `positions.strategy` and lifecycle trade columns verified
 - Validation: 85 tests passed with 257 assertions; TypeScript, diff-check, and fresh Wrangler dry-run passed
-- Read-only HTTP: `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, `/api/positions`, and `/api/config` returned HTTP 200
+- Read-only HTTP verification at `2026-08-10 13:43:32-13:43:35 UTC`: `/health`, `/api/runs`, `/api/trades`, `/api/positions`, `/`, and `/api/config` returned HTTP 200; `/api/positions` reported `positionsAvailable: true`, `source: alpaca`, and 18 positions
+- D1 SELECT-only run evidence: daytrading cron rows 913, 914, and 915 at 13:25:59, 13:35:59, and 13:40:59 UTC all had status `skipped`, `CYCLE_LEASE_HELD`, and `trades_executed: 0`; `/api/trades` showed 12 August 10 records in its latest 50 rows, all crypto, with no daytrading trade indicated
+- Maintenance evidence: row 911 at 13:10:59 UTC was a `CYCLE_LEASE_HELD` skip; row 908 at 12:41:35 UTC was `MAINTENANCE_ONLY` with brokerOrders=1, imported=0, ledgerActivities=136, and `trades_executed: 0`
+- Source inspection confirms separate `maintenance` and `daytrading` lease keys, but exact historical lease ownership is not reconstructable from available artifacts
 - Dashboard contract: `capitalCaps` resolved to daytrading `5000`, swing `3700`, crypto `2000`; performance and category histories are bounded to 90 rows; no `strategyHistory` payload remains
-- No manual trading cycle, order, cancel, close, retry, or reconciliation trigger was run during deployment or validation
+- No manual trading cycle, order, cancel, close, retry, reconciliation trigger, or other mutating endpoint was run during verification
 - Source mapping note: Cloudflare deployment artifacts do not embed the Git SHA; the release bundle was built from the pushed repository state and uploaded directly.
 
 ## Prior-release natural reconciliation evidence
 
 Read-only live verification on August 8, 2026 confirmed that the prior-release natural maintenance schedule had run. `/api/runs` returned 23 `reconcile_cron` entries from `2026-08-08 06:40:53` through `2026-08-08 10:30:51` UTC, including 16 `MAINTENANCE_ONLY` completions and 7 `CYCLE_LEASE_HELD` skips. `/api/trades` returned 19 rows with populated `client_order_id`, `filled_qty`, `leaves_qty`, `broker_updated_at`, and `last_reconciled_at` fields, with reconciliation timestamps from `2026-08-07 20:09:02` through `2026-08-08 10:20:06` UTC.
 
-No mutating endpoint was called. The run details reported `trades_executed: 0` and `imported: 0`, and the reconciler implementation is limited to broker order GETs plus D1 updates. This supports “no broker mutation observed or indicated” for that prior-release window. It does not provide a strict broker order before/after proof because `/api/orders` is unsupported and no same-window order snapshot pair was available. The latest post-August 10 `reconcile_cron` records observed at 07:10, 07:30, and 07:50 UTC were `CYCLE_LEASE_HELD` skips, so recent completed reconciliation remains unconfirmed.
+No mutating endpoint was called. The run details reported `trades_executed: 0` and `imported: 0`, and the reconciler implementation is limited to broker order GETs plus D1 updates. This supports “no broker mutation observed or indicated” for that prior-release window. It does not provide a strict broker order before/after proof because `/api/orders` is unsupported and no same-window order snapshot pair was available. The latest post-August 10 `reconcile_cron` records observed at 07:10:59, 07:30:59, and 07:50:59 UTC were `CYCLE_LEASE_HELD` skips with `trades_executed: 0`; no completed post-release reconciliation is confirmed. The later daytrading open-window rows at 13:25:59, 13:35:59, and 13:40:59 UTC were also `CYCLE_LEASE_HELD` skips; no 13:30:00 UTC daytrading row was retained in the 30-row response, so that exact first market-open tick is an evidence gap.
 
 ## Lease starvation incident and fix
 
@@ -236,9 +250,9 @@ Before deployment, rerun the full local gates, review the direct diff, commit/pu
 
 The active weekly read-only deferred-risk review is `Alpaca deferred-risk review` (schedule ID `56199d0b-dd75-4f3b-acb6-14c58c4e055b`), every Monday at 10:00 Europe/Copenhagen. It is verified active and must not trigger broker mutations.
 
-1. Verify a completed post-August 10 `reconcile_cron` run, lifecycle-field population, run-log evidence, and absence of broker mutations without triggering reconciliation.
+1. Verify a completed post-August 10 `reconcile_cron` run, lifecycle-field population, run-log evidence, and absence of broker mutations without triggering reconciliation; the checked 07:10:59, 07:30:59, and 07:50:59 UTC records were skips.
 2. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
 3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
 4. Add targeted live-broker integration checks without using trading actions as smoke tests.
 5. Finish swing trigger attribution and decision-row accounting consistency work.
-6. Revalidate the current Cloudflare deployment identity when read-only credentials are available; captured artifacts currently conflict with the documented deployment.
+6. Revalidate Cloudflare deployment identity, 100% traffic, and all four live schedules when authenticated read-only Cloudflare credentials are available; the August 10 conflict remains unresolved.

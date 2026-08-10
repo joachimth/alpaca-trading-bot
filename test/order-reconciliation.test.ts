@@ -32,6 +32,19 @@ describe('scheduled order reconciliation', () => {
     expect(result[1]).toMatchObject({ alpaca_order_id: 'sell-1', side: 'sell', client_order_id: 'sell-client', filled_qty: 2, leaves_qty: 0, status: 'filled' });
   });
 
+  test('updates linked decision metadata when reconciliation confirms a fill', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    const decisionId = await db.logDecision({
+      ticker: 'AAPL', action: 'BUY', confidence: 0.9, signal_source: 'ta', reason: 'test',
+      price_at_decision: 100, executed: 0, execution_reason: 'Order submitted: broker status pending_new',
+    });
+    await db.logOrderTrade(order({ id: 'decision-order', decisionId: undefined }), { decisionId, strategy: 'daytrading', estimatedValue: 1000 });
+    await db.reconcileOrders([order({ id: 'decision-order', filled_qty: 10, leaves_qty: 0, filled_avg_price: 101, status: 'filled', updated_at: '2026-08-07T10:05:00Z' })]);
+    const decision = sqlite.query('SELECT executed, execution_reason FROM decisions WHERE id = ?').get(decisionId) as any;
+    expect(decision).toEqual({ executed: 1, execution_reason: 'Broker confirmed fill: 10/10 @ 101' });
+  });
+
   test('is idempotent and never regresses newer fill progress or status', async () => {
     const sqlite = createTestDatabase();
     const db = new Database(createFakeD1(sqlite));

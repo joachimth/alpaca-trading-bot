@@ -1,3 +1,13 @@
+## Lifecycle hardening candidate — August 10, 2026
+
+The hardening candidate keeps broker positions authoritative and keeps GET/read-only reconciliation free of broker mutations. Current-position rows are created or updated only from broker snapshots; requested quantities are never written as filled positions. Decision metadata converges from broker order status, including pending, partial, filled, and terminal rejection states.
+
+Daytrading admission now carries approved entry notional across the current cycle so the existing **$5,000** cap cannot be exceeded by multiple individually valid entries. Swing entries retain immutable decision linkage and newly filled positions are included in the post-submit broker sync. Crypto reservation state is persistent across cycles and fail-closed: active/committed reservation notional is included in the **$2,000** cap calculation, live orders keep reservations beyond the short rate window, unknown post-submit outcomes retain reservations, and terminal broker evidence releases them.
+
+Crypto BUYs below **$10** estimated notional are skipped before reservation/submission with an auditable `MIN_ORDER_NOTIONAL` reason. ATR stop/target intent is stored with the crypto entry trade and used to reconstruct missing position protection after broker-confirmed sync.
+
+Validation receipt: 88 tests, 262 assertions, typecheck, and diff-check passed locally on August 10, 2026. No broker mutation was used. Remaining release gates are authenticated Cloudflare deployment/version/traffic verification, remote D1 schema verification for the new trade intent columns and reservation table, and natural paper-session observation proving no cap breach or live-order reservation expiry.
+
 # Operations and release notes
 
 ## Dashboard 1102 hotfix — August 10, 2026
@@ -6,17 +16,18 @@ The deployed dashboard hotfix makes all GET/read-only `Database` instances skip 
 
 Dashboard fan-out is reduced by removing duplicate per-strategy history queries and bounding performance and category history to 90 rows per series. Current positions remain Alpaca-authoritative; broker position failure returns an unavailable state and never falls back to D1 positions.
 
-Release evidence: commit `4261009` is pushed to `origin/main`; the last documented Cloudflare check recorded deployment `24b7df43-a710-479a-96f8-46b879fc9171` serving Worker version `d304d14c-c6ea-45ca-97ce-47fd6d350c33` at 100%. A later captured artifact reports deployment `5088dbe0-31f9-4892-a149-a74702bbad4e` and version `cb88271c-8712-42a8-88a9-de58c841d3ec` at 100%; current identity is not revalidated because `CLOUDFLARE_API_TOKEN` was unavailable on August 10. Remote D1 contains `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry`; 85 tests/257 assertions, typecheck, diff-check, and dry-run passed; all read-only smoke endpoints returned 200; no broker mutation was used.
+Release evidence: commit `4261009` is pushed to `origin/main`; read-only Worker verification at 13:43:32-13:43:35 UTC on August 10, 2026 confirmed `/health`, `/api/runs`, `/api/trades`, `/api/positions`, `/`, and `/api/config` returned HTTP 200, with positions broker-backed from Alpaca. Cloudflare deployment/version/traffic/schedules were not freshly verified because Wrangler was unauthenticated and Cloudflare API requests returned HTTP 403; the documented `24b7df43`/`d304d14c` pair conflicts with a later `5088dbe0`/`cb88271c` artifact. Remote D1 contains `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry`; 85 tests/257 assertions, typecheck, diff-check, and dry-run passed; no broker mutation was used.
 
 ## Current release
 
-The crypto correctness and dashboard read-only hardening are deployed as of August 10, 2026. No broker order, cancellation, close, or manual trading trigger was used during release validation.
+The crypto correctness and dashboard read-only hardening are documented as deployed as of August 10, 2026, but the current Cloudflare deployment identity was not freshly verified. No broker order, cancellation, close, or manual trading trigger was used during release validation.
 
 - Release source commit: `4261009` (`Bound dashboard reads and remove GET schema mutations`), including crypto hardening `8280696`
-- Last documented Cloudflare deployment ID: `24b7df43-a710-479a-96f8-46b879fc9171`
-- Last documented Cloudflare Worker version: `d304d14c-c6ea-45ca-97ce-47fd6d350c33`
-- Conflicting later captured artifact: deployment `5088dbe0-31f9-4892-a149-a74702bbad4e`, version `cb88271c-8712-42a8-88a9-de58c841d3ec`, 100%; fresh revalidation pending credential availability
-- Traffic: `100%`
+- Documented deployment candidate: `24b7df43-a710-479a-96f8-46b879fc9171`
+- Documented Worker version candidate: `d304d14c-c6ea-45ca-97ce-47fd6d350c33`
+- Cloudflare control-plane verification: unavailable on August 10, 2026; Wrangler was unauthenticated and Cloudflare API requests returned HTTP 403
+- Conflicting later artifact remains unresolved: deployment `5088dbe0-31f9-4892-a149-a74702bbad4e`, version `cb88271c-8712-42a8-88a9-de58c841d3ec`, 100%
+- Documented traffic candidate: `100%` (not freshly verified)
 - Dashboard: GitHub Pages, calling only the Worker API
 - Dashboard capital-cap source: read-only `capitalCaps` in `GET /api/dashboard`, resolved server-side from runtime-compatible configuration with `$5,000`, `$3,700`, and `$2,000` fallbacks
 - Capital-cap failure semantics: missing runtime-compatible configuration overrides use the fallback; malformed, non-finite, negative, HTTP-failed, or otherwise unavailable API payloads display `Unavailable`. The UI never substitutes buying power, cash, equity, portfolio value, or positions.
@@ -78,7 +89,7 @@ The prior-release natural reconciliation check completed on August 8, 2026 using
 
 The maintenance run details reported `trades_executed: 0` and `imported: 0`, and source inspection shows reconciliation calls only Alpaca order reads (`getRecentOrders` and `getOrder`) before persisting D1 state. No reconciliation-caused broker mutation was observed or indicated. A categorical broker before/after conclusion is not available because the Worker exposes no read-only `/api/orders` route and no same-window order snapshot pair exists.
 
-The August 9, 2026 audit found lease starvation: maintenance shared the strategy lease and repeated `CYCLE_LEASE_HELD` skips could block trading. The deployed fix uses separate `maintenance`, `daytrading`, `swing`, and `crypto` lease keys, a 10-minute default TTL, and a 12-second timeout for each Alpaca HTTP request. A maintenance run may still be skipped by another maintenance run, but it must not block a strategy lease.
+The August 9, 2026 audit found lease starvation: maintenance shared the strategy lease and repeated `CYCLE_LEASE_HELD` skips could block trading. The deployed fix uses separate `maintenance`, `daytrading`, `swing`, and `crypto` lease keys, a 10-minute default TTL, and a 12-second timeout for each Alpaca HTTP request. Source inspection confirms distinct `maintenance` and `daytrading` lease keys. Available D1 artifacts do not reconstruct exact historical lease ownership for each skipped invocation, so the verification confirms the design and current evidence boundary, not a complete historical ownership timeline. A maintenance run may still be skipped by another maintenance run, but it must not block a strategy lease.
 
 ## Deferred-risk monitoring
 
@@ -103,7 +114,7 @@ The active weekly read-only review job `Alpaca deferred-risk review` (schedule I
 
 ## Next steps
 
-1. Verify a completed post-August 10 `reconcile_cron` run, lifecycle-field population, run-log evidence, and absence of broker mutations without triggering reconciliation.
+1. Verify a completed post-August 10 `reconcile_cron` run, lifecycle-field population, run-log evidence, and absence of broker mutations without triggering reconciliation; the 07:10, 07:30, and 07:50 UTC runs were skipped, and no completed maintenance run was confirmed in the checked window.
 2. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
 3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
 4. Add targeted live-broker integration checks without using trading actions as smoke tests.

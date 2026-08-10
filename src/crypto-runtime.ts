@@ -36,6 +36,28 @@ export function cryptoClientOrderId(decisionId: number, symbol: string): string 
   return `crypto_${decisionId}_${symbol}`;
 }
 
+export const CRYPTO_MIN_ORDER_NOTIONAL_USD = 10;
+
+export function cryptoMinimumOrderCheck(
+  notionalUsd: number,
+  minimumNotionalUsd = CRYPTO_MIN_ORDER_NOTIONAL_USD,
+): { allowed: boolean; reason?: string } {
+  if (!Number.isFinite(notionalUsd) || notionalUsd <= 0) {
+    return { allowed: false, reason: 'Crypto order notional is missing or invalid' };
+  }
+  if (!Number.isFinite(minimumNotionalUsd) || minimumNotionalUsd <= 0) {
+    return { allowed: false, reason: 'Crypto minimum order notional is missing or invalid' };
+  }
+  if (notionalUsd < minimumNotionalUsd) {
+    return {
+      allowed: false,
+      reason: `Crypto order notional $${notionalUsd.toFixed(2)} is below broker minimum $${minimumNotionalUsd.toFixed(2)}`,
+    };
+  }
+  return { allowed: true };
+}
+
+
 export function shouldFinalizeCryptoPosition(order: Pick<Order, 'status' | 'qty' | 'filled_qty'>): boolean {
   return classifyCryptoOrder(order) === 'filled';
 }
@@ -178,14 +200,31 @@ export type CycleExposure = {
   approvedEntryCount: number;
 };
 
-export function createCycleExposure(brokerPositions: Position[]): CycleExposure {
-  return {
+export type PersistedCryptoReservation = {
+  reservationKey: string;
+  symbol: string;
+  notionalUsd: number;
+};
+
+export function createCycleExposure(
+  brokerPositions: Position[],
+  persistedReservations: readonly PersistedCryptoReservation[] = [],
+): CycleExposure {
+  const exposure: CycleExposure = {
     brokerPositions: [...brokerPositions],
     reservedNotionalUsd: 0,
     reservedSymbols: new Set(),
     reservedBySymbol: new Map(),
     approvedEntryCount: 0,
   };
+  for (const reservation of persistedReservations) {
+    const notionalUsd = Number(reservation.notionalUsd);
+    if (!reservation.reservationKey || !reservation.symbol || !Number.isFinite(notionalUsd) || notionalUsd < 0) continue;
+    exposure.reservedNotionalUsd += notionalUsd;
+    exposure.reservedSymbols.add(reservation.symbol);
+    exposure.reservedBySymbol.set(reservation.symbol, (exposure.reservedBySymbol.get(reservation.symbol) ?? 0) + notionalUsd);
+  }
+  return exposure;
 }
 
 export function projectedPositions(exposure: CycleExposure): Position[] {

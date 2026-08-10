@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS trades (
   estimated_value REAL,
   decision_id INTEGER REFERENCES decisions(id),
   strategy TEXT,                              -- nullable: known strategy only
+  intent_stop_loss_price REAL,
+  intent_take_profit_price REAL,
   error_message TEXT,
   broker_updated_at TEXT,
   last_reconciled_at TEXT,

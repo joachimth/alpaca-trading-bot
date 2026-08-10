@@ -2,16 +2,25 @@
 
 Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persistence, Alpaca paper trading, and a GitHub Pages dashboard.
 
+## August 10, 2026 lifecycle hardening candidate
+
+The current worktree contains a release candidate that preserves the vital risk parameters: daytrading cap **$5,000**, swing cap **$3,700**, crypto cap **$2,000**, existing confidence gates, max-trade settings, and strategy universes. It removes premature stock/swing position upserts, enforces same-cycle daytrading entry notional against the existing cap, links swing entries to decisions, synchronizes newly broker-confirmed positions, closes stale D1 current-position rows only after a complete broker snapshot, and updates decision metadata from broker-confirmed order states.
+
+Crypto entries now fail closed below the **$10** venue minimum, include cross-cycle reservation notional in cap sizing, enforce the total per-cycle trade limit, retain reservations while a broker order is live, release them only on terminal broker evidence, retain reservations after an unknown post-submit local failure, and persist ATR stop/target intent for broker-confirmed position reconstruction.
+
+Local validation on August 10, 2026: **88 tests passed, 262 assertions**, TypeScript typecheck passed, and repository diff-check passed. No trading cycle, order, close, cancel, replace, retry, or other broker mutation was used. Deployment of this candidate is not yet claimed: commit/push and authenticated Cloudflare read-only deployment verification remain required.
+
 ## Live deployment and current worktree
 
-The crypto-hardening release is deployed to the Alpaca paper-trading Worker. No manual trading trigger, order, cancellation, close, replace, retry, or broker mutation was used during validation.
+The crypto-hardening release is documented as deployed to the Alpaca paper-trading Worker, but current Cloudflare deployment identity was not freshly verified on August 10, 2026. No manual trading trigger, order, cancellation, close, replace, retry, or broker mutation was used during validation.
 
 - **Repository:** `joachimth/alpaca-trading-bot`
 - **Worker:** `alpaca-trading-bot.joachim-763.workers.dev`
 - **Dashboard:** `joachimth.github.io/alpaca-trading-bot/`
 - **Release source:** commit `4261009` (`Bound dashboard reads and remove GET schema mutations`), including crypto hardening `8280696`
-- **Last documented Worker version:** `d304d14c-c6ea-45ca-97ce-47fd6d350c33`, recorded at 100% traffic on August 10, 2026
-- **Last documented deployment:** `24b7df43-a710-479a-96f8-46b879fc9171`
+- **Documented deployment candidate:** `24b7df43-a710-479a-96f8-46b879fc9171`
+- **Documented Worker version candidate:** `d304d14c-c6ea-45ca-97ce-47fd6d350c33`
+- **Cloudflare control-plane status:** not freshly verified on August 10, 2026; Wrangler was unauthenticated and Cloudflare API requests returned HTTP 403
 - **Account mode:** Alpaca paper trading
 - **Source mapping note:** Cloudflare does not embed the Git SHA in the deployment artifact; the bundle-to-commit mapping is recorded by the release process.
 
@@ -23,7 +32,7 @@ The dashboard is a static GitHub Pages frontend. It calls the Cloudflare Worker 
 
 Validation for the deployed release: 85 Bun tests passed with 257 assertions, TypeScript typecheck passed, `git diff --check` passed, and the Wrangler dry-run passed. The explicit reservations migration was applied and verified in remote D1; the direct Cloudflare upload was used because Wrangler deploy can be false-positive in this proxy environment.
 
-Last documented live verification recorded deployment `24b7df43-a710-479a-96f8-46b879fc9171` serving version `d304d14c-c6ea-45ca-97ce-47fd6d350c33` at 100%; `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, `/api/positions`, and `/api/config` returned HTTP 200; dashboard history is bounded to 90 performance rows and 90 rows per category; all four schedules are unchanged. A later captured Cloudflare artifact reports deployment `5088dbe0-31f9-4892-a149-a74702bbad4e` and version `cb88271c-8712-42a8-88a9-de58c841d3ec` at 100%, but fresh revalidation was unavailable on August 10 because `CLOUDFLARE_API_TOKEN` was absent.
+Read-only live Worker verification ran on August 10, 2026 at 13:43:32-13:43:35 UTC. `/health`, `/api/runs`, `/api/trades`, `/api/positions`, `/`, and `/api/config` returned HTTP 200; `/api/positions` reported `positionsAvailable: true`, `source: alpaca`, and 18 positions. Cloudflare deployment/version/traffic/schedules were not freshly verified: Wrangler was unauthenticated, Cloudflare API requests returned HTTP 403, and the documented `24b7df43`/`d304d14c` pair conflicts with a later `5088dbe0`/`cb88271c` artifact. The local Worker configuration contains daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and maintenance `*/10 * * * *`, but that is not proof of live scheduler state. D1 SELECT-only evidence recorded daytrading cron runs 913, 914, and 915 at 13:25:59, 13:35:59, and 13:40:59 UTC, each skipped with `CYCLE_LEASE_HELD` and `trades_executed: 0`. The source uses separate `daytrading` and `maintenance` lease keys; exact historical lease ownership is not reconstructable from available artifacts. No trigger, reconciliation, order, close, cancel, retry, or other mutating endpoint was called.
 
 ### Capital-cap release evidence
 
@@ -267,7 +276,7 @@ Documentation is part of the implementation, not a follow-up task. Every future 
 
 The prior-release natural reconciliation check completed on August 8, 2026 using only GET requests to the live Worker. The `/api/runs` response recorded 23 `reconcile_cron` entries from `2026-08-08 06:40:53` through `2026-08-08 10:30:51` UTC; 16 completed with the `MAINTENANCE_ONLY` marker and 7 were explicitly skipped because the global cycle lease was held. The live `/api/trades` response contained 19 rows with `client_order_id`, `filled_qty`, `leaves_qty`, `broker_updated_at`, and `last_reconciled_at`; reconciliation timestamps ranged from `2026-08-07 20:09:02` through `2026-08-08 10:20:06` UTC. Maintenance logs reported `trades_executed: 0`, `imported: 0`, and no order submission, cancel, replace, retry, or close action. Source inspection confirms the maintenance reconciler only reads recent/individual broker orders and writes D1 lifecycle state.
 
-This confirms prior-release scheduled execution and lifecycle population without broker-side mutation evidence. It does not establish post-August 10 behavior. The latest post-release `reconcile_cron` records observed on August 10 at 07:10, 07:30, and 07:50 UTC were skipped with `CYCLE_LEASE_HELD`, so recent completed reconciliation is not confirmed. A strict broker order before/after comparison remains unavailable because the supported Worker API has no read-only `/api/orders` route and no same-window order snapshot pair was captured; the result is therefore “no mutation observed or indicated,” not a categorical broker audit assertion.
+This confirms prior-release scheduled execution and lifecycle population without broker-side mutation evidence. It does not establish a completed post-August 10 reconciliation: the latest observed `reconcile_cron` records at 07:10, 07:30, and 07:50 UTC were skipped with `CYCLE_LEASE_HELD`, and the later 13:25:59-13:40:59 UTC window contained no maintenance rows. The 13:25:59-13:40:59 daytrading rows were also skipped with `CYCLE_LEASE_HELD`; no 13:30:00 UTC row was retained in the 30-row response, so that exact first market-open tick is an evidence gap. Source inspection confirms maintenance uses its own lease key; exact historical lease ownership is not reconstructable from available artifacts. A strict broker order before/after comparison remains unavailable because the supported Worker API has no read-only `/api/orders` route and no same-window order snapshot pair was captured; the result is therefore “no mutation observed or indicated,” not a categorical broker audit assertion.
 
 A verified weekly read-only follow-up job, `Alpaca deferred-risk review` (schedule ID `56199d0b-dd75-4f3b-acb6-14c58c4e055b`), runs Mondays at 10:00 Europe/Copenhagen and reviews the remaining accounting, lifecycle, attribution, swing-state, and live-integration risks.
 

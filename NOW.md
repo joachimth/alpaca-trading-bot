@@ -1,11 +1,8 @@
 # NOW
-## 2026-08-10 08:02 UTC
-- Weekly review completed read-only; no trading, reconciliation trigger, order, close, cancel, retry, or broker mutation was used.
-- Worker health and all checked GET endpoints returned HTTP 200; account was ACTIVE and Pages returned HTTP 200.
-- 85 Bun tests passed with 257 assertions; TypeScript passed.
-- Latest `reconcile_cron` runs at 07:10, 07:30, and 07:50 UTC were safely skipped with `CYCLE_LEASE_HELD`; recent completed reconciliation is not confirmed.
-- The Aug 8 natural reconciliation evidence predates the Aug 10 release and is now labeled prior-release evidence.
-- Confirmed lifecycle defect: Aug 6 live evidence showed repeated partial-filled exits and quantity mismatches; daytrading/swing lack pending-exit guards and create full D1 positions before BUY fills are confirmed.
-- Retry protection is incomplete because daytrading/swing client IDs use `Date.now()`; swing BUYs use `decision_id: null` and swing exits omit the originating decision ID. Crypto has a pending-exit guard and deterministic IDs but no complete retry/cancel/replace lifecycle.
-- Deterministic attribution, fill/FIFO accounting, persisted swing peak state, and full live lifecycle coverage also remain open.
-- Captured deployment artifacts conflict with the last documented deployment identity; fresh Cloudflare revalidation was unavailable because `CLOUDFLARE_API_TOKEN` was not present.
+## 2026-08-10 19:30 CEST
+- Local hardening candidate now covers broker-confirmed positions, decision lifecycle, daytrading same-cycle cap notional, swing attribution/sync, crypto $10 minimum preflight, persistent reservations, cross-cycle crypto cap sizing, max-trades, and ATR protection intent.
+- Vital parameters unchanged: daytrading $5,000, swing $3,700, crypto $2,000; confidence gates, universes, and trade limits unchanged.
+- Validation: 88 tests / 262 assertions passed; TypeScript and repository diff-check passed.
+- No trading cycle, order, close, cancel, replace, retry, or broker mutation was used.
+- Documentation updated in README.md, docs/OPERATIONS.md, and docs/DEPLOYMENT_RUNBOOK.md.
+- Next: commit/push, verify remote D1 schema and authenticated Cloudflare deployment, then observe a natural paper session read-only.

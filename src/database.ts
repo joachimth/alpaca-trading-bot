@@ -44,9 +44,12 @@ export interface TradeRecord {
   filled_qty?: number | null;
   leaves_qty?: number | null;
   broker_updated_at?: string | null;
+  intent_stop_loss_price?: number | null;
+  intent_take_profit_price?: number | null;
 }
 
 export const CYCLE_LEASE_TTL_MS = 10 * 60 * 1000;
+const CRYPTO_COMMITTED_RESERVATION_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
 export interface DatabaseOptions {
   /** Read paths must never attempt runtime schema repair or DDL. */
@@ -77,6 +80,8 @@ export class Database {
       ['leaves_qty', 'REAL'],
       ['broker_updated_at', 'TEXT'],
       ['last_reconciled_at', 'TEXT'],
+      ['intent_stop_loss_price', 'REAL'],
+      ['intent_take_profit_price', 'REAL'],
     ] as const;
     for (const [name, type] of columns) {
       const column = await this.db.prepare(
@@ -356,7 +361,10 @@ export class Database {
         WHERE reservation_key = ?
         LIMIT 1
       `).bind(input.reservationKey).first() as { owner?: string; status?: string; expires_at?: number } | null;
-      if (existing && Number(existing.expires_at) > nowMs) {
+      // A reservation row is durable until reconciliation proves a terminal
+      // broker state or a pre-submit orphan. Its local expiry is only a rate
+      // window hint and must never release an unresolved accepted order.
+      if (existing) {
         if (existing.owner !== input.owner) {
           return { reserved: false, idempotent: false, reason: 'crypto reservation key owned by another invocation' };
         }
@@ -364,11 +372,6 @@ export class Database {
           return { reserved: false, idempotent: true, reason: 'crypto reservation already committed' };
         }
         return { reserved: true, idempotent: true };
-      }
-      if (existing) {
-        await this.db.prepare(
-          'DELETE FROM crypto_entry_reservations WHERE reservation_key = ? AND expires_at <= ?'
-        ).bind(input.reservationKey, nowMs).run();
       }
 
       // The INSERT ... SELECT is the atomic D1/SQLite rate-window boundary.
@@ -432,19 +435,99 @@ export class Database {
     }
   }
 
-  async finalizeCryptoEntryReservation(reservationKey: string, owner: string, committed: boolean, nowMs = Date.now(), windowMs = 60_000): Promise<void> {
+  async finalizeCryptoEntryReservation(reservationKey: string, owner: string, committed: boolean, nowMs = Date.now()): Promise<void> {
     await this.ensureTradeSchema();
     if (committed) {
       await this.db.prepare(`
         UPDATE crypto_entry_reservations
         SET status = 'committed', expires_at = ?
         WHERE reservation_key = ? AND owner = ? AND status = 'active'
-      `).bind(nowMs + Math.max(1, Math.floor(windowMs)), reservationKey, owner).run();
+      `).bind(nowMs + CRYPTO_COMMITTED_RESERVATION_TTL_MS, reservationKey, owner).run();
     } else {
       await this.db.prepare(
         'DELETE FROM crypto_entry_reservations WHERE reservation_key = ? AND owner = ? AND status = \'active\''
       ).bind(reservationKey, owner).run();
     }
+  }
+
+  async getCryptoEntryReservations(nowMs = Date.now()): Promise<Array<{ reservationKey: string; owner: string; symbol: string; notionalUsd: number; status: 'active' | 'committed'; createdAt: number; expiresAt: number }>> {
+    await this.ensureTradeSchema();
+    const result = await this.db.prepare(`
+      SELECT reservation_key, owner, symbol, notional_usd, status, created_at, expires_at
+      FROM crypto_entry_reservations
+      WHERE status IN ('active', 'committed') AND expires_at > ?
+      ORDER BY created_at ASC
+    `).bind(nowMs).all();
+    return (result.results as Array<Record<string, unknown>>).flatMap(row => {
+      const notionalUsd = Number(row.notional_usd);
+      const createdAt = Number(row.created_at);
+      const expiresAt = Number(row.expires_at);
+      if (!row.reservation_key || !row.owner || !row.symbol || !Number.isFinite(notionalUsd) || notionalUsd < 0 || !Number.isFinite(createdAt) || !Number.isFinite(expiresAt)) return [];
+      return [{
+        reservationKey: String(row.reservation_key),
+        owner: String(row.owner),
+        symbol: String(row.symbol),
+        notionalUsd,
+        status: row.status === 'committed' ? 'committed' as const : 'active' as const,
+        createdAt,
+        expiresAt,
+      }];
+    });
+  }
+
+  async getCryptoEntryReservationNotional(nowMs = Date.now()): Promise<number> {
+    const reservations = await this.getCryptoEntryReservations(nowMs);
+    return reservations.reduce((total, reservation) => total + reservation.notionalUsd, 0);
+  }
+
+  async releaseExpiredCryptoEntryReservation(reservationKey: string, nowMs = Date.now()): Promise<boolean> {
+    await this.ensureTradeSchema();
+    const result = await this.db.prepare(`
+      DELETE FROM crypto_entry_reservations
+      WHERE reservation_key = ? AND status = 'active' AND expires_at <= ?
+    `).bind(reservationKey, nowMs).run();
+    return (result.meta.changes ?? 0) > 0;
+  }
+
+  async reconcileCryptoEntryReservation(order: Order): Promise<void> {
+    await this.ensureTradeSchema();
+    const reservationKey = order.client_order_id;
+    if (!reservationKey) return;
+    try {
+      if (TERMINAL_ORDER_STATUSES.has(order.status)) {
+        await this.db.prepare(
+          'DELETE FROM crypto_entry_reservations WHERE reservation_key = ?'
+        ).bind(reservationKey).run();
+        return;
+      }
+      await this.db.prepare(`
+        UPDATE crypto_entry_reservations
+        SET status = 'committed', expires_at = ?
+        WHERE reservation_key = ?
+      `).bind(Date.now() + CRYPTO_COMMITTED_RESERVATION_TTL_MS, reservationKey).run();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.toLowerCase().includes('no such table')) throw error;
+      // The standalone reservation migration is optional for stock-only and
+      // legacy reconciliation. Crypto entry admission remains fail-closed when
+      // the reservation exposure cannot be read.
+    }
+  }
+
+  async getLatestCryptoEntryProtection(symbol: string): Promise<{ stop_loss_price: number | null; take_profit_price: number | null } | null> {
+    await this.ensureTradeSchema();
+    const row = await this.db.prepare(`
+      SELECT intent_stop_loss_price, intent_take_profit_price
+      FROM trades
+      WHERE strategy = 'crypto' AND side = 'buy' AND ticker = ?
+        AND intent_stop_loss_price IS NOT NULL AND intent_take_profit_price IS NOT NULL
+      ORDER BY timestamp DESC LIMIT 1
+    `).bind(symbol).first() as { intent_stop_loss_price?: number | null; intent_take_profit_price?: number | null } | null;
+    if (!row) return null;
+    return {
+      stop_loss_price: row.intent_stop_loss_price ?? null,
+      take_profit_price: row.intent_take_profit_price ?? null,
+    };
   }
 
   // ============================================================
@@ -522,8 +605,8 @@ export class Database {
   async logTrade(record: TradeRecord): Promise<number> {
     await this.ensureTradeSchema();
     const result = await this.db.prepare(
-      `INSERT INTO trades (alpaca_order_id, client_order_id, ticker, side, qty, filled_qty, leaves_qty, fill_price, avg_fill_price, status, order_type, limit_price, stop_price, estimated_value, decision_id, error_message, strategy, broker_updated_at, last_reconciled_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+      `INSERT INTO trades (alpaca_order_id, client_order_id, ticker, side, qty, filled_qty, leaves_qty, fill_price, avg_fill_price, status, order_type, limit_price, stop_price, estimated_value, decision_id, error_message, strategy, broker_updated_at, intent_stop_loss_price, intent_take_profit_price, last_reconciled_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
     ).bind(
       record.alpaca_order_id,
       record.client_order_id ?? null,
@@ -542,7 +625,9 @@ export class Database {
       record.decision_id,
       record.error_message,
       record.strategy ?? null,
-      record.broker_updated_at ?? null
+      record.broker_updated_at ?? null,
+      record.intent_stop_loss_price ?? null,
+      record.intent_take_profit_price ?? null
     ).run();
 
     return result.meta.last_row_id as number;
@@ -567,6 +652,8 @@ export class Database {
     estimatedValue?: number | null;
     errorMessage?: string | null;
     strategy?: 'daytrading' | 'swing' | 'crypto' | null;
+    intentStopLossPrice?: number | null;
+    intentTakeProfitPrice?: number | null;
   } = {}): Promise<number> {
     await this.ensureTradeSchema();
     const existing = await this.db.prepare(
@@ -589,12 +676,14 @@ export class Database {
              fill_price = COALESCE(?, fill_price), avg_fill_price = COALESCE(?, avg_fill_price),
              broker_updated_at = CASE WHEN broker_updated_at IS NULL OR ? >= broker_updated_at THEN ? ELSE broker_updated_at END,
              last_reconciled_at = datetime('now'),
-             decision_id = COALESCE(decision_id, ?), strategy = COALESCE(strategy, ?)
+             decision_id = COALESCE(decision_id, ?), strategy = COALESCE(strategy, ?),
+             intent_stop_loss_price = COALESCE(intent_stop_loss_price, ?),
+             intent_take_profit_price = COALESCE(intent_take_profit_price, ?)
          WHERE alpaca_order_id = ?`
       ).bind(order.client_order_id ?? null, order.updated_at ?? null, order.status,
         order.filled_qty, order.leaves_qty, order.filled_avg_price, order.filled_avg_price,
         order.updated_at ?? null, order.updated_at ?? null,
-        options.decisionId ?? null, options.strategy ?? null, order.id).run();
+        options.decisionId ?? null, options.strategy ?? null, options.intentStopLossPrice ?? null, options.intentTakeProfitPrice ?? null, order.id).run();
       return existing.id as number;
     }
 
@@ -617,6 +706,8 @@ export class Database {
       decision_id: options.decisionId ?? null,
       error_message: options.errorMessage ?? null,
       strategy: options.strategy ?? null,
+      intent_stop_loss_price: options.intentStopLossPrice ?? null,
+      intent_take_profit_price: options.intentTakeProfitPrice ?? null,
     });
   }
 
@@ -682,9 +773,10 @@ export class Database {
     for (const order of orders) {
       if (!order?.id || (order.side !== 'buy' && order.side !== 'sell')) continue;
       const existing = await this.db.prepare(
-        'SELECT id, strategy, status, broker_updated_at, leaves_qty FROM trades WHERE alpaca_order_id = ? LIMIT 1'
+        'SELECT id, decision_id, strategy, status, broker_updated_at, leaves_qty FROM trades WHERE alpaca_order_id = ? LIMIT 1'
       ).bind(order.id).first() as {
         id?: number;
+        decision_id?: number | null;
         strategy?: TradeRecord['strategy'];
         status?: string | null;
         broker_updated_at?: string | null;
@@ -719,8 +811,23 @@ export class Database {
           order.filled_avg_price, order.filled_avg_price, brokerUpdatedAt,
           strategy, order.id,
         ).run();
+
+        await this.reconcileCryptoEntryReservation(order);
+
+        if (existing.decision_id !== null && existing.decision_id !== undefined && isNewerOrEqual) {
+          const fullyFilled = status === 'filled' && order.filled_qty > 0 && order.filled_qty >= order.qty * 0.999;
+          const terminalRejected = ['rejected', 'canceled', 'cancelled', 'expired', 'done_for_day', 'stopped'].includes(status);
+          const executed = fullyFilled ? 1 : terminalRejected ? 2 : 0;
+          const reason = fullyFilled
+            ? `Broker confirmed fill: ${order.filled_qty}/${order.qty} @ ${order.filled_avg_price ?? 'unknown'}`
+            : terminalRejected
+              ? `Broker order terminal status: ${status}`
+              : `Broker order status: ${status}; filled ${order.filled_qty}/${order.qty}`;
+          await this.updateDecisionStatus(existing.decision_id, executed, reason);
+        }
       } else {
         await this.logOrderTrade(order, { strategy });
+        await this.reconcileCryptoEntryReservation(order);
         imported++;
       }
     }

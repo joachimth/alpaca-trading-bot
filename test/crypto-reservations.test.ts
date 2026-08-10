@@ -52,15 +52,41 @@ describe('crypto persistent reservations', () => {
     expect(await reservation(db, { reservationKey: 'crypto_2_ETHUSD', owner: 'owner-2' })).toEqual({ reserved: true, idempotent: false });
   });
 
-  test('committed reservation remains idempotent until the rate-window expiry boundary', async () => {
+  test('committed reservation remains protected beyond the short rate window', async () => {
     const sqlite = createReservationDatabase();
     const db = new Database(createFakeD1(sqlite));
     await reservation(db);
-    await db.finalizeCryptoEntryReservation('crypto_1_BTCUSD', 'owner-1', true, 1_000_000, 60_000);
-    const beforeExpiry = await reservation(db, { reservationKey: 'crypto_2_ETHUSD', owner: 'owner-2', nowMs: 1_059_999 });
-    expect(beforeExpiry.reserved).toBe(false);
-    const atExpiry = await reservation(db, { reservationKey: 'crypto_2_ETHUSD', owner: 'owner-2', nowMs: 1_060_000 });
-    expect(atExpiry.reserved).toBe(true);
+    await db.finalizeCryptoEntryReservation('crypto_1_BTCUSD', 'owner-1', true, 1_000_000);
+    const longAfterRateWindow = await reservation(db, { reservationKey: 'crypto_2_ETHUSD', owner: 'owner-2', nowMs: 1_060_000 });
+    expect(longAfterRateWindow.reserved).toBe(false);
+    expect(await db.getCryptoEntryReservationNotional(1_060_000)).toBe(100);
+    expect(await db.getCryptoEntryReservationNotional(400_000_000_000)).toBe(0);
+  });
+
+  test('terminal broker reconciliation releases a committed reservation', async () => {
+    const sqlite = createReservationDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    await reservation(db);
+    await db.finalizeCryptoEntryReservation('crypto_1_BTCUSD', 'owner-1', true, 1_000_000);
+    await db.reconcileCryptoEntryReservation({
+      id: 'order-1', client_order_id: 'crypto_1_BTCUSD', symbol: 'BTCUSD', qty: 1, filled_qty: 0, leaves_qty: 1,
+      filled_avg_price: null, type: 'market', side: 'buy', status: 'rejected', time_in_force: 'gtc',
+      created_at: '2026-08-07T10:00:00Z', updated_at: '2026-08-07T10:01:00Z', submitted_at: null, filled_at: null, canceled_at: null, expired_at: null, failed_at: null, replaced_at: null, limit_price: null, stop_price: null, trail_price: null, trail_percent: null,
+    });
+    expect(await db.getCryptoEntryReservationNotional(1_060_000)).toBe(0);
+  });
+
+  test('imported terminal broker orders release matching reservations during reconciliation', async () => {
+    const sqlite = createReservationDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    await reservation(db);
+    await db.finalizeCryptoEntryReservation('crypto_1_BTCUSD', 'owner-1', true, 1_000_000);
+    await db.reconcileOrders([{
+      id: 'order-imported', client_order_id: 'crypto_1_BTCUSD', symbol: 'BTCUSD', qty: 1, filled_qty: 0, leaves_qty: 1,
+      filled_avg_price: null, type: 'market', side: 'buy', status: 'rejected', time_in_force: 'gtc',
+      created_at: '2026-08-07T10:00:00Z', updated_at: '2026-08-07T10:01:00Z', submitted_at: null, filled_at: null, canceled_at: null, expired_at: null, failed_at: null, replaced_at: null, limit_price: null, stop_price: null, trail_price: null, trail_percent: null,
+    }]);
+    expect(await db.getCryptoEntryReservationNotional(1_060_000)).toBe(0);
   });
 
   test('fails closed when the reservation table is absent', async () => {

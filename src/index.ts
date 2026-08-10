@@ -515,6 +515,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
     // Track trades per cycle
     let cycleTradeCount = 0;
+    let cycleEntryNotionalUsd = 0;
     const maxTradesPerCycle = config.maxTradesPerCycle || 3;
 
     // 11. AI refinement
@@ -625,7 +626,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       // never pass through BUY-oriented sizing/cost checks.
       let riskCheck: RiskCheckResult | null = null;
       if (decision.action === 'BUY') {
-        riskCheck = riskManager.checkTrade(decision, account, positions, signal.indicators);
+        riskCheck = riskManager.checkTrade(decision, account, positions, signal.indicators, cycleEntryNotionalUsd);
         if (!riskCheck.approved) {
           await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
           console.log(`Skipped ${signal.indicators.symbol}: ${riskCheck.reason}`);
@@ -701,6 +702,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             client_order_id: `bot_${decisionId}_${Date.now()}`,
           });
 
+          const entryNotionalUsd = qty * signal.indicators.price;
+          cycleEntryNotionalUsd += entryNotionalUsd;
           await db.logTrade({
             alpaca_order_id: order.id,
             ticker: signal.indicators.symbol,
@@ -712,18 +715,22 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             order_type: 'market',
             limit_price: null,
             stop_price: null,
-            estimated_value: qty * signal.indicators.price,
+            estimated_value: entryNotionalUsd,
             decision_id: decisionId,
             error_message: null,
             strategy: 'daytrading',
           });
 
-          // NOTE: Position is NOT upserted here — broker sync at step 12 picks up the
-          // broker-confirmed fill data. Upserting prematurely uses requested qty/price
-          // before the broker confirms, causing qty mismatches on partial fills.
-
-          await db.updateDecisionStatus
-          tradesExecuted++;
+          // Position is deliberately not upserted here. The broker-confirmed sync
+          // below is the only source allowed to create/update current positions.
+          const terminalRejected = ['rejected', 'canceled', 'cancelled', 'expired', 'done_for_day', 'stopped'].includes(order.status);
+          const fullyFilled = alpaca.isOrderFullyFilled(order);
+          await db.updateDecisionStatus(decisionId, fullyFilled ? 1 : terminalRejected ? 2 : 0, fullyFilled
+            ? `Broker confirmed fill: ${order.filled_qty}/${order.qty} @ ${order.filled_avg_price ?? 'unknown'}`
+            : terminalRejected
+              ? `Broker order terminal status: ${order.status}`
+              : `Broker order status: ${order.status}; filled ${order.filled_qty}/${order.qty}`);
+          if (fullyFilled) tradesExecuted++;
           cycleTradeCount++;
           console.log(`BUY ${signal.indicators.symbol}: ${qty} shares @ ~$${signal.indicators.price.toFixed(2)}`);
         } catch (e) {
@@ -753,6 +760,18 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         stop_loss_price: existing?.stop_loss_price ?? null,
         take_profit_price: existing?.take_profit_price ?? null,
       });
+    }
+
+    // A complete successful broker snapshot is authoritative. Do not retain a
+    // D1-only current position unless a known order is still live and could fill.
+    const pendingDaySymbols = new Set((await db.getTradesNeedingSync(200))
+      .filter(trade => trade.strategy === 'daytrading')
+      .map(trade => String(trade.ticker)));
+    const finalBrokerSymbols = new Set(finalPositions.map(pos => pos.symbol));
+    for (const dbPos of dbPositions) {
+      if (!finalBrokerSymbols.has(dbPos.ticker) && !pendingDaySymbols.has(dbPos.ticker)) {
+        await db.closePosition(dbPos.ticker, 0, 'broker_authoritative_sync_absent');
+      }
     }
 
     // 13. Log run
