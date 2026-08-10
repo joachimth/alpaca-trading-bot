@@ -517,20 +517,9 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
           strategy: 'swing',
         });
 
-        // Update position in DB
-        await db.upsertPosition({
-          ticker: buy.symbol,
-          side: 'long',
-          qty: qty,
-          avg_entry_price: price,
-          current_price: price,
-          market_value: qty * price,
-          unrealized_pl: 0,
-          unrealized_plpc: 0,
-          stop_loss_price: price * (1 - config.stopLossPct / 100),
-          take_profit_price: null, // swing uses signal-based exit, not fixed TP
-          strategy: 'swing',
-        });
+        // NOTE: Position is NOT upserted here — broker sync below picks up the
+        // broker-confirmed fill data. Upserting prematurely uses requested qty/price
+        // before the broker confirms, causing qty mismatches on partial fills.
 
         tradesExecuted++;
         console.log(`Swing BUY ${buy.symbol}: ${qty} shares @ ~$${price.toFixed(2)} (rank #${buy.score.rank}, z=${buy.score.compositeScore.toFixed(2)})`);

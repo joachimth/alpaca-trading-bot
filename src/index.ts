@@ -718,22 +718,11 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             strategy: 'daytrading',
           });
 
-          // Update position in DB
-          await db.upsertPosition({
-            ticker: signal.indicators.symbol,
-            side: 'long',
-            qty: qty,
-            avg_entry_price: signal.indicators.price,
-            current_price: signal.indicators.price,
-            market_value: qty * signal.indicators.price,
-            unrealized_pl: 0,
-            unrealized_plpc: 0,
-            stop_loss_price: riskCheck.stopLossPrice || null,
-            take_profit_price: riskCheck.takeProfitPrice || null,
-            strategy: 'daytrading',
-          });
+          // NOTE: Position is NOT upserted here — broker sync at step 12 picks up the
+          // broker-confirmed fill data. Upserting prematurely uses requested qty/price
+          // before the broker confirms, causing qty mismatches on partial fills.
 
-          await db.updateDecisionStatus(decisionId, 1, `Order submitted: ${qty} shares`);
+          await db.updateDecisionStatus
           tradesExecuted++;
           cycleTradeCount++;
           console.log(`BUY ${signal.indicators.symbol}: ${qty} shares @ ~$${signal.indicators.price.toFixed(2)}`);
