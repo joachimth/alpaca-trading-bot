@@ -2,19 +2,19 @@
 
 ## Dashboard 1102 hotfix — August 10, 2026
 
-The local hotfix for the confirmed `/api/dashboard` Cloudflare 1102 failure makes all GET/read-only `Database` instances skip runtime schema-repair DDL, `ALTER TABLE`, index creation, and schema checks. Trading and write paths still use the existing schema-readiness process. The Worker `fetch` path has no unconditional `ALTER TABLE positions` repair.
+The deployed dashboard hotfix makes all GET/read-only `Database` instances skip runtime schema-repair DDL, `ALTER TABLE`, index creation, and schema checks. Trading and write paths retain the existing schema-readiness process, and the Worker `fetch` path has no unconditional `ALTER TABLE positions` repair.
 
-Dashboard fan-out is reduced by removing duplicate per-strategy history queries and bounding both account performance and category history to 90 rows per series. Current positions remain Alpaca-authoritative; broker position failure returns an unavailable state and never falls back to D1 positions. This work is local and uncommitted: do not push, deploy, apply remote D1 migrations, or call broker mutation APIs as part of validation.
+Dashboard fan-out is reduced by removing duplicate per-strategy history queries and bounding performance and category history to 90 rows per series. Current positions remain Alpaca-authoritative; broker position failure returns an unavailable state and never falls back to D1 positions.
 
-Required local validation: `bun test`, `bunx tsc --noEmit`, `git diff --check`, and a Wrangler dry-run. Release evidence must additionally prove `/api/dashboard` is read-only and returns bounded payloads without broker mutation.
+Release evidence: commit `4261009` is pushed to `origin/main`; Cloudflare deployment `24b7df43-a710-479a-96f8-46b879fc9171` serves Worker version `d304d14c-c6ea-45ca-97ce-47fd6d350c33` at 100%. Remote D1 contains `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry`; 85 tests/257 assertions, typecheck, diff-check, and dry-run passed; all read-only smoke endpoints returned 200; no broker mutation was used.
 
 ## Current release
 
-The crypto correctness patch in the current worktree is not deployed as of August 9, 2026. No broker order, cancellation, close, or deployment mutation was used while applying or validating it. The deployment identifiers below refer to the prior documented release only.
+The crypto correctness and dashboard read-only hardening are deployed as of August 10, 2026. No broker order, cancellation, close, or manual trading trigger was used during release validation.
 
-- Source implementation commit: `fd8be3be647e0a4cdae8f79de89206f9a65172bb` (`Add read-only strategy capital cap cards`)
-- Cloudflare deployment ID: `5088dbe0-31f9-4892-a149-a74702bbad4e`
-- Cloudflare Worker version: `cb88271c-8712-42a8-88a9-de58c841d3ec`
+- Release source commit: `4261009` (`Bound dashboard reads and remove GET schema mutations`), including crypto hardening `8280696`
+- Cloudflare deployment ID: `24b7df43-a710-479a-96f8-46b879fc9171`
+- Cloudflare Worker version: `d304d14c-c6ea-45ca-97ce-47fd6d350c33`
 - Traffic: `100%`
 - Dashboard: GitHub Pages, calling only the Worker API
 - Dashboard capital-cap source: read-only `capitalCaps` in `GET /api/dashboard`, resolved server-side from runtime-compatible configuration with `$5,000`, `$3,700`, and `$2,000` fallbacks
@@ -85,8 +85,8 @@ The active weekly read-only review job `Alpaca deferred-risk review` (schedule I
 
 ## Known risks
 
-- The crypto patch is local and uncommitted; the previously deployed Worker does not contain these fixes.
-- Local validation currently passes: 83 tests, 248 assertions, TypeScript, and diff-check. The explicit crypto reservation migration tests cover fresh apply and idempotent reapply; no remote migration, deployment, or broker mutation has been performed for this patch.
+- The crypto patch is deployed, but Cloudflare deployment artifacts do not embed the Git SHA; the release bundle-to-commit mapping is recorded by the release process.
+- Validation and live evidence: 85 tests, 257 assertions, TypeScript, diff-check, and dry-run passed; remote reservation schema was applied and verified; all read-only smoke endpoints returned HTTP 200; no broker mutation was used.
 - `git diff --check` from the workspace root is contaminated by unrelated generated `/workspace/data` changes; the bot repository diff must be checked with `git -C /workspace/alpaca-trading-bot diff --check`.
 - Wrangler dry-run remains validation-only and was not used as a deployment.
 

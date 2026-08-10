@@ -4,7 +4,7 @@
 
 Before any release of the local dashboard hotfix, verify that every GET/read-only API construction uses `new Database(env.DB, { readOnly: true })`. Read-only construction must perform zero DDL, `ALTER TABLE`, index creation, pragma/schema checks, or other repair work; write/trading construction remains the only runtime schema-readiness path. Confirm `src/index.ts` has no unconditional fetch-time `ALTER TABLE positions` or equivalent schema repair.
 
-The dashboard must use bounded history windows (90 performance rows and 90 category rows per strategy) and must not issue the removed duplicate per-strategy decision/trade/run history fan-out. Verify broker-authoritative positions: when Alpaca positions fail, return `positionsAvailable: false` with no D1 fallback. Validation is local/read-only only: no push, deployment, remote D1 mutation, or broker mutation API calls.
+The dashboard uses bounded history windows (90 performance rows and 90 category rows per strategy) and does not issue the removed duplicate per-strategy decision/trade/run history fan-out. Verify broker-authoritative positions: when Alpaca positions fail, return `positionsAvailable: false` with no D1 fallback. The pre-release validation gate was local/read-only; the release is now deployed and live evidence is recorded below.
 
 Required commands from `/workspace/alpaca-trading-bot`:
 
@@ -56,10 +56,10 @@ bunx wrangler deploy --dry-run
 Expected current baseline:
 
 - TypeScript check passes.
-- 83 tests pass, 0 fail, 248 assertions, including fresh/idempotent crypto schema migration, crypto reservation, fee telemetry, budget, risk, strategy-comparison, and reconciliation coverage.
+- 85 tests pass, 0 fail, 257 assertions, including fresh/idempotent crypto schema migration, crypto reservation, dashboard read-only, fee telemetry, budget, risk, strategy-comparison, and reconciliation coverage.
 - `git diff --check` passes.
 - Wrangler dry-run succeeds.
-- The current capital-cap release is deployed and verified: source commit `fd8be3be647e0a4cdae8f79de89206f9a65172bb` is pushed; Worker deployment `5088dbe0-31f9-4892-a149-a74702bbad4e` with version `cb88271c-8712-42a8-88a9-de58c841d3ec` is live at 100% traffic; all four schedules are present; read-only `/health`, `/api/dashboard`, `/api/trades`, and `/api/runs` returned HTTP 200; Pages contains exactly three Capital cap cards.
+- The earlier capital-cap release is the historical baseline; the current hardening release is recorded in the August 10, 2026 release block below.
 - A dry-run warning must be investigated rather than ignored if it is new.
 
 Do not run trading triggers, close endpoints, manual cycles, or order actions as deployment tests.
@@ -194,19 +194,19 @@ Record these values in the release note or conversation:
 
 ## Current verified release
 
-- The crypto economics hardening patch currently in the worktree is not deployed or committed. Do not update the live deployment identifiers below until a separate, explicitly authorized release is completed. No broker mutations were used for this patch.
+As of August 10, 2026:
 
-As of August 9, 2026:
-
-- Git commit: `fd8be3be647e0a4cdae8f79de89206f9a65172bb` (`Add read-only strategy capital cap cards`)
-- Cloudflare deployment ID: `5088dbe0-31f9-4892-a149-a74702bbad4e`
-- Cloudflare version ID: `cb88271c-8712-42a8-88a9-de58c841d3ec`
+- Git release commit: `4261009` (`Bound dashboard reads and remove GET schema mutations`), including crypto hardening commit `8280696`
+- Cloudflare deployment ID: `24b7df43-a710-479a-96f8-46b879fc9171`
+- Cloudflare Worker version ID: `d304d14c-c6ea-45ca-97ce-47fd6d350c33`
 - Traffic: 100%
 - Schedules: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`
-- Validation: TypeScript passed; 58 tests passed with 171 assertions; diff-check passed; fresh Wrangler dry-run and inline dashboard-JavaScript syntax validation passed
-- Read-only HTTP: `/health`, `/api/dashboard`, `/api/runs`, and `/api/trades` returned HTTP 200; `/api/dashboard.capitalCaps` returned daytrading `5000`, swing `3700`, crypto `2000`; Pages contained exactly three cap cards
+- Remote D1: `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry` verified; live `positions.strategy` and lifecycle trade columns verified
+- Validation: 85 tests passed with 257 assertions; TypeScript, diff-check, and fresh Wrangler dry-run passed
+- Read-only HTTP: `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, `/api/positions`, and `/api/config` returned HTTP 200
+- Dashboard contract: `capitalCaps` resolved to daytrading `5000`, swing `3700`, crypto `2000`; performance and category histories are bounded to 90 rows; no `strategyHistory` payload remains
 - No manual trading cycle, order, cancel, close, retry, or reconciliation trigger was run during deployment or validation
-- Remaining verification: schedule `6aa1defe-4807-4831-91df-fb408537316d` performs a read-only check on Monday, August 10, 2026 at 15:40 Europe/Copenhagen, after the first market-open daytrading window
+- Source mapping note: Cloudflare deployment artifacts do not embed the Git SHA; the release bundle was built from the pushed repository state and uploaded directly.
 
 ## Natural reconciliation aftercheck
 

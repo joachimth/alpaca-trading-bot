@@ -4,18 +4,16 @@ Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persis
 
 ## Live deployment and current worktree
 
-This repository is currently being maintained locally. The targeted crypto correctness patch described below has not been deployed. No broker orders were submitted, canceled, or closed during this maintenance work.
-
-The deployment identifiers below describe the previously documented release only; they are not evidence that this uncommitted patch is live.
-
+The crypto-hardening release is deployed to the Alpaca paper-trading Worker. No manual trading trigger, order, cancellation, close, replace, retry, or broker mutation was used during validation.
 
 - **Repository:** `joachimth/alpaca-trading-bot`
 - **Worker:** `alpaca-trading-bot.joachim-763.workers.dev`
 - **Dashboard:** `joachimth.github.io/alpaca-trading-bot/`
-- **Current implementation commit:** `fd8be3be647e0a4cdae8f79de89206f9a65172bb` (`Add read-only strategy capital cap cards`)
-- **Active Worker version:** Cloudflare version `cb88271c-8712-42a8-88a9-de58c841d3ec`, deployed at 100% traffic on August 9, 2026
-- **Current deployment:** Cloudflare deployment `5088dbe0-31f9-4892-a149-a74702bbad4e`
+- **Release source:** commit `4261009` (`Bound dashboard reads and remove GET schema mutations`), including crypto hardening `8280696`
+- **Active Worker version:** `d304d14c-c6ea-45ca-97ce-47fd6d350c33`, deployed at 100% traffic on August 10, 2026
+- **Current deployment:** `24b7df43-a710-479a-96f8-46b879fc9171`
 - **Account mode:** Alpaca paper trading
+- **Source mapping note:** Cloudflare does not embed the Git SHA in the deployment artifact; the bundle-to-commit mapping is recorded by the release process.
 
 The dashboard is a static GitHub Pages frontend. It calls the Cloudflare Worker API only. It never calls Alpaca directly and never contains Alpaca credentials.
 
@@ -23,11 +21,13 @@ The dashboard is a static GitHub Pages frontend. It calls the Cloudflare Worker 
 
 `GET` API paths construct `Database` in explicit `readOnly` mode. That mode skips all runtime schema-repair DDL, `ALTER TABLE`, index creation, and schema checks; trading and write paths retain the existing schema-readiness behavior. The Worker fetch path contains no unconditional `ALTER TABLE positions` repair. `/api/dashboard` also uses bounded 90-row chart/category windows and no longer issues duplicate per-strategy history queries. Alpaca remains authoritative for current positions: if the broker position request fails, the response reports `positionsAvailable: false` and does not substitute D1 positions.
 
-Validation for this local, uncommitted hotfix: full Bun tests, TypeScript typecheck, `git diff --check`, and a Wrangler dry-run must pass before release. No push, deployment, remote D1 mutation, or broker mutation is part of this change.
+Validation for the deployed release: 85 Bun tests passed with 257 assertions, TypeScript typecheck passed, `git diff --check` passed, and the Wrangler dry-run passed. The explicit reservations migration was applied and verified in remote D1; the direct Cloudflare upload was used because Wrangler deploy can be false-positive in this proxy environment.
+
+Live verification: deployment `24b7df43-a710-479a-96f8-46b879fc9171` serves version `d304d14c-c6ea-45ca-97ce-47fd6d350c33` at 100%; `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, `/api/positions`, and `/api/config` returned HTTP 200; dashboard history is bounded to 90 performance rows and 90 rows per category; all four schedules are unchanged.
 
 ### Capital-cap release evidence
 
-The read-only capital-cap dashboard change is deployed from source commit `fd8be3be647e0a4cdae8f79de89206f9a65172bb`. The live `/api/dashboard` response returned `capitalCaps.daytrading = 5000`, `capitalCaps.swing = 3700`, and `capitalCaps.crypto = 2000`, with `positionsAvailable: true`; the three Pages strategy tabs contain exactly three **Capital cap** cards. The Worker deployment is `5088dbe0-31f9-4892-a149-a74702bbad4e`, version `cb88271c-8712-42a8-88a9-de58c841d3ec`, at 100% traffic. Validation passed with 58 tests and 171 assertions, TypeScript, diff-check, fresh Wrangler dry-run, and inline dashboard-JavaScript syntax validation. No trading, order, close, cancel, replace, retry, or reconciliation trigger was used.
+The earlier read-only capital-cap release remains the historical baseline for the current live cap values. The August 10, 2026 hardening release supersedes it with bounded dashboard reads, explicit read-only GET behavior, crypto lifecycle classification, and persistent reservations; the live `/api/dashboard` response still returns `capitalCaps.daytrading = 5000`, `capitalCaps.swing = 3700`, and `capitalCaps.crypto = 2000`.
 
 ## Architecture
 
@@ -165,7 +165,7 @@ bun run typecheck
 bunx wrangler deploy --dry-run
 ```
 
-The local suite currently passes with 83 tests and 248 assertions. Migration coverage includes fresh-schema apply and idempotent reapply for the crypto reservation table and index. Crypto correctness coverage lives in `crypto-runtime.test.ts`, fee-aware regression coverage lives in `test/risk-fee-aware.test.ts` and `test/category-performance.test.ts`, and broker-position/read-only reconciliation coverage remains in `test/position-projection.test.ts` and `test/order-reconciliation.test.ts`. `bunx tsc --noEmit`, `bun test`, `git diff --check`, and `bunx wrangler deploy --dry-run` are release gates and must pass before deployment.
+The deployed release passed 85 tests with 257 assertions. Migration coverage includes fresh-schema apply and idempotent reapply for the crypto reservation table and index; dashboard coverage includes read-only/no-DDL and bounded-payload tests. `bunx tsc --noEmit`, `bun test`, `git diff --check`, and `bunx wrangler deploy --dry-run` passed before the direct Cloudflare upload.
 
 ### Deploy
 
