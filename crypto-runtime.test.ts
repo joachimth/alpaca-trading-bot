@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { cryptoBudgetDecision, cryptoFeeRateBps, evaluateCryptoProtectiveExit, feeTelemetryFromAggregate, projectedPositions, rankCryptoCandidates, resolveCryptoConfig, createCycleExposure, reserveEntry } from '/workspace/alpaca-trading-bot/src/crypto-runtime';
+import { classifyCryptoOrder, cryptoBudgetDecision, cryptoClientOrderId, cryptoFeeRateBps, cryptoReservationNotional, evaluateCryptoProtectiveExit, feeTelemetryFromAggregate, hasPendingCryptoExit, projectedPositions, rankCryptoCandidates, resolveCryptoConfig, createCycleExposure, reserveEntry, shouldFinalizeCryptoPosition } from '/workspace/alpaca-trading-bot/src/crypto-runtime';
 
 describe('crypto runtime correctness helpers', () => {
   test('resolves camelCase before snake_case and rejects numeric prefixes', () => {
@@ -47,6 +47,48 @@ describe('crypto runtime correctness helpers', () => {
     expect(evaluateCryptoProtectiveExit(position({ current_price: 85, unrealized_pl: -15, unrealized_plpc: -0.15 }), {}, 12, 8)?.kind).toBe('stop_loss');
     expect(evaluateCryptoProtectiveExit(position({ current_price: 105, unrealized_pl: 5, unrealized_plpc: 0.05, change_today_pct: -8 }), {}, 12, 8)?.kind).toBe('trailing_stop');
     expect(evaluateCryptoProtectiveExit(position({ current_price: 105, unrealized_pl: 5, unrealized_plpc: 0.05, change_today_pct: -7.9 }), {}, 12, 8)).toBeNull();
+  });
+
+  test('classifies partial, rejected, cancelled, expired, pending, and timed-out orders without inventing fills', () => {
+    const base = { qty: 10, filled_qty: 0 };
+    expect(classifyCryptoOrder({ ...base, status: 'partially_filled' })).toBe('partially_filled');
+    expect(classifyCryptoOrder({ ...base, status: 'rejected' })).toBe('rejected');
+    expect(classifyCryptoOrder({ ...base, status: 'canceled' })).toBe('canceled');
+    expect(classifyCryptoOrder({ ...base, status: 'expired' })).toBe('expired');
+    expect(classifyCryptoOrder({ ...base, status: 'accepted' })).toBe('pending');
+    expect(classifyCryptoOrder({ ...base, status: 'accepted' }, { timedOut: true })).toBe('timed_out');
+    expect(classifyCryptoOrder({ qty: 10, filled_qty: 10, status: 'filled' })).toBe('filled');
+    expect(classifyCryptoOrder({ qty: 10, filled_qty: 9, status: 'filled' })).toBe('partially_filled');
+  });
+
+  test('protective exits remain pending until full broker confirmation', () => {
+    expect(shouldFinalizeCryptoPosition({ qty: 10, filled_qty: 4, status: 'partially_filled' })).toBe(false);
+    expect(shouldFinalizeCryptoPosition({ qty: 10, filled_qty: 0, status: 'accepted' })).toBe(false);
+    expect(shouldFinalizeCryptoPosition({ qty: 10, filled_qty: 0, status: 'rejected' })).toBe(false);
+    expect(shouldFinalizeCryptoPosition({ qty: 10, filled_qty: 10, status: 'filled' })).toBe(true);
+  });
+
+  test('reserves only confirmed quantity after a cancelled or expired partial fill', () => {
+    expect(cryptoReservationNotional({ qty: 10, filled_qty: 0, filled_avg_price: null, status: 'rejected' }, 100)).toBe(0);
+    expect(cryptoReservationNotional({ qty: 10, filled_qty: 3, filled_avg_price: 101, status: 'canceled' }, 100)).toBe(303);
+    expect(cryptoReservationNotional({ qty: 10, filled_qty: 3, filled_avg_price: null, status: 'expired' }, 100)).toBe(300);
+    expect(cryptoReservationNotional({ qty: 10, filled_qty: 3, filled_avg_price: 101, status: 'accepted' }, 100)).toBe(1000);
+  });
+
+  test('recognizes an existing pending crypto exit but ignores terminal or other-strategy rows', () => {
+    expect(hasPendingCryptoExit('BTCUSD', [
+      { ticker: 'BTCUSD', side: 'sell', strategy: 'crypto', status: 'accepted' },
+    ])).toBe(true);
+    expect(hasPendingCryptoExit('BTCUSD', [
+      { ticker: 'BTCUSD', side: 'sell', strategy: 'crypto', status: 'filled' },
+      { ticker: 'BTCUSD', side: 'sell', strategy: 'swing', status: 'accepted' },
+    ])).toBe(false);
+  });
+
+  test('uses a stable client order ID so a retry cannot create a second crypto order', () => {
+    expect(cryptoClientOrderId(42, 'BTCUSD')).toBe('crypto_42_BTCUSD');
+    expect(cryptoClientOrderId(42, 'BTCUSD')).toBe(cryptoClientOrderId(42, 'BTCUSD'));
+    expect(cryptoClientOrderId(43, 'BTCUSD')).not.toBe(cryptoClientOrderId(42, 'BTCUSD'));
   });
 
   test('ranking is exit-first and deterministic', () => {

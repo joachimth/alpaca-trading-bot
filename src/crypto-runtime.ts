@@ -1,9 +1,68 @@
-import type { Position } from './alpaca';
+import type { Order, Position } from './alpaca';
 
 export type CryptoProtectiveExit = {
   reason: string;
   kind: 'stop_loss' | 'take_profit' | 'trailing_stop';
 };
+
+export type CryptoOrderOutcome =
+  | 'filled'
+  | 'partially_filled'
+  | 'pending'
+  | 'rejected'
+  | 'canceled'
+  | 'expired'
+  | 'timed_out';
+
+/**
+ * Classify a broker snapshot without treating submission or a local timeout as
+ * a fill. This is shared by entries and protective exits so position/accounting
+ * state changes only after broker-confirmed full execution.
+ */
+export function classifyCryptoOrder(
+  order: Pick<Order, 'status' | 'qty' | 'filled_qty'>,
+  options: { timedOut?: boolean } = {},
+): CryptoOrderOutcome {
+  if (order.status === 'filled' && order.filled_qty > 0 && order.filled_qty >= order.qty * 0.999) return 'filled';
+  if (order.status === 'rejected') return 'rejected';
+  if (order.status === 'canceled' || order.status === 'cancelled') return 'canceled';
+  if (order.status === 'expired' || order.status === 'done_for_day' || order.status === 'stopped') return 'expired';
+  if (options.timedOut) return 'timed_out';
+  if (order.status === 'partially_filled' || order.filled_qty > 0) return 'partially_filled';
+  return 'pending';
+}
+
+export function cryptoClientOrderId(decisionId: number, symbol: string): string {
+  return `crypto_${decisionId}_${symbol}`;
+}
+
+export function shouldFinalizeCryptoPosition(order: Pick<Order, 'status' | 'qty' | 'filled_qty'>): boolean {
+  return classifyCryptoOrder(order) === 'filled';
+}
+
+export function cryptoReservationNotional(
+  order: Pick<Order, 'status' | 'qty' | 'filled_qty' | 'filled_avg_price'>,
+  referencePrice: number,
+): number {
+  const outcome = classifyCryptoOrder(order);
+  if (outcome === 'rejected' || outcome === 'canceled' || outcome === 'expired') {
+    return order.filled_qty > 0 ? order.filled_qty * (order.filled_avg_price ?? referencePrice) : 0;
+  }
+  return order.qty * referencePrice;
+}
+
+export function hasPendingCryptoExit(
+  symbol: string,
+  trades: readonly { ticker?: string | null; side?: string | null; strategy?: string | null; status?: string | null }[],
+): boolean {
+  const terminal = new Set(['filled', 'canceled', 'cancelled', 'rejected', 'expired', 'replaced', 'done_for_day', 'stopped']);
+  return trades.some(trade =>
+    trade.ticker === symbol &&
+    trade.side === 'sell' &&
+    trade.strategy === 'crypto' &&
+    !terminal.has(String(trade.status || '').toLowerCase())
+  );
+}
 
 export function evaluateCryptoProtectiveExit(
   position: Position,
@@ -79,23 +138,32 @@ function parseValue(raw: string, fallback: unknown): unknown {
 export function resolveCryptoConfig<T extends CryptoConfig>(raw: Record<string, string>, fallback: T): T {
   const resolved = { ...fallback } as T;
   for (const key of Object.keys(fallback)) {
-    const aliases = [
-      `crypto_${key}`,
-      `crypto_${snakeCase(key)}`,
-      key,
-      snakeCase(key),
-    ];
-    for (const alias of aliases) {
+    const namespacedAliases = [`crypto_${key}`, `crypto_${snakeCase(key)}`];
+    let namespacedValueSeen = false;
+    let namespacedValueResolved = false;
+    for (const alias of namespacedAliases) {
       const rawValue = raw[alias];
       if (rawValue === undefined) continue;
+      namespacedValueSeen = true;
       const parsed = parseValue(rawValue, fallback[key]);
       if (parsed !== undefined) {
         (resolved as Record<string, unknown>)[key] = parsed;
+        namespacedValueResolved = true;
         break;
       }
-      // A malformed namespaced value does not override a valid alias of the
-      // other supported spelling; malformed legacy values still fail closed.
-      if (alias.startsWith('crypto_')) continue;
+    }
+    // A malformed namespaced value must not silently fall through to a
+    // similarly named global setting from the seeded schema. A valid alternate
+    // namespaced spelling still wins; otherwise retain the safe fallback.
+    if (namespacedValueSeen) {
+      if (namespacedValueResolved) continue;
+      continue;
+    }
+    for (const alias of [key, snakeCase(key)]) {
+      const rawValue = raw[alias];
+      if (rawValue === undefined) continue;
+      const parsed = parseValue(rawValue, fallback[key]);
+      if (parsed !== undefined) (resolved as Record<string, unknown>)[key] = parsed;
       break;
     }
   }

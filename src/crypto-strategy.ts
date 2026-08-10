@@ -20,7 +20,7 @@ import type { Env } from './index';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 import { syncBrokerLedger } from './broker-ledger';
 import { reconcileBrokerOrders } from './order-reconciliation';
-import { classifyCryptoSkip, createCycleExposure, cryptoBudgetDecision, evaluateCryptoProtectiveExit, projectedPositions, rankCryptoCandidates, reserveEntry, resolveCryptoConfig, type FeeTelemetry } from './crypto-runtime';
+import { classifyCryptoOrder, classifyCryptoSkip, createCycleExposure, cryptoBudgetDecision, cryptoClientOrderId, cryptoReservationNotional, evaluateCryptoProtectiveExit, hasPendingCryptoExit, projectedPositions, rankCryptoCandidates, reserveEntry, resolveCryptoConfig, shouldFinalizeCryptoPosition, type FeeTelemetry } from './crypto-runtime';
 
 // Curated crypto universe — major liquid coins on Alpaca
 const CRYPTO_UNIVERSE = [
@@ -82,13 +82,13 @@ export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
     return;
   }
   try {
-    await runCryptoCycleInner(env, trigger);
+    await runCryptoCycleInner(env, trigger, owner);
   } finally {
     await leaseDb.releaseCycleLease(owner, leaseKey);
   }
 }
 
-async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
+async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Promise<void> {
   const startTime = Date.now();
   const db = new Database(env.DB);
   const errors: string[] = [];
@@ -186,21 +186,21 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
     const riskConfig: RiskConfig = {
       maxPositions: config.maxPositions,
       maxPositionPct: config.maxPositionPct,
-      stopLossATRMultiplier: config.stopLossATRMultiplier || 2.0,
-      takeProfitATRMultiplier: config.takeProfitATRMultiplier || 3.0,
+      stopLossATRMultiplier: config.stopLossATRMultiplier ?? 2.0,
+      takeProfitATRMultiplier: config.takeProfitATRMultiplier ?? 3.0,
       trailingStopPct: config.trailingStopPct,
       dailyLossLimitPct: config.dailyLossLimitPct,
-      rollingDrawdownLimitPct: config.rollingDrawdownLimitPct || 20,
+      rollingDrawdownLimitPct: config.rollingDrawdownLimitPct ?? 20,
       minConfidence: config.minConfidence,
       enableMargin: config.enableMargin,
       eodFlatten: config.eodFlatten,
-      targetVolatilityPct: config.targetVolatilityPct || 3.0,
-      maxOrderRatePerMin: config.maxOrderRatePerMin || 5,
-      minEdgeAfterCosts: config.minEdgeAfterCosts || 8,
+      targetVolatilityPct: config.targetVolatilityPct ?? 3.0,
+      maxOrderRatePerMin: config.maxOrderRatePerMin ?? 5,
+      minEdgeAfterCosts: config.minEdgeAfterCosts ?? 8,
       observedFeeBps: feeTelemetry.status === 'available' ? feeTelemetry.rateBps : undefined,
       feeTelemetryStatus: feeTelemetry.status,
       requireFeeTelemetry: true,
-      maxCapitalUsd: config.maxCapitalUsd || 0,
+      maxCapitalUsd: config.maxCapitalUsd ?? 0,
     };
     const riskManager = new RiskManager(riskConfig);
     riskManager.updateEquitySnapshot(account.equity);
@@ -209,6 +209,7 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
     // blocks new exposure, but must never leave an existing loss unmanaged.
     const dbCryptoPositions = allDbPositions.filter(position => position.strategy === 'crypto');
     const dbCryptoPositionMap = new Map(dbCryptoPositions.map(position => [position.ticker, position]));
+    const recentCryptoTrades = await db.getRecentTradesByStrategy('crypto', 200);
     for (const pos of cryptoPositions) {
       const protectiveExit = evaluateCryptoProtectiveExit(
         pos,
@@ -217,11 +218,15 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
         config.trailingStopPct,
       );
       if (!protectiveExit) continue;
+      if (hasPendingCryptoExit(pos.symbol, recentCryptoTrades)) {
+        console.log(`Crypto ${protectiveExit.kind.toUpperCase()} ${pos.symbol}: existing protective exit remains pending broker confirmation`);
+        continue;
+      }
 
       try {
         const order = await alpaca.closePosition(pos.symbol);
         await db.logOrderTrade(order, { strategy: 'crypto' });
-        if (alpaca.isOrderFullyFilled(order)) {
+        if (shouldFinalizeCryptoPosition(order)) {
           await db.closePosition(pos.symbol, pos.unrealized_pl, `crypto_${protectiveExit.kind}`);
           await db.logDecision({
             ticker: pos.symbol,
@@ -330,13 +335,13 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
     console.log(`Crypto: ${signals.length} analyzed, ${signalsToProcess.length} to process`);
 
     // Anti-churn: recently sold symbols
-    const cooldownMin = config.reentryCooldownMinutes || 60;
+    const cooldownMin = config.reentryCooldownMinutes ?? 60;
     const recentlySold = await db.getRecentlyClosedSymbols(cooldownMin);
 
     // Min hold time check
     const dbPositions = await db.getOpenPositions();
     const dbPosMap = new Map(dbPositions.map(p => [p.ticker, p]));
-    const minHoldMin = config.minHoldMinutes || 30;
+    const minHoldMin = config.minHoldMinutes ?? 30;
     const nowMs = Date.now();
     const isWithinMinHold = (symbol: string): boolean => {
       const dbPos = dbPosMap.get(symbol);
@@ -346,8 +351,8 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
     };
 
     let cycleTradeCount = 0;
-    const maxEntriesPerCycle = config.maxEntriesPerCycle || 1;
-    const maxDiscretionaryExitsPerCycle = config.maxDiscretionaryExitsPerCycle || config.maxTradesPerCycle || 2;
+    const maxEntriesPerCycle = config.maxEntriesPerCycle ?? 1;
+    const maxDiscretionaryExitsPerCycle = config.maxDiscretionaryExitsPerCycle ?? config.maxTradesPerCycle ?? 2;
     let entryCount = 0;
     let discretionaryExitCount = 0;
 
@@ -438,7 +443,7 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
           try {
             const order = await alpaca.closePosition(symbol);
             await db.logOrderTrade(order, { decisionId, strategy: 'crypto' });
-            if (alpaca.isOrderFullyFilled(order)) {
+            if (shouldFinalizeCryptoPosition(order)) {
               await db.closePosition(symbol, existingPos.unrealized_pl, 'crypto_signal');
               await db.updateDecisionStatus(decisionId, 1, 'Position closed');
               tradesExecuted++;
@@ -467,20 +472,6 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
           continue;
         }
 
-        let recentEntryOrders = 0;
-        try {
-          recentEntryOrders = await db.countRecentSubmittedOrders('crypto', 'buy', 60);
-        } catch (error) {
-          await db.updateDecisionStatus(decisionId, 2, 'Persistent entry order-rate state unavailable');
-          skips.add('ORDER_RATE_STATE_UNAVAILABLE', 'decision', 'Crypto entry skipped because persistent order-rate state could not be read', { symbol, reason: error instanceof Error ? error.message : String(error) });
-          continue;
-        }
-        if (recentEntryOrders >= (config.maxOrderRatePerMin || 5)) {
-          await db.updateDecisionStatus(decisionId, 2, `Persistent entry order-rate limit reached (${recentEntryOrders}/${config.maxOrderRatePerMin || 5})`);
-          skips.add('ORDER_RATE_LIMIT', 'decision', 'Crypto entry skipped by persistent D1 order-rate protection', { symbol, recentEntryOrders, limit: config.maxOrderRatePerMin || 5 });
-          continue;
-        }
-
         const projected = projectedPositions(exposure);
         const riskCheck = riskManager.checkTrade(decision, account, projected, indicators, exposure.reservedNotionalUsd);
         if (!riskCheck.approved) {
@@ -490,6 +481,22 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
         }
 
         if (riskCheck.adjustedQty) {
+          const reservationKey = cryptoClientOrderId(decisionId, symbol);
+          const reservation = await db.reserveCryptoEntry({
+            reservationKey,
+            owner,
+            symbol,
+            notionalUsd: riskCheck.adjustedQty * indicators.price,
+            maxOrdersPerWindow: config.maxOrderRatePerMin,
+            windowMs: 60_000,
+            ttlMs: 120_000,
+          });
+          if (!reservation.reserved) {
+            await db.updateDecisionStatus(decisionId, 2, reservation.reason ?? 'Persistent crypto entry reservation unavailable');
+            skips.add(reservation.reason?.includes('unavailable') ? 'ORDER_RATE_STATE_UNAVAILABLE' : 'ORDER_RATE_LIMIT', 'decision', 'Crypto entry skipped by persistent atomic reservation protection', { symbol, reason: reservation.reason ?? 'unknown' });
+            continue;
+          }
+
           try {
             const order = await alpaca.submitOrder({
               symbol,
@@ -497,32 +504,24 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
               side: 'buy',
               type: 'market',
               time_in_force: 'gtc', // GTC for crypto (24/7 market)
-              client_order_id: `crypto_${Date.now()}_${symbol}`,
+              client_order_id: cryptoClientOrderId(decisionId, symbol),
             });
 
-            const terminalRejected = order.status === 'rejected' || order.status === 'canceled' || order.status === 'expired';
-            if (!terminalRejected) {
-              // Reserve only accepted/pending orders; terminal rejection does not
-              // consume cycle exposure or capital.
-              reserveEntry(exposure, symbol, riskCheck.adjustedQty * indicators.price);
+            const outcome = classifyCryptoOrder(order);
+            const terminalRejected = outcome === 'rejected' || outcome === 'canceled' || outcome === 'expired';
+            const reservationNotional = cryptoReservationNotional(order, indicators.price);
+            if (reservationNotional > 0) {
+              // Accepted/pending orders reserve the requested amount. A terminal
+              // order with a partial fill reserves only the broker-confirmed fill.
+              reserveEntry(exposure, symbol, reservationNotional);
             }
 
-            await db.logTrade({
-              alpaca_order_id: order.id,
-              ticker: symbol,
-              side: 'buy',
-              qty: riskCheck.adjustedQty,
-              fill_price: null,
-              avg_fill_price: null,
-              status: order.status,
-              order_type: 'market',
-              limit_price: null,
-              stop_price: riskCheck.stopLossPrice ?? null,
-              estimated_value: riskCheck.adjustedQty * indicators.price,
-              decision_id: decisionId,
-              error_message: null,
+            await db.logOrderTrade(order, {
+              decisionId,
+              estimatedValue: riskCheck.adjustedQty * indicators.price,
               strategy: 'crypto',
             });
+            await db.finalizeCryptoEntryReservation(reservationKey, owner, !terminalRejected);
 
             const accepted = !terminalRejected;
             await db.updateDecisionStatus(decisionId, accepted ? 0 : 2, accepted
@@ -537,6 +536,9 @@ async function runCryptoCycleInner(env: Env, trigger: string): Promise<void> {
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : 'unknown';
             await db.updateDecisionStatus(decisionId, 3, `Buy failed: ${errMsg}`);
+            await db.finalizeCryptoEntryReservation(reservationKey, owner, false).catch(finalizeError => {
+              errors.push(`Crypto reservation release failed ${symbol}: ${finalizeError instanceof Error ? finalizeError.message : String(finalizeError)}`);
+            });
             errors.push(`Crypto buy failed ${symbol}: ${errMsg}`);
           }
         }

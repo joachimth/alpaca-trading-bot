@@ -66,6 +66,20 @@ CREATE TABLE IF NOT EXISTS cycle_leases (
   acquired_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL
 );
+
+-- Persistent crypto entry reservations make the rate window atomic across
+-- competing Worker invocations and survive a retry until expiry/finalization.
+-- The standalone release migration is crypto-entry-reservations-migration.sql.
+CREATE TABLE IF NOT EXISTS crypto_entry_reservations (
+  reservation_key TEXT PRIMARY KEY,
+  owner TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  notional_usd REAL NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('active','committed')),
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_crypto_entry_reservations_expiry ON crypto_entry_reservations(status, expires_at);
 CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
 CREATE INDEX IF NOT EXISTS idx_trades_alpaca_id ON trades(alpaca_order_id);
 CREATE INDEX IF NOT EXISTS idx_trades_strategy ON trades(strategy);

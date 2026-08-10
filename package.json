@@ -9,6 +9,9 @@
     "db:create": "wrangler d1 create alpaca-trading-bot",
     "db:migrate": "wrangler d1 execute alpaca-trading-bot --file=schema.sql",
     "db:migrate:remote": "wrangler d1 execute alpaca-trading-bot --remote --file=schema.sql",
+    "db:migrate:crypto-reservations": "wrangler d1 execute alpaca-trading-bot --local --file=crypto-entry-reservations-migration.sql",
+    "db:migrate:crypto-reservations:remote": "wrangler d1 execute alpaca-trading-bot --remote --file=crypto-entry-reservations-migration.sql",
+    "db:verify:crypto-reservations:remote": "wrangler d1 execute alpaca-trading-bot --remote --command=\"SELECT type, name, tbl_name FROM sqlite_master WHERE name IN ('crypto_entry_reservations', 'idx_crypto_entry_reservations_expiry') ORDER BY name;\"",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },

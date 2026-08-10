@@ -10,6 +10,21 @@ For this Worker, the authoritative proof is the Cloudflare API deployment list s
 
 ## 1. Review and test locally
 
+Run from the repository root. The local migration command is safe for a disposable/local D1; do not use the remote command during local validation:
+
+```bash
+bun run db:migrate:crypto-reservations
+```
+
+For the release environment, after source review and before deployment, an authorized operator must apply the idempotent migration and run the read-only verification:
+
+```bash
+bun run db:migrate:crypto-reservations:remote
+bun run db:verify:crypto-reservations:remote
+```
+
+The verification must show the `crypto_entry_reservations` table and `idx_crypto_entry_reservations_expiry` index. A missing object blocks deployment; the Worker fails closed rather than creating this safety-critical table at runtime.
+
 Run from the repository root:
 
 ```bash
@@ -24,7 +39,7 @@ bunx wrangler deploy --dry-run
 Expected current baseline:
 
 - TypeScript check passes.
-- 65 tests pass, 0 fail, 183 assertions, including crypto reservation, fee telemetry, budget, risk, strategy-comparison, and reconciliation coverage.
+- 83 tests pass, 0 fail, 248 assertions, including fresh/idempotent crypto schema migration, crypto reservation, fee telemetry, budget, risk, strategy-comparison, and reconciliation coverage.
 - `git diff --check` passes.
 - Wrangler dry-run succeeds.
 - The current capital-cap release is deployed and verified: source commit `fd8be3be647e0a4cdae8f79de89206f9a65172bb` is pushed; Worker deployment `5088dbe0-31f9-4892-a149-a74702bbad4e` with version `cb88271c-8712-42a8-88a9-de58c841d3ec` is live at 100% traffic; all four schedules are present; read-only `/health`, `/api/dashboard`, `/api/trades`, and `/api/runs` returned HTTP 200; Pages contains exactly three Capital cap cards.

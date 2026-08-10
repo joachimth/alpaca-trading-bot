@@ -322,6 +322,124 @@ export class Database {
     ).bind(leaseKey, owner).run();
   }
 
+  async reserveCryptoEntry(input: {
+    reservationKey: string;
+    owner: string;
+    symbol: string;
+    notionalUsd: number;
+    maxOrdersPerWindow: number;
+    windowMs?: number;
+    ttlMs?: number;
+    nowMs?: number;
+  }): Promise<{ reserved: boolean; idempotent: boolean; reason?: string }> {
+    try {
+      await this.ensureTradeSchema();
+      const nowMs = input.nowMs ?? Date.now();
+      const windowMs = Math.max(1, Math.floor(input.windowMs ?? 60_000));
+      const ttlMs = Math.max(windowMs, Math.floor(input.ttlMs ?? 120_000));
+      const maxOrders = Math.max(0, Math.floor(input.maxOrdersPerWindow));
+      const notionalUsd = Number(input.notionalUsd);
+      if (!input.reservationKey || !input.owner || !input.symbol || !Number.isFinite(notionalUsd) || notionalUsd < 0) {
+        return { reserved: false, idempotent: false, reason: 'invalid crypto reservation input' };
+      }
+
+      const existing = await this.db.prepare(`
+        SELECT owner, status, expires_at
+        FROM crypto_entry_reservations
+        WHERE reservation_key = ?
+        LIMIT 1
+      `).bind(input.reservationKey).first() as { owner?: string; status?: string; expires_at?: number } | null;
+      if (existing && Number(existing.expires_at) > nowMs) {
+        if (existing.owner !== input.owner) {
+          return { reserved: false, idempotent: false, reason: 'crypto reservation key owned by another invocation' };
+        }
+        if (existing.status === 'committed') {
+          return { reserved: false, idempotent: true, reason: 'crypto reservation already committed' };
+        }
+        return { reserved: true, idempotent: true };
+      }
+      if (existing) {
+        await this.db.prepare(
+          'DELETE FROM crypto_entry_reservations WHERE reservation_key = ? AND expires_at <= ?'
+        ).bind(input.reservationKey, nowMs).run();
+      }
+
+      // The INSERT ... SELECT is the atomic D1/SQLite rate-window boundary.
+      const result = await this.db.prepare(`
+        INSERT INTO crypto_entry_reservations
+          (reservation_key, owner, symbol, notional_usd, status, created_at, expires_at)
+        SELECT ?, ?, ?, ?, 'active', ?, ?
+        WHERE ? > 0
+          AND (
+            SELECT COUNT(*) FROM (
+              SELECT reservation_key
+              FROM crypto_entry_reservations
+              WHERE status IN ('active', 'committed')
+                AND expires_at > ?
+                AND created_at >= ?
+                AND NOT EXISTS (
+                  SELECT 1 FROM trades
+                  WHERE trades.client_order_id = crypto_entry_reservations.reservation_key
+                    AND trades.strategy = 'crypto'
+                    AND trades.side = 'buy'
+                )
+              UNION ALL
+              SELECT COALESCE(client_order_id, alpaca_order_id)
+              FROM trades
+              WHERE strategy = 'crypto'
+                AND side = 'buy'
+                AND status NOT IN ('rejected', 'canceled', 'cancelled', 'expired')
+                AND timestamp >= datetime(?, 'unixepoch')
+            )
+          ) < ?
+        ON CONFLICT(reservation_key) DO NOTHING
+      `).bind(
+        input.reservationKey,
+        input.owner,
+        input.symbol,
+        notionalUsd,
+        nowMs,
+        nowMs + ttlMs,
+        maxOrders,
+        nowMs,
+        nowMs - windowMs,
+        nowMs / 1000,
+        maxOrders,
+      ).run();
+      if ((result.meta.changes ?? 0) > 0) return { reserved: true, idempotent: false };
+
+      const after = await this.db.prepare(`
+        SELECT owner, status, expires_at
+        FROM crypto_entry_reservations
+        WHERE reservation_key = ?
+        LIMIT 1
+      `).bind(input.reservationKey).first() as { owner?: string; status?: string; expires_at?: number } | null;
+      if (after && after.owner === input.owner && Number(after.expires_at) > nowMs) {
+        return after.status === 'committed'
+          ? { reserved: false, idempotent: true, reason: 'crypto reservation already committed' }
+          : { reserved: true, idempotent: true };
+      }
+      return { reserved: false, idempotent: false, reason: maxOrders === 0 ? 'crypto entry rate limit disabled' : 'crypto entry rate limit reached' };
+    } catch (error) {
+      return { reserved: false, idempotent: false, reason: `crypto reservation state unavailable: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  }
+
+  async finalizeCryptoEntryReservation(reservationKey: string, owner: string, committed: boolean, nowMs = Date.now(), windowMs = 60_000): Promise<void> {
+    await this.ensureTradeSchema();
+    if (committed) {
+      await this.db.prepare(`
+        UPDATE crypto_entry_reservations
+        SET status = 'committed', expires_at = ?
+        WHERE reservation_key = ? AND owner = ? AND status = 'active'
+      `).bind(nowMs + Math.max(1, Math.floor(windowMs)), reservationKey, owner).run();
+    } else {
+      await this.db.prepare(
+        'DELETE FROM crypto_entry_reservations WHERE reservation_key = ? AND owner = ? AND status = \'active\''
+      ).bind(reservationKey, owner).run();
+    }
+  }
+
   // ============================================================
   // Config
   // ============================================================

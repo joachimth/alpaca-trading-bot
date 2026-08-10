@@ -17,6 +17,15 @@ The crypto correctness patch in the current worktree is not deployed as of Augus
 
 ## Release verification
 
+Before any deployment that can submit crypto BUY orders, an authorized operator must apply the idempotent reservation migration and complete the read-only verification. These commands are release procedures; they were not run against remote D1 during this work:
+
+```bash
+bun run db:migrate:crypto-reservations:remote
+bun run db:verify:crypto-reservations:remote
+```
+
+The verification must return both `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry`. Do not substitute a Worker-triggered CREATE TABLE for this gate. If the table is absent, crypto BUY reservation calls fail closed and no BUY may proceed.
+
 1. Run `git diff --check`, `bunx tsc --noEmit`, `bun test`, and `bunx wrangler deploy --dry-run`.
 2. Commit and push to `origin/main`; confirm local `HEAD` equals `git ls-remote origin refs/heads/main`.
 3. Build a fresh explicit bundle with `bunx wrangler deploy --dry-run --outdir <new-directory>`.
@@ -69,7 +78,7 @@ The active weekly read-only review job `Alpaca deferred-risk review` (schedule I
 ## Known risks
 
 - The crypto patch is local and uncommitted; the previously deployed Worker does not contain these fixes.
-- Local validation currently passes: 65 tests, 183 assertions, TypeScript, diff-check, and Wrangler dry-run. No live deployment or broker mutation has been performed for this patch.
+- Local validation currently passes: 83 tests, 248 assertions, TypeScript, and diff-check. The explicit crypto reservation migration tests cover fresh apply and idempotent reapply; no remote migration, deployment, or broker mutation has been performed for this patch.
 - `git diff --check` from the workspace root is contaminated by unrelated generated `/workspace/data` changes; the bot repository diff must be checked with `git -C /workspace/alpaca-trading-bot diff --check`.
 - Wrangler dry-run remains validation-only and was not used as a deployment.
 

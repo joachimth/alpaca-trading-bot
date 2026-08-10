@@ -107,6 +107,15 @@ bunx wrangler d1 create alpaca-trading-bot
 bunx wrangler d1 execute alpaca-trading-bot --remote --file=schema.sql
 ```
 
+Before deploying crypto BUY code, apply the explicit reservation migration once. It is idempotent and must be run by an authorized release operator, not by the Worker:
+
+```bash
+bun run db:migrate:crypto-reservations:remote
+bun run db:verify:crypto-reservations:remote
+```
+
+The verification command is read-only and must show both `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry`. A missing table or index is a release blocker; runtime self-healing is intentionally not relied on for this safety-critical gate.
+
 Update `wrangler.toml` with the returned database ID when creating a new environment. The production Worker uses the D1 binding named `DB`.
 
 ### Configure secrets
@@ -150,7 +159,7 @@ bun run typecheck
 bunx wrangler deploy --dry-run
 ```
 
-The local suite currently passes with 65 tests and 183 assertions. Crypto correctness coverage lives in `crypto-runtime.test.ts`, fee-aware regression coverage lives in `test/risk-fee-aware.test.ts` and `test/category-performance.test.ts`, and broker-position/read-only reconciliation coverage remains in `test/position-projection.test.ts` and `test/order-reconciliation.test.ts`. `bunx tsc --noEmit`, `bun test`, `git diff --check`, and `bunx wrangler deploy --dry-run` are release gates and must pass before deployment.
+The local suite currently passes with 83 tests and 248 assertions. Migration coverage includes fresh-schema apply and idempotent reapply for the crypto reservation table and index. Crypto correctness coverage lives in `crypto-runtime.test.ts`, fee-aware regression coverage lives in `test/risk-fee-aware.test.ts` and `test/category-performance.test.ts`, and broker-position/read-only reconciliation coverage remains in `test/position-projection.test.ts` and `test/order-reconciliation.test.ts`. `bunx tsc --noEmit`, `bun test`, `git diff --check`, and `bunx wrangler deploy --dry-run` are release gates and must pass before deployment.
 
 ### Deploy
 
