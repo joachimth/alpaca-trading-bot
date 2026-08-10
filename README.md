@@ -8,7 +8,7 @@ The current worktree contains a release candidate that preserves the vital risk 
 
 Committed crypto reservations are never released by local TTL alone; only terminal broker evidence releases them. Crypto entries now fail closed below the **$10** venue minimum, include cross-cycle reservation notional in cap sizing, enforce the total per-cycle trade limit, retain reservations while a broker order is live, release them only on terminal broker evidence, retain reservations after an unknown post-submit local failure, and persist ATR stop/target intent for broker-confirmed position reconstruction.
 
-Local validation on August 10, 2026: **92 tests passed, 273 assertions**, TypeScript typecheck passed, and repository diff-check passed. No trading cycle, order, close, cancel, replace, retry, or other broker mutation was used. The candidate is pushed on the hardening branch; authenticated remote D1 schema verification is complete. Worker deployment/version/traffic verification remains the final live gate.
+Local validation on August 10, 2026: **92 tests passed, 273 assertions**, TypeScript typecheck passed, and repository diff-check passed. No trading cycle, order, close, cancel, replace, retry, or other broker mutation was used. Live verification completed on August 10, 2026: deployment `32fdaa9c-0609-4be1-b16c-6369af4dfc8e`, Worker version `dff3e198-1cb3-49d1-ac5d-706a7d292258`, and 100% traffic are confirmed. All four Worker schedules, health, and read-only endpoints returned successfully; no trading mutation was used.
 
 ## Live deployment and current worktree
 

@@ -1,8 +1,8 @@
 # NOW
-## 2026-08-10 19:30 CEST
-- Local hardening candidate now covers broker-confirmed positions, decision lifecycle, daytrading same-cycle cap notional, swing attribution/sync, crypto $10 minimum preflight, persistent reservations, cross-cycle crypto cap sizing, max-trades, and ATR protection intent.
-- Vital parameters unchanged: daytrading $5,000, swing $3,700, crypto $2,000; confidence gates, universes, and trade limits unchanged.
-- Validation: 92 tests / 273 assertions passed; TypeScript and repository diff-check passed.
-- No trading cycle, order, close, cancel, replace, retry, or broker mutation was used.
-- Documentation updated in README.md, docs/OPERATIONS.md, and docs/DEPLOYMENT_RUNBOOK.md.
-- Remote D1 schema now verified: reservations table/index plus both trade intent columns. Next: commit/push reservation-aware reconciliation, deploy final commit, verify Worker version/traffic read-only, then observe a natural paper session.
+## 2026-08-10 19:49 CEST
+- Hardening release is live: commit 1f354e9, deployment 32fdaa9c-0609-4be1-b16c-6369af4dfc8e, Worker version dff3e198-1cb3-49d1-ac5d-706a7d292258, 100% traffic.
+- Remote D1 verified: crypto reservations table/index plus both trade intent columns exist.
+- All four schedules and read-only health/config/positions/trades/runs endpoints passed; no broker mutation was used.
+- Local validation remains 92 tests / 273 assertions, TypeScript and diff-check passed.
+- Vital parameters unchanged: daytrading $5,000, swing $3,700, crypto $2,000; confidence gates and universes unchanged.
+- Follow-up: observe natural paper sessions for cap compliance, pending-order convergence, reservation retention, fee/net attribution, and remaining orphan sell attribution.
