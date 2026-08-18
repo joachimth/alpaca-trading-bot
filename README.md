@@ -2,7 +2,7 @@
 
 Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persistence, Alpaca paper trading, and a GitHub Pages dashboard.
 
-## Bounded entry-identity fix — August 18, 2026 (implemented, not deployed)
+## Bounded entry-identity fix — August 18, 2026 (deployed and live-verified)
 
 A bounded, non-vital fix makes stock/swing entry identity deterministic and retry duplicate-protection concrete, mirroring the crypto pattern. It preserves all vital parameters (daytrading **$5,000**, swing **$3,700**, crypto **$2,000**, confidence gates, max-trade limits, universes, risk params) and does not touch the exit decision-correlation gap.
 
@@ -11,7 +11,7 @@ A bounded, non-vital fix makes stock/swing entry identity deterministic and retr
 - New `Database.findNonTerminalTradeByClientOrderId(clientOrderId)` is called before stock/swing BUY: a non-terminal existing trade skips the retry with an auditable `DUPLICATE_ORDER_PREVENTED` reason and a decision-status note. Terminal rows do not block retry.
 - Crypto fee telemetry routes through `feeTelemetryFromAggregate` with `maxAgeMs: 60_000` (fails closed when stale); `getBrokerFeeSummary` now exposes `cryptoUsdRecent` so the aggregate rate matches the existing seven-day window.
 
-Local validation August 18, 2026: **101 tests, 294 assertions**, TypeScript typecheck passed. **Not deployed** in this work item — this is a locally validated source candidate pending the runbook deployment gate after authorization. No broker mutation was used.
+Local validation August 18, 2026: **101 tests, 294 assertions**, TypeScript typecheck and diff-check passed. Deployment and live verification completed August 18, 2026 from source commit `f122287703087ab959768d02ec931e21d85319a3`: Cloudflare deployment `03e3ef01-bb25-4010-b4b3-03829e7c09d5`, Worker version `b5b4cb6e-71d2-4b78-924c-fd12acd4ac69`, 100% traffic, all four schedules, HTTP 200 read-only endpoints, `capitalCaps` `{ daytrading: 5000, swing: 3700, crypto: 2000 }`, and `/api/positions` broker-backed with 38 positions. Remote D1 schema verification passed. No trading trigger, order, cancel, close, retry, or other broker mutation was used.
 
 ## August 10, 2026 lifecycle hardening candidate
 
@@ -23,15 +23,15 @@ Local validation on August 10, 2026: **92 tests passed, 273 assertions**, TypeSc
 
 ## Live deployment and current worktree
 
-The crypto-hardening release is documented as deployed to the Alpaca paper-trading Worker, but current Cloudflare deployment identity was not freshly verified on August 10, 2026. No manual trading trigger, order, cancellation, close, replace, retry, or broker mutation was used during validation.
+The August 18 bounded entry-identity release is live on the Alpaca paper-trading Worker and was read-only verified after deployment. No manual trading trigger, order, cancellation, close, replace, retry, or broker mutation was used during release validation.
 
 - **Repository:** `joachimth/alpaca-trading-bot`
 - **Worker:** `alpaca-trading-bot.joachim-763.workers.dev`
 - **Dashboard:** `joachimth.github.io/alpaca-trading-bot/`
-- **Release source:** commit `4261009` (`Bound dashboard reads and remove GET schema mutations`), including crypto hardening `8280696`
-- **Documented deployment candidate:** `24b7df43-a710-479a-96f8-46b879fc9171`
-- **Documented Worker version candidate:** `d304d14c-c6ea-45ca-97ce-47fd6d350c33`
-- **Cloudflare control-plane status:** not freshly verified on August 10, 2026; Wrangler was unauthenticated and Cloudflare API requests returned HTTP 403
+- **Release source:** commit `f122287703087ab959768d02ec931e21d85319a3` (`fix: deterministic entry identity and retry guard`)
+- **Cloudflare deployment:** `03e3ef01-bb25-4010-b4b3-03829e7c09d5`
+- **Worker version:** `b5b4cb6e-71d2-4b78-924c-fd12acd4ac69`
+- **Cloudflare control-plane status:** verified August 18, 2026; 100% traffic and all four schedules confirmed
 - **Account mode:** Alpaca paper trading
 - **Source mapping note:** Cloudflare does not embed the Git SHA in the deployment artifact; the bundle-to-commit mapping is recorded by the release process.
 
@@ -194,7 +194,7 @@ The deployed release passed 85 tests with 257 assertions. Migration coverage inc
 Use [`docs/DEPLOYMENT_RUNBOOK.md`](docs/DEPLOYMENT_RUNBOOK.md). In this proxy environment, `bunx wrangler deploy` can return exit code 0 without creating a new Worker version, so the canonical path is:
 
 1. Pass typecheck, tests, dry-run, and `git diff --check`.
-2. Commit and push to `origin/main`, then verify the remote hash.
+2. Commit and push to the active release branch, then verify the matching remote hash (`origin/fix/remove-premature-position-upsert-entryside` for the current release line).
 3. Build a fresh explicit bundle with `bunx wrangler deploy --dry-run --outdir <new-directory>`.
 4. Upload that exact bundle through the direct Cloudflare multipart API using the encrypted credential store.
 5. Verify a new Cloudflare version at 100% traffic, all four cron schedules, and read-only HTTP 200 smoke tests.
@@ -257,7 +257,7 @@ Before declaring a deployment complete:
 
 1. Update the documentation for every source, configuration, schema, migration, test, or operational change.
 2. Run `git diff --check`, `bunx tsc --noEmit`, `bun test`, and a Wrangler dry-run.
-3. Commit and push the code and documentation; confirm local `HEAD` equals `origin/main`.
+3. Commit and push the code and documentation; confirm local `HEAD` equals the remote release branch hash.
 4. Build and upload a fresh explicit Worker bundle through the documented direct Cloudflare multipart API.
 5. Confirm the newest Cloudflare version is receiving 100% traffic and all four schedules are present.
 6. Fetch `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, and `/api/positions` through the Worker URL.
@@ -273,7 +273,7 @@ Documentation is part of the implementation, not a follow-up task. Every future 
 ## Known risks and follow-up work
 
 - Partial-fill/retry/cancel handling has a confirmed lifecycle defect: August 6 live evidence showed repeated partial-filled exits and subsequent quantity mismatches. Daytrading and swing have no pending-exit guard, and a failed/partial close can be submitted again on a later cycle.
-- Entry identity and duplicate protection improved but not deployed: the August 18 source candidate removed `Date.now()` from stock/swing BUY `client_order_id` values (now decision+symbol), persuaded those BUYs through `logOrderTrade`, and guards retries via `findNonTerminalTradeByClientOrderId` (`DUPLICATE_ORDER_PREVENTED`). A partial or pending BUY can still inflate internal quantity before reconciliation on the live release, and stock/swing exits still lack deterministic decision-derived IDs and a pending-exit guard. Crypto has a pending-exit guard and deterministic client IDs, but it still lacks a complete broker retry/cancel/replace lifecycle.
+- Entry identity and duplicate protection are deployed: stock/swing BUY `client_order_id` values now use decision+symbol, BUYs persist through `logOrderTrade`, and retries are guarded by `findNonTerminalTradeByClientOrderId` (`DUPLICATE_ORDER_PREVENTED`). A partial or pending BUY can still inflate internal quantity before reconciliation, and stock/swing exits still lack deterministic decision-derived IDs and a pending-exit guard. Crypto has a pending-exit guard and deterministic client IDs, but it still lacks a complete broker retry/cancel/replace lifecycle.
 - Order-to-decision correlation is improved on the entry side by the August 18 source candidate (deterministic `client_order_id`, `logOrderTrade` with decision ID for stock/swing BUY), but stock/swing **exits** still omit a decision-derived deterministic ID, so exit correlation and historical attribution for those rows remain incomplete until paper-session evidence arrives.
 - Strategy `grossTotalPl` and `netTotalPl` are model values: closed P&L still comes from broker-position/unrealized snapshots, not matched fills. The fee ledger currently imports a bounded three-day overlap, so net figures mean gross model P&L less fees currently present in the ledger.
 - Regulatory/account-level fees are intentionally not assigned to daytrading or swing; unmatched broker positions are shown as `Unattributed` rather than hidden from the overview.
@@ -295,11 +295,11 @@ A verified weekly read-only follow-up job, `Alpaca deferred-risk review` (schedu
 
 ## Next steps
 
-1. **Deploy the August 18 bounded entry-identity candidate** under the runbook gate (read-only verification, four schedules, `/api/dashboard` caps, `/api/positions` broker-backed) after authorization; currently locally validated source only.
-2. Define and test the partial-fill, cancel, replace, and retry lifecycle under a paper session, including the deterministic-`client_order_id` retry guard, separately from read-only reconciliation.
+1. Observe the first natural paper-session behavior of the deployed deterministic entry identity and retry guard without manually triggering a cycle.
+2. Define and test the remaining partial-fill, cancel, replace, and retry lifecycle under a paper session, separately from read-only reconciliation.
 3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
-3. Add targeted live-broker integration checks without using trading actions as smoke tests.
-4. Finish swing trigger attribution and decision-row accounting consistency work.
+4. Add targeted live-broker integration checks without using trading actions as smoke tests.
+5. Finish swing trigger attribution and decision-row accounting consistency work.
 
 ## License
 

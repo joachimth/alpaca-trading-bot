@@ -1,6 +1,6 @@
-## Bounded entry-identity candidate — August 18, 2026 (locally validated, not yet deployed)
+## Bounded entry-identity release — August 18, 2026 (deployed and live-verified)
 
-A newer source candidate (deterministic stock/swing `client_order_id`, `logOrderTrade` BUY persistence plus `findNonTerminalTradeByClientOrderId` retry guard, and crypto fee telemetry routed through `feeTelemetryFromAggregate` with 60 s freshness) is **locally validated only** — it is **not deployed**. Run the same full local gate below (`bun test`, `bunx tsc --noEmit`, `git diff --check`, `bunx wrangler deploy --dry-run`) and confirm caps/confidence/max-trade/universes/risk params are unchanged before any deployment. Apply the remote-verification steps exactly as recorded for prior releases (four schedules, health, read-only GET endpoints, `/api/dashboard` caps, `/api/positions` broker-backed), and do not use trading actions as smoke tests. Current candidate validation: 101 tests, 294 assertions, typecheck passed; no broker mutation. Deployment requires explicit Joachim authorization.
+The release uses deterministic stock/swing `client_order_id`, `logOrderTrade` BUY persistence, the `findNonTerminalTradeByClientOrderId` retry guard, and crypto fee telemetry through `feeTelemetryFromAggregate` with 60 s freshness. Local validation passed with 101 tests and 294 assertions, TypeScript typecheck, and diff-check. Live release receipt from source commit `f122287703087ab959768d02ec931e21d85319a3`: deployment `03e3ef01-bb25-4010-b4b3-03829e7c09d5`, Worker version `b5b4cb6e-71d2-4b78-924c-fd12acd4ac69`, 100% traffic, all four schedules, HTTP 200 read-only endpoint checks, dashboard caps `5000/3700/2000`, broker-backed positions with 38 symbols, and remote D1 lifecycle schema verified. No trading action was used for deployment or smoke testing.
 
 ## Lifecycle hardening release gate — August 10, 2026
 
@@ -200,7 +200,7 @@ Documentation is part of every release. Before declaring work complete, update t
 
 Record these values in the release note or conversation:
 
-- Git commit pushed to `origin/main`.
+- Git commit pushed to the active release branch (`origin/fix/remove-premature-position-upsert-entryside` for this release).
 - Cloudflare deployment ID and version ID.
 - Traffic percentage.
 - Schedule list.
@@ -210,25 +210,18 @@ Record these values in the release note or conversation:
 
 ## Last documented release evidence
 
-As of August 10, 2026:
+As of August 18, 2026:
 
-- Runtime source commit: `4261009` (`Bound dashboard reads and remove GET schema mutations`), including crypto hardening commit `8280696`
-- Documentation/release-receipt commit: `7cf03ed` (`Record crypto hardening live release`)
-- Documented deployment candidate: `24b7df43-a710-479a-96f8-46b879fc9171`
-- Documented Worker version candidate: `d304d14c-c6ea-45ca-97ce-47fd6d350c33`
-- Cloudflare control-plane verification was unavailable on August 10, 2026: Wrangler was unauthenticated and Cloudflare API requests returned HTTP 403
-- Conflicting later artifact remains unresolved: deployment `5088dbe0-31f9-4892-a149-a74702bbad4e`, version `cb88271c-8712-42a8-88a9-de58c841d3ec`, 100%
-- Local `wrangler.toml` schedules are `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, and `*/10 * * * *`; live scheduler state was not confirmed
-- Documented traffic candidate: 100% (not freshly verified)
-- Remote D1: `crypto_entry_reservations` and `idx_crypto_entry_reservations_expiry` verified; live `positions.strategy` and lifecycle trade columns verified
-- Validation: 85 tests passed with 257 assertions; TypeScript, diff-check, and fresh Wrangler dry-run passed
-- Read-only HTTP verification at `2026-08-10 13:43:32-13:43:35 UTC`: `/health`, `/api/runs`, `/api/trades`, `/api/positions`, `/`, and `/api/config` returned HTTP 200; `/api/positions` reported `positionsAvailable: true`, `source: alpaca`, and 18 positions
-- D1 SELECT-only run evidence: daytrading cron rows 913, 914, and 915 at 13:25:59, 13:35:59, and 13:40:59 UTC all had status `skipped`, `CYCLE_LEASE_HELD`, and `trades_executed: 0`; `/api/trades` showed 12 August 10 records in its latest 50 rows, all crypto, with no daytrading trade indicated
-- Maintenance evidence: row 911 at 13:10:59 UTC was a `CYCLE_LEASE_HELD` skip; row 908 at 12:41:35 UTC was `MAINTENANCE_ONLY` with brokerOrders=1, imported=0, ledgerActivities=136, and `trades_executed: 0`
-- Source inspection confirms separate `maintenance` and `daytrading` lease keys, but exact historical lease ownership is not reconstructable from available artifacts
-- Dashboard contract: `capitalCaps` resolved to daytrading `5000`, swing `3700`, crypto `2000`; performance and category histories are bounded to 90 rows; no `strategyHistory` payload remains
-- No manual trading cycle, order, cancel, close, retry, reconciliation trigger, or other mutating endpoint was run during verification
-- Source mapping note: Cloudflare deployment artifacts do not embed the Git SHA; the release bundle was built from the pushed repository state and uploaded directly.
+- Runtime source commit: `f122287703087ab959768d02ec931e21d85319a3` (`fix: deterministic entry identity and retry guard`), pushed to `origin/fix/remove-premature-position-upsert-entryside`
+- Cloudflare deployment: `03e3ef01-bb25-4010-b4b3-03829e7c09d5`
+- Worker version: `b5b4cb6e-71d2-4b78-924c-fd12acd4ac69`
+- Cloudflare control-plane verification: completed August 18, 2026; newest version at 100% traffic
+- Live schedules: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, and `*/10 * * * *`
+- Remote D1: `crypto_entry_reservations`, `idx_crypto_entry_reservations_expiry`, `client_order_id`, fill/lifecycle columns, and both trade-intent columns verified
+- Validation: 101 tests passed with 294 assertions; TypeScript, diff-check, and fresh Wrangler dry-run passed
+- Read-only HTTP verification: `/health`, `/api/dashboard`, `/api/trades`, `/api/runs`, and `/api/positions` returned HTTP 200; `/api/dashboard` reported caps `5000/3700/2000`; `/api/positions` reported `positionsAvailable: true`, `source: alpaca`, and 38 positions
+- Latest maintenance evidence: `/api/runs` showed `MAINTENANCE_ONLY`, `trades_executed: 0`, broker order reads, and no imported broker orders; no manual trading cycle, order, cancel, close, retry, reconciliation trigger, or other mutating endpoint was run during verification
+- Source mapping note: Cloudflare artifacts do not embed the Git SHA; the exact bundle was built from the pushed source commit and uploaded directly.
 
 ## Prior-release natural reconciliation evidence
 
@@ -242,7 +235,7 @@ The August 9, 2026 live audit found that read-only `reconcile_cron` shared the s
 
 ## Confirmed lifecycle evidence
 
-Read-only source and historical live evidence confirm a higher-severity lifecycle gap than reconciliation alone: the August 6, 2026 live audit recorded repeated partial-filled exits and subsequent quantity mismatches for daytrading/swing symbols. Those strategy paths have no pending-exit guard, so a partial or failed close can be submitted again on a later cycle. Their BUY paths also create a full D1 position immediately after order submission from requested quantity and decision price instead of confirmed broker fill quantity; a partial or pending BUY can therefore inflate internal quantity before reconciliation. Daytrading and swing client IDs use `Date.now()` and are not deterministic across retries, while swing BUYs use `decision_id: null` and swing exits omit the originating decision ID. Crypto has a pending-exit guard and deterministic client IDs, but no complete broker retry/cancel/replace lifecycle. This remains an open production risk until pending-order state, fill-aware position creation, deterministic correlation, and retry/cancel/replace behavior are implemented and tested.
+Read-only source and historical live evidence confirm a higher-severity lifecycle gap than reconciliation alone: the August 6, 2026 live audit recorded repeated partial-filled exits and subsequent quantity mismatches for daytrading/swing symbols. The August 18 release fixes deterministic stock/swing BUY identity, broker-shaped BUY persistence, and duplicate non-terminal BUY retry protection. Remaining production risks are pending-exit protection and decision-derived correlation for stock/swing exits, plus the broader partial-fill/cancel/replace lifecycle and FIFO/lot realization. Crypto has a pending-exit guard and deterministic client IDs, but no complete broker retry/cancel/replace lifecycle.
 
 ## Fee-aware release notes
 
