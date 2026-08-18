@@ -2,6 +2,17 @@
 
 Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persistence, Alpaca paper trading, and a GitHub Pages dashboard.
 
+## Bounded entry-identity fix — August 18, 2026 (implemented, not deployed)
+
+A bounded, non-vital fix makes stock/swing entry identity deterministic and retry duplicate-protection concrete, mirroring the crypto pattern. It preserves all vital parameters (daytrading **$5,000**, swing **$3,700**, crypto **$2,000**, confidence gates, max-trade limits, universes, risk params) and does not touch the exit decision-correlation gap.
+
+- Daytrading and swing BUY `client_order_id` values are now derived from `decision ID + symbol` (`bot_<decisionId>_<symbol>` / `swing_<decisionId>_<symbol>`) instead of `Date.now()`, matching `crypto_<decisionId>_<symbol>`.
+- Those BUYs persist immediately through `db.logOrderTrade(order, …)` (the crypto order-shaped path) so broker fields/fill state/timestamps come from the broker response.
+- New `Database.findNonTerminalTradeByClientOrderId(clientOrderId)` is called before stock/swing BUY: a non-terminal existing trade skips the retry with an auditable `DUPLICATE_ORDER_PREVENTED` reason and a decision-status note. Terminal rows do not block retry.
+- Crypto fee telemetry routes through `feeTelemetryFromAggregate` with `maxAgeMs: 60_000` (fails closed when stale); `getBrokerFeeSummary` now exposes `cryptoUsdRecent` so the aggregate rate matches the existing seven-day window.
+
+Local validation August 18, 2026: **101 tests, 294 assertions**, TypeScript typecheck passed. **Not deployed** in this work item — this is a locally validated source candidate pending the runbook deployment gate after authorization. No broker mutation was used.
+
 ## August 10, 2026 lifecycle hardening candidate
 
 The current worktree contains a release candidate that preserves the vital risk parameters: daytrading cap **$5,000**, swing cap **$3,700**, crypto cap **$2,000**, existing confidence gates, max-trade settings, and strategy universes. It removes premature stock/swing position upserts, enforces same-cycle daytrading entry notional against the existing cap, links swing entries to decisions, synchronizes newly broker-confirmed positions, closes stale D1 current-position rows only after a complete broker snapshot, and updates decision metadata from broker-confirmed order states.
@@ -262,8 +273,8 @@ Documentation is part of the implementation, not a follow-up task. Every future 
 ## Known risks and follow-up work
 
 - Partial-fill/retry/cancel handling has a confirmed lifecycle defect: August 6 live evidence showed repeated partial-filled exits and subsequent quantity mismatches. Daytrading and swing have no pending-exit guard, and a failed/partial close can be submitted again on a later cycle.
-- Daytrading and swing BUY paths also create a full D1 position immediately after order submission using requested quantity/decision price instead of broker fill quantity. A partial or pending BUY can therefore inflate internal quantity before reconciliation; August 6 live evidence showed this pattern alongside partial exits. Client IDs using `Date.now()` are not deterministic across retries, so duplicate-submit protection is incomplete. Crypto has a pending-exit guard and deterministic client IDs, but it still lacks a complete broker retry/cancel/replace lifecycle.
-- Order-to-decision correlation is incomplete: swing BUYs use time-based client IDs with `decision_id: null`, and swing exits omit the originating decision ID. Historical swing rows therefore cannot reliably support deterministic lifecycle attribution.
+- Entry identity and duplicate protection improved but not deployed: the August 18 source candidate removed `Date.now()` from stock/swing BUY `client_order_id` values (now decision+symbol), persuaded those BUYs through `logOrderTrade`, and guards retries via `findNonTerminalTradeByClientOrderId` (`DUPLICATE_ORDER_PREVENTED`). A partial or pending BUY can still inflate internal quantity before reconciliation on the live release, and stock/swing exits still lack deterministic decision-derived IDs and a pending-exit guard. Crypto has a pending-exit guard and deterministic client IDs, but it still lacks a complete broker retry/cancel/replace lifecycle.
+- Order-to-decision correlation is improved on the entry side by the August 18 source candidate (deterministic `client_order_id`, `logOrderTrade` with decision ID for stock/swing BUY), but stock/swing **exits** still omit a decision-derived deterministic ID, so exit correlation and historical attribution for those rows remain incomplete until paper-session evidence arrives.
 - Strategy `grossTotalPl` and `netTotalPl` are model values: closed P&L still comes from broker-position/unrealized snapshots, not matched fills. The fee ledger currently imports a bounded three-day overlap, so net figures mean gross model P&L less fees currently present in the ledger.
 - Regulatory/account-level fees are intentionally not assigned to daytrading or swing; unmatched broker positions are shown as `Unattributed` rather than hidden from the overview.
 - A true swing trailing stop still needs persisted peak-price state; the current swing protective path uses the hard stop and explicit data-integrity protection.
@@ -284,8 +295,9 @@ A verified weekly read-only follow-up job, `Alpaca deferred-risk review` (schedu
 
 ## Next steps
 
-1. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
-2. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
+1. **Deploy the August 18 bounded entry-identity candidate** under the runbook gate (read-only verification, four schedules, `/api/dashboard` caps, `/api/positions` broker-backed) after authorization; currently locally validated source only.
+2. Define and test the partial-fill, cancel, replace, and retry lifecycle under a paper session, including the deterministic-`client_order_id` retry guard, separately from read-only reconciliation.
+3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
 3. Add targeted live-broker integration checks without using trading actions as smoke tests.
 4. Finish swing trigger attribution and decision-row accounting consistency work.
 

@@ -252,6 +252,7 @@ export class Database {
   async getBrokerFeeSummary(): Promise<{
     totalUsd: number;
     cryptoUsd: number;
+    cryptoUsdRecent: number;
     regulatoryUsd: number;
     unattributedUsd: number;
     cryptoRateBps: number | null;
@@ -302,6 +303,7 @@ export class Database {
     return {
       totalUsd: Number(row?.total_usd ?? 0),
       cryptoUsd,
+      cryptoUsdRecent: recentCryptoUsd,
       regulatoryUsd: Number(row?.regulatory_usd ?? 0),
       unattributedUsd: Number(row?.unattributed_usd ?? 0),
       cryptoRateBps,
@@ -645,6 +647,33 @@ export class Database {
         AND status NOT IN ('rejected', 'canceled', 'cancelled', 'expired')
     `).bind(strategy, side, `-${safeWindowSeconds} seconds`).first() as { count?: number } | null;
     return Number(row?.count ?? 0);
+  }
+
+  /**
+   * Detect an existing non-terminal trade with the same client_order_id.
+   *
+   * Deterministic client order IDs (derived from decision ID + symbol) allow a
+   * retry/duplicate submission to be identified and skipped before it reaches
+   * the broker. Only non-terminal rows block a retry: a terminal row
+   * (rejected/canceled/expired/done_for_day/stopped) proves the prior order
+   * never (or no longer) leads to an open position, so a retry is allowed.
+   * Returns undefined when no blocking trade exists.
+   */
+  async findNonTerminalTradeByClientOrderId(clientOrderId: string): Promise<
+    | { tradeId: number; status: string; side: string; ticker: string }
+    | undefined
+  > {
+    await this.ensureTradeSchema();
+    const row = await this.db.prepare(
+      `SELECT id, status, side, ticker FROM trades
+       WHERE client_order_id = ?
+         AND status NOT IN ('rejected', 'canceled', 'cancelled', 'expired', 'replaced', 'done_for_day', 'stopped')
+       ORDER BY COALESCE(broker_updated_at, timestamp) DESC, id DESC LIMIT 1`
+    ).bind(clientOrderId).first() as
+      | { id: number; status: string; side: string; ticker: string }
+      | null;
+    if (!row) return undefined;
+    return { tradeId: row.id, status: row.status, side: row.side, ticker: row.ticker };
   }
 
   async logOrderTrade(order: Order, options: {

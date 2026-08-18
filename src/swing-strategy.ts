@@ -505,6 +505,18 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         continue;
       }
 
+      const clientOrderId = `swing_${buy.decisionId}_${buy.symbol}`;
+      // Deterministic client order ID lets a retry of the same decision be
+      // identified and skipped before it reaches the broker. A non-terminal
+      // existing trade means this order is already open/accepted/filled.
+      const existingTrade = await db.findNonTerminalTradeByClientOrderId(clientOrderId);
+      if (existingTrade) {
+        skips.add('DUPLICATE_ORDER_PREVENTED', 'decision', 'Swing BUY skipped because a non-terminal order with the same client order ID already exists', { symbol: buy.symbol, decisionId: buy.decisionId, tradeId: existingTrade.tradeId, status: existingTrade.status });
+        await db.updateDecisionStatus(buy.decisionId, 2, `Duplicate swing BUY skipped: order already open (status ${existingTrade.status})`);
+        console.log(`Swing: skip buy ${buy.symbol}: duplicate client_order_id ${clientOrderId}`);
+        continue;
+      }
+
       try {
         const order = await alpaca.submitOrder({
           symbol: buy.symbol,
@@ -512,23 +524,12 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
           side: 'buy',
           type: 'market',
           time_in_force: 'day',
-          client_order_id: `swing_${Date.now()}_${buy.symbol}`,
+          client_order_id: clientOrderId,
         });
 
-        await db.logTrade({
-          alpaca_order_id: order.id,
-          ticker: buy.symbol,
-          side: 'buy',
-          qty: qty,
-          fill_price: null,
-          avg_fill_price: null,
-          status: order.status,
-          order_type: 'market',
-          limit_price: null,
-          stop_price: null,
-          estimated_value: qty * price,
-          decision_id: buy.decisionId,
-          error_message: null,
+        await db.logOrderTrade(order, {
+          decisionId: buy.decisionId,
+          estimatedValue: qty * price,
           strategy: 'swing',
         });
 

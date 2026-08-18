@@ -1,3 +1,14 @@
+## Bounded entry-identity fix — August 18, 2026 (implemented, not deployed)
+
+A bounded, non-vital fix removes `Date.now()` from stock/swing entry identity and makes retry duplicate protection deterministic. It does **not** alter the vital caps (daytrading **$5,000**, swing **$3,700**, crypto **$2,000**), confidence gates, max-trade limits, strategy universes, or risk parameters, and it does **not** change the exit decision-correlation gap or the running crypto reservation semantics.
+
+- Daytrading and swing BUY submissions now use a deterministic `client_order_id` derived from the decision ID and symbol (`bot_<decisionId>_<symbol>` / `swing_<decisionId>_<symbol>`) instead of `Date.now()`. This matches the existing crypto pattern (`crypto_<decisionId>_<symbol>`) so every entry has stable retry identity.
+- Those BUY submissions now persist immediately through `db.logOrderTrade(order, …)` (the same order-shaped path crypto already uses) rather than a hand-mapped `logTrade` shape, so broker fields, fill state, and timestamps are recorded from the broker response.
+- A new reusable `Database.findNonTerminalTradeByClientOrderId(clientOrderId)` detects an existing non-terminal trade before a stock/swing BUY is submitted, so a retry/duplicate of the same decision is skipped before reaching the broker with an auditable `DUPLICATE_ORDER_PREVENTED` skip reason and a decision-status note. Terminal rows (`rejected`/`canceled`/`expired`/`done_for_day`/`stopped`/`replaced`) do **not** block a retry, because they prove the prior order no longer leads to an open position. The lookup orders by `COALESCE(broker_updated_at, timestamp)` then `id` so ties are deterministic.
+- Crypto fee telemetry is now routed through the canonical `feeTelemetryFromAggregate` gate with an explicit freshness `maxAgeMs` of **60,000 ms**: telemetry older than the max age fails closed to `unavailable`, sub-threshold samples return `insufficient`, and a failed ledger sync or missing summary returns `unavailable` so an unproven rate is never used for new-entry cost estimation. `getBrokerFeeSummary` now also exposes `cryptoUsdRecent` (the seven-day curated CFEE window) so the aggregate's computed rate matches the existing recent-window rate.
+
+Local validation on August 18, 2026: **101 tests, 294 assertions**, TypeScript typecheck passed. Deployment is **not** performed in this work item; the change remains a locally validated source candidate only. No broker order, cancellation, close, replace, retry, or other mutation was used.
+
 ## Lifecycle hardening candidate — August 10, 2026
 
 The hardening candidate keeps broker positions authoritative and keeps GET/read-only reconciliation free of broker mutations. Current-position rows are created or updated only from broker snapshots; requested quantities are never written as filled positions. Decision metadata converges from broker order status, including pending, partial, filled, and terminal rejection states.
@@ -104,8 +115,8 @@ The active weekly read-only review job `Alpaca deferred-risk review` (schedule I
 
 
 - Partial-fill/retry/cancel lifecycle has a confirmed defect: August 6 live evidence showed repeated partial-filled exits and quantity mismatches. Daytrading and swing lack a pending-exit guard, and partial/failed closes can be submitted again on a later cycle.
-- Daytrading and swing BUY paths create full D1 positions from requested quantity/decision price before broker fills are confirmed. Partial or pending BUYs can inflate internal quantity; deterministic client IDs are also missing because daytrading/swing IDs use `Date.now()`, so retry duplicate protection is incomplete. Scheduled reconciliation remains read-only and does not repair this lifecycle. Crypto has a pending-exit guard and deterministic client IDs, but no complete broker retry/cancel/replace lifecycle.
-- Order-to-decision correlation is incomplete: swing BUYs use `decision_id: null` and time-based client IDs, while swing exits omit the originating decision ID. Historical swing rows therefore cannot reliably support deterministic lifecycle attribution.
+- Partial/fill lifecycle on the entry side: the August 18 source candidate gives stock/swing BUYs deterministic `client_order_id` values and pre-submit `DUPLICATE_ORDER_PREVENTED` guards against retrying a non-terminal order (locally validated, not yet deployed). It remains unresolved that partial/pending exit lifecycle lacks a pending-exit guard, and the broader stock/swing exit decision-correlation and partial-fill/retry lifecycle still need paper-session evidence. Scheduled reconciliation remains read-only and does not repair this lifecycle. Crypto has a pending-exit guard and deterministic client IDs, but no complete broker retry/cancel/replace lifecycle.
+- Order-to-decision correlation: as of the August 18 source candidate, daytrading/swing BUY entries carry a deterministic decision-derived `client_order_id`, and the local generic entry path persists `logOrderTrade` with the decision ID. It remains incomplete that stock/swing **exits** still do not carry a decision-derived deterministic ID, so exit correlation and historical attribution need completion and paper-session evidence. Historical swing/crypto rows without stable attribution remain excluded from deterministic lifecycle attribution.
 - At the last verified D1 query on August 8, 2026, 365 trades existed and 84 had `strategy IS NULL`; those rows remain excluded from strategy-attributed history unless deterministic attribution is available.
 - Swing batch-bar and degraded-data safeguards have been verified in production; future changes should preserve the bounded request and completed-session checks.
 - Daytrading/crypto position sync can preserve an existing strategy-less row.
@@ -115,7 +126,8 @@ The active weekly read-only review job `Alpaca deferred-risk review` (schedule I
 ## Next steps
 
 1. Verify a completed post-August 10 `reconcile_cron` run, lifecycle-field population, run-log evidence, and absence of broker mutations without triggering reconciliation; the 07:10, 07:30, and 07:50 UTC runs were skipped, and no completed maintenance run was confirmed in the checked window.
-2. Define and test the partial-fill, cancel, replace, and retry lifecycle separately from read-only reconciliation.
+1. **Deploy the August 18 bounded entry-identity candidate** under the runbook release gate (read-only verification, four schedules, `/api/dashboard` caps, `/api/positions` broker-backed) after Joachim authorizes deployment; it is currently locally validated source only.
+2. Verify the deterministic-client-ID retry guard and partial-fill/cancel/replace/retry lifecycle under a paper session, separate from read-only reconciliation.
 3. Strengthen deterministic strategy attribution and lifecycle correlation for historical and broker-only trades.
 4. Add targeted live-broker integration checks without using trading actions as smoke tests.
 5. Finish swing trigger attribution and decision-row accounting consistency work.

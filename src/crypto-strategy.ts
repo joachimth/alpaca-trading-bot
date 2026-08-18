@@ -20,7 +20,7 @@ import type { Env } from './index';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 import { syncBrokerLedger } from './broker-ledger';
 import { reconcileBrokerOrders } from './order-reconciliation';
-import { classifyCryptoOrder, classifyCryptoSkip, createCycleExposure, cryptoBudgetDecision, cryptoClientOrderId, cryptoMinimumOrderCheck, cryptoReservationNotional, evaluateCryptoProtectiveExit, hasPendingCryptoExit, projectedPositions, rankCryptoCandidates, reserveEntry, resolveCryptoConfig, shouldFinalizeCryptoPosition, type FeeTelemetry } from './crypto-runtime';
+import { classifyCryptoOrder, classifyCryptoSkip, createCycleExposure, cryptoBudgetDecision, cryptoClientOrderId, cryptoMinimumOrderCheck, cryptoReservationNotional, evaluateCryptoProtectiveExit, feeTelemetryFromAggregate, hasPendingCryptoExit, projectedPositions, rankCryptoCandidates, reserveEntry, resolveCryptoConfig, shouldFinalizeCryptoPosition, type FeeTelemetry } from './crypto-runtime';
 
 // Curated crypto universe — major liquid coins on Alpaca
 const CRYPTO_UNIVERSE = [
@@ -176,13 +176,22 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
     } catch (error) {
       errors.push(`Broker fee summary failed: ${error instanceof Error ? error.message : String(error)}`);
     }
+    // Crypto fee telemetry is routed through the canonical aggregate gate. It
+    // fails closed on stale data: an asOf older than maxAgeMs (60s) returns
+    // unavailable, and a sub-threshold sample count returns insufficient. A
+    // failed ledger sync or missing summary short-circuits to unavailable so an
+    // unproven rate is never treated as safe for new-entry cost estimation.
     const feeTelemetry: FeeTelemetry = feeLedgerSyncFailed || !feeSummary
       ? { status: 'unavailable', reason: feeLedgerSyncFailed ? 'broker fee ledger sync failed this cycle' : 'broker fee summary unavailable' }
-      : feeSummary.cryptoFeeTelemetryStatus === 'available' && feeSummary.cryptoRateBps !== null && Number.isFinite(feeSummary.cryptoRateBps) && feeSummary.cryptoRateBps > 0 && feeSummary.cryptoFeeAsOf
-        ? { status: 'available', rateBps: feeSummary.cryptoRateBps, sampleCount: feeSummary.cryptoFeeSampleCount, notionalUsd: feeSummary.cryptoTradedNotionalUsd, asOf: feeSummary.cryptoFeeAsOf }
-        : feeSummary.cryptoFeeTelemetryStatus === 'insufficient'
-          ? { status: 'insufficient', reason: 'insufficient or invalid crypto fee samples' }
-          : { status: 'unavailable', reason: 'crypto fee telemetry unavailable, stale, or non-positive' };
+      : feeTelemetryFromAggregate({
+          feeUsd: feeSummary.cryptoUsdRecent,
+          notionalUsd: feeSummary.cryptoTradedNotionalUsd,
+          sampleCount: feeSummary.cryptoFeeSampleCount,
+          minSamples: 3,
+          asOf: feeSummary.cryptoFeeAsOf ?? null,
+          maxAgeMs: 60_000,
+          nowMs: Date.now(),
+        });
     const riskConfig: RiskConfig = {
       maxPositions: config.maxPositions,
       maxPositionPct: config.maxPositionPct,

@@ -691,6 +691,17 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         }
 
         const qty = riskCheck.adjustedQty;
+        const clientOrderId = `bot_${decisionId}_${signal.indicators.symbol}`;
+        // Deterministic client order ID lets a retry of the same decision be
+        // identified and skipped before it reaches the broker. A non-terminal
+        // existing trade means this order is already open/accepted/filled.
+        const existingTrade = await db.findNonTerminalTradeByClientOrderId(clientOrderId);
+        if (existingTrade) {
+          await db.updateDecisionStatus(decisionId, 2, `Duplicate daytrading BUY skipped: order already open (status ${existingTrade.status})`);
+          skips.add('DUPLICATE_ORDER_PREVENTED', 'decision', 'Daytrading BUY skipped because a non-terminal order with the same client order ID already exists', { symbol: signal.indicators.symbol, decisionId, tradeId: existingTrade.tradeId, status: existingTrade.status });
+          console.log(`Skip BUY ${signal.indicators.symbol}: duplicate client_order_id ${clientOrderId}`);
+          continue;
+        }
         try {
           // Submit market order
           const order = await alpaca.submitOrder({
@@ -699,25 +710,14 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             side: 'buy',
             type: 'market',
             time_in_force: 'day',
-            client_order_id: `bot_${decisionId}_${Date.now()}`,
+            client_order_id: clientOrderId,
           });
 
           const entryNotionalUsd = qty * signal.indicators.price;
           cycleEntryNotionalUsd += entryNotionalUsd;
-          await db.logTrade({
-            alpaca_order_id: order.id,
-            ticker: signal.indicators.symbol,
-            side: 'buy',
-            qty: qty,
-            fill_price: null,
-            avg_fill_price: null,
-            status: order.status,
-            order_type: 'market',
-            limit_price: null,
-            stop_price: null,
-            estimated_value: entryNotionalUsd,
-            decision_id: decisionId,
-            error_message: null,
+          await db.logOrderTrade(order, {
+            decisionId,
+            estimatedValue: entryNotionalUsd,
             strategy: 'daytrading',
           });
 

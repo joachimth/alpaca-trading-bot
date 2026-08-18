@@ -1,3 +1,7 @@
+## Bounded entry-identity candidate — August 18, 2026 (locally validated, not yet deployed)
+
+A newer source candidate (deterministic stock/swing `client_order_id`, `logOrderTrade` BUY persistence plus `findNonTerminalTradeByClientOrderId` retry guard, and crypto fee telemetry routed through `feeTelemetryFromAggregate` with 60 s freshness) is **locally validated only** — it is **not deployed**. Run the same full local gate below (`bun test`, `bunx tsc --noEmit`, `git diff --check`, `bunx wrangler deploy --dry-run`) and confirm caps/confidence/max-trade/universes/risk params are unchanged before any deployment. Apply the remote-verification steps exactly as recorded for prior releases (four schedules, health, read-only GET endpoints, `/api/dashboard` caps, `/api/positions` broker-backed), and do not use trading actions as smoke tests. Current candidate validation: 101 tests, 294 assertions, typecheck passed; no broker mutation. Deployment requires explicit Joachim authorization.
+
 ## Lifecycle hardening release gate — August 10, 2026
 
 Before deploying this candidate, run the full local gates: `bun test`, `bunx tsc --noEmit`, and `git diff --check`. Confirm that the release preserves daytrading **$5,000**, swing **$3,700**, and crypto **$2,000** caps and does not alter confidence thresholds, max-trade settings, universes, or fee gates.
