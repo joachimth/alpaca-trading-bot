@@ -1,3 +1,7 @@
+## August 21, 2026 trade observability correction deployed
+
+Commit `71aad14` is live as Cloudflare deployment `061b8e22-184d-4c46-8f54-2bf0c4682dc8`, version `07c901cc-d936-4bb8-a7e9-8dc6689b0fa3`, 100% traffic. `/api/trades` now exposes conservative gross/fee/net metadata and persisted broker TIF; ledger truncation is top-level degraded. Validation: 153 tests / 483 assertions, typecheck, diff-check, dry-run; separate GET-only verification passed. Production remains FAIL/DEGRADED because fresh daytrading/swing delivery, lifecycle population, calibrated crypto edge, complete cap attribution, and fill/lot-exact accounting remain open.
+
 ## August 21, 2026 trade observability correction
 
 Code correction implemented locally: broker `time_in_force` is now persisted, `/api/trades` exposes conservative `gross`/`fee`/`net` fields with explicit fill-lot-unavailable status, and bounded ledger truncation is top-level `degraded`. Focused validation passed: 19 tests / 37 assertions. Full validation and authorized deployment remain pending; production stays FAIL/DEGRADED with no broker mutation performed.
