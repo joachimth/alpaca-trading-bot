@@ -8,7 +8,7 @@ The local correction closes the confirmed crypto economics gap without inventing
 
 Local validation on August 21, 2026: **111 tests passed, 330 assertions**, TypeScript typecheck, `git diff --check`, and a fresh Wrangler dry-run passed. The existing `/api/runs` pagination/filter correction remains covered and was live-verified with `?trigger=crypto_cron`: the latest observed run at `2026-08-21 07:37:34` CPH recorded 7 decisions, 0 trades, 0 errors, with `NO_POSITION_TO_EXIT` and `FEE_DATA_UNAVAILABLE` skips. No trading cycle, order, cancel, close, replace, retry, or other broker mutation was used.
 
-Deployment of this correction is pending the documented Cloudflare upload and control-plane verification. Vital parameters remain unchanged: daytrading **$5,000**, swing **$3,700**, crypto **$2,000**. Until a new Worker version is confirmed at 100% traffic and a natural post-release run is observed, production remains a release blocker/degraded state.
+Deployment completed on August 21, 2026 through the documented Cloudflare upload: deployment `47158569-968b-4bae-83ad-0c24134d42d2`, Worker version `2756aeb6-e71a-4a11-ab7c-a3a1a6dbbf4e`, 100% traffic, and all four schedules present. Read-only smoke checks for `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, and filtered `/api/runs` passed; `/api/positions` remained broker-authoritative with 29 positions. Vital parameters remain unchanged: daytrading **$5,000**, swing **$3,700**, crypto **$2,000**. A natural post-release scheduled crypto run is still pending, so production remains degraded until that run confirms the new skip code in live run details.
 
 ## August 21, 2026 reliability correction candidate
 

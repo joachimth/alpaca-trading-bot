@@ -4,7 +4,7 @@ Release scope: add an explicit crypto-only fail-closed gate for a configured pos
 
 Pre-release evidence: 111 tests passed with 330 assertions, TypeScript passed, `git diff --check` passed, and `bunx wrangler deploy --dry-run --outdir /workspace/alpaca-worker-bundle-crypto-edge-fix` passed. Live GET-only probes passed for `/health`, `/api/config`, `/api/positions`, `/api/dashboard`, and filtered `/api/runs`; the natural crypto run at `2026-08-21 07:37:34` CPH had 7 decisions, 0 trades, and 0 errors. No trigger, submit, cancel, close, replace, retry, or other broker mutation was used.
 
-Release status: **not yet deployed**. The next required steps are commit/push, upload the exact fresh bundle through the documented Cloudflare control-plane path, verify a new Worker version at 100% traffic and all four schedules, run read-only smoke checks, then observe a natural post-release crypto run. A missing credential or deployment-list receipt is a blocker, not a successful release.
+Release status: **deployed, read-only verified, natural post-release run pending**. Cloudflare deployment `47158569-968b-4bae-83ad-0c24134d42d2` serves Worker version `2756aeb6-e71a-4a11-ab7c-a3a1a6dbbf4e` at 100% traffic, with all four schedules present. The upload response was successful, and `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, and filtered `/api/runs` smoke checks returned successfully. The next required evidence is the first natural post-release crypto run showing the new structured skip behavior; do not manually trigger a cycle or label production healthy before that evidence exists.
 
 ## August 21, 2026 reliability correction candidate
 
