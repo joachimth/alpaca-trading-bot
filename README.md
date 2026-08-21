@@ -1,3 +1,9 @@
+## August 21, 2026 bounded Alpaca lifecycle-timestamp correction — deployed and read-only verified
+
+This additive reliability correction persists the existing Alpaca `Order` lifecycle fields `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, and `replaced_at`. New imports and read-only reconciliation preserve each incoming non-null timestamp monotonically without changing trading behavior, edge-gate behavior, schedules, sizing, or caps, which remain **$5,000 daytrading / $3,700 swing / $2,000 crypto**.
+
+Validation passed: **123 tests / 361 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. Remote D1 now contains all six additive columns; the release is live as deployment `6ef8737a-85ca-4fbb-8886-c938237dc993`, version `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4`, at 100% traffic, with all four schedules. Separate GET-only verification passed all six endpoints and `/api/trades` exposes all lifecycle fields; historical rows remain null for newly added timestamps until natural broker snapshots populate them. Production remains **DEGRADED** because August 21 daytrading and swing delivery is still outside/absent from the observed windows, and prior swing history contains errors.
+
 ## August 21, 2026 swing-cap correction
 
 The confirmed swing admission gap is corrected locally. Swing BUY checks now carry approved cycle-level entry notional into subsequent checks, so current broker-backed swing exposure plus planned entries cannot exceed the unchanged **$3,700** cap; exhausted headroom is recorded as structured `CAPITAL_CAP` observability. Exits, protective behavior, thresholds, turnover/minimum-size behavior, daytrading, crypto, and all vital caps remain unchanged.
@@ -28,6 +34,12 @@ Result: **DEGRADED, not healthy**. All six required GET endpoints returned HTTP 
 No code, cap, strategy, or deployment mutation was required for this control correction. The follow-up remains natural scheduled evidence for successful daytrading and swing delivery; no trigger, submit, cancel, close, replace, retry, or broker-mutating endpoint was called.
 
 # Alpaca AI Trading Bot
+
+## August 21, 2026 additive trade-lifecycle persistence correction — deployed
+
+The lifecycle observability gap is corrected with additive `trades` columns for broker-provided `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, and `replaced_at`. New order imports and later read-only reconciliation persist non-null timestamps monotonically without erasing earlier evidence; caps, schedules, strategy thresholds, order sizing, and broker behavior are unchanged. Legacy D1 now contains the six columns.
+
+Full validation passed: **123 tests / 361 assertions**, TypeScript, diff-check, and Wrangler dry-run. Separate GET-only verification passed all six endpoints, deployment `6ef8737a-85ca-4fbb-8886-c938237dc993` is live at 100% traffic, and `/api/trades` exposes the new fields. Production remains **DEGRADED** because fresh August 21 daytrading/swing delivery is unverified and prior swing history contains errors; no broker-mutating endpoint was used.
 
 ## August 21, 2026 runtime-cap and scheduler DDL correction — deployed and read-only verified
 

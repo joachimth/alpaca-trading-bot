@@ -28,8 +28,31 @@ describe('scheduled order reconciliation', () => {
     ]);
     const result = await rows(sqlite);
     expect(result).toHaveLength(2);
-    expect(result[0]).toMatchObject({ alpaca_order_id: 'buy-1', side: 'buy', filled_qty: 3, leaves_qty: 7, status: 'partially_filled', broker_updated_at: '2026-08-07T10:01:00Z' });
-    expect(result[1]).toMatchObject({ alpaca_order_id: 'sell-1', side: 'sell', client_order_id: 'sell-client', filled_qty: 2, leaves_qty: 0, status: 'filled' });
+    expect(result[0]).toMatchObject({
+      alpaca_order_id: 'buy-1', side: 'buy', filled_qty: 3, leaves_qty: 7,
+      status: 'partially_filled', broker_updated_at: '2026-08-07T10:01:00Z',
+      submitted_at: '2026-08-07T10:00:00Z',
+    });
+    expect(result[1]).toMatchObject({
+      alpaca_order_id: 'sell-1', side: 'sell', client_order_id: 'sell-client',
+      filled_qty: 2, leaves_qty: 0, status: 'filled',
+    });
+  });
+
+  test('persists lifecycle timestamps on initial import and preserves them during older reconciliation', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    const lifecycle = {
+      submitted_at: '2026-08-07T10:00:00Z',
+      filled_at: '2026-08-07T10:03:00Z',
+      canceled_at: '2026-08-07T10:04:00Z',
+      expired_at: '2026-08-07T10:05:00Z',
+      failed_at: '2026-08-07T10:06:00Z',
+      replaced_at: '2026-08-07T10:07:00Z',
+    };
+    await db.reconcileOrders([order({ id: 'lifecycle-order', status: 'filled', filled_qty: 10, leaves_qty: 0, updated_at: '2026-08-07T10:08:00Z', ...lifecycle })]);
+    await db.reconcileOrders([order({ id: 'lifecycle-order', status: 'new', filled_qty: 0, leaves_qty: 10, updated_at: '2026-08-07T10:01:00Z', submitted_at: null, filled_at: null, canceled_at: null, expired_at: null, failed_at: null, replaced_at: null })]);
+    expect((await rows(sqlite))[0]).toMatchObject(lifecycle);
   });
 
   test('updates linked decision metadata when reconciliation confirms a fill', async () => {
@@ -45,14 +68,37 @@ describe('scheduled order reconciliation', () => {
     expect(decision).toEqual({ executed: 1, execution_reason: 'Broker confirmed fill: 10/10 @ 101' });
   });
 
-  test('is idempotent and never regresses newer fill progress or status', async () => {
+  test('is idempotent and never regresses newer fill progress, status, or lifecycle timestamps', async () => {
     const sqlite = createTestDatabase();
     const db = new Database(createFakeD1(sqlite));
-    await db.reconcileOrders([order({ filled_qty: 10, leaves_qty: 0, filled_avg_price: 100, status: 'filled', updated_at: '2026-08-07T10:05:00Z' })]);
-    await db.reconcileOrders([order({ filled_qty: 2, leaves_qty: 8, status: 'new', updated_at: '2026-08-07T10:01:00Z' })]);
+    await db.reconcileOrders([order({
+      filled_qty: 10, leaves_qty: 0, filled_avg_price: 100, status: 'filled',
+      updated_at: '2026-08-07T10:05:00Z', filled_at: '2026-08-07T10:04:00Z',
+    })]);
+    await db.reconcileOrders([order({
+      filled_qty: 2, leaves_qty: 8, status: 'new', updated_at: '2026-08-07T10:01:00Z',
+      filled_at: null,
+    })]);
     const result = await rows(sqlite);
     expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ filled_qty: 10, leaves_qty: 0, status: 'filled', broker_updated_at: '2026-08-07T10:05:00Z' });
+    expect(result[0]).toMatchObject({
+      filled_qty: 10, leaves_qty: 0, status: 'filled',
+      broker_updated_at: '2026-08-07T10:05:00Z',
+      submitted_at: '2026-08-07T10:00:00Z',
+      filled_at: '2026-08-07T10:04:00Z',
+    });
+  });
+
+  test('persists terminal lifecycle timestamps on a later broker snapshot', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    await db.reconcileOrders([order({ id: 'terminal-lifecycle', status: 'new' })]);
+    await db.reconcileOrders([order({
+      id: 'terminal-lifecycle', status: 'canceled', updated_at: '2026-08-07T10:06:00Z',
+      canceled_at: '2026-08-07T10:06:00Z',
+    })]);
+    const result = await rows(sqlite);
+    expect(result[0]).toMatchObject({ status: 'canceled', canceled_at: '2026-08-07T10:06:00Z' });
   });
 
   test('persists every documented terminal status without broker side effects', async () => {

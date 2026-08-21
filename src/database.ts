@@ -44,6 +44,12 @@ export interface TradeRecord {
   filled_qty?: number | null;
   leaves_qty?: number | null;
   broker_updated_at?: string | null;
+  submitted_at?: string | null;
+  filled_at?: string | null;
+  canceled_at?: string | null;
+  expired_at?: string | null;
+  failed_at?: string | null;
+  replaced_at?: string | null;
   intent_stop_loss_price?: number | null;
   intent_take_profit_price?: number | null;
 }
@@ -79,6 +85,12 @@ export class Database {
       ['filled_qty', 'REAL'],
       ['leaves_qty', 'REAL'],
       ['broker_updated_at', 'TEXT'],
+      ['submitted_at', 'TEXT'],
+      ['filled_at', 'TEXT'],
+      ['canceled_at', 'TEXT'],
+      ['expired_at', 'TEXT'],
+      ['failed_at', 'TEXT'],
+      ['replaced_at', 'TEXT'],
       ['last_reconciled_at', 'TEXT'],
       ['intent_stop_loss_price', 'REAL'],
       ['intent_take_profit_price', 'REAL'],
@@ -618,8 +630,8 @@ export class Database {
   async logTrade(record: TradeRecord): Promise<number> {
     await this.ensureTradeSchema();
     const result = await this.db.prepare(
-      `INSERT INTO trades (alpaca_order_id, client_order_id, ticker, side, qty, filled_qty, leaves_qty, fill_price, avg_fill_price, status, order_type, limit_price, stop_price, estimated_value, decision_id, error_message, strategy, broker_updated_at, intent_stop_loss_price, intent_take_profit_price, last_reconciled_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+      `INSERT INTO trades (alpaca_order_id, client_order_id, ticker, side, qty, filled_qty, leaves_qty, fill_price, avg_fill_price, status, order_type, limit_price, stop_price, estimated_value, decision_id, error_message, strategy, broker_updated_at, submitted_at, filled_at, canceled_at, expired_at, failed_at, replaced_at, intent_stop_loss_price, intent_take_profit_price, last_reconciled_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
     ).bind(
       record.alpaca_order_id,
       record.client_order_id ?? null,
@@ -639,6 +651,12 @@ export class Database {
       record.error_message,
       record.strategy ?? null,
       record.broker_updated_at ?? null,
+      record.submitted_at ?? null,
+      record.filled_at ?? null,
+      record.canceled_at ?? null,
+      record.expired_at ?? null,
+      record.failed_at ?? null,
+      record.replaced_at ?? null,
       record.intent_stop_loss_price ?? null,
       record.intent_take_profit_price ?? null
     ).run();
@@ -715,6 +733,12 @@ export class Database {
              leaves_qty = COALESCE(?, leaves_qty),
              fill_price = COALESCE(?, fill_price), avg_fill_price = COALESCE(?, avg_fill_price),
              broker_updated_at = CASE WHEN broker_updated_at IS NULL OR ? >= broker_updated_at THEN ? ELSE broker_updated_at END,
+             submitted_at = CASE WHEN ? IS NOT NULL AND (submitted_at IS NULL OR ? >= submitted_at) THEN ? ELSE submitted_at END,
+             filled_at = CASE WHEN ? IS NOT NULL AND (filled_at IS NULL OR ? >= filled_at) THEN ? ELSE filled_at END,
+             canceled_at = CASE WHEN ? IS NOT NULL AND (canceled_at IS NULL OR ? >= canceled_at) THEN ? ELSE canceled_at END,
+             expired_at = CASE WHEN ? IS NOT NULL AND (expired_at IS NULL OR ? >= expired_at) THEN ? ELSE expired_at END,
+             failed_at = CASE WHEN ? IS NOT NULL AND (failed_at IS NULL OR ? >= failed_at) THEN ? ELSE failed_at END,
+             replaced_at = CASE WHEN ? IS NOT NULL AND (replaced_at IS NULL OR ? >= replaced_at) THEN ? ELSE replaced_at END,
              last_reconciled_at = datetime('now'),
              decision_id = COALESCE(decision_id, ?), strategy = COALESCE(strategy, ?),
              intent_stop_loss_price = COALESCE(intent_stop_loss_price, ?),
@@ -723,6 +747,12 @@ export class Database {
       ).bind(order.client_order_id ?? null, order.updated_at ?? null, order.status,
         order.filled_qty, order.leaves_qty, order.filled_avg_price, order.filled_avg_price,
         order.updated_at ?? null, order.updated_at ?? null,
+        order.submitted_at ?? null, order.submitted_at ?? null, order.submitted_at ?? null,
+        order.filled_at ?? null, order.filled_at ?? null, order.filled_at ?? null,
+        order.canceled_at ?? null, order.canceled_at ?? null, order.canceled_at ?? null,
+        order.expired_at ?? null, order.expired_at ?? null, order.expired_at ?? null,
+        order.failed_at ?? null, order.failed_at ?? null, order.failed_at ?? null,
+        order.replaced_at ?? null, order.replaced_at ?? null, order.replaced_at ?? null,
         options.decisionId ?? null, options.strategy ?? null, options.intentStopLossPrice ?? null, options.intentTakeProfitPrice ?? null, order.id).run();
       return existing.id as number;
     }
@@ -739,6 +769,12 @@ export class Database {
       avg_fill_price: order.filled_avg_price,
       status: order.status,
       broker_updated_at: order.updated_at,
+      submitted_at: order.submitted_at,
+      filled_at: order.filled_at,
+      canceled_at: order.canceled_at,
+      expired_at: order.expired_at,
+      failed_at: order.failed_at,
+      replaced_at: order.replaced_at,
       order_type: order.type,
       limit_price: order.limit_price,
       stop_price: order.stop_price,
@@ -762,6 +798,12 @@ export class Database {
          avg_fill_price = COALESCE(?, avg_fill_price),
          client_order_id = COALESCE(?, client_order_id),
          broker_updated_at = CASE WHEN ? IS NULL OR broker_updated_at IS NULL OR ? >= broker_updated_at THEN ? ELSE broker_updated_at END,
+         submitted_at = CASE WHEN ? IS NOT NULL AND (submitted_at IS NULL OR ? >= submitted_at) THEN ? ELSE submitted_at END,
+         filled_at = CASE WHEN ? IS NOT NULL AND (filled_at IS NULL OR ? >= filled_at) THEN ? ELSE filled_at END,
+         canceled_at = CASE WHEN ? IS NOT NULL AND (canceled_at IS NULL OR ? >= canceled_at) THEN ? ELSE canceled_at END,
+         expired_at = CASE WHEN ? IS NOT NULL AND (expired_at IS NULL OR ? >= expired_at) THEN ? ELSE expired_at END,
+         failed_at = CASE WHEN ? IS NOT NULL AND (failed_at IS NULL OR ? >= failed_at) THEN ? ELSE failed_at END,
+         replaced_at = CASE WHEN ? IS NOT NULL AND (replaced_at IS NULL OR ? >= replaced_at) THEN ? ELSE replaced_at END,
          last_reconciled_at = datetime('now')
        WHERE alpaca_order_id = ?`
     ).bind(
@@ -770,6 +812,12 @@ export class Database {
       order ? order.qty - order.filled_qty : null,
       fillPrice, avgFillPrice, order?.client_order_id ?? null,
       order?.updated_at ?? null, order?.updated_at ?? null, order?.updated_at ?? null,
+      order?.submitted_at ?? null, order?.submitted_at ?? null, order?.submitted_at ?? null,
+      order?.filled_at ?? null, order?.filled_at ?? null, order?.filled_at ?? null,
+      order?.canceled_at ?? null, order?.canceled_at ?? null, order?.canceled_at ?? null,
+      order?.expired_at ?? null, order?.expired_at ?? null, order?.expired_at ?? null,
+      order?.failed_at ?? null, order?.failed_at ?? null, order?.failed_at ?? null,
+      order?.replaced_at ?? null, order?.replaced_at ?? null, order?.replaced_at ?? null,
       orderId,
     ).run();
   }
@@ -844,11 +892,23 @@ export class Database {
              fill_price = COALESCE(?, fill_price),
              avg_fill_price = COALESCE(?, avg_fill_price),
              broker_updated_at = ?,
+             submitted_at = CASE WHEN ? IS NOT NULL AND (submitted_at IS NULL OR ? >= submitted_at) THEN ? ELSE submitted_at END,
+             filled_at = CASE WHEN ? IS NOT NULL AND (filled_at IS NULL OR ? >= filled_at) THEN ? ELSE filled_at END,
+             canceled_at = CASE WHEN ? IS NOT NULL AND (canceled_at IS NULL OR ? >= canceled_at) THEN ? ELSE canceled_at END,
+             expired_at = CASE WHEN ? IS NOT NULL AND (expired_at IS NULL OR ? >= expired_at) THEN ? ELSE expired_at END,
+             failed_at = CASE WHEN ? IS NOT NULL AND (failed_at IS NULL OR ? >= failed_at) THEN ? ELSE failed_at END,
+             replaced_at = CASE WHEN ? IS NOT NULL AND (replaced_at IS NULL OR ? >= replaced_at) THEN ? ELSE replaced_at END,
              strategy = COALESCE(strategy, ?), last_reconciled_at = datetime('now')
            WHERE alpaca_order_id = ?`
         ).bind(
           order.client_order_id ?? null, status, order.filled_qty, leavesQty,
           order.filled_avg_price, order.filled_avg_price, brokerUpdatedAt,
+          order.submitted_at ?? null, order.submitted_at ?? null, order.submitted_at ?? null,
+          order.filled_at ?? null, order.filled_at ?? null, order.filled_at ?? null,
+          order.canceled_at ?? null, order.canceled_at ?? null, order.canceled_at ?? null,
+          order.expired_at ?? null, order.expired_at ?? null, order.expired_at ?? null,
+          order.failed_at ?? null, order.failed_at ?? null, order.failed_at ?? null,
+          order.replaced_at ?? null, order.replaced_at ?? null, order.replaced_at ?? null,
           strategy, order.id,
         ).run();
 

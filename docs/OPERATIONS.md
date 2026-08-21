@@ -1,3 +1,15 @@
+## August 21, 2026 bounded Alpaca lifecycle-timestamp correction — deployed and read-only verified
+
+The correction additively persists the existing Alpaca Order fields `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, and `replaced_at` on `trades`. Incoming non-null values are monotonic per lifecycle field and NULL broker snapshots cannot erase stored evidence; no trading behavior, edge gate, schedule, sizing, or cap changed. Caps remain **$5,000 / $3,700 / $2,000**.
+
+Validation passed: **123 tests / 361 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. Remote D1 contains all six columns. Deployment `6ef8737a-85ca-4fbb-8886-c938237dc993`, version `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4`, is at 100% traffic with all four schedules; all six GET endpoints passed separately, and `/api/trades` exposes the new fields. Historical rows are null for these new timestamps until natural broker updates populate them. Production remains **DEGRADED** pending fresh August 21 daytrading/swing delivery and because prior swing runs include errors.
+
+## August 21, 2026 additive trade-lifecycle persistence correction — deployed
+
+The lifecycle persistence gap is corrected with additive broker timestamp columns on `trades`: `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, and `replaced_at`. Initial imports, direct status updates, and scheduled read-only reconciliation retain non-null timestamps monotonically; trading behavior, schedules, sizing, thresholds, and caps remain unchanged at $5,000/$3,700/$2,000. Remote D1 contains all six columns.
+
+Full validation passed **123 tests / 361 assertions**, TypeScript, diff-check, and Wrangler dry-run. Deployment `6ef8737a-85ca-4fbb-8886-c938237dc993` is live at 100% traffic; all six GET endpoints passed separately and `/api/trades` exposes the new fields. Production remains **DEGRADED** pending fresh August 21 daytrading/swing delivery; prior swing history includes errors.
+
 ## August 21, 2026 runtime-cap and scheduler DDL correction — deployed and read-only verified
 
 Scope is limited to two reliability defects. Daytrading and swing runtime config loaders now use the same existing camelCase/snake_case aliases as `/api/config`, while missing or malformed overrides preserve the current defaults. The scheduled handler no longer performs `ALTER TABLE positions ADD COLUMN strategy` on every invocation; strategy cron paths perform a read-only `pragma_table_info` readiness check and fail closed with a recorded error when `positions.strategy` is absent. Legacy databases must receive the explicit `positions-strategy-column-migration.sql` migration once; current schema and behavior are unchanged.

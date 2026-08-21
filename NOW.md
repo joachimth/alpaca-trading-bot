@@ -1,6 +1,7 @@
-## August 21, 2026 swing-cap correction
+## August 21, 2026 Alpaca production control and lifecycle correction
 
-Swing multi-entry cap enforcement is deployed and live-verified from commit d9c8ec6 as Cloudflare deployment 602cdd72-1a49-4db5-bd86-898efea14315, version 7b20c401-fe15-41e5-ac71-a8d798e8112d, 100% traffic.
-Source 2637a1e is deployed as 2c222e36 / e7425217 at 100% traffic; 121 tests / 359 assertions, TypeScript, diff-check, dry-run, four schedules, and six GET endpoints passed. Caps remain 5000/3700/2000 USD; production remains DEGRADED.
-Production remains DEGRADED, not healthy: crypto positive-edge BUYs fail closed without calibrated rawEdgeBps, lifecycle/P&L gaps remain, and fresh natural daytrading/swing success is pending.
-No broker-mutating endpoint was called.
+Production is DEGRADED, not healthy. Lifecycle correction deployed as Cloudflare deployment 6ef8737a-85ca-4fbb-8886-c938237dc993, version 5ff1ee08-bdc1-46b7-9aa6-93962d25beb4, 100% traffic; remote D1 has all six timestamp columns.
+
+Validation: 123 tests / 361 assertions, TypeScript, diff-check, dry-run; six GET endpoints, four schedules, broker source, caps 5000/3700/2000, filtered runs, lifecycle field presence, and gross/fee/net checks passed.
+
+Historical lifecycle timestamps are null until natural broker updates populate them. August 21 daytrading/swing delivery remains unverified; prior swing history has errors. No broker-mutating endpoint was called.

@@ -1,4 +1,16 @@
-## August 21, 2026 runtime-cap and scheduler DDL correction — release receipt
+## August 21, 2026 bounded Alpaca lifecycle-timestamp correction — deployed and verified
+
+This additive correction adds six nullable `trades` columns and persists only corresponding non-null Alpaca Order timestamps: `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, and `replaced_at`. Updates are monotonic per field and never erase stored lifecycle evidence; caps **$5,000 daytrading / $3,700 swing / $2,000 crypto**, all schedules, edge-gate behavior, read-only reconciliation, and trading behavior are unchanged.
+
+Validation passed: **123 tests / 361 assertions**, `bunx tsc --noEmit`, `git diff --check`, and Wrangler dry-run. Remote D1 migration was applied and all six columns verified. Deployment `6ef8737a-85ca-4fbb-8886-c938237dc993` serves version `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4` at 100% traffic with all four schedules; separate GET-only verification passed all six endpoints and `/api/trades` exposes all lifecycle fields. Natural August 21 daytrading and swing delivery remains unverified because those windows had not yet produced current evidence; prior swing history includes errors, so production remains **DEGRADED**. Do not manually trigger a cycle or use any broker-mutating endpoint to close this gap.
+
+## August 21, 2026 additive trade-lifecycle persistence correction — release gate
+
+Scope: additive persistence only. The correction adds `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, and `replaced_at` to `trades`, wires broker order imports and read-only reconciliation to preserve non-null timestamps monotonically, and leaves caps, schedules, strategy behavior, sizing, and order paths unchanged. Apply `trade-lifecycle-columns-migration.sql` once on legacy D1 before deploying the Worker.
+
+Required validation: focused lifecycle/read-only tests, full `bun test`, `bunx tsc --noEmit`, `git diff --check`, and Wrangler dry-run. After an authorized release, perform separate GET-only checks for all six endpoints, verify `/api/trades` exposes the new fields, recheck broker-authoritative positions, caps, filtered runs, schedules, fees/gross/net, and natural scheduled evidence. Do not trigger cycles or call submit, cancel, close, replace, retry, or any other broker-mutating endpoint.
+
+## August 21, 2026 runtime-cap and scheduler DDL correction — deployed
 
 The local correction makes runtime cap loading consistent with `/api/config`: daytrading uses `maxCapitalUsd` or `max_capital_usd`, and swing uses `swing_maxCapitalUsd` or `swing_max_capital_usd`, with existing defaults retained for missing/malformed values. `scheduled()` no longer mutates D1 schema. It performs a read-only `pragma_table_info('positions')` check before strategy cycles; absent `positions.strategy` blocks the cycle and records an error rather than attempting runtime DDL. Apply `positions-strategy-column-migration.sql` through the normal migration process for legacy databases before an authorized release.
 

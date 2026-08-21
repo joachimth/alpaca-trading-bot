@@ -76,6 +76,12 @@ CREATE TABLE IF NOT EXISTS trades (
   strategy TEXT,
   error_message TEXT,
   broker_updated_at TEXT,
+  submitted_at TEXT,
+  filled_at TEXT,
+  canceled_at TEXT,
+  expired_at TEXT,
+  failed_at TEXT,
+  replaced_at TEXT,
   last_reconciled_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
