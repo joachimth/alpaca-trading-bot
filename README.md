@@ -27,7 +27,7 @@ The confirmed swing multi-entry cap gap is corrected locally. Each approved swin
 
 Required validation before any release decision: run `bun test test/risk-fee-aware.test.ts`, `bun test`, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run`. Do not use trading triggers or broker-mutating endpoints. The correction is deployed as Cloudflare deployment `602cdd72-1a49-4db5-bd86-898efea14315`, Worker version `7b20c401-fe15-41e5-ac71-a8d798e8112d`, at 100% traffic with all four schedules present. Separate GET-only verification passed all six endpoints; natural post-release evidence remains required.
 
-## August 21, 2026 strict read-only production control, 08:02:29 UTC
+## August 21, 2026 strict read-only production control, 08:02:29 UTC (historical receipt)
 
 Result: **DEGRADED, not healthy**. All six required GET endpoints returned HTTP 200, but fresh successful daytrading and swing runs have not yet been observed in the current August 21 UTC cycle, and the live history contains explicit lease-held and error skips.
 
@@ -35,12 +35,12 @@ Result: **DEGRADED, not healthy**. All six required GET endpoints returned HTTP 
 - Equity direction was positive at the check: account equity `$98,439.92` versus last equity `$98,270.0927` (`+$169.8273`); the latest snapshot rose from `$98,417.98` at 07:07:31 UTC to `$98,439.21` at 07:37:32 UTC.
 - The four checked-in schedules and dispatch paths remain exact: daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *` at approximately `:07/:37`, and reconciliation `*/10 * * * *`.
 - Fresh crypto delivery was observed at `2026-08-21 07:37:34` UTC with 7 decisions, 0 trades, 0 errors, and structured `NO_POSITION_TO_EXIT` plus `FEE_DATA_UNAVAILABLE` skips. Reconciliation delivered `MAINTENANCE_ONLY` runs through `08:00:31` UTC; `07:20:24` recorded an explicit `CYCLE_LEASE_HELD` skip. The latest daytrading success remains `2026-08-20 16:25:42` UTC, while the latest swing history is an error at `2026-08-18 22:00:36` UTC; no August 21 daytrading or swing success can be expected before their scheduled UTC windows.
-- All 50 returned trade rows had lifecycle fields populated: `client_order_id`, `filled_qty`, `leaves_qty`, `avg_fill_price`, `status`, `broker_updated_at`, and `last_reconciled_at`.
-- Gross/net accounting is internally consistent: every strategy satisfies `grossTotalPl - feesUsd = netTotalPl`, and aggregate gross less `$272.32016882811` of recorded fees equals reported net `-$395.7631318281099`. Crypto fees remain broker-attributed; regulatory/account-level fees remain unattributed.
-- Live caps remain unchanged at daytrading `$5,000`, swing `$3,700`, and crypto `$2,000`; current category market values are below those caps. A historical August 10 daytrading exposure of `$5,679.878` remains a recorded prior-release defect, not evidence of a current cap breach; the current code's same-cycle and broker-exposure cap checks remain covered by regression tests.
-- Filtered `/api/runs` observability passed for `cron`, `swing_cron`, `crypto_cron`, and `reconcile_cron`. The crypto edge-gate wiring is present in source and covered by the 111-test suite; the latest live crypto run stopped earlier at unavailable fee telemetry, so it did not exercise `EDGE_CALIBRATION_UNAVAILABLE`.
+- The 50 returned trade rows expose `client_order_id`, `filled_qty`, `leaves_qty`, `avg_fill_price`, `status`, `broker_updated_at`, and `last_reconciled_at`, but all six lifecycle timestamps (`submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, `replaced_at`) are null in the sample.
+- Aggregate strategy gross/net arithmetic is available in `/api/dashboard`, but `/api/trades` exposes no per-trade gross, fee, or net fields; fresh crypto runs also record `FEE_DATA_UNAVAILABLE`, so exact fill-level accounting is not verified.
+- Live caps remain configured at daytrading `$5,000`, swing `$3,700`, and crypto `$2,000`; runtime enforcement is covered by tests but not fully proven by this read-only sample. A historical August 10 daytrading exposure of `$5,679.878` remains a prior-release defect record.
+- Filtered `/api/runs` observability passed for the visible trigger families and exposes structured skips. Crypto edge-gate wiring is present in source and tests, but the live sample only proves fee-telemetry gating and does not exercise or expose the configured post-cost edge comparison.
 
-No code, cap, strategy, or deployment mutation was required for this control correction. The follow-up remains natural scheduled evidence for successful daytrading and swing delivery; no trigger, submit, cancel, close, replace, retry, or broker-mutating endpoint was called.
+No code, cap, strategy, or deployment mutation was required for this control correction. The follow-up remains natural scheduled evidence and a future reliability correction for the documented gaps; no trigger, submit, cancel, close, replace, retry, or broker-mutating endpoint was called.
 
 # Alpaca AI Trading Bot
 
@@ -108,21 +108,22 @@ Committed crypto reservations are never released by local TTL alone; only termin
 
 Local validation on August 10, 2026: **92 tests passed, 273 assertions**, TypeScript typecheck passed, and repository diff-check passed. No trading cycle, order, close, cancel, replace, retry, or other broker mutation was used. Live verification completed on August 10, 2026: deployment `32fdaa9c-0609-4be1-b16c-6369af4dfc8e`, Worker version `dff3e198-1cb3-49d1-ac5d-706a7d292258`, and 100% traffic are confirmed. All four Worker schedules, health, and read-only endpoints returned successfully; no trading mutation was used.
 
-## Live deployment and current worktree
+## Latest release receipt and current worktree
 
-The August 21 additive lifecycle-timestamp correction is the current live release on the Alpaca paper-trading Worker and was separately read-only verified after deployment. No manual trading trigger, order, cancellation, close, replace, retry, or broker mutation was used during release validation.
+The latest recorded release receipt is the August 21 strategy-filter and broker-authoritative reconciliation correction. This read-only control did not independently authenticate Cloudflare deployment identity or traffic, so the receipt is not presented as fresh control-plane proof. No manual trading trigger, order, cancellation, close, replace, retry, or broker mutation was used.
 
 - **Repository:** `joachimth/alpaca-trading-bot`
 - **Worker:** `alpaca-trading-bot.joachim-763.workers.dev`
 - **Dashboard:** `joachimth.github.io/alpaca-trading-bot/`
-- **Current source worktree:** branch `fix/remove-premature-position-upsert-entryside`, commit `5b01066430cf529db8e7329c970882718d0d8d2c` (`fix: persist broker lifecycle timestamps`)
-- **Current Cloudflare deployment:** `6ef8737a-85ca-4fbb-8886-c938237dc993`
-- **Current Worker version:** `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4`
-- **Cloudflare control-plane status:** verified August 21, 2026; 100% traffic and all four schedules confirmed
+- **Current source worktree:** branch `fix/remove-premature-position-upsert-entryside`
+- **Latest captured deployment receipt:** `47158569-968b-4bae-83ad-0c24134d42d2`, Worker version `2756aeb6-e71a-4a11-ab7c-a3a1a6dbbf4e`, created August 21, 2026 at 07:57:51 UTC, 100% recorded traffic
+- **Earlier captured receipts:** `1b286e9a-6d2f-45b9-a439-72fd12654f9c` / `ced43daf-ed03-4add-ac07-1d8bf562b72c`, then lifecycle receipt `6ef8737a-85ca-4fbb-8886-c938237dc993` / `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4`
+- **Latest recorded validation:** 125 tests / 374 assertions, TypeScript, diff-check, Wrangler dry-run, and GET-only endpoint checks
+- **Identity caveat:** source-to-deployment mapping and current live control-plane identity were not independently revalidated in this control
 - **Account mode:** Alpaca paper trading
-- **Source mapping note:** Cloudflare does not embed the Git SHA in the deployment artifact; the current bundle-to-commit mapping is recorded by the release process. The August 18 `f122287` / `03e3ef01` / `b5b4cb6e` release is historical.
+- **Status:** **DEGRADED, not healthy**. Fresh crypto and reconciliation deliveries are visible, but the sampled runs are skipped outcomes; fresh successful daytrading and swing delivery is not established.
 
-The dashboard is a static GitHub Pages frontend. It calls the Cloudflare Worker API only. It never calls Alpaca directly and never contains Alpaca credentials.
+The live sample also shows broker/internal position divergence, null lifecycle timestamps on all 50 sampled trades, no per-trade gross/fee/net fields, fee telemetry skips, and no end-to-end live proof that the crypto edge comparison against the configured threshold was exercised. The dashboard is a static GitHub Pages frontend that calls only the Worker API and never contains Alpaca credentials.
 
 ### Dashboard read-only hotfix (August 10, 2026)
 

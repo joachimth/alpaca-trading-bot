@@ -1,7 +1,7 @@
-## August 21, 2026 Alpaca production control and lifecycle correction
+## August 21, 2026 strict read-only Alpaca production control
 
-Production is DEGRADED, not healthy. Lifecycle correction deployed as Cloudflare deployment 6ef8737a-85ca-4fbb-8886-c938237dc993, version 5ff1ee08-bdc1-46b7-9aa6-93962d25beb4, 100% traffic; remote D1 has all six timestamp columns.
+Production is **DEGRADED, not healthy**. Latest captured deployment receipt: `47158569-968b-4bae-83ad-0c24134d42d2`, Worker version `2756aeb6-e71a-4a11-ab7c-a3a1a6dbbf4e`, created August 21, 2026 at 07:57:51 UTC; earlier receipts include `1b286e9a-6d2f-45b9-a439-72fd12654f9c` / `ced43daf-ed03-4add-ac07-1d8bf562b72c`. Source mapping and current live control-plane identity were not independently revalidated; the latest recorded local validation is 125 tests / 374 assertions.
 
-Validation: 123 tests / 361 assertions, TypeScript, diff-check, dry-run; fresh post-deployment GET-only checks at 11:04:24–11:04:25 UTC returned HTTP 200 for all six endpoints, with four schedules, broker source, caps 5000/3700/2000, filtered runs, lifecycle fields, and gross/fee/net checks recorded.
+Live GET-only evidence: all six endpoints returned 200; `/api/positions` is broker-authoritative (`source: alpaca`, 29 positions); equity is above last equity; schedules are wired; crypto runs arrive around :07/:37 UTC; reconciliation arrives about every 10 minutes; lease-held, error, and structured skip reasons are visible; caps remain 5000/3700/2000 USD.
 
-Historical lifecycle timestamps are null until natural broker updates populate them. August 21 daytrading/swing delivery remains unverified; prior swing history has errors. Docs now identify the current source/deployment explicitly. No broker-mutating endpoint was called.
+Blocking gaps: repeated broker/internal quantity divergence; latest daytrading evidence is an error followed by lease-held skips; no swing run was observed; all six lifecycle timestamps are null across the sampled 50 trades; per-trade fee/gross/net fields are absent; fresh crypto skips include `FEE_DATA_UNAVAILABLE`; crypto edge-gate wiring is covered in source/tests but end-to-end live comparison is unverified. No code or deployment change was required; no mutating endpoint was called.

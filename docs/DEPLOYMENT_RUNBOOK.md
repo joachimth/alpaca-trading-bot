@@ -1,8 +1,8 @@
-## August 21, 2026 strategy-filtered trades and broker-authoritative swing reconciliation — deployed
+## August 21, 2026 strategy-filtered trades and broker-authoritative swing reconciliation — latest recorded release receipt
 
-Status: **DEPLOYED AND READ-ONLY VERIFIED; production remains DEGRADED until natural swing/daytrading evidence exists.** The correction validates `GET /api/trades?strategy=daytrading|swing|crypto`, bounds `limit` at 500 (default 50), returns explicit response metadata, and rejects invalid trade/run strategy filters with HTTP 400. Read-only API requests issue no DDL. Swing D1-only rows are closed locally through `closePosition(..., 'broker_authoritative_sync_absent')` with structured `BROKER_AUTHORITATIVE_SYNC_ABSENT`; actual broker/internal quantity mismatches still halt new swing BUY admission for the current cycle.
+Status: **RELEASE RECEIPT RECORDED; live control remains DEGRADED and is not healthy.** The correction validates `GET /api/trades?strategy=daytrading|swing|crypto`, bounds `limit` at 500 (default 50), returns explicit response metadata, and rejects invalid trade/run strategy filters with HTTP 400. Read-only API requests issue no DDL. Swing D1-only rows are closed locally through `closePosition(..., 'broker_authoritative_sync_absent')` with structured `BROKER_AUTHORITATIVE_SYNC_ABSENT`; actual broker/internal quantity mismatches still halt new swing BUY admission for the current cycle. The current GET-only control did not independently authenticate Cloudflare deployment identity or traffic.
 
-Release receipt: **125 tests / 374 assertions**, TypeScript, diff-check, and Wrangler dry-run passed. Cloudflare deployment `1b286e9a-6d2f-45b9-a439-72fd12654f9c` serves Worker version `ced43daf-ed03-4add-ac07-1d8bf562b72c` at 100% traffic with all four schedules. Separate GET-only checks confirmed all six endpoints, broker source `alpaca` with 29 positions, caps `$5,000/$3,700/$2,000`, invalid-filter HTTP 400 responses, and 20 crypto-only trades. No trigger or broker-mutating endpoint was used.
+Release receipt: **125 tests / 374 assertions**, TypeScript, diff-check, and Wrangler dry-run passed. Captured deployment receipt `1b286e9a-6d2f-45b9-a439-72fd12654f9c` served Worker version `ced43daf-ed03-4add-ac07-1d8bf562b72c` at recorded 100% traffic with all four schedules. A later captured deployment receipt is `47158569-968b-4bae-83ad-0c24134d42d2` / Worker version `2756aeb6-e71a-4a11-ab7c-a3a1a6dbbf4e`, created August 21, 2026 at 07:57:51 UTC. Source mapping and current live control-plane identity were not independently revalidated by this control. Separate GET-only checks confirmed all six endpoints, broker source `alpaca` with 29 positions, caps `$5,000/$3,700/$2,000`, invalid-filter HTTP 400 responses, and 20 crypto-only trades. No trigger or broker-mutating endpoint was used.
 
 
 ## August 21, 2026 read-only trade-filter and stale-D1 correction
@@ -47,16 +47,17 @@ Local source correction: swing BUY admission now carries cycle-level proposed no
 
 Before any authorized deployment, run and record: `bun test test/risk-fee-aware.test.ts`, `bun test`, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run`. Review the diff to confirm only swing entry-cap admission and focused tests/docs changed. Do not run a trigger, cycle, submit, close, cancel, replace, retry, or any broker-mutating endpoint. After deployment, use only GET/read-only checks first, then wait for a natural swing schedule run and verify proposed/submitted BUY notional does not exceed **$3,700**.
 
-## Strict read-only production control receipt, August 21, 2026 08:02:29 UTC
+## Strict read-only production control receipt, August 21, 2026, current sample through 12:50:59 UTC
 
 Status: **DEGRADED, do not label healthy**.
 
 - All required GET endpoints returned HTTP 200: `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`.
 - Broker authority passed: `/api/positions` reported `positionsAvailable: true`, `source: "alpaca"`, and 29 broker positions; failed broker fetch behavior remains fail-closed with no D1 live-state fallback.
-- Equity direction passed: `$98,439.92` current equity versus `$98,270.0927` last equity; caps remained `$5,000/$3,700/$2,000`.
-- Schedule source/dispatch passed for daytrading, swing, crypto `:07/:37`, and reconciliation. Natural crypto and reconciliation delivery was observed, including structured skip details and a lease-held maintenance skip. Fresh August 21 daytrading and swing success is pending their scheduled UTC windows; historical swing errors remain visible.
-- Trade lifecycle fields were complete on all 50 returned rows. Gross, fees, net, and attribution arithmetic passed. Filtered run observability passed for all four trigger families. Crypto edge-gate wiring and regression coverage passed.
-- Historical cap evidence: August 10 daytrading exposure `$5,679.878` remains a prior-release defect record. Current code and current live category values do not show a new breach, so no cap or strategy change is authorized or needed from this control.
+- Equity direction passed in the current sample: `$98,482.90` current equity versus `$98,270.0927` last equity; the latest stored snapshot is `$98,483.26` at `2026-08-21 12:38:04` UTC. Configured caps remain `$5,000/$3,700/$2,000`.
+- Schedule source/dispatch passed for daytrading, swing, crypto `:07/:37`, and reconciliation. Natural crypto delivery was observed at `09:07:33`, `09:37:33`, `10:07:35`, `10:37:33`, `11:07:33`, `11:37:33`, `12:07:33`, and `12:38:10` UTC; reconciliation delivered about every 10 minutes through `12:50:59`, including `MAINTENANCE_ONLY` and `CYCLE_LEASE_HELD` skips. The latest known daytrading strategy run ended in broker/internal quantity-divergence error at `2026-08-20 16:35:42`; no swing run was visible in the fetched history.
+- The sampled 50 trades expose broker fill/status fields, but all six lifecycle timestamps are null and no per-trade gross, fee, or net fields are exposed. Aggregate dashboard arithmetic is not a substitute for fill-level accounting.
+- Filtered run observability passed for the visible trigger families. Crypto edge-gate source/test wiring passed inspection, but the live sample only demonstrates fee-telemetry gating and does not prove the configured post-cost edge comparison was exercised.
+- Historical cap evidence: August 10 daytrading exposure `$5,679.878` remains a prior-release defect record. Current configured caps remain `$5,000/$3,700/$2,000`; runtime enforcement is covered by regression tests but not fully proven by this read-only sample.
 
 Correction action: documentation and `/workspace/NOW.md` were refreshed to preserve the degraded state and explicit follow-up. No code/config/deployment mutation was required. Do not manually trigger a cycle to close the evidence gap; rerun the same GET-only control after the next natural daytrading and swing windows.
 

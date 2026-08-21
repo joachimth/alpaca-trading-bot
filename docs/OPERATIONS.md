@@ -37,13 +37,13 @@ The confirmed swing capital-cap enforcement gap is corrected locally. Swing cycl
 
 Release validation requirements are: focused swing risk regressions, full `bun test`, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run`. Validation must remain local/read-only; never trigger a strategy cycle or call submit, close, cancel, replace, retry, or another broker-mutating endpoint. After any authorized release, require natural swing-cycle evidence that proposed and submitted BUY notional remains at or below **$3,700**.
 
-## August 21, 2026 strict read-only production control, 08:02:29 UTC
+## August 21, 2026 strict read-only production control, current sample through 12:50:59 UTC
 
-Control result: **DEGRADED**. All six GET endpoints returned HTTP 200. Broker positions remained authoritative (`/api/positions`: 29 positions, `source: "alpaca"`), equity direction was positive (`$98,439.92` versus `$98,270.0927` last equity), and caps remained `$5,000/$3,700/$2,000`.
+Control result: **DEGRADED, not healthy**. All six GET endpoints returned HTTP 200. Broker positions remained authoritative (`/api/positions`: 29 positions, `source: "alpaca"`), equity direction was positive (`$98,480.48` versus `$98,270.0927` last equity), and configured caps remained `$5,000/$3,700/$2,000`.
 
-The checked-in and dispatched schedules are daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and reconciliation `*/10 * * * *`. Crypto delivered a fresh `2026-08-21 07:37:34` UTC run with 7 decisions, 0 trades, 0 errors, and structured skips; reconciliation delivered `MAINTENANCE_ONLY` runs through `08:00:31` UTC and exposed a `CYCLE_LEASE_HELD` skip at `07:20:24`. No current-window August 21 daytrading or swing success is yet available, and the historical swing record includes an error at `2026-08-18 22:00:36` UTC, so the control is not healthy.
+The checked-in and dispatched schedules are daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and reconciliation `*/10 * * * *`. Crypto delivered repeatedly around `:07/:37` UTC through `12:38:10`; reconciliation delivered about every 10 minutes through `12:50:59`, including `MAINTENANCE_ONLY` and `CYCLE_LEASE_HELD` skips. The latest known daytrading strategy run ended in broker/internal quantity-divergence error at `2026-08-20 16:35:42`; no swing run was visible in the fetched history, so fresh successful daytrading and swing delivery is not established.
 
-Filtered run observability, trade lifecycle completeness, gross/net/fee arithmetic, and crypto edge-gate source/test wiring passed. The historical August 10 daytrading exposure of `$5,679.878` remains an explicit prior-release follow-up; no current cap breach was found. This check required documentation/status correction only, not deployment, and used no broker-mutating endpoint.
+Run observability and structured skip reporting pass. The sampled 50 trades expose broker fill/status fields, but all six lifecycle timestamps are null and no per-trade gross, fee, or net fields are exposed. Crypto source/test edge-gate wiring passes inspection, while live end-to-end comparison against the configured threshold remains unverified. The historical August 10 daytrading exposure of `$5,679.878` remains a prior-release follow-up. This check required documentation/status correction only, not deployment, and used no broker-mutating endpoint.
 
 ## Bounded entry-identity fix — August 18, 2026 (deployed and live-verified)
 
@@ -109,23 +109,20 @@ Dashboard fan-out is reduced by removing duplicate per-strategy history queries 
 
 Historical August 10 evidence, superseded by the August 18 release below: source commit `4261009` was pushed to `origin/main`; read-only Worker endpoints returned HTTP 200 with broker-backed positions, while Cloudflare identity was not then verifiable because Wrangler was unauthenticated and API requests returned HTTP 403. Remote D1 contained the reservation table/index; 85 tests/257 assertions, typecheck, diff-check, and dry-run passed; no broker mutation was used.
 
-## Current release
+## Current control status
 
-The August 21 additive lifecycle-timestamp correction is the current live release on the Alpaca paper-trading Worker and was separately read-only verified after deployment. No broker order, cancellation, close, or manual trading trigger was used during release validation.
+The latest recorded release receipt is the August 21 strategy-filter and broker-authoritative reconciliation correction. The current read-only control did not independently authenticate Cloudflare deployment identity or traffic, so deployment details below are recorded as receipt metadata rather than fresh control-plane proof. No broker order, cancellation, close, or manual trading trigger was used.
 
-- Current source worktree: branch `fix/remove-premature-position-upsert-entryside`, commit `5b01066430cf529db8e7329c970882718d0d8d2c` (`fix: persist broker lifecycle timestamps`)
-- Current Cloudflare deployment: `6ef8737a-85ca-4fbb-8886-c938237dc993`
-- Current Worker version: `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4`
-- Cloudflare control-plane verification: completed August 21, 2026; 100% traffic and all four schedules confirmed
-- The August 18 `f122287` / `03e3ef01` / `b5b4cb6e` release receipt below is historical, not current.
-- Conflicting later artifact remains unresolved: deployment `5088dbe0-31f9-4892-a149-a74702bbad4e`, version `cb88271c-8712-42a8-88a9-de58c841d3ec`, 100%
-- Documented traffic candidate: `100%` (not freshly verified)
-- Dashboard: GitHub Pages, calling only the Worker API
-- Dashboard capital-cap source: read-only `capitalCaps` in `GET /api/dashboard`, resolved server-side from runtime-compatible configuration with `$5,000`, `$3,700`, and `$2,000` fallbacks
-- Capital-cap failure semantics: missing runtime-compatible configuration overrides use the fallback; malformed, non-finite, negative, HTTP-failed, or otherwise unavailable API payloads display `Unavailable`. The UI never substitutes buying power, cash, equity, portfolio value, or positions.
-- Live capital-cap evidence: `/api/dashboard` returned `{ daytrading: 5000, swing: 3700, crypto: 2000 }` with `positionsAvailable: true`; Pages contained exactly three capital-cap cards.
-- Account: Alpaca paper trading
-- Capital-cap release validation: `bunx tsc --noEmit` passed; 58 tests passed with 171 assertions; `git diff --check` passed; fresh Wrangler dry-run and inline dashboard-JavaScript syntax validation passed; all four Cloudflare schedules and read-only Worker endpoints were verified after deployment.
+- Latest recorded source worktree: branch `fix/remove-premature-position-upsert-entryside`
+- Latest captured deployment receipt: `47158569-968b-4bae-83ad-0c24134d42d2` / Worker version `2756aeb6-e71a-4a11-ab7c-a3a1a6dbbf4e`, created August 21, 2026 at 07:57:51 UTC, 100% recorded traffic
+- Earlier captured release receipts: `1b286e9a-6d2f-45b9-a439-72fd12654f9c` / `ced43daf-ed03-4add-ac07-1d8bf562b72c`, and lifecycle `6ef8737a-85ca-4fbb-8886-c938237dc993` / `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4`
+- Latest recorded validation: 125 tests / 374 assertions, TypeScript, diff-check, Wrangler dry-run, and GET-only checks
+- Identity caveat: source-to-deployment mapping and current live control-plane identity were not independently revalidated in this control
+- Live read-only status: **DEGRADED, not healthy**
+- Current evidence: broker-authoritative positions and unchanged caps pass; crypto `:07/:37` and reconciliation cadence pass; explicit lease/error/skip observability passes.
+- Open gaps: broker/internal quantity divergence, no fresh successful daytrading or swing run, all six lifecycle timestamps null across the sampled 50 trades, no per-trade gross/fee/net fields, fee telemetry unavailable in fresh crypto skips, and no end-to-end live proof of the configured crypto edge comparison.
+
+Dashboard capital-cap evidence remains read-only and server-resolved: `/api/dashboard` returned `{ daytrading: 5000, swing: 3700, crypto: 2000 }` with broker positions available. The UI never substitutes buying power, cash, equity, portfolio value, or positions for a missing cap.
 
 ## Release verification
 
