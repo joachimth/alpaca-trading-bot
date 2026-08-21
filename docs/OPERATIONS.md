@@ -1,10 +1,10 @@
-## August 21, 2026 bounded `/api/runs` trigger-alias observability correction — not yet deployed
+## August 21, 2026 strict read-only production control and alias-correction status
 
-Status: **LOCAL VALIDATION COMPLETE; NOT YET DEPLOYED; production remains DEGRADED.** Historical live `run_log` values use `cron` for daytrading and `reconcile_cron` for maintenance. Production control/documentation may request `daytrading_cron` and `reconciliation_cron`, so only the read-only `GET /api/runs` trigger filter maps those aliases to the stored canonical values. Canonical filters remain unchanged, returned history retains the stored trigger, and no storage, scheduler dispatch, schedule, cap, threshold, sizing, or broker behavior changed. No DDL or migration was added.
+Status: **LOCAL VALIDATION COMPLETE; PRODUCTION DEPLOYMENT AND SOURCE IDENTITY NOT ESTABLISHED; production remains DEGRADED and is not healthy.** The alias correction is limited to the read-only `GET /api/runs?trigger=` boundary: `daytrading_cron` maps to stored `cron` and `reconciliation_cron` maps to stored `reconcile_cron`. Canonical filters continue to work, historical rows retain stored trigger values, and no storage, scheduler dispatch, schedule, cap, threshold, sizing, or broker behavior changed.
 
-Validation results: focused `bun test test/dashboard-readonly.test.ts` passed (**5 tests / 53 assertions**); full `bun test` passed (**131 tests / 403 assertions**); `git diff --check` passed from `/workspace/alpaca-trading-bot`; and `bunx wrangler deploy --dry-run` passed without deployment. `bunx tsc --noEmit` passed. No live endpoint, trigger, cycle, or broker-mutating endpoint was used.
+The August 21 GET audit confirmed all six required endpoints returned HTTP 200, `/api/positions` reported `source: alpaca` with 29 broker-backed rows, configured caps remained `$5,000/$3,700/$2,000`, and equity direction was positive. Fresh daytrading and swing success is not proven; lease/error/fee skips are present; lifecycle timestamps are null in the sample; per-trade gross/fee/net fields are absent; crypto edge comparison is not live-proven; and current Cloudflare/source identity is not independently verified. No trigger, cycle, or broker-mutating endpoint was used.
 
-Remaining production gaps: **no fresh August 21 daytrading run; no fresh swing run; lease/error/fee skips; lifecycle timestamps null in the sample; per-trade gross/fee/net absent; crypto edge comparison not live-proven; and source/control-plane identity not independently verified.**
+Local validation remains: focused dashboard-readonly tests **5 tests / 53 assertions**, full suite **131 tests / 403 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run passed. Deployment is a separate authorized follow-up and is not part of this strict read-only control.
 
 ## August 21, 2026 strategy-filtered trades and broker-authoritative swing reconciliation — deployed
 
