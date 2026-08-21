@@ -63,6 +63,39 @@ describe('findNonTerminalTradeByClientOrderId', () => {
   });
 });
 
+describe('non-terminal stock/swing exit guard', () => {
+  test('blocks a repeated exit and exposes broker lifecycle fields', async () => {
+    const db = createDb();
+    await seedTrade(db, {
+      alpaca_order_id: 'sell-1',
+      client_order_id: 'sell-client-1',
+      ticker: 'AAPL',
+      side: 'sell',
+      qty: 10,
+      filled_qty: 4,
+      leaves_qty: 6,
+      status: 'partially_filled',
+      strategy: 'daytrading',
+      broker_updated_at: '2026-08-21T07:00:00Z',
+    });
+    const pending = await db.findNonTerminalExitBySymbol('daytrading', 'AAPL');
+    expect(pending).toMatchObject({
+      status: 'partially_filled',
+      qty: 10,
+      filledQty: 4,
+      leavesQty: 6,
+      alpacaOrderId: 'sell-1',
+      clientOrderId: 'sell-client-1',
+    });
+  });
+
+  test('does not block after a terminal exit', async () => {
+    const db = createDb();
+    await seedTrade(db, { side: 'sell', status: 'filled', strategy: 'swing', ticker: 'MSFT' });
+    expect(await db.findNonTerminalExitBySymbol('swing', 'MSFT')).toBeUndefined();
+  });
+});
+
 describe('feeTelemetryFromAggregate freshness gate', () => {
   const base = { feeUsd: 17.5, notionalUsd: 10000, sampleCount: 3, minSamples: 3 };
 

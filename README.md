@@ -2,6 +2,12 @@
 
 Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persistence, Alpaca paper trading, and a GitHub Pages dashboard.
 
+## August 21, 2026 reliability correction candidate
+
+The current local correction candidate is **not deployed yet**. It fixes the confirmed gross/net presentation bug by aligning legacy `totalPl` with `netTotalPl` while retaining explicit gross fields, adds bounded `/api/runs` pagination and filters, persists broker-authoritative quantities while retaining the current-cycle mismatch safety block, and prevents repeated non-terminal stock/swing SELL/CLOSE submissions with structured `PENDING_EXIT_EXISTS` observability. The mismatch guard remains broker-authoritative: new daytrading BUY admission is blocked for the cycle, while risk-reducing/protective exits remain eligible.
+
+Local validation is pending the final full gate. Vital parameters remain unchanged: daytrading **$5,000**, swing **$3,700**, crypto **$2,000**.
+
 ## Bounded entry-identity fix — August 18, 2026 (deployed and live-verified)
 
 A bounded, non-vital fix makes stock/swing entry identity deterministic and retry duplicate-protection concrete, mirroring the crypto pattern. It preserves all vital parameters (daytrading **$5,000**, swing **$3,700**, crypto **$2,000**, confidence gates, max-trade limits, universes, risk params) and does not touch the exit decision-correlation gap.

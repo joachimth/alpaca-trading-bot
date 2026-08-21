@@ -179,6 +179,32 @@ const swingConfig = (values: Partial<SwingRiskConfig> = {}): SwingRiskConfig => 
   ...values,
 });
 
+describe('broker quantity mismatch safety regression coverage', () => {
+  test('detects quantity divergence and blocks new BUY admission', () => {
+    const manager = new RiskManager(riskConfig());
+    const divergence = manager.checkDivergence(
+      [position({ qty: 2 })],
+      [{ ticker: 'AAPL', qty: 1, side: 'long' }],
+    );
+    expect(divergence.divergent).toBe(true);
+    expect(divergence.details[0]).toContain('qty mismatch');
+
+    manager.haltTrading('New entries blocked by broker/internal quantity mismatch: AAPL');
+    const result = manager.checkTrade(decision, account(), [position({ qty: 2 })], indicators());
+    expect(result.approved).toBe(false);
+    expect(result.reason).toContain('Trading halted: New entries blocked by broker/internal quantity mismatch');
+  });
+
+  test('does not report a mismatch within the quantity tolerance', () => {
+    const manager = new RiskManager(riskConfig());
+    const divergence = manager.checkDivergence(
+      [position({ qty: 1.0005 })],
+      [{ ticker: 'AAPL', qty: 1, side: 'long' }],
+    );
+    expect(divergence.divergent).toBe(false);
+  });
+});
+
 describe('fee-aware RiskManager regression coverage', () => {
   test('estimates costs from final quantity/notional, not a one-share default', () => {
     const manager = new RiskManager(riskConfig({ observedFeeBps: 10 }));

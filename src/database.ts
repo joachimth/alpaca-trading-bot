@@ -907,6 +907,52 @@ export class Database {
     return result.results as any[];
   }
 
+  async findNonTerminalExitBySymbol(strategy: 'daytrading' | 'swing', ticker: string): Promise<{
+    tradeId: number;
+    status: string;
+    qty: number;
+    filledQty: number;
+    leavesQty: number;
+    alpacaOrderId: string | null;
+    clientOrderId: string | null;
+    brokerUpdatedAt: string | null;
+    lastReconciledAt: string | null;
+  } | undefined> {
+    await this.ensureTradeSchema();
+    const row = await this.db.prepare(
+      `SELECT id, status, qty, filled_qty, leaves_qty, alpaca_order_id, client_order_id,
+              broker_updated_at, last_reconciled_at
+       FROM trades
+       WHERE (strategy = ? OR strategy IS NULL)
+         AND ticker = ?
+         AND side = 'sell'
+         AND status NOT IN ('filled', 'canceled', 'cancelled', 'rejected', 'expired', 'replaced', 'done_for_day', 'stopped')
+       ORDER BY COALESCE(broker_updated_at, timestamp) DESC, id DESC LIMIT 1`
+    ).bind(strategy, ticker).first() as {
+      id: number;
+      status: string;
+      qty: number;
+      filled_qty: number | null;
+      leaves_qty: number | null;
+      alpaca_order_id: string | null;
+      client_order_id: string | null;
+      broker_updated_at: string | null;
+      last_reconciled_at: string | null;
+    } | null;
+    if (!row) return undefined;
+    return {
+      tradeId: row.id,
+      status: row.status,
+      qty: Number(row.qty ?? 0),
+      filledQty: Number(row.filled_qty ?? 0),
+      leavesQty: Number(row.leaves_qty ?? Math.max(0, Number(row.qty ?? 0) - Number(row.filled_qty ?? 0))),
+      alpacaOrderId: row.alpaca_order_id,
+      clientOrderId: row.client_order_id,
+      brokerUpdatedAt: row.broker_updated_at,
+      lastReconciledAt: row.last_reconciled_at,
+    };
+  }
+
   async getRecentTrades(limit: number = 50): Promise<any[]> {
     await this.ensureTradeSchema();
     const result = await this.db.prepare(
@@ -1123,23 +1169,47 @@ export class Database {
     ).run();
   }
 
-  async getRecentRuns(limit: number = 30): Promise<any[]> {
+  async getRecentRuns(
+    limitOrOptions: number | {
+      limit?: number;
+      offset?: number;
+      strategy?: 'daytrading' | 'swing' | 'crypto';
+      trigger?: string;
+      status?: string;
+    } = 30,
+    legacyOffset: number = 0,
+  ): Promise<any[]> {
+    const options = typeof limitOrOptions === 'number'
+      ? { limit: limitOrOptions, offset: legacyOffset }
+      : limitOrOptions;
+    const predicates: string[] = [];
+    const bindings: unknown[] = [];
+    if (options.strategy === 'swing') {
+      predicates.push(`trigger IN ('swing_cron', 'manual_swing')`);
+    } else if (options.strategy === 'crypto') {
+      predicates.push(`trigger IN ('crypto_cron', 'manual_crypto')`);
+    } else if (options.strategy === 'daytrading') {
+      predicates.push(`trigger NOT IN ('swing_cron', 'manual_swing', 'crypto_cron', 'manual_crypto', 'reconcile_cron')`);
+    }
+    if (options.trigger) {
+      predicates.push('trigger = ?');
+      bindings.push(options.trigger);
+    }
+    if (options.status) {
+      predicates.push('status = ?');
+      bindings.push(options.status);
+    }
+    const limit = Math.max(0, Math.floor(options.limit ?? 30));
+    const offset = Math.max(0, Math.floor(options.offset ?? 0));
+    const where = predicates.length > 0 ? ` WHERE ${predicates.join(' AND ')}` : '';
     const result = await this.db.prepare(
-      'SELECT * FROM run_log ORDER BY timestamp DESC, id DESC LIMIT ?'
-    ).bind(limit).all();
+      `SELECT * FROM run_log${where} ORDER BY timestamp DESC, id DESC LIMIT ? OFFSET ?`
+    ).bind(...bindings, limit, offset).all();
     return (result.results as any[]).map(row => ({ ...row, run_details: parseRunDetails(row.error_details) }));
   }
 
   async getRecentRunsByStrategy(strategy: 'daytrading' | 'swing' | 'crypto', limit: number = 100): Promise<any[]> {
-    const triggerPredicate = strategy === 'swing'
-      ? `trigger IN ('swing_cron', 'manual_swing')`
-      : strategy === 'crypto'
-        ? `trigger IN ('crypto_cron', 'manual_crypto')`
-        : `trigger NOT IN ('swing_cron', 'manual_swing', 'crypto_cron', 'manual_crypto', 'reconcile_cron')`;
-    const result = await this.db.prepare(
-      `SELECT * FROM run_log WHERE ${triggerPredicate} ORDER BY timestamp DESC, id DESC LIMIT ?`
-    ).bind(limit).all();
-    return (result.results as any[]).map(row => ({ ...row, run_details: parseRunDetails(row.error_details) }));
+    return this.getRecentRuns({ strategy, limit });
   }
 
   // ============================================================
@@ -1283,8 +1353,10 @@ export class Database {
         s.feeAttribution = feeSummary.regulatoryUsd > 0 ? 'account-level-unattributed' : 'none-recorded';
       }
       s.grossTotalPl = s.realizedPl + s.unrealizedPl;
-      s.totalPl = s.grossTotalPl;
       s.netTotalPl = s.grossTotalPl - s.feesUsd;
+      // `totalPl` is the legacy public field; keep it semantically aligned
+      // with the net value while retaining both explicit gross/net fields.
+      s.totalPl = s.netTotalPl;
       s.winRate = (s.wins + s.losses) > 0 ? (s.wins / (s.wins + s.losses)) * 100 : 0;
     }
 

@@ -40,6 +40,37 @@ describe('dashboard read-only hotfix', () => {
     expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
   });
 
+  test('runs endpoint honors limit, offset, page, and filters without broker access', async () => {
+    const sqlite = seededSqlite();
+    for (let i = 0; i < 45; i += 1) {
+      sqlite.prepare(`INSERT INTO run_log (timestamp, trigger, status) VALUES (?, ?, ?)`).run(
+        `2026-08-21 00:${String(i).padStart(2, '0')}:00`,
+        i % 2 === 0 ? 'crypto_cron' : 'reconcile_cron',
+        i % 3 === 0 ? 'skipped' : 'ok',
+      );
+    }
+    const tracked = trackedD1(sqlite);
+    const env = { DB: tracked.d1 } as unknown as Env;
+
+    const pageResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/runs?limit=4&page=2&trigger=crypto_cron'));
+    expect(pageResponse.status).toBe(200);
+    const pageBody = await pageResponse.json() as any;
+    expect(pageBody.limit).toBe(4);
+    expect(pageBody.offset).toBe(4);
+    expect(pageBody.page).toBe(2);
+    expect(pageBody.runs).toHaveLength(4);
+    expect(pageBody.runs.every((run: any) => run.trigger === 'crypto_cron')).toBe(true);
+
+    const offsetResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/runs?limit=3&offset=5&status=skipped'));
+    expect(offsetResponse.status).toBe(200);
+    const offsetBody = await offsetResponse.json() as any;
+    expect(offsetBody.limit).toBe(3);
+    expect(offsetBody.offset).toBe(5);
+    expect(offsetBody.runs).toHaveLength(3);
+    expect(offsetBody.runs.every((run: any) => run.status === 'skipped')).toBe(true);
+    expect(tracked.sql.some(statement => statement.includes('LIMIT ? OFFSET ?'))).toBe(true);
+  });
+
   test('dashboard bounds chart payload and omits duplicate strategy history', async () => {
     const sqlite = seededSqlite();
     for (let i = 0; i < 120; i += 1) {

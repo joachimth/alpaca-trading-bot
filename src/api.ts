@@ -65,7 +65,7 @@ export class DashboardAPI {
       }
 
       if (path === '/api/runs') {
-        return await this.getRuns(corsHeaders);
+        return await this.getRuns(url, corsHeaders);
       }
 
       if (path === '/api/stats') {
@@ -281,10 +281,27 @@ export class DashboardAPI {
     return this.json({ performance: snapshots.reverse() }, cors);
   }
 
-  private async getRuns(cors: Record<string, string>): Promise<Response> {
+  private async getRuns(url: URL, cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB, { readOnly: true });
-    const runs = await db.getRecentRuns(30);
-    return this.json({ runs }, cors);
+    const parseNonNegativeInt = (value: string | null, fallback: number): number => {
+      if (value == null || value.trim() === '') return fallback;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : fallback;
+    };
+    const limit = Math.min(parseNonNegativeInt(url.searchParams.get('limit'), 30), 500);
+    const page = parseNonNegativeInt(url.searchParams.get('page'), 1);
+    const offset = url.searchParams.has('offset')
+      ? parseNonNegativeInt(url.searchParams.get('offset'), 0)
+      : Math.max(0, page - 1) * limit;
+    const strategy = url.searchParams.get('strategy');
+    const runs = await db.getRecentRuns({
+      limit,
+      offset,
+      strategy: strategy === 'daytrading' || strategy === 'swing' || strategy === 'crypto' ? strategy : undefined,
+      trigger: url.searchParams.get('trigger') || undefined,
+      status: url.searchParams.get('status') || undefined,
+    });
+    return this.json({ runs, limit, offset, page }, cors);
   }
 
   private async getStats(cors: Record<string, string>): Promise<Response> {

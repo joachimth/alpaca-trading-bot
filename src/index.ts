@@ -14,6 +14,7 @@ import { projectBrokerPositions, summarizeByCategory } from './position-projecti
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 import { syncBrokerLedger } from './broker-ledger';
 import { reconcileBrokerOrders } from './order-reconciliation';
+import { reconcileBrokerQuantityMismatches } from './position-reconciliation';
 
 export interface Env {
   DB: D1Database;
@@ -186,6 +187,25 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
   const skips = new SkipReasonCollector();
   let decisionsMade = 0;
   let tradesExecuted = 0;
+  const findPendingDayExit = async (symbol: string, scope: string, context: Record<string, unknown> = {}) => {
+    const pending = await db.findNonTerminalExitBySymbol('daytrading', symbol);
+    if (!pending) return undefined;
+    skips.add('PENDING_EXIT_EXISTS', scope, 'Stock exit skipped because a non-terminal sell order already exists', {
+      strategy: 'daytrading',
+      symbol,
+      tradeId: pending.tradeId,
+      status: pending.status,
+      qty: pending.qty,
+      filledQty: pending.filledQty,
+      leavesQty: pending.leavesQty,
+      alpacaOrderId: pending.alpacaOrderId,
+      clientOrderId: pending.clientOrderId,
+      brokerUpdatedAt: pending.brokerUpdatedAt,
+      lastReconciledAt: pending.lastReconciledAt,
+      ...context,
+    });
+    return pending;
+  };
 
   try {
     // 1. Initialize clients
@@ -315,9 +335,20 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       // Only halt on qty mismatch (serious), not on "in broker but not internal" (fixable)
       const hasQtyMismatch = divergence.details.some(d => d.includes('qty mismatch'));
       if (hasQtyMismatch) {
-        errors.push(`Position divergence (qty mismatch): ${details}`);
-        riskManager.haltTrading(`Qty mismatch: ${details}`);
-        console.error(`DIVERGENCE (halted): ${details}`);
+        // Keep the safety halt for this cycle, but persist the broker quantity
+        // so a stale D1 quantity does not reproduce the same halt forever.
+        try {
+          const reconciled = await reconcileBrokerQuantityMismatches(db, positions, dbPositions);
+          if (reconciled > 0) {
+            errors.push(`Broker-authoritative quantity persisted for ${reconciled} mismatched position(s)`);
+          }
+        } catch (error) {
+          errors.push(`Broker quantity reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        skips.add('POSITION_QTY_MISMATCH', 'cycle', 'New daytrading BUY entries blocked by broker/internal quantity mismatch; risk-reducing exits remain eligible', { strategy: 'daytrading', details });
+        errors.push(`Broker/internal quantity mismatch detected; new entries blocked for this cycle: ${details}`);
+        riskManager.haltTrading(`New entries blocked by broker/internal quantity mismatch: ${details}`);
+        console.error(`DIVERGENCE (new entries blocked): ${details}`);
       } else {
         // Auto-reconcile: upsert all broker positions into DB
         console.warn(`DIVERGENCE (auto-reconciling): ${details}`);
@@ -355,6 +386,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     for (const action of positionActions) {
       if (action.priority === 'critical' || action.priority === 'high') {
         try {
+          const pendingExit = await findPendingDayExit(action.symbol, 'position', { exitType: 'protective' });
+          if (pendingExit) continue;
           console.log(`Closing ${action.symbol}: ${action.reason}`);
           const order = await alpaca.closePosition(action.symbol);
           await db.logOrderTrade(order, { strategy: dbPositions.find(p => p.ticker === action.symbol)?.strategy ?? 'daytrading' });
@@ -384,6 +417,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         const closeOrders = [];
         for (const pos of positions) {
           if (closedSymbols.has(pos.symbol)) continue;
+          const pendingExit = await findPendingDayExit(pos.symbol, 'cycle', { exitType: 'eod_flatten' });
+          if (pendingExit) continue;
           const order = await alpaca.closePosition(pos.symbol);
           closeOrders.push(order);
           await db.logOrderTrade(order, { strategy: 'daytrading' });
@@ -589,6 +624,11 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       if (decision.action === 'CLOSE') {
         const existingPos = closedSymbols.has(signal.indicators.symbol) ? undefined : positions.find(p => p.symbol === signal.indicators.symbol);
         if (existingPos) {
+          const pendingExit = await findPendingDayExit(signal.indicators.symbol, 'decision', { exitType: 'close', decisionId });
+          if (pendingExit) {
+            await db.updateDecisionStatus(decisionId, 2, `Pending exit already exists: ${pendingExit.status}`);
+            continue;
+          }
           // Anti-churn: check minimum hold time (unless stop loss was hit via checkPositions already)
           if (isWithinMinHold(signal.indicators.symbol)) {
             await db.updateDecisionStatus(decisionId, 2, `Min hold time not reached (${minHoldMin}min)`);
@@ -638,6 +678,11 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       if (decision.action === 'SELL') {
         const existingPos = closedSymbols.has(signal.indicators.symbol) ? undefined : positions.find(p => p.symbol === signal.indicators.symbol);
         if (existingPos) {
+          const pendingExit = await findPendingDayExit(signal.indicators.symbol, 'decision', { exitType: 'sell', decisionId });
+          if (pendingExit) {
+            await db.updateDecisionStatus(decisionId, 2, `Pending exit already exists: ${pendingExit.status}`);
+            continue;
+          }
           // Anti-churn: check minimum hold time
           if (isWithinMinHold(signal.indicators.symbol)) {
             await db.updateDecisionStatus(decisionId, 2, `Min hold time not reached (${minHoldMin}min)`);

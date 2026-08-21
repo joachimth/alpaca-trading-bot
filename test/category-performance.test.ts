@@ -203,14 +203,17 @@ describe('Database category snapshots (real SQLite, UTC day boundaries)', () => 
       grossTotalPl: 100,
       feesUsd: 0,
       netTotalPl: 100,
+      totalPl: 100,
       feeAttribution: 'account-level-unattributed',
     });
     expect(crypto).toMatchObject({
       grossTotalPl: 50,
       feesUsd: 0.2,
       netTotalPl: 49.8,
+      totalPl: 49.8,
       feeAttribution: 'broker-attributed',
     });
+    expect(crypto.totalPl).not.toBe(crypto.grossTotalPl);
     expect(comparison.accountLevelFeesUsd).toBe(3);
     expect(comparison.netTotalPl).toBeCloseTo(146.8, 10);
   });

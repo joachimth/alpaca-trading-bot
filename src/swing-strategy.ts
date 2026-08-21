@@ -18,6 +18,7 @@ import type { Env } from './index';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 import { syncBrokerLedger } from './broker-ledger';
 import { reconcileBrokerOrders } from './order-reconciliation';
+import { reconcileBrokerQuantityMismatches } from './position-reconciliation';
 import {
   assessSwingBars,
   getSwingBarsWindow,
@@ -74,6 +75,25 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
   const skips = new SkipReasonCollector();
   let decisionsMade = 0;
   let tradesExecuted = 0;
+  const findPendingSwingExit = async (symbol: string, context: Record<string, unknown> = {}) => {
+    const pending = await db.findNonTerminalExitBySymbol('swing', symbol);
+    if (!pending) return undefined;
+    skips.add('PENDING_EXIT_EXISTS', 'cycle', 'Swing exit skipped because a non-terminal sell order already exists', {
+      strategy: 'swing',
+      symbol,
+      tradeId: pending.tradeId,
+      status: pending.status,
+      qty: pending.qty,
+      filledQty: pending.filledQty,
+      leavesQty: pending.leavesQty,
+      alpacaOrderId: pending.alpacaOrderId,
+      clientOrderId: pending.clientOrderId,
+      brokerUpdatedAt: pending.brokerUpdatedAt,
+      lastReconciledAt: pending.lastReconciledAt,
+      ...context,
+    });
+    return pending;
+  };
 
   try {
     const alpaca = new AlpacaClient({
@@ -200,12 +220,28 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       positions,
       dbPositions.map(p => ({ ticker: p.ticker, qty: p.qty, side: p.side }))
     );
+    const hasQtyMismatch = divergence.details.some(detail => detail.includes('qty mismatch'));
     if (divergence.divergent) {
-      errors.push(`Position divergence: ${divergence.details.join('; ')}`);
-      riskManager.haltTrading(`Divergence: ${divergence.details.join('; ')}`);
+      const details = divergence.details.join('; ');
+      if (hasQtyMismatch) {
+        try {
+          const reconciled = await reconcileBrokerQuantityMismatches(db, positions, dbPositions);
+          if (reconciled > 0) {
+            errors.push(`Broker-authoritative quantity persisted for ${reconciled} mismatched position(s)`);
+          }
+        } catch (error) {
+          errors.push(`Broker quantity reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        skips.add('POSITION_QTY_MISMATCH', 'cycle', 'New swing BUY entries blocked by broker/internal quantity mismatch; risk-reducing exits remain eligible', { strategy: 'swing', details });
+        errors.push(`Broker/internal quantity mismatch detected; new swing entries blocked for this cycle: ${details}`);
+        riskManager.haltTrading(`New swing entries blocked by broker/internal quantity mismatch: ${details}`);
+      } else {
+        errors.push(`Position divergence: ${details}`);
+        riskManager.haltTrading(`Divergence: ${details}`);
+      }
     }
 
-    if (riskManager.isTradingHalted()) {
+    if (riskManager.isTradingHalted() && !hasQtyMismatch) {
       skips.add('RISK_HALTED', 'cycle', 'Swing trading is halted by risk controls', { reason: riskManager.isTradingHalted() });
       console.error(`Swing: trading halted — ${riskManager.isTradingHalted()}`);
       await db.logRun({
@@ -403,6 +439,8 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     // Execute sells
     for (const sell of proposedSells) {
       try {
+        const pendingExit = await findPendingSwingExit(sell.symbol, { exitType: sell.exitType, reason: sell.reason });
+        if (pendingExit) continue;
         const pos = positions.find(p => p.symbol === sell.symbol);
         const order = await alpaca.closePosition(sell.symbol);
         await db.logOrderTrade(order, { strategy: 'swing' });

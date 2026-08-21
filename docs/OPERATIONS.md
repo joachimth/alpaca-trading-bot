@@ -21,6 +21,12 @@ Validation receipt: 92 tests, 273 assertions, typecheck, and diff-check passed l
 
 # Operations and release notes
 
+## August 21, 2026 reliability correction candidate
+
+The local worktree contains an unreleased reliability correction. It aligns legacy strategy `totalPl` with `netTotalPl` while preserving `grossTotalPl`, adds bounded `/api/runs` pagination/filter observability, persists broker-authoritative quantity corrections while retaining the current-cycle BUY safety block, and adds non-terminal stock/swing exit guards with structured `PENDING_EXIT_EXISTS` fields. The mismatch message now states that new entries are blocked for the cycle; protective and risk-reducing exits remain eligible. Caps remain daytrading `$5,000`, swing `$3,700`, and crypto `$2,000`.
+
+Status: locally changed, not deployed. Required final gates are full tests, typecheck, diff-check, dry-run, live deployment authorization, and separate read-only post-deployment verification. No broker mutation is permitted for validation.
+
 ## Dashboard 1102 hotfix — August 10, 2026
 
 The deployed dashboard hotfix makes all GET/read-only `Database` instances skip runtime schema-repair DDL, `ALTER TABLE`, index creation, and schema checks. Trading and write paths retain the existing schema-readiness process, and the Worker `fetch` path has no unconditional `ALTER TABLE positions` repair.
