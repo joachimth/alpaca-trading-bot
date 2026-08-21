@@ -2,7 +2,7 @@
 
 This additive reliability correction persists the existing Alpaca `Order` lifecycle fields `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, and `replaced_at`. New imports and read-only reconciliation preserve each incoming non-null timestamp monotonically without changing trading behavior, edge-gate behavior, schedules, sizing, or caps, which remain **$5,000 daytrading / $3,700 swing / $2,000 crypto**.
 
-Validation passed: **123 tests / 361 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. Remote D1 now contains all six additive columns; the release is live as deployment `6ef8737a-85ca-4fbb-8886-c938237dc993`, version `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4`, at 100% traffic, with all four schedules. Separate GET-only verification passed all six endpoints and `/api/trades` exposes all lifecycle fields; historical rows remain null for newly added timestamps until natural broker snapshots populate them. Production remains **DEGRADED** because August 21 daytrading and swing delivery is still outside/absent from the observed windows, and prior swing history contains errors.
+Validation passed: **123 tests / 361 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. Remote D1 now contains all six additive columns; the release is live as deployment `6ef8737a-85ca-4fbb-8886-c938237dc993`, version `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4`, at 100% traffic, with all four schedules. A separate post-deployment GET-only verification at **11:04:24–11:04:25 UTC on August 21, 2026** returned HTTP 200 for all six endpoints; `/api/positions` remained broker-backed (`source: alpaca`, 29 positions), and `/api/trades` exposes all lifecycle fields. Historical lifecycle timestamps remain null until natural broker snapshots populate them. Production remains **DEGRADED**, not healthy, because fresh daytrading/swing success is still unverified and prior swing history contains errors.
 
 ## August 21, 2026 swing-cap correction
 
@@ -87,7 +87,7 @@ Local validation August 18, 2026: **101 tests, 294 assertions**, TypeScript type
 
 ## August 10, 2026 lifecycle hardening candidate
 
-The current worktree contains a release candidate that preserves the vital risk parameters: daytrading cap **$5,000**, swing cap **$3,700**, crypto cap **$2,000**, existing confidence gates, max-trade settings, and strategy universes. It removes premature stock/swing position upserts, enforces same-cycle daytrading entry notional against the existing cap, links swing entries to decisions, synchronizes newly broker-confirmed positions, closes stale D1 current-position rows only after a complete broker snapshot, and updates decision metadata from broker-confirmed order states.
+The August 10 worktree contained a release candidate that preserved the vital risk parameters: daytrading cap **$5,000**, swing cap **$3,700**, crypto cap **$2,000**, existing confidence gates, max-trade settings, and strategy universes. It removed premature stock/swing position upserts, enforced same-cycle daytrading entry notional against the existing cap, linked swing entries to decisions, synchronized newly broker-confirmed positions, closed stale D1 current-position rows only after a complete broker snapshot, and updated decision metadata from broker-confirmed order states.
 
 Committed crypto reservations are never released by local TTL alone; only terminal broker evidence releases them. Crypto entries now fail closed below the **$10** venue minimum, include cross-cycle reservation notional in cap sizing, enforce the total per-cycle trade limit, retain reservations while a broker order is live, release them only on terminal broker evidence, retain reservations after an unknown post-submit local failure, and persist ATR stop/target intent for broker-confirmed position reconstruction.
 
@@ -95,17 +95,17 @@ Local validation on August 10, 2026: **92 tests passed, 273 assertions**, TypeSc
 
 ## Live deployment and current worktree
 
-The August 18 bounded entry-identity release is live on the Alpaca paper-trading Worker and was read-only verified after deployment. No manual trading trigger, order, cancellation, close, replace, retry, or broker mutation was used during release validation.
+The August 21 additive lifecycle-timestamp correction is the current live release on the Alpaca paper-trading Worker and was separately read-only verified after deployment. No manual trading trigger, order, cancellation, close, replace, retry, or broker mutation was used during release validation.
 
 - **Repository:** `joachimth/alpaca-trading-bot`
 - **Worker:** `alpaca-trading-bot.joachim-763.workers.dev`
 - **Dashboard:** `joachimth.github.io/alpaca-trading-bot/`
-- **Release source:** commit `f122287703087ab959768d02ec931e21d85319a3` (`fix: deterministic entry identity and retry guard`)
-- **Cloudflare deployment:** `03e3ef01-bb25-4010-b4b3-03829e7c09d5`
-- **Worker version:** `b5b4cb6e-71d2-4b78-924c-fd12acd4ac69`
-- **Cloudflare control-plane status:** verified August 18, 2026; 100% traffic and all four schedules confirmed
+- **Current source worktree:** branch `fix/remove-premature-position-upsert-entryside`, commit `5b01066430cf529db8e7329c970882718d0d8d2c` (`fix: persist broker lifecycle timestamps`)
+- **Current Cloudflare deployment:** `6ef8737a-85ca-4fbb-8886-c938237dc993`
+- **Current Worker version:** `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4`
+- **Cloudflare control-plane status:** verified August 21, 2026; 100% traffic and all four schedules confirmed
 - **Account mode:** Alpaca paper trading
-- **Source mapping note:** Cloudflare does not embed the Git SHA in the deployment artifact; the bundle-to-commit mapping is recorded by the release process.
+- **Source mapping note:** Cloudflare does not embed the Git SHA in the deployment artifact; the current bundle-to-commit mapping is recorded by the release process. The August 18 `f122287` / `03e3ef01` / `b5b4cb6e` release is historical.
 
 The dashboard is a static GitHub Pages frontend. It calls the Cloudflare Worker API only. It never calls Alpaca directly and never contains Alpaca credentials.
 

@@ -2,7 +2,7 @@
 
 The correction additively persists the existing Alpaca Order fields `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, and `replaced_at` on `trades`. Incoming non-null values are monotonic per lifecycle field and NULL broker snapshots cannot erase stored evidence; no trading behavior, edge gate, schedule, sizing, or cap changed. Caps remain **$5,000 / $3,700 / $2,000**.
 
-Validation passed: **123 tests / 361 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. Remote D1 contains all six columns. Deployment `6ef8737a-85ca-4fbb-8886-c938237dc993`, version `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4`, is at 100% traffic with all four schedules; all six GET endpoints passed separately, and `/api/trades` exposes the new fields. Historical rows are null for these new timestamps until natural broker updates populate them. Production remains **DEGRADED** pending fresh August 21 daytrading/swing delivery and because prior swing runs include errors.
+Validation passed: **123 tests / 361 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. Remote D1 contains all six columns. Deployment `6ef8737a-85ca-4fbb-8886-c938237dc993`, version `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4`, is at 100% traffic with all four schedules; a separate post-deployment GET-only verification at **11:04:24–11:04:25 UTC on August 21, 2026** returned HTTP 200 for all six endpoints, with broker-authoritative positions and the configured caps intact. `/api/trades` exposes the new fields, but historical lifecycle timestamps remain null until natural broker updates populate them. Production remains **DEGRADED**, not healthy, pending fresh daytrading/swing success and because prior swing runs include errors.
 
 ## August 21, 2026 additive trade-lifecycle persistence correction — deployed
 
@@ -95,12 +95,13 @@ Historical August 10 evidence, superseded by the August 18 release below: source
 
 ## Current release
 
-The August 18 bounded entry-identity release is live on the Alpaca paper-trading Worker and was read-only verified after deployment. No broker order, cancellation, close, or manual trading trigger was used during release validation.
+The August 21 additive lifecycle-timestamp correction is the current live release on the Alpaca paper-trading Worker and was separately read-only verified after deployment. No broker order, cancellation, close, or manual trading trigger was used during release validation.
 
-- Release source commit: `f122287703087ab959768d02ec931e21d85319a3` (`fix: deterministic entry identity and retry guard`)
-- Cloudflare deployment: `03e3ef01-bb25-4010-b4b3-03829e7c09d5`
-- Worker version: `b5b4cb6e-71d2-4b78-924c-fd12acd4ac69`
-- Cloudflare control-plane verification: completed August 18, 2026; 100% traffic and all four schedules confirmed
+- Current source worktree: branch `fix/remove-premature-position-upsert-entryside`, commit `5b01066430cf529db8e7329c970882718d0d8d2c` (`fix: persist broker lifecycle timestamps`)
+- Current Cloudflare deployment: `6ef8737a-85ca-4fbb-8886-c938237dc993`
+- Current Worker version: `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4`
+- Cloudflare control-plane verification: completed August 21, 2026; 100% traffic and all four schedules confirmed
+- The August 18 `f122287` / `03e3ef01` / `b5b4cb6e` release receipt below is historical, not current.
 - Conflicting later artifact remains unresolved: deployment `5088dbe0-31f9-4892-a149-a74702bbad4e`, version `cb88271c-8712-42a8-88a9-de58c841d3ec`, 100%
 - Documented traffic candidate: `100%` (not freshly verified)
 - Dashboard: GitHub Pages, calling only the Worker API
@@ -173,7 +174,7 @@ The active weekly read-only review job `Alpaca deferred-risk review` (schedule I
 ## Known risks
 
 - The crypto patch is deployed, but Cloudflare deployment artifacts do not embed the Git SHA; the release bundle-to-commit mapping is recorded by the release process.
-- Current validation and live evidence: 101 tests, 294 assertions, TypeScript, diff-check, and fresh dry-run passed; source commit `f122287703087ab959768d02ec931e21d85319a3` is live as deployment `03e3ef01-bb25-4010-b4b3-03829e7c09d5` / Worker version `b5b4cb6e-71d2-4b78-924c-fd12acd4ac69` at 100%; all read-only smoke endpoints returned HTTP 200; remote reservation/lifecycle schema passed; no broker mutation was used.
+- Current validation and live evidence: 123 tests, 361 assertions, TypeScript, diff-check, and fresh dry-run passed; current source commit `5b01066430cf529db8e7329c970882718d0d8d2c` maps to deployment `6ef8737a-85ca-4fbb-8886-c938237dc993` / Worker version `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4` at 100%; all read-only smoke endpoints returned HTTP 200; remote lifecycle schema passed; no broker mutation was used. The older `f122287` receipt is historical.
 - `git diff --check` from the workspace root is contaminated by unrelated generated `/workspace/data` changes; the bot repository diff must be checked with `git -C /workspace/alpaca-trading-bot diff --check`.
 - Wrangler dry-run remains validation-only and was not used as a deployment.
 

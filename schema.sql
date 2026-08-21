@@ -213,8 +213,8 @@ CREATE TABLE IF NOT EXISTS run_log (
   decisions_made INTEGER DEFAULT 0,
   trades_executed INTEGER DEFAULT 0,
   errors INTEGER DEFAULT 0,
-  error_details TEXT,                         -- JSON array of error messages
-  status TEXT NOT NULL DEFAULT 'ok',          -- ok, error, skipped
+  error_details TEXT,                         -- JSON array of legacy error strings and/or structured skip details
+  status TEXT NOT NULL DEFAULT 'ok',          -- ok, error, skipped, degraded
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

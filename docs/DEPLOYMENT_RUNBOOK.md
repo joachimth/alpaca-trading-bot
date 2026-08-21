@@ -2,7 +2,7 @@
 
 This additive correction adds six nullable `trades` columns and persists only corresponding non-null Alpaca Order timestamps: `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, and `replaced_at`. Updates are monotonic per field and never erase stored lifecycle evidence; caps **$5,000 daytrading / $3,700 swing / $2,000 crypto**, all schedules, edge-gate behavior, read-only reconciliation, and trading behavior are unchanged.
 
-Validation passed: **123 tests / 361 assertions**, `bunx tsc --noEmit`, `git diff --check`, and Wrangler dry-run. Remote D1 migration was applied and all six columns verified. Deployment `6ef8737a-85ca-4fbb-8886-c938237dc993` serves version `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4` at 100% traffic with all four schedules; separate GET-only verification passed all six endpoints and `/api/trades` exposes all lifecycle fields. Natural August 21 daytrading and swing delivery remains unverified because those windows had not yet produced current evidence; prior swing history includes errors, so production remains **DEGRADED**. Do not manually trigger a cycle or use any broker-mutating endpoint to close this gap.
+Validation passed: **123 tests / 361 assertions**, `bunx tsc --noEmit`, `git diff --check`, and Wrangler dry-run. Remote D1 migration was applied and all six columns verified. Deployment `6ef8737a-85ca-4fbb-8886-c938237dc993` serves version `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4` at 100% traffic with all four schedules; a separate post-deployment GET-only verification at **11:04:24–11:04:25 UTC on August 21, 2026** returned HTTP 200 for all six endpoints and confirmed broker-authoritative positions, unchanged caps, and lifecycle field exposure. Natural August 21 daytrading and swing success remains unverified; prior swing history includes errors, so production remains **DEGRADED**, not healthy. Do not manually trigger a cycle or use any broker-mutating endpoint to close this gap.
 
 ## August 21, 2026 additive trade-lifecycle persistence correction — release gate
 
@@ -275,9 +275,9 @@ Record these values in the release note or conversation:
 - Read-only HTTP status results.
 - Confirmation that no manual cycle, order, cancel, close, or retry was run.
 
-## Last documented release evidence
+## Historical release evidence
 
-As of August 18, 2026:
+The following August 18, 2026 receipt is retained for audit history and is not the current deployment:
 
 - Runtime source commit: `f122287703087ab959768d02ec931e21d85319a3` (`fix: deterministic entry identity and retry guard`), pushed to `origin/fix/remove-premature-position-upsert-entryside`
 - Cloudflare deployment: `03e3ef01-bb25-4010-b4b3-03829e7c09d5`
