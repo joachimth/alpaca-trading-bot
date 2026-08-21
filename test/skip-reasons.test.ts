@@ -28,6 +28,15 @@ describe('skip reason details', () => {
     ]);
   });
 
+  test('coalesces one cycle-level mismatch event while retaining mismatch context', () => {
+    const skips = new SkipReasonCollector();
+    const context = { strategy: 'daytrading', mismatchCount: 2, details: ['NOW: qty mismatch', 'MSFT: qty mismatch'] };
+    skips.add('POSITION_QTY_MISMATCH', 'cycle', 'New daytrading BUY entries blocked by broker/internal quantity mismatch; risk-reducing exits remain eligible', context);
+    skips.add('POSITION_QTY_MISMATCH', 'cycle', 'New daytrading BUY entries blocked by broker/internal quantity mismatch; risk-reducing exits remain eligible', context);
+    expect(skips.toArray()).toHaveLength(1);
+    expect(skips.toArray()[0]).toMatchObject({ code: 'POSITION_QTY_MISMATCH', scope: 'cycle', count: 2, context: { strategy: 'daytrading', mismatchCount: 2 } });
+  });
+
   test('error wins over skips and skip-only runs are labeled skipped', () => {
     const skips = new SkipReasonCollector();
     skips.add('DECISION_HOLD', 'decision', 'HOLD');

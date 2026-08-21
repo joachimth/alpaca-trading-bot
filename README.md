@@ -4,9 +4,11 @@ Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persis
 
 ## August 21, 2026 reliability correction candidate
 
-The current local correction candidate is **not deployed yet**. It fixes the confirmed gross/net presentation bug by aligning legacy `totalPl` with `netTotalPl` while retaining explicit gross fields, adds bounded `/api/runs` pagination and filters, persists broker-authoritative quantities while retaining the current-cycle mismatch safety block, and prevents repeated non-terminal stock/swing SELL/CLOSE submissions with structured `PENDING_EXIT_EXISTS` observability. The mismatch guard remains broker-authoritative: new daytrading BUY admission is blocked for the cycle, while risk-reducing/protective exits remain eligible.
+The August 21 correction is deployed and live-verified. It fixes the confirmed gross/net presentation bug by aligning legacy `totalPl` with `netTotalPl` while retaining explicit gross fields, adds bounded `/api/runs` pagination and filters, persists broker-authoritative quantities while retaining the current-cycle mismatch safety block, and prevents repeated non-terminal stock/swing SELL/CLOSE submissions with structured `PENDING_EXIT_EXISTS` observability. Cloudflare deployment `07615065-0302-41c6-8a22-4203ea38b5c9`, Worker version `bb3f45f3-03e8-453c-bb0d-876181d15c4d`, and 100% traffic were verified on August 21, 2026; the four schedules remain present. The mismatch guard remains broker-authoritative: new daytrading BUY admission is blocked for the cycle, while risk-reducing/protective exits remain eligible.
 
-Local validation is pending the final full gate. Vital parameters remain unchanged: daytrading **$5,000**, swing **$3,700**, crypto **$2,000**.
+Local validation: **108 tests, 318 assertions**, TypeScript, diff-check, and fresh Wrangler dry-run passed. Live GET verification passed for all six endpoints, broker position source, corrected net accounting, filtered/paginated runs, lifecycle fields, and unchanged caps. A post-deployment scheduled strategy/reconciliation run has not yet been observed; the latest visible reconciliation at 2026-08-21 07:00:24 UTC was lease-skipped, so production remains degraded pending natural scheduled-run evidence.
+
+Vital parameters remain unchanged: daytrading **$5,000**, swing **$3,700**, crypto **$2,000**.
 
 ## Bounded entry-identity fix — August 18, 2026 (deployed and live-verified)
 
@@ -107,7 +109,7 @@ The strategies use explicit asset and strategy isolation. A strategy may use D1 
 - Technical analysis: RSI, MACD, EMA, ATR, Stochastic, Bollinger Bands, ADX, and OBV
 - Optional LLM refinement of technical signals
 - Risk controls: account block checks, daily loss limits, position limits, sizing, stops, take-profits, trailing stops, cooldowns, order-rate limits, quantity-aware cost gates, and discretionary exit protection
-- Fee-aware P&L: strategy tabs expose gross P&L, recorded attributable fees, and net P&L; CFEE is attributed only to crypto, while orderless/account-level fees remain explicitly unattributed
+- Fee-aware P&L: strategy rows preserve `grossTotalPl` and `netTotalPl`; legacy `totalPl` is net-semantic and equals `netTotalPl`; CFEE is attributed only to crypto, while orderless/account-level fees remain explicitly unattributed
 - Exit policy: only signal-driven discretionary SELL/CLOSE actions may be held when estimated costs consume a small positive gross gain; protective, EOD, and manual closes bypass that gate
 - Swing edge policy: spread/slippage/fee costs are logged with explicit bps units; BUY rejection is disabled until a calibrated `expectedEdgeBps` is configured
 - Universe scanner for liquid US equities
@@ -222,7 +224,7 @@ All Alpaca access is server-side inside the Worker.
 | `/api/decisions` | GET | Recent decisions from D1, returned as `{ decisions }` |
 | `/api/trades` | GET | Recent trades from D1, returned as `{ trades }`; broker reconciliation runs only on scheduled/cycle paths |
 | `/api/performance` | GET | Performance snapshots from D1, returned as `{ performance }` |
-| `/api/runs` | GET | Run history from D1, returned as `{ runs }` |
+| `/api/runs` | GET | Read-only run history from D1, returned as `{ runs, limit, offset, page }`; supports bounded `limit` (max 500), `offset` or 1-based `page`, plus `strategy`, `trigger`, and `status` filters |
 | `/api/stats` | GET | Aggregate statistics from D1 |
 | `/api/strategy-comparison` | GET | Historical strategy metrics plus broker-backed current exposure; returns an unavailable state if positions cannot be fetched |
 | `/api/config` | GET | Raw bot configuration from D1 for diagnostics; the dashboard does not infer capital caps from this raw response |

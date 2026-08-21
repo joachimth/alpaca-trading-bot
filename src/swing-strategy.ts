@@ -232,7 +232,11 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         } catch (error) {
           errors.push(`Broker quantity reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);
         }
-        skips.add('POSITION_QTY_MISMATCH', 'cycle', 'New swing BUY entries blocked by broker/internal quantity mismatch; risk-reducing exits remain eligible', { strategy: 'swing', details });
+        skips.add('POSITION_QTY_MISMATCH', 'cycle', 'New swing BUY entries blocked by broker/internal quantity mismatch; risk-reducing exits remain eligible', {
+          strategy: 'swing',
+          mismatchCount: divergence.details.filter(detail => detail.includes('qty mismatch')).length,
+          details: divergence.details,
+        });
         errors.push(`Broker/internal quantity mismatch detected; new swing entries blocked for this cycle: ${details}`);
         riskManager.haltTrading(`New swing entries blocked by broker/internal quantity mismatch: ${details}`);
       } else {

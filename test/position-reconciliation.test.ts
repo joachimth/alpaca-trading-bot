@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { Position } from '../src/alpaca';
 import { reconcileBrokerQuantityMismatches } from '../src/position-reconciliation';
+import { RiskManager } from '../src/risk-manager';
 
 const brokerPosition = (symbol: string, qty: number): Position => ({
   asset_id: `asset-${symbol}`,
@@ -43,6 +44,26 @@ describe('broker quantity reconciliation', () => {
       stop_loss_price: 80,
       take_profit_price: 110,
     })]);
+
+    const manager = new RiskManager({
+      maxPositions: 5,
+      maxPositionPct: 50,
+      stopLossATRMultiplier: 1.5,
+      takeProfitATRMultiplier: 2,
+      trailingStopPct: 5,
+      dailyLossLimitPct: 15,
+      rollingDrawdownLimitPct: 10,
+      minConfidence: 0.5,
+      enableMargin: false,
+      eodFlatten: false,
+      targetVolatilityPct: 2,
+      maxOrderRatePerMin: 10,
+      minEdgeAfterCosts: 5,
+      maxCapitalUsd: 5000,
+    });
+    const broker = brokerPosition('NOW', 2);
+    const recovered = manager.checkDivergence([broker], [{ ticker: 'NOW', qty: writes[0].qty, side: 'long' }]);
+    expect(recovered.divergent).toBe(false);
   });
 
   test('does not invent internal rows for broker-only positions', async () => {

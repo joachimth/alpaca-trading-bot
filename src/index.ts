@@ -345,7 +345,11 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         } catch (error) {
           errors.push(`Broker quantity reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);
         }
-        skips.add('POSITION_QTY_MISMATCH', 'cycle', 'New daytrading BUY entries blocked by broker/internal quantity mismatch; risk-reducing exits remain eligible', { strategy: 'daytrading', details });
+        skips.add('POSITION_QTY_MISMATCH', 'cycle', 'New daytrading BUY entries blocked by broker/internal quantity mismatch; risk-reducing exits remain eligible', {
+          strategy: 'daytrading',
+          mismatchCount: divergence.details.filter(detail => detail.includes('qty mismatch')).length,
+          details: divergence.details,
+        });
         errors.push(`Broker/internal quantity mismatch detected; new entries blocked for this cycle: ${details}`);
         riskManager.haltTrading(`New entries blocked by broker/internal quantity mismatch: ${details}`);
         console.error(`DIVERGENCE (new entries blocked): ${details}`);

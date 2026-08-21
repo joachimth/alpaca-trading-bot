@@ -1,8 +1,8 @@
 ## August 21, 2026 reliability correction candidate
 
-Before deployment, require the complete local gates and review the bounded changes: net/gross presentation consistency, `/api/runs` pagination and filtering, broker-authoritative quantity persistence with the existing mismatch safety block, and non-terminal stock/swing exit suppression. Confirm caps remain `$5,000/$3,700/$2,000`, no strategy thresholds or trade budgets changed, and no broker-mutating endpoint was used. After deployment, perform a separate read-only verification of all six endpoints, fresh run delivery, skip observability, lifecycle fields, fees/net, caps, and the four schedules.
+Before deployment, require the complete local gates and review the bounded changes: net/gross presentation consistency, `/api/runs` pagination and filtering, broker-authoritative quantity persistence with the existing mismatch safety block, one cycle-level `POSITION_QTY_MISMATCH` event, and non-terminal stock/swing SELL/CLOSE suppression via `PENDING_EXIT_EXISTS`. Confirm caps remain `$5,000/$3,700/$2,000`, no strategy thresholds or trade budgets changed, protective/risk-reducing exits remain eligible, and no broker-mutating endpoint was used. After deployment, perform a separate read-only verification of all six endpoints, fresh run delivery, skip observability, lifecycle fields, fees/net, caps, and the four schedules.
 
-Current status: **not deployed**.
+Current status: **follow-up observability delta pending deployment**. Full local validation passes with 109 tests and 321 assertions, typecheck, diff-check, and Wrangler dry-run. The prior correction is live at deployment `07615065-0302-41c6-8a22-4203ea38b5c9` / Worker version `bb3f45f3-03e8-453c-bb0d-876181d15d4c`; deploy this small follow-up only to add mismatch-count context and direct regression coverage, then repeat the documented read-only post-deployment verification.
 
 ## Bounded entry-identity release — August 18, 2026 (deployed and live-verified)
 
