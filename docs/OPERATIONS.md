@@ -43,7 +43,7 @@ Control result: **DEGRADED, not healthy**. All six GET endpoints returned HTTP 2
 
 The checked-in and dispatched schedules are daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and reconciliation `*/10 * * * *`. Crypto delivered repeatedly around `:07/:37` UTC through `12:38:10`; reconciliation delivered about every 10 minutes through `12:50:59`, including `MAINTENANCE_ONLY` and `CYCLE_LEASE_HELD` skips. The latest known daytrading strategy run ended in broker/internal quantity-divergence error at `2026-08-20 16:35:42`; no swing run was visible in the fetched history, so fresh successful daytrading and swing delivery is not established.
 
-Run observability and structured skip reporting pass. The sampled 50 trades expose broker fill/status fields, but all six lifecycle timestamps are null and no per-trade gross, fee, or net fields are exposed. Crypto source/test edge-gate wiring passes inspection, while live end-to-end comparison against the configured threshold remains unverified. The historical August 10 daytrading exposure of `$5,679.878` remains a prior-release follow-up. This check required documentation/status correction only, not deployment, and used no broker-mutating endpoint.
+Run observability and structured skip reporting pass. The sampled 50 trades expose broker fill/status fields, but all six nullable lifecycle timestamps are null; their API presence is exposure only, not proof of population. No per-trade gross, fee, or net fields are exposed. Crypto source/test edge-gate wiring passes inspection, while live end-to-end comparison against the configured threshold remains unverified. The historical August 10 daytrading exposure of `$5,679.878` remains a prior-release follow-up. This check required documentation/status correction only, not deployment, and used no broker-mutating endpoint.
 
 ## Bounded entry-identity fix — August 18, 2026 (deployed and live-verified)
 
@@ -74,7 +74,7 @@ The bounded correction addresses two observed reliability defects. `GET /api/tra
 
 Validation passed: focused and full suites **125 tests / 374 assertions**, TypeScript, diff-check, and Wrangler dry-run. Deployed as Cloudflare deployment `1b286e9a-6d2f-45b9-a439-72fd12654f9c`, Worker version `ced43daf-ed03-4add-ac07-1d8bf562b72c`, at 100% traffic; all four schedules remain present. Separate GET-only verification confirmed HTTP 200 for the six required endpoints, broker-authoritative positions (`source: alpaca`, 29 positions), caps `$5,000/$3,700/$2,000`, invalid-filter HTTP 400 responses, and 20 crypto-only rows from `/api/trades?strategy=crypto`.
 
-Production remains **DEGRADED**, not healthy: latest daytrading evidence is lease-held skips through August 20, latest swing evidence is the August 18 divergence error, and no fresh natural post-release daytrading/swing success exists. Historical lifecycle timestamps remain null, fee telemetry can be unavailable, and exact per-trade fee/gross/net accounting is not exposed.
+Production remains **DEGRADED**, not healthy: latest daytrading evidence is lease-held skips through August 20, latest swing evidence is the August 18 divergence error, and no fresh natural post-release daytrading/swing success exists. The six nullable lifecycle fields are exposed but remain null in the historical sample; fee telemetry can be unavailable, and exact per-trade fee/gross/net accounting is not exposed.
 
 
 ## August 21, 2026 `/api/runs` pagination reliability/observability fix
@@ -111,16 +111,16 @@ Historical August 10 evidence, superseded by the August 18 release below: source
 
 ## Current control status
 
-The latest recorded release receipt is the August 21 strategy-filter and broker-authoritative reconciliation correction. The current read-only control did not independently authenticate Cloudflare deployment identity or traffic, so deployment details below are recorded as receipt metadata rather than fresh control-plane proof. No broker order, cancellation, close, or manual trading trigger was used.
+The latest recorded release receipt is the August 21 strategy-filter and broker-authoritative reconciliation correction. Deployment identity below is a chronology of captured receipts, not singular current proof: the current read-only control did not independently authenticate Cloudflare deployment identity or traffic. No broker order, cancellation, close, or manual trading trigger was used.
 
 - Latest recorded source worktree: branch `fix/remove-premature-position-upsert-entryside`
 - Latest captured deployment receipt: `47158569-968b-4bae-83ad-0c24134d42d2` / Worker version `2756aeb6-e71a-4a11-ab7c-a3a1a6dbbf4e`, created August 21, 2026 at 07:57:51 UTC, 100% recorded traffic
 - Earlier captured release receipts: `1b286e9a-6d2f-45b9-a439-72fd12654f9c` / `ced43daf-ed03-4add-ac07-1d8bf562b72c`, and lifecycle `6ef8737a-85ca-4fbb-8886-c938237dc993` / `5ff1ee08-bdc1-46b7-9aa6-93962d25beb4`
-- Latest recorded validation: 125 tests / 374 assertions, TypeScript, diff-check, Wrangler dry-run, and GET-only checks
+- Latest local correction validation: 130 tests / 388 assertions, TypeScript, diff-check, and Wrangler dry-run; 125 / 374 remains the historical deployed release receipt
 - Identity caveat: source-to-deployment mapping and current live control-plane identity were not independently revalidated in this control
 - Live read-only status: **DEGRADED, not healthy**
 - Current evidence: broker-authoritative positions and unchanged caps pass; crypto `:07/:37` and reconciliation cadence pass; explicit lease/error/skip observability passes.
-- Open gaps: broker/internal quantity divergence, no fresh successful daytrading or swing run, all six lifecycle timestamps null across the sampled 50 trades, no per-trade gross/fee/net fields, fee telemetry unavailable in fresh crypto skips, and no end-to-end live proof of the configured crypto edge comparison.
+- Open gaps: broker/internal quantity divergence, no fresh successful daytrading or swing run, all six exposed nullable lifecycle timestamps null across the sampled 50 trades, no per-trade gross/fee/net fields, fee telemetry unavailable in fresh crypto skips, and no end-to-end live proof of the configured crypto edge comparison. Dashboard aggregate gross/fee/net values exist, but fill-exact per-trade accounting is unavailable.
 
 Dashboard capital-cap evidence remains read-only and server-resolved: `/api/dashboard` returned `{ daytrading: 5000, swing: 3700, crypto: 2000 }` with broker positions available. The UI never substitutes buying power, cash, equity, portfolio value, or positions for a missing cap.
 
@@ -156,7 +156,7 @@ Documentation is a release requirement. Every source, configuration, schema, mig
 
 - Strategy comparison exposes `grossTotalPl`, `feesUsd`, `netTotalPl`, and `feeAttribution` for each row.
 - CFEE is defensibly attributed to crypto. Orderless/regulatory FEE remains account-level and is exposed as `accountLevelFeesUsd`; it is not fabricated into daytrading or swing.
-- Current category snapshots and historical cumulative curves remain gross-only. The fee ledger uses a bounded three-day import overlap, while the crypto entry fee-rate uses only positive curated-universe samples from the most recent seven days; all-time net P&L is not yet a fill-exact accounting statement.
+- Current category snapshots and historical cumulative curves remain gross-only. Strategy comparison exposes aggregate gross/fee/net values, but those model/ledger aggregates are not fill-exact per-trade accounting. The fee ledger uses a bounded three-day import overlap, while the crypto entry fee-rate uses only positive curated-universe samples from the most recent seven days.
 - Daytrading and crypto BUY decisions use quantity/notional-aware estimated costs. Crypto entries default to one per cycle and discretionary signal SELL/CLOSE actions default to a separate two-exit budget; protective exits bypass both budgets and the fee gate. Loss-reducing, EOD, and manual closes bypass the discretionary fee gate.
 - Swing logs round-trip spread/slippage/fee costs with explicit bps units. `expectedEdgeBps` defaults to zero, so swing BUY is not rejected from an invented z-score-to-bps conversion; configure a calibrated edge before enabling rejection.
 - All fee-gate skips must retain the estimated costs and reason in decision/run observability.
@@ -192,7 +192,7 @@ The active weekly read-only review job `Alpaca deferred-risk review` (schedule I
 - Wrangler dry-run remains validation-only and was not used as a deployment.
 
 
-- August 6 live evidence showed repeated partial-filled exits and quantity mismatches. This local correction adds the pending non-terminal SELL guard for stock/swing and retains broker-authoritative mismatch protection; paper-session evidence is still required after deployment.
+- August 6 live evidence showed repeated partial-filled exits and quantity mismatches. Current stock/swing SELL/CLOSE paths have non-terminal pending-exit guards (`PENDING_EXIT_EXISTS`), and the guard behavior is covered by regression tests; broker-authoritative mismatch protection remains in place and paper-session evidence is still required after deployment.
 - Partial/fill lifecycle on the entry side: the August 18 release gives stock/swing BUYs deterministic `client_order_id` values and pre-submit `DUPLICATE_ORDER_PREVENTED` guards against retrying a non-terminal order. The August 21 local correction now guards stock/swing SELL/CLOSE paths against repeat non-terminal exits with `PENDING_EXIT_EXISTS`; it does not cancel, replace, retry, or weaken broker authority. Broader partial-fill/cancel/replace lifecycle and paper-session evidence remain follow-ups. Crypto has its own pending-exit guard and deterministic client IDs, but no complete broker retry/cancel/replace lifecycle.
 - Order-to-decision correlation: as of the August 18 source candidate, daytrading/swing BUY entries carry a deterministic decision-derived `client_order_id`, and the local generic entry path persists `logOrderTrade` with the decision ID. It remains incomplete that stock/swing **exits** still do not carry a decision-derived deterministic ID, so exit correlation and historical attribution need completion and paper-session evidence. Historical swing/crypto rows without stable attribution remain excluded from deterministic lifecycle attribution.
 - At the last verified D1 query on August 8, 2026, 365 trades existed and 84 had `strategy IS NULL`; those rows remain excluded from strategy-attributed history unless deterministic attribution is available.

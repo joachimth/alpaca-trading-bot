@@ -13,7 +13,7 @@ Required local gates: focused dashboard/reconciliation tests, full `bun test`, `
 
 Release receipt: validation passed with **125 tests / 374 assertions**, TypeScript, diff-check, and Wrangler dry-run. Cloudflare deployment `1b286e9a-6d2f-45b9-a439-72fd12654f9c` serves Worker version `ced43daf-ed03-4add-ac07-1d8bf562b72c` at 100% traffic with all four schedules. Separate GET-only verification confirmed the six required endpoints, broker source `alpaca` with 29 positions, caps `$5,000/$3,700/$2,000`, invalid trade/run filter HTTP 400 responses, and `/api/trades?strategy=crypto` returning 20 rows all tagged `crypto`.
 
-Production remains **DEGRADED**, not healthy. No fresh natural daytrading or swing success is visible after release; lease-held and historical divergence/error runs remain explicit. Historical lifecycle timestamps and per-trade fee/gross/net fields remain unverified or unavailable and were not fabricated.
+Production remains **DEGRADED**, not healthy. No fresh natural daytrading or swing success is visible after release; lease-held and historical divergence/error runs remain explicit. The six nullable lifecycle timestamps are exposed but remain null on the sampled historical rows; per-trade fee/gross/net fields are unavailable and were not fabricated.
 
 ## August 21, 2026 bounded Alpaca lifecycle-timestamp correction — deployed and verified
 
@@ -55,7 +55,7 @@ Status: **DEGRADED, do not label healthy**.
 - Broker authority passed: `/api/positions` reported `positionsAvailable: true`, `source: "alpaca"`, and 29 broker positions; failed broker fetch behavior remains fail-closed with no D1 live-state fallback.
 - Equity direction passed in the current sample: `$98,482.90` current equity versus `$98,270.0927` last equity; the latest stored snapshot is `$98,483.26` at `2026-08-21 12:38:04` UTC. Configured caps remain `$5,000/$3,700/$2,000`.
 - Schedule source/dispatch passed for daytrading, swing, crypto `:07/:37`, and reconciliation. Natural crypto delivery was observed at `09:07:33`, `09:37:33`, `10:07:35`, `10:37:33`, `11:07:33`, `11:37:33`, `12:07:33`, and `12:38:10` UTC; reconciliation delivered about every 10 minutes through `12:50:59`, including `MAINTENANCE_ONLY` and `CYCLE_LEASE_HELD` skips. The latest known daytrading strategy run ended in broker/internal quantity-divergence error at `2026-08-20 16:35:42`; no swing run was visible in the fetched history.
-- The sampled 50 trades expose broker fill/status fields, but all six lifecycle timestamps are null and no per-trade gross, fee, or net fields are exposed. Aggregate dashboard arithmetic is not a substitute for fill-level accounting.
+- The sampled 50 trades expose broker fill/status fields, but all six nullable lifecycle timestamps are null; their presence in the API is exposure only, not proof of population. No per-trade gross, fee, or net fields are exposed. Dashboard gross/fee/net values are aggregate model/ledger outputs and are not fill-exact per-trade accounting.
 - Filtered run observability passed for the visible trigger families. Crypto edge-gate source/test wiring passed inspection, but the live sample only demonstrates fee-telemetry gating and does not prove the configured post-cost edge comparison was exercised.
 - Historical cap evidence: August 10 daytrading exposure `$5,679.878` remains a prior-release defect record. Current configured caps remain `$5,000/$3,700/$2,000`; runtime enforcement is covered by regression tests but not fully proven by this read-only sample.
 
@@ -320,7 +320,7 @@ The August 9, 2026 live audit found that read-only `reconcile_cron` shared the s
 
 ## Confirmed lifecycle evidence
 
-Read-only source and historical live evidence confirm a higher-severity lifecycle gap than reconciliation alone: the August 6, 2026 live audit recorded repeated partial-filled exits and subsequent quantity mismatches for daytrading/swing symbols. The August 18 release fixes deterministic stock/swing BUY identity, broker-shaped BUY persistence, and duplicate non-terminal BUY retry protection. Remaining production risks are pending-exit protection and decision-derived correlation for stock/swing exits, plus the broader partial-fill/cancel/replace lifecycle and FIFO/lot realization. Crypto has a pending-exit guard and deterministic client IDs, but no complete broker retry/cancel/replace lifecycle.
+Read-only source and historical live evidence confirm a higher-severity lifecycle gap than reconciliation alone: the August 6, 2026 live audit recorded repeated partial-filled exits and subsequent quantity mismatches for daytrading/swing symbols. The August 18 release fixes deterministic stock/swing BUY identity, broker-shaped BUY persistence, and duplicate non-terminal BUY retry protection. Current daytrading and swing SELL/CLOSE paths also have non-terminal pending-exit suppression via `PENDING_EXIT_EXISTS`; remaining production risks are exit decision-derived correlation, the broader partial-fill/cancel/replace lifecycle, and FIFO/lot realization. Crypto has a pending-exit guard and deterministic client IDs, but no complete broker retry/cancel/replace lifecycle.
 
 ## Fee-aware release notes
 
