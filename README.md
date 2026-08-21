@@ -29,11 +29,11 @@ No code, cap, strategy, or deployment mutation was required for this control cor
 
 # Alpaca AI Trading Bot
 
-## August 21, 2026 runtime-cap and scheduler DDL correction — local, not deployed
+## August 21, 2026 runtime-cap and scheduler DDL correction — deployed and read-only verified
 
 This narrow reliability correction aligns the daytrading and swing runtime loaders with the existing `/api/config` cap aliases: daytrading accepts `maxCapitalUsd` and `max_capital_usd`; swing accepts `swing_maxCapitalUsd` and `swing_max_capital_usd`. Missing or malformed overrides retain the existing fallbacks. The correction also removes the per-cron `ALTER TABLE positions ADD COLUMN strategy` and replaces it with a read-only schema gate; strategy cycles fail closed and record an error when the required column is absent. Apply the explicit `positions-strategy-column-migration.sql` once for legacy D1 databases.
 
-Local validation passed: focused `bun test test/runtime-config-schema.test.ts test/capital-caps.test.ts` (**12 tests / 31 assertions**), full `bun test` (**121 tests / 359 assertions**), `bunx tsc --noEmit`, and `git diff --check`. This work is **not deployed or live-verified**, no live endpoint was called, and no broker-mutating operation was used. Vital caps remain daytrading **$5,000**, swing **$3,700**, and crypto **$2,000**; strategy thresholds, budgets, sizing, exits, and trading behavior are unchanged. Production remains **DEGRADED**, with missing swing delivery evidence, crypto history/fee-edge blocks, lifecycle/P&L gaps, and pending natural scheduled evidence.
+Local validation passed: focused `bun test test/runtime-config-schema.test.ts test/capital-caps.test.ts` (**12 tests / 31 assertions**), full `bun test` (**121 tests / 359 assertions**), `bunx tsc --noEmit`, `git diff --check`, and Wrangler dry-run. Deployed from source commit `2637a1e07bedbc72592f546302a94fd9c195b927` as Cloudflare deployment `2c222e36-a64c-414e-898c-cbdfb10cb58f`, Worker version `e7425217-78c6-4bd2-bc2b-ee1e14cbd123`, at 100% traffic; all four schedules and six required GET endpoints passed. Remote D1 read-only verification confirmed `positions.strategy` exists, so no migration was needed. No trigger or broker-mutating operation was used. Production remains **DEGRADED**, with missing swing delivery evidence, crypto history/fee-edge blocks, crypto ownership/GTC lifecycle persistence gaps, P&L gaps, and pending natural scheduled evidence.
 
 
 ## August 21, 2026 `/api/runs` pagination reliability fix
