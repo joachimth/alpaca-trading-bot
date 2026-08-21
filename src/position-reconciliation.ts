@@ -10,6 +10,30 @@ interface InternalPositionMetadata {
 }
 
 /**
+ * Close D1-only current-position rows after a complete broker snapshot.
+ * The broker remains authoritative; this path changes only D1 state and never
+ * submits or closes a broker position.
+ */
+export async function closeBrokerAbsentPositions(
+  db: Pick<Database, 'closePosition'>,
+  brokerPositions: readonly Position[],
+  internalPositions: readonly InternalPositionMetadata[],
+  excludedSymbols: ReadonlySet<string> = new Set(),
+  reason = 'broker_authoritative_sync_absent',
+): Promise<string[]> {
+  const brokerSymbols = new Set(brokerPositions.map(position => position.symbol));
+  const absentSymbols: string[] = [];
+
+  for (const internal of internalPositions) {
+    if (brokerSymbols.has(internal.ticker) || excludedSymbols.has(internal.ticker)) continue;
+    await db.closePosition(internal.ticker, 0, reason);
+    absentSymbols.push(internal.ticker);
+  }
+
+  return absentSymbols;
+}
+
+/**
  * Reconcile only quantity mismatches from a broker snapshot into D1 metadata.
  * The broker remains authoritative, and the caller must still retain its
  * mismatch halt for the current cycle; this only prevents a stale D1 quantity

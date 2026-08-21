@@ -1,3 +1,9 @@
+## August 21, 2026 strategy-filtered trades and broker-authoritative swing reconciliation — local validation
+
+Status: **LOCAL ONLY, NOT DEPLOYED; production remains DEGRADED.** `GET /api/trades` now validates `strategy=daytrading|swing|crypto`, bounds `limit` to 500 with default 50, and returns explicit `limit`/strategy metadata while preserving the default unfiltered trade list. Read-only API construction performs no DDL. Swing reconciliation closes D1-only rows after a complete broker snapshot via `closePosition(..., 'broker_authoritative_sync_absent')` and emits structured `BROKER_AUTHORITATIVE_SYNC_ABSENT`; only actual broker/internal quantity mismatches retain the current-cycle new-BUY halt. No caps, thresholds, schedules, sizing, order behavior, or broker endpoints changed.
+
+Validation status: focused API/reconciliation regressions passed (**7 tests / 41 assertions**). Required release gates are full `bun test`, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run`; do not deploy, call live endpoints, or trigger cycles. Do not change the degraded status until natural swing and daytrading evidence exists.
+
 ## August 21, 2026 bounded Alpaca lifecycle-timestamp correction — deployed and read-only verified
 
 The correction additively persists the existing Alpaca Order fields `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, and `replaced_at` on `trades`. Incoming non-null values are monotonic per lifecycle field and NULL broker snapshots cannot erase stored evidence; no trading behavior, edge gate, schedule, sizing, or cap changed. Caps remain **$5,000 / $3,700 / $2,000**.
@@ -60,6 +66,13 @@ Committed crypto reservations are never released by local TTL alone; only termin
 Validation receipt: 92 tests, 273 assertions, typecheck, and diff-check passed locally on August 10, 2026. No broker mutation was used. Remote D1 schema verification is complete for the reservation table/index and both trade intent columns. Live deployment is verified: deployment `32fdaa9c-0609-4be1-b16c-6369af4dfc8e`, Worker version `dff3e198-1cb3-49d1-ac5d-706a7d292258`, 100% traffic, all four schedules, and read-only endpoint checks passed. Natural paper-session observation remains the follow-up gate for proving no cap breach or live-order reservation expiry under real post-release cycles.
 
 # Operations and release notes
+
+## August 21, 2026 read-only trade-filter and stale-D1 correction
+
+The current correction is bounded to two observed reliability defects. `GET /api/trades` now supports bounded `strategy=daytrading|swing|crypto` filtering and rejects invalid values with HTTP 400, preventing a typo from returning an unfiltered dataset. Swing reconciliation now closes broker-absent D1-only rows through the existing local `broker_authoritative_sync_absent` path when no pending broker order explains the row; real broker/internal quantity mismatches still block new swing BUY entries for the current cycle.
+
+Local validation passed: focused and full suites **125 tests / 370 assertions**, TypeScript, diff-check, and Wrangler dry-run. Caps remain **$5,000/$3,700/$2,000** and no schedule, threshold, sizing, order, or broker behavior changed. Because the live audit found ignored trade filters and the stale D1 rows were blocking swing delivery, deployment is required under the standing reliability-maintenance rule, followed by separate GET-only verification; production remains **DEGRADED** until fresh natural daytrading and swing runs are observed. Per-trade fee/gross/net fields and naturally populated broker lifecycle timestamps remain unverified gaps.
+
 
 ## August 21, 2026 `/api/runs` pagination reliability/observability fix
 

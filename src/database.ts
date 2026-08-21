@@ -1024,11 +1024,14 @@ export class Database {
     };
   }
 
-  async getRecentTrades(limit: number = 50): Promise<any[]> {
+  async getRecentTrades(limit: number = 50, strategy?: 'daytrading' | 'swing' | 'crypto'): Promise<any[]> {
     await this.ensureTradeSchema();
-    const result = await this.db.prepare(
-      'SELECT * FROM trades ORDER BY timestamp DESC LIMIT ?'
-    ).bind(limit).all();
+    const query = strategy
+      ? 'SELECT * FROM trades WHERE strategy = ? ORDER BY timestamp DESC LIMIT ?'
+      : 'SELECT * FROM trades ORDER BY timestamp DESC LIMIT ?';
+    const result = strategy
+      ? await this.db.prepare(query).bind(strategy, limit).all()
+      : await this.db.prepare(query).bind(limit).all();
     return result.results as any[];
   }
 

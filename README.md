@@ -1,3 +1,11 @@
+## August 21, 2026 strategy-filtered trades and broker-authoritative swing reconciliation — local validation
+
+This local, not-deployed reliability correction makes `GET /api/trades` honor the validated `strategy=daytrading|swing|crypto` filter, bounds `limit` to 500 (default 50), and returns explicit `limit` plus selected `strategy` metadata. Invalid strategy values return HTTP 400. The default unfiltered response remains unchanged apart from metadata. Dashboard/API reads construct `Database` in read-only mode and issue no DDL.
+
+Swing reconciliation now treats a complete broker snapshot as authoritative: D1-only swing rows are closed through the existing read-only `closePosition(..., 'broker_authoritative_sync_absent')` path and recorded as structured `BROKER_AUTHORITATIVE_SYNC_ABSENT` observability. Actual broker/internal quantity mismatches retain the current-cycle BUY safety halt; caps, thresholds, schedules, sizing, order behavior, and broker endpoints are unchanged.
+
+Validation plan/status: focused API/reconciliation tests passed (**7 tests / 41 assertions**). Full `bun test`, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run` remain required before release. No deployment, live endpoint, strategy trigger, or broker mutation was performed. Production remains **DEGRADED, not healthy** until natural swing and daytrading evidence exists.
+
 ## August 21, 2026 bounded Alpaca lifecycle-timestamp correction — deployed and read-only verified
 
 This additive reliability correction persists the existing Alpaca `Order` lifecycle fields `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, and `replaced_at`. New imports and read-only reconciliation preserve each incoming non-null timestamp monotonically without changing trading behavior, edge-gate behavior, schedules, sizing, or caps, which remain **$5,000 daytrading / $3,700 swing / $2,000 crypto**.
@@ -34,6 +42,12 @@ Result: **DEGRADED, not healthy**. All six required GET endpoints returned HTTP 
 No code, cap, strategy, or deployment mutation was required for this control correction. The follow-up remains natural scheduled evidence for successful daytrading and swing delivery; no trigger, submit, cancel, close, replace, retry, or broker-mutating endpoint was called.
 
 # Alpaca AI Trading Bot
+
+## August 21, 2026 read-only observability and stale-D1 correction — local validation complete
+
+This bounded reliability correction makes `GET /api/trades?strategy=daytrading|swing|crypto` apply the requested filter and reject invalid strategy values with HTTP 400 instead of silently returning unfiltered data. Swing reconciliation now treats broker-absent, D1-only rows as stale local metadata after a complete broker snapshot, closes only those D1 rows without pending broker orders, and records `BROKER_AUTHORITATIVE_SYNC_ABSENT`; actual broker/internal quantity mismatches retain the current-cycle BUY safety halt. Caps remain **$5,000 daytrading / $3,700 swing / $2,000 crypto**, and no signal thresholds, schedules, sizing, or broker behavior changed.
+
+Focused and full regression suites pass locally: **125 tests / 370 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. Deployment and separate GET-only verification are required because the live audit demonstrated ignored trade filters and stale D1 rows preventing swing delivery; production remains **DEGRADED** until fresh natural daytrading and swing evidence is observed. Per-trade fee/gross/net fields and historical lifecycle timestamps remain explicit data-model or natural-broker-population gaps and were not fabricated.
 
 ## August 21, 2026 additive trade-lifecycle persistence correction — deployed
 

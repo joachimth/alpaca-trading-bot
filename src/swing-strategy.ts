@@ -18,7 +18,7 @@ import type { Env } from './index';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 import { syncBrokerLedger } from './broker-ledger';
 import { reconcileBrokerOrders } from './order-reconciliation';
-import { reconcileBrokerQuantityMismatches } from './position-reconciliation';
+import { closeBrokerAbsentPositions, reconcileBrokerQuantityMismatches } from './position-reconciliation';
 import { resolveCapitalCapOverride } from './capital-caps';
 import {
   assessSwingBars,
@@ -230,6 +230,26 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       dbPositions.map(p => ({ ticker: p.ticker, qty: p.qty, side: p.side }))
     );
     const hasQtyMismatch = divergence.details.some(detail => detail.includes('qty mismatch'));
+    const internalOnlySymbols = new Set(
+      divergence.details
+        .filter(detail => detail.includes('in internal but not broker'))
+        .map(detail => detail.split(':', 1)[0]),
+    );
+    if (internalOnlySymbols.size > 0) {
+      const pendingSwingSymbols = new Set((await db.getTradesNeedingSync(200))
+        .filter(trade => trade.strategy === 'swing')
+        .map(trade => String(trade.ticker)));
+      const stalePositions = dbPositions.filter(position => internalOnlySymbols.has(position.ticker));
+      const closed = await closeBrokerAbsentPositions(db, allBrokerPositions, stalePositions, pendingSwingSymbols);
+      if (closed.length > 0) {
+        skips.add('BROKER_AUTHORITATIVE_SYNC_ABSENT', 'reconciliation', 'Closed stale swing D1 rows absent from the broker snapshot', {
+          strategy: 'swing',
+          closed: closed.length,
+          symbols: closed,
+          pendingExcluded: pendingSwingSymbols.size,
+        });
+      }
+    }
     if (divergence.divergent) {
       const details = divergence.details.join('; ');
       if (hasQtyMismatch) {
@@ -248,9 +268,6 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         });
         errors.push(`Broker/internal quantity mismatch detected; new swing entries blocked for this cycle: ${details}`);
         riskManager.haltTrading(`New swing entries blocked by broker/internal quantity mismatch: ${details}`);
-      } else {
-        errors.push(`Position divergence: ${details}`);
-        riskManager.haltTrading(`Divergence: ${details}`);
       }
     }
 

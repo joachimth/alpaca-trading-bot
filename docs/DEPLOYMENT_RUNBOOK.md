@@ -1,3 +1,17 @@
+## August 21, 2026 strategy-filtered trades and broker-authoritative swing reconciliation — local release gate
+
+Status: **NOT DEPLOYED; no live endpoints or broker mutations used. Production remains DEGRADED until natural swing/daytrading evidence exists.** The correction validates `GET /api/trades?strategy=daytrading|swing|crypto`, bounds `limit` at 500 (default 50), and returns explicit response metadata. Invalid filters are rejected. Read-only API requests must not issue DDL. Swing D1-only rows are closed locally through `closePosition(..., 'broker_authoritative_sync_absent')` with structured `BROKER_AUTHORITATIVE_SYNC_ABSENT`; actual broker/internal quantity mismatches still halt new swing BUY admission for the current cycle.
+
+Release validation: focused tests passed (**7 tests / 41 assertions**). Before any authorized release run full `bun test`, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run`. Do not run `wrangler deploy`, invoke strategy triggers, or call submit/close/cancel/replace/retry/live broker endpoints. After a separately authorized release, use GET-only checks and wait for natural swing/daytrading runs before changing health status.
+
+## August 21, 2026 read-only trade-filter and stale-D1 correction
+
+This bounded reliability correction addresses two live defects. `GET /api/trades` now applies `strategy=daytrading|swing|crypto` and rejects invalid values with HTTP 400. Swing reconciliation closes broker-absent D1-only rows through `broker_authoritative_sync_absent` only when no pending broker order explains them, while actual broker/internal quantity mismatches retain the current-cycle BUY safety halt. Invalid `/api/runs` strategy filters now also fail closed with HTTP 400.
+
+Required local gates: focused dashboard/reconciliation tests, full `bun test`, `bunx tsc --noEmit`, `git diff --check`, and Wrangler dry-run. Preserve caps **$5,000/$3,700/$2,000**, schedules, thresholds, sizing, and all broker-authoritative semantics. After release, separately GET all six required endpoints, filtered `/api/trades?strategy=crypto`, invalid trade/run filters, filtered run families, caps, source, schedules, lease/error observability, lifecycle fields, and aggregate gross/fee/net. Do not use triggers or any broker-mutating endpoint; do not label production healthy without fresh natural daytrading and swing evidence.
+
+Local status before release: correction tests passed, dry-run built, and TypeScript/diff gates are being rerun after the final fail-closed run-filter addition. Production remains **DEGRADED**.
+
 ## August 21, 2026 bounded Alpaca lifecycle-timestamp correction — deployed and verified
 
 This additive correction adds six nullable `trades` columns and persists only corresponding non-null Alpaca Order timestamps: `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, and `replaced_at`. Updates are monotonic per field and never erase stored lifecycle evidence; caps **$5,000 daytrading / $3,700 swing / $2,000 crypto**, all schedules, edge-gate behavior, read-only reconciliation, and trading behavior are unchanged.

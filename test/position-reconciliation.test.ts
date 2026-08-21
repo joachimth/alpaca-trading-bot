@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { Position } from '../src/alpaca';
-import { reconcileBrokerQuantityMismatches } from '../src/position-reconciliation';
+import { closeBrokerAbsentPositions, reconcileBrokerQuantityMismatches } from '../src/position-reconciliation';
 import { RiskManager } from '../src/risk-manager';
 
 const brokerPosition = (symbol: string, qty: number): Position => ({
@@ -64,6 +64,24 @@ describe('broker quantity reconciliation', () => {
     const broker = brokerPosition('NOW', 2);
     const recovered = manager.checkDivergence([broker], [{ ticker: 'NOW', qty: writes[0].qty, side: 'long' }]);
     expect(recovered.divergent).toBe(false);
+  });
+
+  test('closes D1-only rows but preserves rows with pending broker orders', async () => {
+    const closed: any[] = [];
+    const db = { closePosition: async (...args: any[]) => { closed.push(args); } };
+
+    const absent = await closeBrokerAbsentPositions(
+      db,
+      [brokerPosition('AAPL', 1)],
+      [
+        { ticker: 'UAL', qty: 1, strategy: 'swing' },
+        { ticker: 'SEDG', qty: 3, strategy: 'swing' },
+      ],
+      new Set(['SEDG']),
+    );
+
+    expect(absent).toEqual(['UAL']);
+    expect(closed).toEqual([['UAL', 0, 'broker_authoritative_sync_absent']]);
   });
 
   test('does not invent internal rows for broker-only positions', async () => {

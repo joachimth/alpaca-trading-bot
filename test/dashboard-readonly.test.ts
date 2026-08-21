@@ -78,6 +78,34 @@ describe('dashboard read-only hotfix', () => {
     expect(explicitOffsetBody.page).toBe(2);
     expect(explicitOffsetBody.runs).toHaveLength(10);
     expect(tracked.sql.some(statement => statement.includes('LIMIT ? OFFSET ?'))).toBe(true);
+
+    const invalidStrategyResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/runs?strategy=typo'));
+    expect(invalidStrategyResponse.status).toBe(400);
+    expect(await invalidStrategyResponse.json()).toMatchObject({ error: 'Invalid strategy filter' });
+  });
+
+  test('trades endpoint filters by strategy and rejects invalid filters without broker access', async () => {
+    const sqlite = seededSqlite();
+    sqlite.prepare(`INSERT INTO trades (ticker, side, qty, strategy, status) VALUES (?, 'buy', 1, ?, 'filled')`).run('BTCUSD', 'crypto');
+    sqlite.prepare(`INSERT INTO trades (ticker, side, qty, strategy, status) VALUES (?, 'buy', 1, ?, 'filled')`).run('AAPL', 'daytrading');
+    const tracked = trackedD1(sqlite);
+    const env = { DB: tracked.d1 } as unknown as Env;
+
+    const cryptoResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/trades?strategy=crypto&limit=10'));
+    expect(cryptoResponse.status).toBe(200);
+    const cryptoBody = await cryptoResponse.json() as any;
+    expect(cryptoBody.strategy).toBe('crypto');
+    expect(cryptoBody.trades).toHaveLength(1);
+    expect(cryptoBody.trades[0].ticker).toBe('BTCUSD');
+
+    const boundedResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/trades?limit=9999'));
+    expect(boundedResponse.status).toBe(200);
+    expect((await boundedResponse.json() as any).limit).toBe(500);
+
+    const invalidResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/trades?strategy=typo'));
+    expect(invalidResponse.status).toBe(400);
+    expect(await invalidResponse.json()).toMatchObject({ error: 'Invalid strategy filter' });
+    expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
   });
 
   test('dashboard bounds chart payload and omits duplicate strategy history', async () => {

@@ -269,9 +269,19 @@ export class DashboardAPI {
 
   private async getTrades(url: URL, cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB, { readOnly: true });
-    const limit = parseInt(url.searchParams.get('limit') || '50');
-    const trades = await db.getRecentTrades(limit);
-    return this.json({ trades }, cors);
+    const parseNonNegativeInt = (value: string | null, fallback: number): number => {
+      if (value == null || value.trim() === '') return fallback;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : fallback;
+    };
+    const limit = Math.min(parseNonNegativeInt(url.searchParams.get('limit'), 50), 500);
+    const requestedStrategy = url.searchParams.get('strategy');
+    if (requestedStrategy != null && requestedStrategy !== 'daytrading' && requestedStrategy !== 'swing' && requestedStrategy !== 'crypto') {
+      return this.json({ error: 'Invalid strategy filter', allowed: ['daytrading', 'swing', 'crypto'] }, cors, 400);
+    }
+    const strategy = requestedStrategy as 'daytrading' | 'swing' | 'crypto' | undefined;
+    const trades = await db.getRecentTrades(limit, strategy);
+    return this.json({ trades, limit, ...(strategy ? { strategy } : {}) }, cors);
   }
 
   private async getPerformance(url: URL, cors: Record<string, string>): Promise<Response> {
@@ -295,7 +305,11 @@ export class DashboardAPI {
       ? parseNonNegativeInt(url.searchParams.get('offset'), 0)
       : Math.max(0, requestedPage - 1) * limit;
     const page = offsetSupplied ? Math.floor(offset / limit) + 1 : requestedPage;
-    const strategy = url.searchParams.get('strategy');
+    const requestedStrategy = url.searchParams.get('strategy');
+    if (requestedStrategy != null && requestedStrategy !== 'daytrading' && requestedStrategy !== 'swing' && requestedStrategy !== 'crypto') {
+      return this.json({ error: 'Invalid strategy filter', allowed: ['daytrading', 'swing', 'crypto'] }, cors, 400);
+    }
+    const strategy = requestedStrategy as 'daytrading' | 'swing' | 'crypto' | null;
     const runs = await db.getRecentRuns({
       limit,
       offset,
