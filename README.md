@@ -2,7 +2,7 @@
 
 The confirmed swing admission gap is corrected locally. Swing BUY checks now carry approved cycle-level entry notional into subsequent checks, so current broker-backed swing exposure plus planned entries cannot exceed the unchanged **$3,700** cap; exhausted headroom is recorded as structured `CAPITAL_CAP` observability. Exits, protective behavior, thresholds, turnover/minimum-size behavior, daytrading, crypto, and all vital caps remain unchanged.
 
-Validation passed on August 21, 2026: focused swing/risk/cap/skip tests, full suite **115 tests / 340 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. The correction is not yet deployed in this receipt; deployment requires the documented commit/push, direct Cloudflare upload, new-version/100%-traffic proof, all four schedule verification, and separate GET-only live checks. No broker-mutating endpoint was used.
+Validation passed on August 21, 2026: focused swing/risk/cap/skip tests, full suite **115 tests / 340 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. The correction is deployed and separately read-only verified. Commit `d9c8ec6fd0315980549078169c3e2d69986700d0` is live as Cloudflare deployment `602cdd72-1a49-4db5-bd86-898efea14315`, Worker version `7b20c401-fe15-41e5-ac71-a8d798e8112d`, at 100% traffic. All four schedules and all six GET endpoints passed; no broker-mutating endpoint was used.
 
 Known remaining gaps remain explicit: crypto positive-edge BUYs fail closed as `EDGE_CALIBRATION_UNAVAILABLE` because no production caller supplies calibrated `rawEdgeBps`; several broker lifecycle timestamps and crypto GTC `time_in_force` are not fully persisted; P&L remains model/gross-style plus conservative attributed fees rather than fill/lot-exact accounting; and fresh natural post-release strategy/reconciliation success is still required before health can be declared.
 
@@ -10,7 +10,7 @@ Known remaining gaps remain explicit: crypto positive-edge BUYs fail closed as `
 
 The confirmed swing multi-entry cap gap is corrected locally. Each approved swing BUY now reserves its proposed notional before the next `checkEntry` call, so the unchanged **$3,700** `swing_max_capital_usd` cap is enforced across all proposed entries in one cycle even when broker positions remain unchanged. Turnover control remains a turnover/minimum-size filter; it no longer serves as the cap guard. Exits, protective behavior, caps, thresholds, and strategy budgets are unchanged.
 
-Required validation before any release decision: run `bun test test/risk-fee-aware.test.ts`, `bun test`, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run`. Do not use trading triggers or broker-mutating endpoints. This worktree has not been deployed; natural post-release evidence is still required if an authorized operator later releases it.
+Required validation before any release decision: run `bun test test/risk-fee-aware.test.ts`, `bun test`, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run`. Do not use trading triggers or broker-mutating endpoints. The correction is deployed as Cloudflare deployment `602cdd72-1a49-4db5-bd86-898efea14315`, Worker version `7b20c401-fe15-41e5-ac71-a8d798e8112d`, at 100% traffic with all four schedules present. Separate GET-only verification passed all six endpoints; natural post-release evidence remains required.
 
 ## August 21, 2026 strict read-only production control, 08:02:29 UTC
 
