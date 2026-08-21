@@ -298,4 +298,69 @@ describe('fee-aware SwingRiskManager regression coverage', () => {
     expect(result.edgeAfterCosts).toBeCloseTo(15.9355269907728, 6);
     expect(result.reason).toContain('edge after costs: 15.9bps');
   });
+
+  test('sequential swing proposals cannot exceed the configured capital cap', () => {
+    const manager = new SwingRiskManager(swingConfig({
+      maxCapitalUsd: 3700,
+      maxPositionPct: 100,
+      targetPositionPct: 100,
+      minTradeSize: 0,
+    }));
+    const swingAccount = account({ cash: 100_000, portfolio_value: 100_000 });
+    let plannedEntryNotionalUsd = 0;
+    let approvedEntries = 0;
+
+    for (let i = 0; i < 20; i += 1) {
+      const result = manager.checkEntry(
+        score({ symbol: `SYM${i}` }),
+        swingAccount,
+        [],
+        100,
+        plannedEntryNotionalUsd,
+      );
+      if (!result.approved || !result.adjustedValue) break;
+      plannedEntryNotionalUsd += result.adjustedValue;
+      approvedEntries += 1;
+    }
+
+    expect(approvedEntries).toBeGreaterThan(1);
+    expect(plannedEntryNotionalUsd).toBeLessThanOrEqual(3700);
+  });
+
+  test('fails closed when current and planned swing exposure exhaust the cap', () => {
+    const manager = new SwingRiskManager(swingConfig({ maxCapitalUsd: 3700 }));
+    const result = manager.checkEntry(
+      score(),
+      account({ cash: 100_000, portfolio_value: 100_000 }),
+      [position({ symbol: 'MSFT', market_value: 3000, qty: 30, current_price: 100 })],
+      100,
+      700,
+    );
+
+    expect(result.approved).toBe(false);
+    expect(result.reason).toContain('Swing capital cap exhausted');
+  });
+
+  test('keeps uncapped swing entry sizing unchanged when a reservation is supplied', () => {
+    const manager = new SwingRiskManager(swingConfig({ maxCapitalUsd: 0 }));
+    const swingAccount = account({ cash: 100_000, portfolio_value: 100_000 });
+    const baseline = manager.checkEntry(score(), swingAccount, [], 100);
+    const withReservation = manager.checkEntry(score({ symbol: 'MSFT' }), swingAccount, [], 100, 99_999);
+
+    expect(baseline.approved).toBe(true);
+    expect(withReservation.approved).toBe(true);
+    expect(withReservation.adjustedValue).toBeCloseTo(baseline.adjustedValue ?? 0, 10);
+    expect(withReservation.adjustedQty).toBe(baseline.adjustedQty);
+  });
+
+  test('keeps protective swing exits independent of entry-cap reservations', () => {
+    const manager = new SwingRiskManager(swingConfig({ maxCapitalUsd: 3700 }));
+    const result = manager.checkExit(
+      score(),
+      position({ unrealized_pl: -370, unrealized_plpc: -0.1 }),
+    );
+
+    expect(result.shouldExit).toBe(true);
+    expect(result.exitType).toBe('protective');
+  });
 });

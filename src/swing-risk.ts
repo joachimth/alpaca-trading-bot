@@ -111,11 +111,12 @@ export class SwingRiskManager {
   // ============================================================
 
   checkEntry(
-  score: SwingScore,
-  account: AccountInfo,
-  positions: Position[],
-  price: number
-): SwingRiskCheckResult {
+    score: SwingScore,
+    account: AccountInfo,
+    positions: Position[],
+    price: number,
+    reservedNotionalUsd = 0,
+  ): SwingRiskCheckResult {
   // Kill switch
   if (this.killState.tradingHalted) {
     return { approved: false, reason: `Trading halted: ${this.killState.reason}` };
@@ -150,11 +151,22 @@ export class SwingRiskManager {
     return { approved: false, reason: `Max positions (${currentLongs}/${this.config.maxPositions})` };
   }
 
-  // Gross exposure check — against swing capital, not full account
+  // Gross exposure check — against swing capital, not full account. Include
+  // approved entries from this cycle because broker positions do not change
+  // between each proposal check.
   const currentGross = positions.reduce((s, p) => s + Math.abs(p.market_value), 0);
-  // If we have a capital cap, check how much of it is already deployed
+  const safeReservedNotional = Number.isFinite(reservedNotionalUsd)
+    ? Math.max(0, reservedNotionalUsd)
+    : 0;
+  const cycleReservedNotional = this.config.maxCapitalUsd > 0 ? safeReservedNotional : 0;
+  if (this.config.maxCapitalUsd > 0 && currentGross + cycleReservedNotional >= this.config.maxCapitalUsd) {
+    return {
+      approved: false,
+      reason: `Swing capital cap exhausted: $${(currentGross + cycleReservedNotional).toFixed(2)} allocated against $${this.config.maxCapitalUsd.toFixed(2)}`,
+    };
+  }
   const swingGrossUsed = this.config.maxCapitalUsd > 0
-    ? Math.min(currentGross, this.config.maxCapitalUsd)
+    ? Math.min(currentGross + cycleReservedNotional, this.config.maxCapitalUsd)
     : currentGross;
   const swingGrossPct = swingCapital > 0 ? (swingGrossUsed / swingCapital) * 100 : 0;
   if (swingGrossPct >= this.config.maxGrossExposure) {
@@ -178,8 +190,15 @@ export class SwingRiskManager {
   const maxValue = swingCapital * (this.config.maxPositionPct / 100);
   // Available cash: respect the swing capital cap
   const availableForSwing = this.config.maxCapitalUsd > 0
-    ? Math.min(this.config.maxCapitalUsd - swingGrossUsed, account.cash)
+    ? Math.min(Math.max(0, this.config.maxCapitalUsd - currentGross - cycleReservedNotional), account.cash)
     : (this.config.enableMargin ? account.buying_power : account.cash);
+
+  if (this.config.maxCapitalUsd > 0 && availableForSwing <= 0) {
+    return {
+      approved: false,
+      reason: `Swing capital cap exhausted: $${(currentGross + cycleReservedNotional).toFixed(2)} allocated against $${this.config.maxCapitalUsd.toFixed(2)}`,
+    };
+  }
 
   const positionValue = Math.min(gapBasedValue, targetValue, maxValue, availableForSwing * 0.95);
 

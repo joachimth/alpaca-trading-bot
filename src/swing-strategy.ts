@@ -474,6 +474,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     const heldSymbols = new Set(updatedAllPositions.map(p => p.symbol));
 
     const proposedBuys: Array<{ symbol: string; value: number; score: SwingScore; decisionId: number }> = [];
+    let plannedEntryNotionalUsd = 0;
     const submittedSwingEntrySymbols = new Set<string>();
 
     for (const score of entryDataDegraded ? [] : buyCandidates) {
@@ -488,7 +489,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       // if (riskManager.isEarningsBlackout(score.symbol, earningsCal)) continue;
 
       const price = score.indicators.price;
-      const riskCheck = riskManager.checkEntry(score, updatedAccount, updatedPositions, price);
+      const riskCheck = riskManager.checkEntry(score, updatedAccount, updatedPositions, price, plannedEntryNotionalUsd);
       decisionsMade++;
 
       const decisionId = await db.logDecision({
@@ -505,10 +506,13 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       });
 
       if (riskCheck.approved && riskCheck.adjustedQty) {
-        proposedBuys.push({ symbol: score.symbol, value: riskCheck.adjustedValue || 0, score, decisionId });
+        const proposedValue = riskCheck.adjustedValue || 0;
+        plannedEntryNotionalUsd += proposedValue;
+        proposedBuys.push({ symbol: score.symbol, value: proposedValue, score, decisionId });
       } else {
         await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
-        skips.add('NO_ENTRY_RISK', 'decision', 'Swing entry skipped by risk controls', { symbol: score.symbol, reason: riskCheck.reason });
+        const skipCode = riskCheck.reason.includes('capital cap') ? 'CAPITAL_CAP' : 'NO_ENTRY_RISK';
+        skips.add(skipCode, 'decision', 'Swing entry skipped by risk controls', { symbol: score.symbol, reason: riskCheck.reason, plannedEntryNotionalUsd });
       }
     }
 

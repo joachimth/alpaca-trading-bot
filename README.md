@@ -1,3 +1,32 @@
+## August 21, 2026 swing-cap correction
+
+The confirmed swing admission gap is corrected locally. Swing BUY checks now carry approved cycle-level entry notional into subsequent checks, so current broker-backed swing exposure plus planned entries cannot exceed the unchanged **$3,700** cap; exhausted headroom is recorded as structured `CAPITAL_CAP` observability. Exits, protective behavior, thresholds, turnover/minimum-size behavior, daytrading, crypto, and all vital caps remain unchanged.
+
+Validation passed on August 21, 2026: focused swing/risk/cap/skip tests, full suite **115 tests / 340 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. The correction is not yet deployed in this receipt; deployment requires the documented commit/push, direct Cloudflare upload, new-version/100%-traffic proof, all four schedule verification, and separate GET-only live checks. No broker-mutating endpoint was used.
+
+Known remaining gaps remain explicit: crypto positive-edge BUYs fail closed as `EDGE_CALIBRATION_UNAVAILABLE` because no production caller supplies calibrated `rawEdgeBps`; several broker lifecycle timestamps and crypto GTC `time_in_force` are not fully persisted; P&L remains model/gross-style plus conservative attributed fees rather than fill/lot-exact accounting; and fresh natural post-release strategy/reconciliation success is still required before health can be declared.
+
+## August 21, 2026 targeted swing-cap correction — local validation status
+
+The confirmed swing multi-entry cap gap is corrected locally. Each approved swing BUY now reserves its proposed notional before the next `checkEntry` call, so the unchanged **$3,700** `swing_max_capital_usd` cap is enforced across all proposed entries in one cycle even when broker positions remain unchanged. Turnover control remains a turnover/minimum-size filter; it no longer serves as the cap guard. Exits, protective behavior, caps, thresholds, and strategy budgets are unchanged.
+
+Required validation before any release decision: run `bun test test/risk-fee-aware.test.ts`, `bun test`, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run`. Do not use trading triggers or broker-mutating endpoints. This worktree has not been deployed; natural post-release evidence is still required if an authorized operator later releases it.
+
+## August 21, 2026 strict read-only production control, 08:02:29 UTC
+
+Result: **DEGRADED, not healthy**. All six required GET endpoints returned HTTP 200, but fresh successful daytrading and swing runs have not yet been observed in the current August 21 UTC cycle, and the live history contains explicit lease-held and error skips.
+
+- `/api/positions` returned 29 positions with `positionsAvailable: true` and `source: "alpaca"`; broker values are authoritative and D1 contributes metadata only.
+- Equity direction was positive at the check: account equity `$98,439.92` versus last equity `$98,270.0927` (`+$169.8273`); the latest snapshot rose from `$98,417.98` at 07:07:31 UTC to `$98,439.21` at 07:37:32 UTC.
+- The four checked-in schedules and dispatch paths remain exact: daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *` at approximately `:07/:37`, and reconciliation `*/10 * * * *`.
+- Fresh crypto delivery was observed at `2026-08-21 07:37:34` UTC with 7 decisions, 0 trades, 0 errors, and structured `NO_POSITION_TO_EXIT` plus `FEE_DATA_UNAVAILABLE` skips. Reconciliation delivered `MAINTENANCE_ONLY` runs through `08:00:31` UTC; `07:20:24` recorded an explicit `CYCLE_LEASE_HELD` skip. The latest daytrading success remains `2026-08-20 16:25:42` UTC, while the latest swing history is an error at `2026-08-18 22:00:36` UTC; no August 21 daytrading or swing success can be expected before their scheduled UTC windows.
+- All 50 returned trade rows had lifecycle fields populated: `client_order_id`, `filled_qty`, `leaves_qty`, `avg_fill_price`, `status`, `broker_updated_at`, and `last_reconciled_at`.
+- Gross/net accounting is internally consistent: every strategy satisfies `grossTotalPl - feesUsd = netTotalPl`, and aggregate gross less `$272.32016882811` of recorded fees equals reported net `-$395.7631318281099`. Crypto fees remain broker-attributed; regulatory/account-level fees remain unattributed.
+- Live caps remain unchanged at daytrading `$5,000`, swing `$3,700`, and crypto `$2,000`; current category market values are below those caps. A historical August 10 daytrading exposure of `$5,679.878` remains a recorded prior-release defect, not evidence of a current cap breach; the current code's same-cycle and broker-exposure cap checks remain covered by regression tests.
+- Filtered `/api/runs` observability passed for `cron`, `swing_cron`, `crypto_cron`, and `reconcile_cron`. The crypto edge-gate wiring is present in source and covered by the 111-test suite; the latest live crypto run stopped earlier at unavailable fee telemetry, so it did not exercise `EDGE_CALIBRATION_UNAVAILABLE`.
+
+No code, cap, strategy, or deployment mutation was required for this control correction. The follow-up remains natural scheduled evidence for successful daytrading and swing delivery; no trigger, submit, cancel, close, replace, retry, or broker-mutating endpoint was called.
+
 # Alpaca AI Trading Bot
 
 Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persistence, Alpaca paper trading, and a GitHub Pages dashboard.

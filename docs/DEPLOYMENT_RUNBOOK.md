@@ -1,3 +1,30 @@
+## August 21, 2026 swing-cap correction
+
+The confirmed swing admission gap is corrected locally. Swing BUY checks now carry approved cycle-level entry notional into subsequent checks, so current broker-backed swing exposure plus planned entries cannot exceed the unchanged **$3,700** cap; exhausted headroom is recorded as structured `CAPITAL_CAP` observability. Exits, protective behavior, thresholds, turnover/minimum-size behavior, daytrading, crypto, and all vital caps remain unchanged.
+
+Validation passed on August 21, 2026: focused swing/risk/cap/skip tests, full suite **115 tests / 340 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. The correction is not yet deployed in this receipt; deployment requires the documented commit/push, direct Cloudflare upload, new-version/100%-traffic proof, all four schedule verification, and separate GET-only live checks. No broker-mutating endpoint was used.
+
+Known remaining gaps remain explicit: crypto positive-edge BUYs fail closed as `EDGE_CALIBRATION_UNAVAILABLE` because no production caller supplies calibrated `rawEdgeBps`; several broker lifecycle timestamps and crypto GTC `time_in_force` are not fully persisted; P&L remains model/gross-style plus conservative attributed fees rather than fill/lot-exact accounting; and fresh natural post-release strategy/reconciliation success is still required before health can be declared.
+
+## August 21, 2026 targeted swing-cap correction — release gate
+
+Local source correction: swing BUY admission now carries cycle-level proposed notional into every subsequent risk check. This enforces the unchanged **$3,700** swing cap across multiple proposals while preserving existing turnover/minimum-size behavior, thresholds, all other caps, exits, and protective behavior. The correction is **not deployed by this builder**.
+
+Before any authorized deployment, run and record: `bun test test/risk-fee-aware.test.ts`, `bun test`, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run`. Review the diff to confirm only swing entry-cap admission and focused tests/docs changed. Do not run a trigger, cycle, submit, close, cancel, replace, retry, or any broker-mutating endpoint. After deployment, use only GET/read-only checks first, then wait for a natural swing schedule run and verify proposed/submitted BUY notional does not exceed **$3,700**.
+
+## Strict read-only production control receipt, August 21, 2026 08:02:29 UTC
+
+Status: **DEGRADED, do not label healthy**.
+
+- All required GET endpoints returned HTTP 200: `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`.
+- Broker authority passed: `/api/positions` reported `positionsAvailable: true`, `source: "alpaca"`, and 29 broker positions; failed broker fetch behavior remains fail-closed with no D1 live-state fallback.
+- Equity direction passed: `$98,439.92` current equity versus `$98,270.0927` last equity; caps remained `$5,000/$3,700/$2,000`.
+- Schedule source/dispatch passed for daytrading, swing, crypto `:07/:37`, and reconciliation. Natural crypto and reconciliation delivery was observed, including structured skip details and a lease-held maintenance skip. Fresh August 21 daytrading and swing success is pending their scheduled UTC windows; historical swing errors remain visible.
+- Trade lifecycle fields were complete on all 50 returned rows. Gross, fees, net, and attribution arithmetic passed. Filtered run observability passed for all four trigger families. Crypto edge-gate wiring and regression coverage passed.
+- Historical cap evidence: August 10 daytrading exposure `$5,679.878` remains a prior-release defect record. Current code and current live category values do not show a new breach, so no cap or strategy change is authorized or needed from this control.
+
+Correction action: documentation and `/workspace/NOW.md` were refreshed to preserve the degraded state and explicit follow-up. No code/config/deployment mutation was required. Do not manually trigger a cycle to close the evidence gap; rerun the same GET-only control after the next natural daytrading and swing windows.
+
 ## August 21, 2026 crypto edge-gate correction
 
 Release scope: add an explicit crypto-only fail-closed gate for a configured positive `minEdgeAfterCosts` when no calibrated `rawEdgeBps` exists; never derive edge from confidence; preserve daytrading/swing behavior and caps `$5,000/$3,700/$2,000`; classify the skip as `EDGE_CALIBRATION_UNAVAILABLE`. No D1 migration is required.

@@ -1,3 +1,25 @@
+## August 21, 2026 swing-cap correction
+
+The confirmed swing admission gap is corrected locally. Swing BUY checks now carry approved cycle-level entry notional into subsequent checks, so current broker-backed swing exposure plus planned entries cannot exceed the unchanged **$3,700** cap; exhausted headroom is recorded as structured `CAPITAL_CAP` observability. Exits, protective behavior, thresholds, turnover/minimum-size behavior, daytrading, crypto, and all vital caps remain unchanged.
+
+Validation passed on August 21, 2026: focused swing/risk/cap/skip tests, full suite **115 tests / 340 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. The correction is not yet deployed in this receipt; deployment requires the documented commit/push, direct Cloudflare upload, new-version/100%-traffic proof, all four schedule verification, and separate GET-only live checks. No broker-mutating endpoint was used.
+
+Known remaining gaps remain explicit: crypto positive-edge BUYs fail closed as `EDGE_CALIBRATION_UNAVAILABLE` because no production caller supplies calibrated `rawEdgeBps`; several broker lifecycle timestamps and crypto GTC `time_in_force` are not fully persisted; P&L remains model/gross-style plus conservative attributed fees rather than fill/lot-exact accounting; and fresh natural post-release strategy/reconciliation success is still required before health can be declared.
+
+## August 21, 2026 targeted swing-cap correction — local validation status
+
+The confirmed swing capital-cap enforcement gap is corrected locally. Swing cycle entry admission now carries approved BUY notional from earlier proposals into each subsequent `checkEntry` call, enforcing the existing **$3,700** cap across the complete proposal batch despite unchanged broker positions. This is an entry-admission reliability fix only: turnover limits, minimum trade size, confidence/edge thresholds, all strategy caps, exits, and protective exits remain unchanged.
+
+Release validation requirements are: focused swing risk regressions, full `bun test`, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run`. Validation must remain local/read-only; never trigger a strategy cycle or call submit, close, cancel, replace, retry, or another broker-mutating endpoint. After any authorized release, require natural swing-cycle evidence that proposed and submitted BUY notional remains at or below **$3,700**.
+
+## August 21, 2026 strict read-only production control, 08:02:29 UTC
+
+Control result: **DEGRADED**. All six GET endpoints returned HTTP 200. Broker positions remained authoritative (`/api/positions`: 29 positions, `source: "alpaca"`), equity direction was positive (`$98,439.92` versus `$98,270.0927` last equity), and caps remained `$5,000/$3,700/$2,000`.
+
+The checked-in and dispatched schedules are daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and reconciliation `*/10 * * * *`. Crypto delivered a fresh `2026-08-21 07:37:34` UTC run with 7 decisions, 0 trades, 0 errors, and structured skips; reconciliation delivered `MAINTENANCE_ONLY` runs through `08:00:31` UTC and exposed a `CYCLE_LEASE_HELD` skip at `07:20:24`. No current-window August 21 daytrading or swing success is yet available, and the historical swing record includes an error at `2026-08-18 22:00:36` UTC, so the control is not healthy.
+
+Filtered run observability, trade lifecycle completeness, gross/net/fee arithmetic, and crypto edge-gate source/test wiring passed. The historical August 10 daytrading exposure of `$5,679.878` remains an explicit prior-release follow-up; no current cap breach was found. This check required documentation/status correction only, not deployment, and used no broker-mutating endpoint.
+
 ## Bounded entry-identity fix — August 18, 2026 (deployed and live-verified)
 
 A bounded, non-vital fix removes `Date.now()` from stock/swing entry identity and makes retry duplicate protection deterministic. It does **not** alter the vital caps (daytrading **$5,000**, swing **$3,700**, crypto **$2,000**), confidence gates, max-trade limits, strategy universes, or risk parameters, and it does **not** change the exit decision-correlation gap or the running crypto reservation semantics.
