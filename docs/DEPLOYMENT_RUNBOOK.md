@@ -1,8 +1,9 @@
-## August 21, 2026 strategy-filtered trades and broker-authoritative swing reconciliation — local release gate
+## August 21, 2026 strategy-filtered trades and broker-authoritative swing reconciliation — deployed
 
-Status: **NOT DEPLOYED; no live endpoints or broker mutations used. Production remains DEGRADED until natural swing/daytrading evidence exists.** The correction validates `GET /api/trades?strategy=daytrading|swing|crypto`, bounds `limit` at 500 (default 50), and returns explicit response metadata. Invalid filters are rejected. Read-only API requests must not issue DDL. Swing D1-only rows are closed locally through `closePosition(..., 'broker_authoritative_sync_absent')` with structured `BROKER_AUTHORITATIVE_SYNC_ABSENT`; actual broker/internal quantity mismatches still halt new swing BUY admission for the current cycle.
+Status: **DEPLOYED AND READ-ONLY VERIFIED; production remains DEGRADED until natural swing/daytrading evidence exists.** The correction validates `GET /api/trades?strategy=daytrading|swing|crypto`, bounds `limit` at 500 (default 50), returns explicit response metadata, and rejects invalid trade/run strategy filters with HTTP 400. Read-only API requests issue no DDL. Swing D1-only rows are closed locally through `closePosition(..., 'broker_authoritative_sync_absent')` with structured `BROKER_AUTHORITATIVE_SYNC_ABSENT`; actual broker/internal quantity mismatches still halt new swing BUY admission for the current cycle.
 
-Release validation: focused tests passed (**7 tests / 41 assertions**). Before any authorized release run full `bun test`, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run`. Do not run `wrangler deploy`, invoke strategy triggers, or call submit/close/cancel/replace/retry/live broker endpoints. After a separately authorized release, use GET-only checks and wait for natural swing/daytrading runs before changing health status.
+Release receipt: **125 tests / 374 assertions**, TypeScript, diff-check, and Wrangler dry-run passed. Cloudflare deployment `1b286e9a-6d2f-45b9-a439-72fd12654f9c` serves Worker version `ced43daf-ed03-4add-ac07-1d8bf562b72c` at 100% traffic with all four schedules. Separate GET-only checks confirmed all six endpoints, broker source `alpaca` with 29 positions, caps `$5,000/$3,700/$2,000`, invalid-filter HTTP 400 responses, and 20 crypto-only trades. No trigger or broker-mutating endpoint was used.
+
 
 ## August 21, 2026 read-only trade-filter and stale-D1 correction
 

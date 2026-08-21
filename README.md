@@ -1,10 +1,11 @@
-## August 21, 2026 strategy-filtered trades and broker-authoritative swing reconciliation — local validation
+## August 21, 2026 strategy-filtered trades and broker-authoritative swing reconciliation — deployed
 
-This local, not-deployed reliability correction makes `GET /api/trades` honor the validated `strategy=daytrading|swing|crypto` filter, bounds `limit` to 500 (default 50), and returns explicit `limit` plus selected `strategy` metadata. Invalid strategy values return HTTP 400. The default unfiltered response remains unchanged apart from metadata. Dashboard/API reads construct `Database` in read-only mode and issue no DDL.
+This bounded reliability correction makes `GET /api/trades` honor the validated `strategy=daytrading|swing|crypto` filter, bounds `limit` to 500 (default 50), and returns explicit `limit` plus selected `strategy` metadata. Invalid strategy values return HTTP 400. `/api/runs` rejects invalid strategy filters likewise. Dashboard/API reads construct `Database` in read-only mode and issue no DDL.
 
-Swing reconciliation now treats a complete broker snapshot as authoritative: D1-only swing rows are closed through the existing read-only `closePosition(..., 'broker_authoritative_sync_absent')` path and recorded as structured `BROKER_AUTHORITATIVE_SYNC_ABSENT` observability. Actual broker/internal quantity mismatches retain the current-cycle BUY safety halt; caps, thresholds, schedules, sizing, order behavior, and broker endpoints are unchanged.
+Swing reconciliation treats a complete broker snapshot as authoritative: D1-only swing rows are closed through the existing read-only `closePosition(..., 'broker_authoritative_sync_absent')` path and recorded as structured `BROKER_AUTHORITATIVE_SYNC_ABSENT`; actual broker/internal quantity mismatches retain the current-cycle BUY safety halt. Caps, thresholds, schedules, sizing, order behavior, and broker endpoints are unchanged.
 
-Validation plan/status: focused API/reconciliation tests passed (**7 tests / 41 assertions**). Full `bun test`, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run` remain required before release. No deployment, live endpoint, strategy trigger, or broker mutation was performed. Production remains **DEGRADED, not healthy** until natural swing and daytrading evidence exists.
+Validation passed: **125 tests / 374 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. Cloudflare deployment `1b286e9a-6d2f-45b9-a439-72fd12654f9c` serves Worker version `ced43daf-ed03-4add-ac07-1d8bf562b72c` at 100% traffic with all four schedules. Separate GET-only verification confirmed all six endpoints, broker positions `source: alpaca` with 29 rows, caps `$5,000/$3,700/$2,000`, invalid-filter HTTP 400 responses, and 20 crypto-only filtered trades. Production remains **DEGRADED, not healthy** until fresh natural daytrading and swing evidence exists; lifecycle population and exact per-trade fee/gross/net accounting remain open gaps.
+
 
 ## August 21, 2026 bounded Alpaca lifecycle-timestamp correction — deployed and read-only verified
 
