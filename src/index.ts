@@ -328,7 +328,10 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       portfolio_value: account.portfolio_value,
       long_market_value: account.long_market_value,
       short_market_value: account.short_market_value,
-      positions_count: positions.length,
+      // This is an account-wide snapshot. Risk filtering above remains
+      // strategy-specific, but the snapshot count must include every
+      // broker-authoritative position.
+      positions_count: allBrokerPositions.length,
       daily_pl: account.change_today,
       daily_plpc: account.change_today_pct,
       total_pl: account.equity - account.last_equity,

@@ -199,7 +199,12 @@ export class AlpacaClient {
       buying_power: parseFloat(data.buying_power),
       long_market_value: parseFloat(data.long_market_value || '0'),
       short_market_value: parseFloat(data.short_market_value || '0'),
-      market_value: parseFloat(data.market_value || '0'),
+      // Alpaca account payloads may omit market_value while still exposing
+      // authoritative long/short market values. Never surface a false zero
+      // when those broker aggregates are present.
+      market_value: data.market_value != null && Number.isFinite(parseFloat(data.market_value))
+        ? parseFloat(data.market_value)
+        : parseFloat(data.long_market_value || '0') + parseFloat(data.short_market_value || '0'),
       last_equity: parseFloat(data.last_equity || '0'),
       change_today: parseFloat(data.change_today || '0'),
       change_today_pct: parseFloat(data.change_today_pct || '0'),
@@ -382,7 +387,9 @@ export class AlpacaClient {
       throw new Error(`Alpaca submitOrder failed: ${resp.status} ${text}`);
     }
 
-    return await resp.json() as any;
+    // Normalize the submit response so broker lifecycle timestamps are
+    // preserved before the order reaches D1 persistence.
+    return this.parseOrder(await resp.json());
   }
 
   async getOrder(orderId: string): Promise<Order> {

@@ -1,6 +1,6 @@
 ## August 21, 2026 strict read-only production control and alias-correction status
 
-The `/api/runs` trigger-alias correction is locally validated and committed, but its production deployment and source identity are not established by this control. It is a GET-only API-boundary correction mapping `daytrading_cron` to stored `cron` and `reconciliation_cron` to stored `reconcile_cron`; schedules, run history, caps, thresholds, sizing, trading behavior, and broker endpoints are unchanged.
+The `/api/runs` trigger-alias correction is locally validated and committed, but its production deployment and source identity are not established by this control. The current bounded correction also normalizes submitted broker orders, derives missing account market value from broker long/short aggregates, and counts all broker positions in account-wide snapshots; it preserves caps, schedules, thresholds, sizing, and trading behavior. It is a GET-only API-boundary correction mapping `daytrading_cron` to stored `cron` and `reconciliation_cron` to stored `reconcile_cron`; schedules, run history, caps, thresholds, sizing, trading behavior, and broker endpoints are unchanged.
 
 The August 21, 2026 GET audit confirms all six required endpoints return HTTP 200, positions are broker-authoritative with `source: alpaca` and 29 rows, the configured caps remain `$5,000/$3,700/$2,000`, and equity direction is positive. Production remains **DEGRADED, not healthy**: fresh daytrading and swing success is not proven, lease/error/fee skips are present, lifecycle timestamps are null in the sampled trades, per-trade gross/fee/net fields are absent, crypto edge comparison is not live-proven, and current Cloudflare/source identity is not independently verified. No trigger, order, cancel, close, replace, retry, or broker-mutating endpoint was used.
 
@@ -137,7 +137,7 @@ The latest recorded release receipt is the August 21 strategy-filter and broker-
 - **Account mode:** Alpaca paper trading
 - **Status:** **DEGRADED, not healthy**. Fresh crypto and reconciliation deliveries are visible, but the sampled runs are skipped outcomes; fresh successful daytrading and swing delivery is not established.
 
-The live sample also shows broker/internal position divergence, all six exposed nullable lifecycle timestamps null on the 50 sampled trades, no per-trade gross/fee/net fields, fee telemetry skips, and no end-to-end live proof that the crypto edge comparison against the configured threshold was exercised. The dashboard is a static GitHub Pages frontend that calls only the Worker API and never contains Alpaca credentials.
+The live sample also shows broker/internal position divergence, all six exposed nullable lifecycle timestamps null on the 50 sampled trades, no per-trade gross/fee/net fields, fee telemetry skips, and no end-to-end live proof that the crypto edge comparison against the configured threshold was exercised. A bounded local correction now derives account market value from broker long/short aggregates when Alpaca omits the aggregate field and records all broker positions in account-wide snapshots; it does not infer missing lifecycle timestamps. The dashboard is a static GitHub Pages frontend that calls only the Worker API and never contains Alpaca credentials.
 
 ### Dashboard read-only hotfix (August 10, 2026)
 

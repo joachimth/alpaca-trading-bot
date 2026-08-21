@@ -131,6 +131,10 @@ describe('audit schedule and dispatch regressions', () => {
 });
 
 describe('audit equity-direction and risk semantics', () => {
+  test('account snapshots count every broker position, not strategy-filtered risk positions', () => {
+    expect(workerSource).toContain('positions_count: allBrokerPositions.length');
+  });
+
   test('keeps account total P&L direction as current equity minus last equity', () => {
     expect(workerSource).toContain('total_pl: account.equity - account.last_equity');
     expect(workerSource).toContain('total_plpc: account.last_equity > 0 ? ((account.equity - account.last_equity) / account.last_equity) * 100 : 0');

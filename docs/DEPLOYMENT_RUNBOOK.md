@@ -1,3 +1,7 @@
+## August 21, 2026 bounded dashboard and order-lifecycle correction — release gate
+
+Scope is reliability-only: derive missing account market value from broker long plus short aggregates, count all broker positions in account-wide snapshots, and normalize `submitOrder` responses so authoritative lifecycle timestamps persist. Do not infer timestamps from unrelated fields. Preserve caps $5,000/$3,700/$2,000, schedules, thresholds, sizing, and trading behavior. Required gates are focused tests, full `bun test`, TypeScript, diff-check, Wrangler dry-run, authorized deployment, then separate GET-only verification of all six endpoints and lifecycle exposure. Production remains DEGRADED until fresh natural strategy evidence is also established.
+
 ## August 21, 2026 strict read-only production control and alias-correction release gate
 
 Status: **LOCAL VALIDATION COMPLETE; PRODUCTION DEPLOYMENT AND SOURCE IDENTITY NOT ESTABLISHED; production remains DEGRADED and is not healthy.** The alias correction is a read-only `/api/runs?trigger=` boundary change mapping `daytrading_cron` to stored `cron` and `reconciliation_cron` to stored `reconcile_cron`. Exact canonical filters continue to work and returned rows preserve stored trigger values. Do not alter run history, scheduler dispatch, schedules, caps, strategy thresholds, sizing, or broker behavior; no DDL or migration is required.

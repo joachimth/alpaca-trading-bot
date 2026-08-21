@@ -1,3 +1,7 @@
+## August 21, 2026 bounded dashboard and order-lifecycle correction — local validation, deployment pending
+
+The correction is limited to reliability and observability: account market value falls back to broker-provided long plus short market values only when Alpaca omits the aggregate, account-wide snapshots count the complete broker position set, and `submitOrder` normalizes broker responses so non-null lifecycle timestamps reach persistence. No timestamp is inferred when Alpaca returns null. Caps remain $5,000/$3,700/$2,000, all four schedules and strategy behavior are unchanged, and production remains DEGRADED pending deployment and separate GET-only verification.
+
 ## August 21, 2026 strict read-only production control and alias-correction status
 
 Status: **LOCAL VALIDATION COMPLETE; PRODUCTION DEPLOYMENT AND SOURCE IDENTITY NOT ESTABLISHED; production remains DEGRADED and is not healthy.** The alias correction is limited to the read-only `GET /api/runs?trigger=` boundary: `daytrading_cron` maps to stored `cron` and `reconciliation_cron` maps to stored `reconcile_cron`. Canonical filters continue to work, historical rows retain stored trigger values, and no storage, scheduler dispatch, schedule, cap, threshold, sizing, or broker behavior changed.
