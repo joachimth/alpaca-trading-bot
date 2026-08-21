@@ -50,3 +50,13 @@ describe('skip reason details', () => {
     expect(parseRunDetails('old plain error')).toEqual(['old plain error']);
   });
 });
+
+
+describe('degraded run status', () => {
+  test('preserves degraded severity above skip-only status', async () => {
+    const { runStatus, SkipReasonCollector } = await import('../src/skip-reasons');
+    const skips = new SkipReasonCollector();
+    skips.add('BROKER_LEDGER_DEGRADED', 'reconciliation', 'ledger truncated');
+    expect(runStatus([], skips, true, 0)).toBe('degraded');
+  });
+});

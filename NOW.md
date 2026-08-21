@@ -1,3 +1,7 @@
+## August 21, 2026 trade observability correction
+
+Code correction implemented locally: broker `time_in_force` is now persisted, `/api/trades` exposes conservative `gross`/`fee`/`net` fields with explicit fill-lot-unavailable status, and bounded ledger truncation is top-level `degraded`. Focused validation passed: 19 tests / 37 assertions. Full validation and authorized deployment remain pending; production stays FAIL/DEGRADED with no broker mutation performed.
+
 ## August 21, 2026 bounded broker-ledger subrequest correction — deployed and post-release verified
 
 The confirmed failing path is addressed: scheduled `syncBrokerLedger` now uses `getAccountActivitiesBounded` with an explicit **5-page / 500-activity request budget** instead of the prior 30-page loop. A page-budget hit returns `truncated: true, degraded: true`, emits structured `BROKER_LEDGER_DEGRADED` observability in scheduled run details, and relies on the existing 3-day overlap plus idempotent activity IDs so later schedules converge without broker mutation. Pending read-only `getOrder` reconciliation lookups remain capped at 8 per invocation. All four schedules, trading decisions, order behavior, and caps $5,000/$3,700/$2,000 are unchanged.

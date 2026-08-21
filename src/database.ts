@@ -34,6 +34,7 @@ export interface TradeRecord {
   avg_fill_price: number | null;
   status: string;
   order_type: string;
+  time_in_force?: string | null;
   limit_price: number | null;
   stop_price: number | null;
   estimated_value: number;
@@ -630,8 +631,8 @@ export class Database {
   async logTrade(record: TradeRecord): Promise<number> {
     await this.ensureTradeSchema();
     const result = await this.db.prepare(
-      `INSERT INTO trades (alpaca_order_id, client_order_id, ticker, side, qty, filled_qty, leaves_qty, fill_price, avg_fill_price, status, order_type, limit_price, stop_price, estimated_value, decision_id, error_message, strategy, broker_updated_at, submitted_at, filled_at, canceled_at, expired_at, failed_at, replaced_at, intent_stop_loss_price, intent_take_profit_price, last_reconciled_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+      `INSERT INTO trades (alpaca_order_id, client_order_id, ticker, side, qty, filled_qty, leaves_qty, fill_price, avg_fill_price, status, order_type, limit_price, stop_price, time_in_force, estimated_value, decision_id, error_message, strategy, broker_updated_at, submitted_at, filled_at, canceled_at, expired_at, failed_at, replaced_at, intent_stop_loss_price, intent_take_profit_price, last_reconciled_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
     ).bind(
       record.alpaca_order_id,
       record.client_order_id ?? null,
@@ -646,6 +647,7 @@ export class Database {
       record.order_type,
       record.limit_price,
       record.stop_price,
+      record.time_in_force ?? 'day',
       record.estimated_value,
       record.decision_id,
       record.error_message,
@@ -728,6 +730,7 @@ export class Database {
     if (existing?.id !== undefined && existing?.id !== null) {
       await this.db.prepare(
         `UPDATE trades SET client_order_id = COALESCE(?, client_order_id),
+             time_in_force = COALESCE(?, time_in_force),
              status = CASE WHEN broker_updated_at IS NULL OR ? >= broker_updated_at THEN ? ELSE status END,
              filled_qty = MAX(COALESCE(filled_qty, 0), COALESCE(?, 0)),
              leaves_qty = COALESCE(?, leaves_qty),
@@ -744,7 +747,7 @@ export class Database {
              intent_stop_loss_price = COALESCE(intent_stop_loss_price, ?),
              intent_take_profit_price = COALESCE(intent_take_profit_price, ?)
          WHERE alpaca_order_id = ?`
-      ).bind(order.client_order_id ?? null, order.updated_at ?? null, order.status,
+      ).bind(order.client_order_id ?? null, order.time_in_force ?? null, order.updated_at ?? null, order.status,
         order.filled_qty, order.leaves_qty, order.filled_avg_price, order.filled_avg_price,
         order.updated_at ?? null, order.updated_at ?? null,
         order.submitted_at ?? null, order.submitted_at ?? null, order.submitted_at ?? null,
@@ -776,6 +779,7 @@ export class Database {
       failed_at: order.failed_at,
       replaced_at: order.replaced_at,
       order_type: order.type,
+      time_in_force: order.time_in_force,
       limit_price: order.limit_price,
       stop_price: order.stop_price,
       estimated_value: options.estimatedValue ?? (order.qty * (order.filled_avg_price ?? order.limit_price ?? order.stop_price ?? 0)),
@@ -797,6 +801,7 @@ export class Database {
          fill_price = COALESCE(?, fill_price),
          avg_fill_price = COALESCE(?, avg_fill_price),
          client_order_id = COALESCE(?, client_order_id),
+         time_in_force = COALESCE(?, time_in_force),
          broker_updated_at = CASE WHEN ? IS NULL OR broker_updated_at IS NULL OR ? >= broker_updated_at THEN ? ELSE broker_updated_at END,
          submitted_at = CASE WHEN ? IS NOT NULL AND (submitted_at IS NULL OR ? >= submitted_at) THEN ? ELSE submitted_at END,
          filled_at = CASE WHEN ? IS NOT NULL AND (filled_at IS NULL OR ? >= filled_at) THEN ? ELSE filled_at END,
@@ -810,7 +815,7 @@ export class Database {
       order?.updated_at ?? null, order?.updated_at ?? null, status,
       order?.filled_qty ?? null, order?.filled_qty ?? null,
       order ? order.qty - order.filled_qty : null,
-      fillPrice, avgFillPrice, order?.client_order_id ?? null,
+      fillPrice, avgFillPrice, order?.client_order_id ?? null, order?.time_in_force ?? null,
       order?.updated_at ?? null, order?.updated_at ?? null, order?.updated_at ?? null,
       order?.submitted_at ?? null, order?.submitted_at ?? null, order?.submitted_at ?? null,
       order?.filled_at ?? null, order?.filled_at ?? null, order?.filled_at ?? null,
@@ -891,6 +896,7 @@ export class Database {
              leaves_qty = COALESCE(?, leaves_qty),
              fill_price = COALESCE(?, fill_price),
              avg_fill_price = COALESCE(?, avg_fill_price),
+             time_in_force = COALESCE(?, time_in_force),
              broker_updated_at = ?,
              submitted_at = CASE WHEN ? IS NOT NULL AND (submitted_at IS NULL OR ? >= submitted_at) THEN ? ELSE submitted_at END,
              filled_at = CASE WHEN ? IS NOT NULL AND (filled_at IS NULL OR ? >= filled_at) THEN ? ELSE filled_at END,
@@ -902,7 +908,7 @@ export class Database {
            WHERE alpaca_order_id = ?`
         ).bind(
           order.client_order_id ?? null, status, order.filled_qty, leavesQty,
-          order.filled_avg_price, order.filled_avg_price, brokerUpdatedAt,
+          order.filled_avg_price, order.filled_avg_price, order.time_in_force ?? null, brokerUpdatedAt,
           order.submitted_at ?? null, order.submitted_at ?? null, order.submitted_at ?? null,
           order.filled_at ?? null, order.filled_at ?? null, order.filled_at ?? null,
           order.canceled_at ?? null, order.canceled_at ?? null, order.canceled_at ?? null,
@@ -1034,6 +1040,70 @@ export class Database {
     };
   }
 
+  /**
+   * Add conservative per-trade accounting metadata without inventing
+   * fill/lot-level P&L. Gross P&L cannot currently be linked to a single
+   * trade because positions.closed_pl has no order/lot key. Fees are exposed
+   * only when every broker_fees row linked by order_id has a known USD value;
+   * orderless/account-level fees remain outside individual trades.
+   */
+  private async enrichTradeAccounting(trades: any[]): Promise<any[]> {
+    if (trades.length === 0) return trades;
+    const orderIds = Array.from(new Set(
+      trades.map(trade => trade.alpaca_order_id).filter((id): id is string => typeof id === 'string' && id.length > 0),
+    ));
+    const feesByOrder = new Map<string, number>();
+    if (orderIds.length > 0) {
+      const placeholders = orderIds.map(() => '?').join(',');
+      const feeRows = await this.db.prepare(
+        `SELECT order_id,
+                SUM(CASE WHEN usd_value IS NOT NULL AND usd_value >= 0 THEN usd_value ELSE 0 END) AS fee_usd,
+                COUNT(*) AS fee_rows,
+                SUM(CASE WHEN usd_value IS NULL OR usd_value < 0 THEN 1 ELSE 0 END) AS unknown_fee_rows
+           FROM broker_fees
+          WHERE order_id IN (${placeholders})
+            AND order_id IS NOT NULL
+            AND TRIM(order_id) <> ''
+          GROUP BY order_id`
+      ).bind(...orderIds).all();
+      for (const row of feeRows.results as Array<{
+        order_id?: string | null;
+        fee_usd?: number | null;
+        fee_rows?: number | null;
+        unknown_fee_rows?: number | null;
+      }>) {
+        if (
+          row.order_id &&
+          Number(row.fee_rows ?? 0) > 0 &&
+          Number(row.unknown_fee_rows ?? 0) === 0 &&
+          row.fee_usd != null &&
+          Number.isFinite(Number(row.fee_usd))
+        ) {
+          feesByOrder.set(String(row.order_id), Number(row.fee_usd));
+        }
+      }
+    }
+    return trades.map(trade => {
+      const linkedFee = trade.alpaca_order_id ? feesByOrder.get(String(trade.alpaca_order_id)) : undefined;
+      const gross = null;
+      const fee = linkedFee ?? null;
+      const net = gross !== null && fee !== null ? gross - fee : null;
+      const accountingStatus = gross === null ? 'unavailable_fill_lot_exact' : 'available';
+      const feeAttribution = linkedFee != null ? 'broker-attributed' : 'none-recorded';
+      return {
+        ...trade,
+        gross,
+        fee,
+        net,
+        gross_pnl: gross,
+        fee_usd: fee,
+        net_pnl: net,
+        accounting_status: accountingStatus,
+        fee_attribution: feeAttribution,
+      };
+    });
+  }
+
   async getRecentTrades(limit: number = 50, strategy?: 'daytrading' | 'swing' | 'crypto'): Promise<any[]> {
     await this.ensureTradeSchema();
     const query = strategy
@@ -1042,7 +1112,7 @@ export class Database {
     const result = strategy
       ? await this.db.prepare(query).bind(strategy, limit).all()
       : await this.db.prepare(query).bind(limit).all();
-    return result.results as any[];
+    return this.enrichTradeAccounting(result.results as any[]);
   }
 
   async getRecentTradesByStrategy(strategy: 'daytrading' | 'swing' | 'crypto', limit: number = 100): Promise<any[]> {
@@ -1050,7 +1120,7 @@ export class Database {
     const result = await this.db.prepare(
       'SELECT * FROM trades WHERE strategy = ? ORDER BY timestamp DESC LIMIT ?'
     ).bind(strategy, limit).all();
-    return result.results as any[];
+    return this.enrichTradeAccounting(result.results as any[]);
   }
 
   // ============================================================

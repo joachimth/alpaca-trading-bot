@@ -129,3 +129,50 @@ describe('feeTelemetryFromAggregate freshness gate', () => {
     expect(feeTelemetryFromAggregate({ ...base, notionalUsd: 0 }).status).toBe('unavailable');
   });
 });
+
+
+describe('trade observability enrichment', () => {
+  test('exposes conservative per-trade accounting fields and only linked fees', async () => {
+    const db = createDb();
+    await seedTrade(db, { alpaca_order_id: 'order-with-fee', status: 'filled', filled_qty: 10, avg_fill_price: 100 });
+    const sqlite = createTestDatabase();
+    const dbWithFee = new Database(createFakeD1(sqlite));
+    await dbWithFee.logTrade({
+      alpaca_order_id: 'order-with-fee', client_order_id: 'client-1', ticker: 'AAPL', side: 'buy', qty: 10,
+      fill_price: 100, avg_fill_price: 100, status: 'filled', order_type: 'market', limit_price: null,
+      stop_price: null, estimated_value: 1000, decision_id: 1, error_message: null, strategy: 'daytrading',
+    });
+    sqlite.prepare(`INSERT INTO broker_fees (activity_id, fee_type, order_id, usd_value) VALUES (?, 'FEE', ?, ?)`)
+      .run('fee-1', 'order-with-fee', 1.25);
+    const [withFee] = await dbWithFee.getRecentTrades(10);
+    expect(withFee).toMatchObject({
+      gross: null,
+      fee: 1.25,
+      net: null,
+      accounting_status: 'unavailable_fill_lot_exact',
+      fee_attribution: 'broker-attributed',
+    });
+    const dbWithoutFee = db;
+    const [withoutFee] = await dbWithoutFee.getRecentTrades(10);
+    expect(withoutFee).toMatchObject({
+      gross: null,
+      fee: null,
+      net: null,
+      accounting_status: 'unavailable_fill_lot_exact',
+      fee_attribution: 'none-recorded',
+    });
+  });
+
+  test('persists broker time_in_force including crypto GTC', async () => {
+    const db = createDb();
+    await db.logOrderTrade({
+      id: 'crypto-order', client_order_id: 'crypto-client', symbol: 'BTCUSD', qty: 1, filled_qty: 0,
+      leaves_qty: 1, filled_avg_price: null, type: 'market', side: 'buy', status: 'new', time_in_force: 'gtc',
+      created_at: '2026-08-21T10:00:00Z', updated_at: '2026-08-21T10:00:00Z', submitted_at: null,
+      filled_at: null, canceled_at: null, expired_at: null, failed_at: null, replaced_at: null,
+      limit_price: null, stop_price: null, trail_price: null, trail_percent: null,
+    }, { strategy: 'crypto' });
+    const row = (await db.getRecentTrades(10))[0];
+    expect(row.time_in_force).toBe('gtc');
+  });
+});

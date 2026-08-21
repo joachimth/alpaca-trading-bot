@@ -154,6 +154,7 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
   const leaseKey = 'maintenance';
   const skips = new SkipReasonCollector();
   const errors: string[] = [];
+  let ledgerDegraded = false;
   if (!await db.acquireCycleLease(owner, undefined, leaseKey)) {
     skips.add('CYCLE_LEASE_HELD', 'maintenance', 'Maintenance skipped because another maintenance run holds the maintenance lease', { trigger });
     console.log(JSON.stringify({ event: 'maintenance_skipped', trigger, reason: 'cycle_lease_held' }));
@@ -185,6 +186,7 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
     }
     if (errors.length === 0) {
       if (ledger?.degraded) {
+        ledgerDegraded = true;
         skips.add('BROKER_LEDGER_DEGRADED', 'reconciliation', 'Broker activity import reached its explicit page budget; the next scheduled overlap will continue convergence', {
           pages: ledger.pages,
           pageBudget: ledger.pageBudget,
@@ -214,7 +216,7 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
       trades_executed: 0,
       errors: errors.length,
       error_details: serializeRunDetails(errors, skips),
-      status: errors.length > 0 ? 'error' : 'skipped',
+      status: errors.length > 0 ? 'error' : ledgerDegraded ? 'degraded' : 'skipped',
     });
     await db.releaseCycleLease(owner, leaseKey);
   }
@@ -248,6 +250,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
   const db = new Database(env.DB);
   const errors: string[] = [];
   const skips = new SkipReasonCollector();
+  let ledgerDegraded = false;
   let decisionsMade = 0;
   let tradesExecuted = 0;
   const findPendingDayExit = async (symbol: string, scope: string, context: Record<string, unknown> = {}) => {
@@ -305,7 +308,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         trades_executed: 0,
         errors: 0,
         error_details: serializeRunDetails([], skips),
-        status: runStatus(errors, skips, false, tradesExecuted),
+        status: runStatus(errors, skips, ledgerDegraded, tradesExecuted),
       });
       return;
     }
@@ -313,7 +316,10 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     try {
       const ledger = await syncBrokerLedger(db, alpaca);
       console.log(JSON.stringify({ event: 'broker_ledger_sync', trigger, ...ledger }));
-      if (ledger.degraded) skips.add('BROKER_LEDGER_DEGRADED', 'reconciliation', 'Broker activity import reached its explicit page budget; the next scheduled overlap will continue convergence', { pages: ledger.pages, pageBudget: ledger.pageBudget, activities: ledger.activities });
+      if (ledger.degraded) {
+        ledgerDegraded = true;
+        skips.add('BROKER_LEDGER_DEGRADED', 'reconciliation', 'Broker activity import reached its explicit page budget; the next scheduled overlap will continue convergence', { pages: ledger.pages, pageBudget: ledger.pageBudget, activities: ledger.activities });
+      }
     } catch (error) {
       errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -891,7 +897,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       trades_executed: tradesExecuted,
       errors: errors.length,
       error_details: serializeRunDetails(errors, skips),
-      status: runStatus(errors, skips, false, tradesExecuted),
+      status: runStatus(errors, skips, ledgerDegraded, tradesExecuted),
     });
 
     console.log(`Cycle complete: ${decisionsMade} decisions, ${tradesExecuted} trades, ${errors.length} errors, ${Date.now() - startTime}ms`);
