@@ -42,7 +42,7 @@ Result: **DEGRADED, not healthy**. All six required GET endpoints returned HTTP 
 
 No code, cap, strategy, or deployment mutation was required for this control correction. The follow-up remains natural scheduled evidence and a future reliability correction for the documented gaps; no trigger, submit, cancel, close, replace, retry, or broker-mutating endpoint was called.
 
-## August 21, 2026 bounded `/api/runs` trigger-alias observability correction — not yet deployed
+## August 21, 2026 bounded `/api/runs` trigger-alias observability correction — deployment blocked
 
 This local, read-only observability correction addresses a false evidence gap: historical live `run_log` rows store daytrading as `cron` and maintenance as `reconcile_cron`, while production control and documentation may request `daytrading_cron` and `reconciliation_cron`. Only `GET /api/runs` trigger filtering translates `daytrading_cron → cron` and `reconciliation_cron → reconcile_cron`; exact canonical filters (`cron` and `reconcile_cron`) continue to work, and returned rows preserve their stored trigger values. No historical rows, scheduler dispatch, schedules, caps, strategy thresholds, sizing, or broker behavior changed, and no migration or DDL was added.
 

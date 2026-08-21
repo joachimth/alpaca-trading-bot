@@ -1,8 +1,8 @@
-## August 21, 2026 bounded `/api/runs` trigger-alias observability correction — not yet deployed
+## August 21, 2026 bounded `/api/runs` trigger-alias observability correction — deployment blocked
 
 The local read-only correction fixes false empty evidence when control/documentation requests `daytrading_cron` or `reconciliation_cron` but historical `run_log` stores `cron` and `reconcile_cron`. Only `GET /api/runs` filtering translates `daytrading_cron → cron` and `reconciliation_cron → reconcile_cron`; canonical filters remain valid and returned rows retain canonical stored values. Storage, scheduler dispatch, schedules, caps, strategy thresholds, sizing, and broker behavior are unchanged. No DDL, migration, deployment, live endpoint, trigger, cycle, or broker-mutating endpoint was used.
 
-Validation: focused `bun test test/dashboard-readonly.test.ts` passed (**5 tests / 53 assertions**); full `bun test` passed (**131 tests / 403 assertions**); `git diff --check` passed; Wrangler `bunx wrangler deploy --dry-run` passed without deployment. `bunx tsc --noEmit` passed. **Deployment status: NOT YET DEPLOYED.**
+Validation: focused `bun test test/dashboard-readonly.test.ts` passed (**5 tests / 53 assertions**); full `bun test` passed (**131 tests / 403 assertions**); `git diff --check` passed; Wrangler `bunx wrangler deploy --dry-run` passed without deployment. `bunx tsc --noEmit` passed. **Deployment status: NOT YET DEPLOYED. Blocker: `bunx wrangler deploy` requires `CLOUDFLARE_API_TOKEN` in this non-interactive environment and refused deployment. Follow-up: provide the secure Cloudflare credential through the approved credential flow, rerun the same validated deployment, then perform separate GET-only live verification.**
 
 Remaining production gaps: **no fresh August 21 daytrading run, no fresh swing run, lease/error/fee skips, lifecycle timestamps null in sample, per-trade gross/fee/net absent, crypto edge comparison not live-proven, and source/control-plane identity not independently verified.**
 
