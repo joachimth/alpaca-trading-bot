@@ -84,6 +84,35 @@ describe('dashboard read-only hotfix', () => {
     expect(await invalidStrategyResponse.json()).toMatchObject({ error: 'Invalid strategy filter' });
   });
 
+  test('runs endpoint maps production trigger aliases without rewriting canonical history', async () => {
+    const sqlite = seededSqlite();
+    sqlite.prepare(`INSERT INTO run_log (timestamp, trigger, status) VALUES (?, ?, ?)`).run('2026-08-21 13:00:00', 'cron', 'ok');
+    sqlite.prepare(`INSERT INTO run_log (timestamp, trigger, status) VALUES (?, ?, ?)`).run('2026-08-21 12:50:00', 'reconcile_cron', 'skipped');
+    const tracked = trackedD1(sqlite);
+    const env = { DB: tracked.d1 } as unknown as Env;
+    const api = new DashboardAPI(env);
+
+    for (const requestedTrigger of ['cron', 'daytrading_cron']) {
+      const response = await api.handle(new Request(`https://bot.example/api/runs?trigger=${requestedTrigger}`));
+      expect(response.status).toBe(200);
+      const body = await response.json() as any;
+      expect(body.runs).toHaveLength(1);
+      expect(body.runs[0].trigger).toBe('cron');
+    }
+    for (const requestedTrigger of ['reconcile_cron', 'reconciliation_cron']) {
+      const response = await api.handle(new Request(`https://bot.example/api/runs?trigger=${requestedTrigger}`));
+      expect(response.status).toBe(200);
+      const body = await response.json() as any;
+      expect(body.runs).toHaveLength(1);
+      expect(body.runs[0].trigger).toBe('reconcile_cron');
+    }
+
+    const unsupportedTriggerResponse = await api.handle(new Request('https://bot.example/api/runs?trigger=not_a_real_trigger'));
+    expect(unsupportedTriggerResponse.status).toBe(200);
+    expect((await unsupportedTriggerResponse.json() as any).runs).toHaveLength(0);
+    expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
+  });
+
   test('trades endpoint filters by strategy and rejects invalid filters without broker access', async () => {
     const sqlite = seededSqlite();
     sqlite.prepare(`INSERT INTO trades (ticker, side, qty, strategy, status) VALUES (?, 'buy', 1, ?, 'filled')`).run('BTCUSD', 'crypto');

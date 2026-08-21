@@ -42,6 +42,22 @@ Result: **DEGRADED, not healthy**. All six required GET endpoints returned HTTP 
 
 No code, cap, strategy, or deployment mutation was required for this control correction. The follow-up remains natural scheduled evidence and a future reliability correction for the documented gaps; no trigger, submit, cancel, close, replace, retry, or broker-mutating endpoint was called.
 
+## August 21, 2026 bounded `/api/runs` trigger-alias observability correction — not yet deployed
+
+This local, read-only observability correction addresses a false evidence gap: historical live `run_log` rows store daytrading as `cron` and maintenance as `reconcile_cron`, while production control and documentation may request `daytrading_cron` and `reconciliation_cron`. Only `GET /api/runs` trigger filtering translates `daytrading_cron → cron` and `reconciliation_cron → reconcile_cron`; exact canonical filters (`cron` and `reconcile_cron`) continue to work, and returned rows preserve their stored trigger values. No historical rows, scheduler dispatch, schedules, caps, strategy thresholds, sizing, or broker behavior changed, and no migration or DDL was added.
+
+**Deployment status: NOT YET DEPLOYED.** No live endpoint, trigger, cycle, or broker-mutating endpoint was used.
+
+Validation run locally:
+
+- `bun test test/dashboard-readonly.test.ts` — passed, **5 tests / 53 assertions**; covers both aliases, both canonical filters, unsupported trigger behavior, invalid strategy behavior, and read-only no-DDL checks.
+- `bun test` — passed, **131 tests / 403 assertions**.
+- `bunx tsc --noEmit` — passed.
+- `git diff --check` — passed from `/workspace/alpaca-trading-bot`.
+- `bunx wrangler deploy --dry-run` — passed; bundle built and dry-run exited without deployment.
+
+Remaining production gaps are explicit: **no fresh August 21 daytrading run; no fresh swing run; lease/error/fee skips; lifecycle timestamps null in the sample; per-trade gross/fee/net absent; crypto edge comparison not live-proven; and source/control-plane identity not independently verified.**
+
 # Alpaca AI Trading Bot
 
 ## August 21, 2026 read-only observability and stale-D1 correction — deployed and verified

@@ -1,3 +1,11 @@
+## August 21, 2026 bounded `/api/runs` trigger-alias observability correction — release gate, not yet deployed
+
+Status: **LOCAL VALIDATION COMPLETE; NOT YET DEPLOYED; production remains DEGRADED and is not healthy.** Stored historical triggers remain canonical: `cron` for daytrading and `reconcile_cron` for maintenance. The correction is limited to the GET-only `/api/runs?trigger=` boundary, where `daytrading_cron` maps to `cron` and `reconciliation_cron` maps to `reconcile_cron`. Exact canonical filters continue to work and response rows preserve the stored trigger values. Do not alter run history, scheduler dispatch, schedules, caps, strategy thresholds, sizing, or broker behavior; no DDL or migration is required.
+
+Validation results already run: `bun test test/dashboard-readonly.test.ts` passed (**5 tests / 53 assertions**), `bun test` passed (**131 tests / 403 assertions**), `git diff --check` passed from `/workspace/alpaca-trading-bot`, and `bunx wrangler deploy --dry-run` passed without deploying. `bunx tsc --noEmit` passed. No live endpoint or mutating operation is authorized for this bounded correction; no live endpoint, trigger, cycle, or broker-mutating endpoint was used.
+
+Remaining production gaps: **no fresh August 21 daytrading run; no fresh swing run; lease/error/fee skips; lifecycle timestamps null in the sample; per-trade gross/fee/net absent; crypto edge comparison not live-proven; and source/control-plane identity not independently verified.**
+
 ## August 21, 2026 strategy-filtered trades and broker-authoritative swing reconciliation — latest recorded release receipt
 
 Status: **RELEASE RECEIPT RECORDED; live control remains DEGRADED and is not healthy.** The correction validates `GET /api/trades?strategy=daytrading|swing|crypto`, bounds `limit` at 500 (default 50), returns explicit response metadata, and rejects invalid trade/run strategy filters with HTTP 400. Read-only API requests issue no DDL. Swing D1-only rows are closed locally through `closePosition(..., 'broker_authoritative_sync_absent')` with structured `BROKER_AUTHORITATIVE_SYNC_ABSENT`; actual broker/internal quantity mismatches still halt new swing BUY admission for the current cycle. The current GET-only control did not independently authenticate Cloudflare deployment identity or traffic.

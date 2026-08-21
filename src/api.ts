@@ -310,11 +310,20 @@ export class DashboardAPI {
       return this.json({ error: 'Invalid strategy filter', allowed: ['daytrading', 'swing', 'crypto'] }, cors, 400);
     }
     const strategy = requestedStrategy as 'daytrading' | 'swing' | 'crypto' | null;
+    const requestedTrigger = url.searchParams.get('trigger') || undefined;
+    // Stored run_log trigger values are historical canonical values. Keep the
+    // alias translation at this read-only API boundary so storage and scheduler
+    // dispatch remain unchanged.
+    const trigger = requestedTrigger === 'daytrading_cron'
+      ? 'cron'
+      : requestedTrigger === 'reconciliation_cron'
+        ? 'reconcile_cron'
+        : requestedTrigger;
     const runs = await db.getRecentRuns({
       limit,
       offset,
       strategy: strategy === 'daytrading' || strategy === 'swing' || strategy === 'crypto' ? strategy : undefined,
-      trigger: url.searchParams.get('trigger') || undefined,
+      trigger,
       status: url.searchParams.get('status') || undefined,
     });
     return this.json({ runs, limit, offset, page }, cors);

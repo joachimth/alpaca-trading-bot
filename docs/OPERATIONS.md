@@ -1,3 +1,11 @@
+## August 21, 2026 bounded `/api/runs` trigger-alias observability correction — not yet deployed
+
+Status: **LOCAL VALIDATION COMPLETE; NOT YET DEPLOYED; production remains DEGRADED.** Historical live `run_log` values use `cron` for daytrading and `reconcile_cron` for maintenance. Production control/documentation may request `daytrading_cron` and `reconciliation_cron`, so only the read-only `GET /api/runs` trigger filter maps those aliases to the stored canonical values. Canonical filters remain unchanged, returned history retains the stored trigger, and no storage, scheduler dispatch, schedule, cap, threshold, sizing, or broker behavior changed. No DDL or migration was added.
+
+Validation results: focused `bun test test/dashboard-readonly.test.ts` passed (**5 tests / 53 assertions**); full `bun test` passed (**131 tests / 403 assertions**); `git diff --check` passed from `/workspace/alpaca-trading-bot`; and `bunx wrangler deploy --dry-run` passed without deployment. `bunx tsc --noEmit` passed. No live endpoint, trigger, cycle, or broker-mutating endpoint was used.
+
+Remaining production gaps: **no fresh August 21 daytrading run; no fresh swing run; lease/error/fee skips; lifecycle timestamps null in the sample; per-trade gross/fee/net absent; crypto edge comparison not live-proven; and source/control-plane identity not independently verified.**
+
 ## August 21, 2026 strategy-filtered trades and broker-authoritative swing reconciliation — deployed
 
 Status: **DEPLOYED AND READ-ONLY VERIFIED; production remains DEGRADED.** `GET /api/trades` validates `strategy=daytrading|swing|crypto`, bounds `limit` to 500 with default 50, and returns explicit `limit`/strategy metadata while preserving the default unfiltered trade list. `/api/runs` rejects invalid strategy filters. Read-only API construction performs no DDL. Swing reconciliation closes D1-only rows after a complete broker snapshot via `closePosition(..., 'broker_authoritative_sync_absent')` and emits structured `BROKER_AUTHORITATIVE_SYNC_ABSENT`; only actual broker/internal quantity mismatches retain the current-cycle new-BUY halt. No caps, thresholds, schedules, sizing, order behavior, or broker endpoints changed.

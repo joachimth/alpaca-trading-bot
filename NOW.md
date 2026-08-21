@@ -1,3 +1,11 @@
+## August 21, 2026 bounded `/api/runs` trigger-alias observability correction — not yet deployed
+
+The local read-only correction fixes false empty evidence when control/documentation requests `daytrading_cron` or `reconciliation_cron` but historical `run_log` stores `cron` and `reconcile_cron`. Only `GET /api/runs` filtering translates `daytrading_cron → cron` and `reconciliation_cron → reconcile_cron`; canonical filters remain valid and returned rows retain canonical stored values. Storage, scheduler dispatch, schedules, caps, strategy thresholds, sizing, and broker behavior are unchanged. No DDL, migration, deployment, live endpoint, trigger, cycle, or broker-mutating endpoint was used.
+
+Validation: focused `bun test test/dashboard-readonly.test.ts` passed (**5 tests / 53 assertions**); full `bun test` passed (**131 tests / 403 assertions**); `git diff --check` passed; Wrangler `bunx wrangler deploy --dry-run` passed without deployment. `bunx tsc --noEmit` passed. **Deployment status: NOT YET DEPLOYED.**
+
+Remaining production gaps: **no fresh August 21 daytrading run, no fresh swing run, lease/error/fee skips, lifecycle timestamps null in sample, per-trade gross/fee/net absent, crypto edge comparison not live-proven, and source/control-plane identity not independently verified.**
+
 ## August 21, 2026 strict read-only Alpaca production control
 
 Production is **DEGRADED, not healthy**. Deployment identity is a chronology of captured receipts, not singular current proof: latest captured receipt `47158569-968b-4bae-83ad-0c24134d42d2`, Worker version `2756aeb6-e71a-4a11-ab7c-a3a1a6dbbf4e`, created August 21, 2026 at 07:57:51 UTC; earlier receipts include `1b286e9a-6d2f-45b9-a439-72fd12654f9c` / `ced43daf-ed03-4add-ac07-1d8bf562b72c`. Source mapping and current live control-plane identity were not independently revalidated; the latest local correction validation is 130 tests / 388 assertions, while 125 / 374 remains the historical deployed release receipt.
