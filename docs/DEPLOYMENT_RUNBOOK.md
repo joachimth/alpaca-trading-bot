@@ -10,7 +10,9 @@ This bounded reliability correction addresses two live defects. `GET /api/trades
 
 Required local gates: focused dashboard/reconciliation tests, full `bun test`, `bunx tsc --noEmit`, `git diff --check`, and Wrangler dry-run. Preserve caps **$5,000/$3,700/$2,000**, schedules, thresholds, sizing, and all broker-authoritative semantics. After release, separately GET all six required endpoints, filtered `/api/trades?strategy=crypto`, invalid trade/run filters, filtered run families, caps, source, schedules, lease/error observability, lifecycle fields, and aggregate gross/fee/net. Do not use triggers or any broker-mutating endpoint; do not label production healthy without fresh natural daytrading and swing evidence.
 
-Local status before release: correction tests passed, dry-run built, and TypeScript/diff gates are being rerun after the final fail-closed run-filter addition. Production remains **DEGRADED**.
+Release receipt: validation passed with **125 tests / 374 assertions**, TypeScript, diff-check, and Wrangler dry-run. Cloudflare deployment `1b286e9a-6d2f-45b9-a439-72fd12654f9c` serves Worker version `ced43daf-ed03-4add-ac07-1d8bf562b72c` at 100% traffic with all four schedules. Separate GET-only verification confirmed the six required endpoints, broker source `alpaca` with 29 positions, caps `$5,000/$3,700/$2,000`, invalid trade/run filter HTTP 400 responses, and `/api/trades?strategy=crypto` returning 20 rows all tagged `crypto`.
+
+Production remains **DEGRADED**, not healthy. No fresh natural daytrading or swing success is visible after release; lease-held and historical divergence/error runs remain explicit. Historical lifecycle timestamps and per-trade fee/gross/net fields remain unverified or unavailable and were not fabricated.
 
 ## August 21, 2026 bounded Alpaca lifecycle-timestamp correction — deployed and verified
 
