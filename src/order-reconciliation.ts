@@ -19,6 +19,9 @@ function overlapAfter(oldestReservationCreatedAt?: number): string {
 }
 
 const LOOKUP_CONCURRENCY = 4;
+// Keep read-only reconciliation below the Worker subrequest budget. Remaining
+// eligible rows stay in D1 and are picked up by the next scheduled pass.
+export const MAX_ORDER_LOOKUPS_PER_INVOCATION = 8;
 
 /**
  * Read-only broker reconciliation used by scheduled strategy cycles.
@@ -54,10 +57,11 @@ export async function reconcileBrokerOrders(
     .map(trade => String(trade.alpaca_order_id || ''))
     .filter(Boolean)
     .filter(orderId => !ordersById.has(orderId));
+  const lookupIds = pendingIds.slice(0, MAX_ORDER_LOOKUPS_PER_INVOCATION);
 
   let lookupFailures = 0;
-  for (let i = 0; i < pendingIds.length; i += LOOKUP_CONCURRENCY) {
-    const batch = pendingIds.slice(i, i + LOOKUP_CONCURRENCY);
+  for (let i = 0; i < lookupIds.length; i += LOOKUP_CONCURRENCY) {
+    const batch = lookupIds.slice(i, i + LOOKUP_CONCURRENCY);
     const results = await Promise.all(batch.map(async orderId => {
       try {
         return await alpaca.getOrder(orderId);
@@ -76,7 +80,7 @@ export async function reconcileBrokerOrders(
   return {
     brokerOrders: ordersById.size,
     imported,
-    pendingLookups: pendingIds.length,
+    pendingLookups: lookupIds.length,
     lookupFailures,
   };
 }

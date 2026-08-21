@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { Database } from '../src/database';
 import type { Order } from '../src/alpaca';
 import { createFakeD1, createTestDatabase } from './helpers/fake-d1';
-import { reconcileBrokerOrders } from '../src/order-reconciliation';
+import { MAX_ORDER_LOOKUPS_PER_INVOCATION, reconcileBrokerOrders } from '../src/order-reconciliation';
 
 const order = (overrides: Partial<Order> = {}): Order => ({
   id: 'order-1', client_order_id: 'client-1', symbol: 'AAPL', qty: 10,
@@ -165,6 +165,33 @@ describe('scheduled order reconciliation', () => {
       submitted_at: '2026-08-07T10:00:00Z', canceled_at: '2026-08-07T10:06:00Z',
     })]);
     expect(await db.getTradesNeedingSync(200, true)).toHaveLength(0);
+  });
+
+  test('bounds read-only order lookups per invocation and leaves the remainder for the next pass', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    const pendingOrders = Array.from({ length: MAX_ORDER_LOOKUPS_PER_INVOCATION + 3 }, (_, i) => order({
+      id: `pending-${i}`,
+      client_order_id: `pending-client-${i}`,
+      symbol: `SYM${i}`,
+      status: 'new',
+      updated_at: `2026-08-07T10:${String(i % 60).padStart(2, '0')}:00Z`,
+    }));
+    await db.reconcileOrders(pendingOrders);
+    const calls: string[] = [];
+    const broker = {
+      getRecentOrders: async () => { calls.push('getRecentOrders'); return []; },
+      getOrder: async (orderId: string) => {
+        calls.push(`getOrder:${orderId}`);
+        return pendingOrders.find(candidate => candidate.id === orderId)!;
+      },
+    };
+
+    const result = await reconcileBrokerOrders(db, broker as any);
+    expect(result.pendingLookups).toBe(MAX_ORDER_LOOKUPS_PER_INVOCATION);
+    expect(calls).toHaveLength(MAX_ORDER_LOOKUPS_PER_INVOCATION + 1);
+    expect(calls[0]).toBe('getRecentOrders');
+    expect(calls.slice(1)).toEqual(pendingOrders.slice(0, MAX_ORDER_LOOKUPS_PER_INVOCATION).map(candidate => `getOrder:${candidate.id}`));
   });
 
   test('shared scheduled reconciliation only reads the broker and performs no order side effects', async () => {

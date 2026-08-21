@@ -1,4 +1,4 @@
-import { AlpacaClient, type AccountActivity } from './alpaca';
+import { AlpacaClient, type AccountActivity, ACCOUNT_ACTIVITY_PAGE_BUDGET } from './alpaca';
 import { Database } from './database';
 
 const RECONCILIATION_OVERLAP_DAYS = 3;
@@ -7,21 +7,34 @@ function utcDateDaysAgo(days: number): string {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 }
 
-/**
- * Read-only broker activity import. Alpaca posts crypto fees after the trade
- * date, so keep a bounded overlap and make the D1 writes idempotent by activity id.
- */
-export async function syncBrokerLedger(db: Database, alpaca: AlpacaClient): Promise<{
+export interface BrokerLedgerSyncResult {
   activities: number;
   fills: number;
   fees: number;
-}> {
-  const activities = await alpaca.getAccountActivities(
+  pages: number;
+  pageBudget: number;
+  truncated: boolean;
+  degraded: boolean;
+}
+
+/**
+ * Read-only broker activity import. Alpaca posts crypto fees after the trade
+ * date, so keep a bounded overlap and make the D1 writes idempotent by activity id.
+ * A bounded result is explicitly marked degraded when another page exists; the
+ * next scheduled pass will revisit the same overlap and converge without any
+ * broker mutation.
+ */
+export async function syncBrokerLedger(db: Database, alpaca: AlpacaClient): Promise<BrokerLedgerSyncResult> {
+  const after = utcDateDaysAgo(RECONCILIATION_OVERLAP_DAYS);
+  const until = new Date().toISOString();
+  const result = await alpaca.getAccountActivitiesBounded(
     ['FILL', 'CFEE', 'FEE'],
-    utcDateDaysAgo(RECONCILIATION_OVERLAP_DAYS),
-    new Date().toISOString(),
+    after,
+    until,
+    ACCOUNT_ACTIVITY_PAGE_BUDGET,
   );
-  return db.upsertBrokerActivities(activities.map(normalizeBrokerActivity));
+  const imported = await db.upsertBrokerActivities(result.activities.map(normalizeBrokerActivity));
+  return { ...imported, pages: result.pages, pageBudget: result.pageBudget, truncated: result.truncated, degraded: result.degraded };
 }
 
 export function normalizeBrokerActivity(activity: AccountActivity): AccountActivity {

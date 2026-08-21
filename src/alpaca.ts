@@ -67,6 +67,17 @@ export interface AccountActivity {
   status?: string | null;
 }
 
+export interface AccountActivitiesResult {
+  activities: AccountActivity[];
+  pages: number;
+  pageBudget: number;
+  truncated: boolean;
+  degraded: boolean;
+}
+
+/** Shared read-only budget for the scheduled broker activity import. */
+export const ACCOUNT_ACTIVITY_PAGE_BUDGET = 5;
+
 export type AlpacaOrderStatus =
   | 'new' | 'partially_filled' | 'filled' | 'done_for_day'
   | 'canceled' | 'cancelled' | 'expired' | 'replaced'
@@ -407,14 +418,30 @@ export class AlpacaClient {
     if (!resp.ok) throw new Error(`Alpaca cancelOrder failed: ${resp.status}`);
   }
 
+  /**
+   * Backward-compatible activity read. Scheduled ledger callers should use the
+   * structured bounded result below so truncation cannot be mistaken for a
+   * complete broker sync.
+   */
   async getAccountActivities(
     activityTypes: string[],
     after?: string,
     until?: string,
   ): Promise<AccountActivity[]> {
+    return (await this.getAccountActivitiesBounded(activityTypes, after, until)).activities;
+  }
+
+  async getAccountActivitiesBounded(
+    activityTypes: string[],
+    after?: string,
+    until?: string,
+    requestedPageBudget = ACCOUNT_ACTIVITY_PAGE_BUDGET,
+  ): Promise<AccountActivitiesResult> {
     const activities: AccountActivity[] = [];
+    const pageBudget = Math.max(1, Math.floor(requestedPageBudget));
     let pageToken: string | undefined;
-    for (let page = 0; page < 30; page++) {
+    let pages = 0;
+    for (let page = 0; page < pageBudget; page++) {
       const params = new URLSearchParams({
         activity_types: activityTypes.join(','),
         direction: 'asc',
@@ -429,7 +456,11 @@ export class AlpacaClient {
         throw new Error(`Alpaca getAccountActivities failed: ${resp.status} ${text}`);
       }
       const data = await resp.json() as any[];
-      if (!Array.isArray(data) || data.length === 0) break;
+      pages++;
+      if (!Array.isArray(data) || data.length === 0) {
+        pageToken = undefined;
+        break;
+      }
       for (const a of data) {
         activities.push({
           id: String(a.id),
@@ -453,10 +484,14 @@ export class AlpacaClient {
         });
       }
       const next = data[data.length - 1]?.id;
-      if (!next || data.length < 100 || next === pageToken) break;
+      if (!next || data.length < 100 || next === pageToken) {
+        pageToken = undefined;
+        break;
+      }
       pageToken = String(next);
     }
-    return activities;
+    const truncated = Boolean(pageToken);
+    return { activities, pages, pageBudget, truncated, degraded: truncated };
   }
 
   async getRecentOrders(limit: number = 50, options: { after?: string; until?: string; direction?: 'asc' | 'desc' } = {}): Promise<Order[]> {

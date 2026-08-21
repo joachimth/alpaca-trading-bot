@@ -126,7 +126,8 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
 
     try {
       const ledger = await syncBrokerLedger(db, alpaca);
-      console.log(`Broker ledger synced: ${ledger.activities} activities, ${ledger.fills} fills, ${ledger.fees} fees`);
+      console.log(JSON.stringify({ event: 'broker_ledger_sync', trigger, ...ledger }));
+      if (ledger.degraded) skips.add('BROKER_LEDGER_DEGRADED', 'reconciliation', 'Broker activity import reached its explicit page budget; the next scheduled overlap will continue convergence', { pages: ledger.pages, pageBudget: ledger.pageBudget, activities: ledger.activities });
     } catch (error) {
       errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
     }

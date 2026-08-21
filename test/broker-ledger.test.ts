@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { Database } from '../src/database';
 import { createFakeD1, createTestDatabase } from './helpers/fake-d1';
+import { syncBrokerLedger } from '../src/broker-ledger';
 
  describe('broker fee ledger', () => {
   test('values CFEE from qty*price, FEE from net_amount, and remains idempotent', async () => {
@@ -31,4 +32,31 @@ import { createFakeD1, createTestDatabase } from './helpers/fake-d1';
     expect(summary.totalUsd).toBeCloseTo(1.348875, 6);
     expect(summary.unattributedUsd).toBeCloseTo(1.348875, 6);
   });
-});
+
+  test('uses the bounded read path and preserves read-only idempotent ledger semantics when truncated', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    const calls: Array<{ types: string[]; budget: number }> = [];
+    const broker = {
+      getAccountActivitiesBounded: async (types: string[], _after: string, _until: string, budget: number) => {
+        calls.push({ types, budget });
+        return {
+          activities: [{ id: 'fill-1', activity_type: 'FILL', symbol: 'btc/usd', qty: 1, price: 100 }],
+          pages: budget,
+          pageBudget: budget,
+          truncated: true,
+          degraded: true,
+        };
+      },
+    };
+
+    const result = await syncBrokerLedger(db, broker as any);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].types).toEqual(['FILL', 'CFEE', 'FEE']);
+    expect(calls[0].budget).toBeGreaterThan(0);
+    expect(result).toMatchObject({ activities: 1, fills: 1, fees: 0, truncated: true, degraded: true });
+    expect(sqlite.query('SELECT symbol FROM broker_fills WHERE activity_id = \'fill-1\'').get()).toEqual({ symbol: 'BTCUSD' });
+    expect((await syncBrokerLedger(db, broker as any)).activities).toBe(1);
+    expect(Number(sqlite.query('SELECT COUNT(*) AS count FROM broker_fills').get().count)).toBe(1);
+  });
+ });

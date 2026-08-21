@@ -177,17 +177,28 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
       baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
     });
     const reconciliation = await reconcileBrokerOrders(db, alpaca);
-    let ledger: { activities: number; fills: number; fees: number } | null = null;
+    let ledger: Awaited<ReturnType<typeof syncBrokerLedger>> | null = null;
     try {
       ledger = await syncBrokerLedger(db, alpaca);
     } catch (error) {
       errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
     }
     if (errors.length === 0) {
+      if (ledger?.degraded) {
+        skips.add('BROKER_LEDGER_DEGRADED', 'reconciliation', 'Broker activity import reached its explicit page budget; the next scheduled overlap will continue convergence', {
+          pages: ledger.pages,
+          pageBudget: ledger.pageBudget,
+          activities: ledger.activities,
+        });
+      }
       skips.add('MAINTENANCE_ONLY', 'maintenance', 'Scheduled maintenance reconciled broker state without running a trading strategy', {
         brokerOrders: reconciliation.brokerOrders,
         imported: reconciliation.imported,
         ledgerActivities: ledger?.activities ?? 0,
+        ledgerPages: ledger?.pages ?? 0,
+        ledgerPageBudget: ledger?.pageBudget ?? 0,
+        ledgerTruncated: ledger?.truncated ?? false,
+        ledgerDegraded: ledger?.degraded ?? false,
       });
     }
     console.log(JSON.stringify({ event: 'maintenance_complete', trigger, reconciliation, ledger, errors }));
@@ -301,7 +312,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
     try {
       const ledger = await syncBrokerLedger(db, alpaca);
-      console.log(`Broker ledger synced: ${ledger.activities} activities, ${ledger.fills} fills, ${ledger.fees} fees`);
+      console.log(JSON.stringify({ event: 'broker_ledger_sync', trigger, ...ledger }));
+      if (ledger.degraded) skips.add('BROKER_LEDGER_DEGRADED', 'reconciliation', 'Broker activity import reached its explicit page budget; the next scheduled overlap will continue convergence', { pages: ledger.pages, pageBudget: ledger.pageBudget, activities: ledger.activities });
     } catch (error) {
       errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
     }
