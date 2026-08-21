@@ -1,3 +1,20 @@
+## August 21, 2026 strict read-only Alpaca control — FAIL/DEGRADED (latest)
+
+**Status: FAIL/DEGRADED, not healthy.** Final separate GET-only verification completed at approximately **23:01 UTC**. No trigger, cycle, submit, cancel, close, replace, retry, deployment, or other broker-mutating route was used for this control.
+
+- All six required GET endpoints returned **HTTP 200**: `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades`.
+- `/api/positions` returned `positionsAvailable: true`, `source: alpaca`, and **29 positions**. Final dashboard equity was **98,552.09**, above `last_equity` **98,270.0927**, confirming positive equity direction.
+- Caps remain unchanged at **$5,000 daytrading / $3,700 swing / $2,000 crypto**. Source, release-bundle, and dry-run evidence preserve all four schedules: daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and read-only reconciliation `*/10 * * * *`, all UTC.
+- Filtered run observability and alias wiring pass source, bundle, regression, and prior live checks: `daytrading_cron` maps to stored `cron`, and `reconciliation_cron` maps to stored `reconcile_cron` without rewriting history. Current run evidence still does not prove a fresh successful daytrading or swing strategy run; historical daytrading lease-held/error skips remain.
+- Reconciliation delivery is fresh and read-only: the latest run at **23:01:01 UTC** was `reconcile_cron`, `MAINTENANCE_ONLY`, with `ledgerPages=1`, `ledgerPageBudget=5`, `ledgerTruncated=false`, and `ledgerDegraded=false`.
+- Crypto cadence is approximately the expected **:07/:37 UTC** schedule, with natural runs at **21:08:11, 21:38:05, 22:08:04, and 22:38:04 UTC** completing as structured skips with zero errors. Earlier natural crypto runs at **19:38:03, 20:08:01, and 20:38:00 UTC** failed with `D1_ERROR: too many SQL variables`; older evidence also records Worker subrequest-limit failures.
+- The SQL-variable correction is already deployed under the recorded **21:03:38 UTC** release receipt, and fresh post-release crypto runs no longer show that error. No additional deployment was required for this control.
+- `/api/trades` exposes lifecycle fields including `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, and `replaced_at`; all sampled current rows are `filled` with submitted/filled timestamps and null inapplicable terminal timestamps. All 50 sampled rows have `gross`, `fee`, and `net` as `null`, `accounting_status: unavailable_fill_lot_exact`, and `fee_attribution: none-recorded`, so per-trade fee/gross/net consistency is not demonstrable.
+- Crypto edge-gate wiring passes source, deployed-bundle, and regression checks, including calibrated-edge fail-closed behavior; a live positive `rawEdgeBps` comparison remains unproven. Fee telemetry is currently unavailable/stale, producing expected fail-closed `FEE_DATA_UNAVAILABLE` skips.
+- Full regression passed **154/0** with **488 assertions**; focused dashboard/read-only regression passed **9/0** with **76 assertions**; TypeScript, `git diff --check`, and Wrangler dry-run passed.
+
+**Required follow-up:** repair read-only Cloudflare credentials and independently verify the active Worker/source identity; obtain fresh natural daytrading and swing strategy delivery evidence; and close the deterministic fill/lot accounting gap before any health claim. Keep production marked FAIL/DEGRADED.
+
 ## August 21, 2026 D1 SQL-variable correction deployed and post-release verified
 
 Reliability-only correction `f5fddcbe829a4b6a6436b110ab0d19e3ab11c5aa` batches read-only `broker_fees` enrichment queries in groups of 50, removing the production `too many SQL variables` failure without changing caps, schedules, thresholds, sizing, order behavior, or broker authority. Focused validation passed 9 tests / 76 assertions; full validation passed 154 tests / 488 assertions, typecheck, diff-check, and Wrangler dry-run.
