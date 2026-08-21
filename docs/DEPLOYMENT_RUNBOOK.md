@@ -1,3 +1,17 @@
+## August 21, 2026 D1 SQL-variable overflow correction — locally validated, source identity unresolved
+
+Confirmed incident: `/api/runs` reported D1 `too many SQL variables` at **2026-08-21 18:38:03 UTC**. Root cause was the read-only trade accounting enrichment constructing one `IN` placeholder/binding list for all returned order IDs.
+
+The candidate changes only `src/database.ts`: `broker_fees` lookups now run in sequential batches of 50 order IDs and preserve existing fee-map/output semantics. Focused regression coverage proves 50/50/1 batching; full release gates passed with **154 tests / 488 assertions**, typecheck, diff-check, and Wrangler dry-run. No schedule, threshold, sizing, broker action, reconciliation authority, or cap changed; caps remain **$5,000/$3,700/$2,000**.
+
+Artifact `2bf8e6c6-3d6d-456d-ad65-0bb6bfeef07b` / Worker version `a23c13a1-6b61-4c03-aae9-738d35118af9` is recorded at 100% traffic on **August 21, 2026 at 17:15:44 UTC**, but the artifact does not prove that it contains the current local candidate. Mark the release **SOURCE-TO-WORKER IDENTITY UNRESOLVED** until exact bundle identity and current traffic are independently verified. Wrangler is unauthenticated and the prior `unknown credential reference(s): cloudflare` error remains a blocker. No broker endpoint was called; post-release checks must remain GET-only plus natural scheduled evidence.
+
+Test-layout note: crypto runtime regression coverage is stored at the repository root as `crypto-runtime.test.ts`, not `test/crypto-runtime.test.ts`; `bun test crypto-runtime.test.ts` passes 14 tests / 48 assertions.
+
+## August 21, 2026 strict read-only control update — FAIL/DEGRADED
+
+Control evidence confirms `/api/positions` source labeling only. Historical broker/internal quantity mismatches remain recorded for SOFI 73 vs 114 at 16:10:47 UTC, MSTR 3 vs 7 at 16:20:46 UTC, and NOW 1 vs 2 at 16:35:42 UTC; daytrading has lease-held/error delivery, swing is unverified, crypto has cadence gaps/errors, reconciliation is maintenance-only, sampled lifecycle and gross/fee/net fields are null, and calibrated edge-after-costs is not exposed by live evidence. Do not label healthy or manufacture evidence with triggers; caps remain $5,000/$3,700/$2,000 and no deployment or broker mutation occurred.
+
 ## August 21, 2026 additive trade observability correction — deployed and GET-only verified
 
 Scope was reliability-only: preserve broker-provided `time_in_force` including crypto `gtc`; expose conservative `/api/trades` `gross`, `fee`, and `net` fields with explicit status/attribution metadata; keep gross/net null until deterministic fill/lot matching exists; expose fees only for complete non-negative USD values linked directly by order ID; and persist bounded ledger truncation as top-level `degraded`. All four schedules, caps **$5,000/$3,700/$2,000**, thresholds, sizing, order behavior, and broker mutation boundaries were preserved.

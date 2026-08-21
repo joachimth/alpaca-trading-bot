@@ -1,3 +1,17 @@
+## August 21, 2026 D1 SQL-variable overflow correction — locally validated, source identity unresolved
+
+Confirmed production defect: `/api/runs` showed a D1 `too many SQL variables` error at **2026-08-21 18:38:03 UTC**. Source inspection traced the overflow to the read-only trade observability enrichment used by API/scheduled reads: `enrichTradeAccounting()` built one `broker_fees.order_id IN (?, ...)` list from every returned trade, then bound the entire list at once.
+
+Smallest safe fix: batch order IDs into read-only groups of **50** before querying `broker_fees`, preserving fee semantics, broker authority, reconciliation bounds, schedules, thresholds, sizing, order behavior, and caps of **$5,000/$3,700/$2,000**. Local validation passed: focused dashboard-readonly **9 tests / 76 assertions**, full `bun test` **154 tests / 488 assertions**, typecheck, diff-check, and Wrangler dry-run. The current local candidate is **not proven live**.
+
+A separate deployment artifact confirms deployment `2bf8e6c6-3d6d-456d-ad65-0bb6bfeef07b`, Worker version `a23c13a1-6b61-4c03-aae9-738d35118af9`, at 100% traffic on **August 21, 2026 at 17:15:44 UTC**. However, the artifact does not establish that this deployment contains the current local batching correction or current source commit; prior docs also contain conflicting deployment receipts. Therefore the release state is **SOURCE-TO-WORKER IDENTITY UNRESOLVED**, not “not deployed” and not “verified live.” The missing Cloudflare credential reference and unauthenticated Wrangler identity still block independent deployment verification. No broker-mutating endpoint was called. Follow-up is identity/credential repair, exact bundle-to-Worker verification, then separate GET-only checks and natural scheduled evidence.
+
+Test-layout note: crypto runtime regression coverage is stored at the repository root as `crypto-runtime.test.ts`, not `test/crypto-runtime.test.ts`; `bun test crypto-runtime.test.ts` passes 14 tests / 48 assertions.
+
+## August 21, 2026 strict read-only control update — FAIL/DEGRADED
+
+The latest GET-only control confirms source labeling but not full broker-authoritative consistency: historical runs recorded internal-versus-broker quantity mismatches for SOFI (73 vs 114 at 16:10:47 UTC), MSTR (3 vs 7 at 16:20:46 UTC), and NOW (1 vs 2 at 16:35:42 UTC). Daytrading remains lease-held/error without fresh healthy delivery, swing delivery is not verified, crypto has cadence gaps and errors, reconciliation is maintenance-only, sampled lifecycle and gross/fee/net fields remain null, and live calibrated edge-after-costs evidence is unavailable. Caps remain $5,000/$3,700/$2,000 and no broker-mutating endpoint or deployment was used.
+
 ## August 21, 2026 additive trade observability correction — deployed and GET-only verified
 
 Reliability-only correction deployed from published commit `71aad14b0df1fc693de0e002e1b91d5cb6460eb5`. It preserves broker `time_in_force` on persisted trades, including crypto `gtc`; exposes `/api/trades` fields `gross`, `fee`, and `net` with explicit `accounting_status` and `fee_attribution`; leaves gross/net null until deterministic fill/lot matching exists; exposes a fee only for complete non-negative USD broker-fee rows linked directly by `order_id`; and records bounded broker-ledger truncation as top-level run status `degraded`. Caps remain **$5,000/$3,700/$2,000**, all four schedules, thresholds, sizing, submitted order behavior, and broker safety boundaries are unchanged.

@@ -1,3 +1,17 @@
+## August 21, 2026 D1 SQL-variable overflow correction — locally validated, source identity unresolved
+
+Incident: live `/api/runs` showed a D1 `too many SQL variables` error at **2026-08-21 18:38:03 UTC**. The affected read-only/scheduled observability path was `Database.enrichTradeAccounting()`, which built one dynamic `broker_fees.order_id IN (...)` statement for all returned trades.
+
+Correction: query order IDs in sequential read-only batches of 50 and merge fee rows into the existing map. This preserves fee semantics, broker-linked attribution, conservative null/gross/net behavior, broker-authoritative positions, bounded/read-only reconciliation, all schedules, thresholds, sizing, broker actions, and caps **$5,000/$3,700/$2,000**. Local validation passed: focused 9 tests / 76 assertions, full 154 tests / 488 assertions, typecheck, diff-check, and Wrangler dry-run.
+
+Deployment artifact `2bf8e6c6-3d6d-456d-ad65-0bb6bfeef07b` with Worker version `a23c13a1-6b61-4c03-aae9-738d35118af9` is recorded at 100% traffic on **August 21, 2026 at 17:15:44 UTC**, but it is not mapped to the current local source/bundle. Current release state is **SOURCE-TO-WORKER IDENTITY UNRESOLVED**. Wrangler remains unauthenticated and the prior Cloudflare credential-reference error remains unresolved. No broker endpoint was called. Follow-up: repair identity/credential access, verify the exact bundle-to-Worker mapping, then perform only GET-only and natural scheduled verification. Do not use triggers or broker-mutating endpoints as validation.
+
+Test-layout note: crypto runtime regression coverage is stored at the repository root as `crypto-runtime.test.ts`, not `test/crypto-runtime.test.ts`; `bun test crypto-runtime.test.ts` passes 14 tests / 48 assertions.
+
+## August 21, 2026 strict read-only control update — FAIL/DEGRADED
+
+The latest GET-only control confirms `/api/positions` source labeling (`alpaca`) but historical run evidence still records broker/internal quantity mismatches: SOFI 73 vs 114 at 16:10:47 UTC, MSTR 3 vs 7 at 16:20:46 UTC, and NOW 1 vs 2 at 16:35:42 UTC. Daytrading is lease-held/error without fresh healthy delivery, swing delivery is unverified, crypto cadence has gaps and errors, reconciliation is maintenance-only, sampled lifecycle and gross/fee/net fields are null, and calibrated edge-after-costs is not live-verifiable. Keep production marked FAIL/DEGRADED; caps and trading behavior are unchanged and no broker mutation or deployment was performed.
+
 ## August 21, 2026 additive trade observability correction — deployed and GET-only verified
 
 The reliability correction is live from commit `71aad14b0df1fc693de0e002e1b91d5cb6460eb5`. Broker `time_in_force` is now persisted on new and reconciled trades, including crypto GTC; `/api/trades` adds conservative `gross`, `fee`, and `net` plus explicit accounting and fee-attribution metadata; gross/net remain null until fill/lot matching is provable; direct order-linked fees are exposed only when all linked USD values are known and non-negative; and bounded ledger truncation now persists top-level `degraded` status while retaining `BROKER_LEDGER_DEGRADED` details. No caps, schedules, thresholds, sizing, order behavior, or broker safety boundary changed.

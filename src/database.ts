@@ -1053,8 +1053,13 @@ export class Database {
       trades.map(trade => trade.alpaca_order_id).filter((id): id is string => typeof id === 'string' && id.trim().length > 0),
     ));
     const feesByOrder = new Map<string, { fee: number | null; attribution: 'broker-attributed' | 'broker-linked-value-unavailable' }>();
-    if (orderIds.length > 0) {
-      const placeholders = orderIds.map(() => '?').join(',');
+    // D1 rejects oversized variable lists. Keep this read-only enrichment bounded
+    // because scheduled strategy reads can request up to 200 trades and the API
+    // can request up to 500 trades.
+    const orderIdBatchSize = 50;
+    for (let start = 0; start < orderIds.length; start += orderIdBatchSize) {
+      const batch = orderIds.slice(start, start + orderIdBatchSize);
+      const placeholders = batch.map(() => '?').join(',');
       const feeRows = await this.db.prepare(
         `SELECT order_id,
                 SUM(CASE WHEN usd_value IS NOT NULL AND usd_value >= 0 THEN usd_value ELSE 0 END) AS fee_usd,
@@ -1065,7 +1070,7 @@ export class Database {
             AND order_id IS NOT NULL
             AND TRIM(order_id) <> ''
           GROUP BY order_id`
-      ).bind(...orderIds).all();
+      ).bind(...batch).all();
       for (const row of feeRows.results as Array<{
         order_id?: string | null;
         fee_usd?: number | null;
@@ -1083,6 +1088,7 @@ export class Database {
         });
       }
     }
+
     return trades.map(trade => {
       const linkedFee = trade.alpaca_order_id ? feesByOrder.get(String(trade.alpaca_order_id)) : undefined;
       const gross = null;

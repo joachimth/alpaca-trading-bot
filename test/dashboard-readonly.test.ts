@@ -137,6 +137,29 @@ describe('dashboard read-only hotfix', () => {
     expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
   });
 
+  test('trades accounting batches order IDs to stay below D1 variable limits', async () => {
+    const sqlite = seededSqlite();
+    for (let i = 0; i < 101; i += 1) {
+      const orderId = `order-${i}`;
+      sqlite.prepare(`INSERT INTO trades (alpaca_order_id, ticker, side, qty, filled_qty, avg_fill_price, status, strategy)
+        VALUES (?, ?, 'buy', 1, 1, 100, 'filled', 'crypto')`).run(orderId, `SYM${i}`);
+      sqlite.prepare(`INSERT INTO broker_fees (activity_id, fee_type, order_id, usd_value)
+        VALUES (?, 'CFEE', ?, ?)`).run(`fee-${i}`, orderId, 0.01);
+    }
+    const tracked = trackedD1(sqlite);
+    const env = { DB: tracked.d1 } as unknown as Env;
+
+    const response = await new DashboardAPI(env).handle(new Request('https://bot.example/api/trades?limit=120'));
+    expect(response.status).toBe(200);
+    const body = await response.json() as any;
+    expect(body.trades).toHaveLength(101);
+    expect(body.trades.every((trade: any) => trade.fee === 0.01)).toBe(true);
+
+    const feeQueries = tracked.sql.filter(statement => statement.includes('FROM broker_fees'));
+    expect(feeQueries).toHaveLength(3);
+    expect(feeQueries.map(statement => (statement.match(/\?/g) || []).length)).toEqual([50, 50, 1]);
+  });
+
   test('trades endpoint exposes conservative accounting fields without assigning account-level fees', async () => {
     const sqlite = seededSqlite();
     sqlite.prepare(`INSERT INTO trades (alpaca_order_id, ticker, side, qty, filled_qty, avg_fill_price, status, strategy, time_in_force)
