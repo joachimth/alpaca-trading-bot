@@ -23,11 +23,11 @@ Validation receipt: 92 tests, 273 assertions, typecheck, and diff-check passed l
 
 ## August 21, 2026 reliability correction candidate
 
-The August 21 reliability correction is deployed and live-verified. It aligns legacy strategy `totalPl` with `netTotalPl` while preserving `grossTotalPl`, adds bounded `/api/runs` pagination/filter observability, persists broker-authoritative quantity corrections while retaining the current-cycle BUY safety block, and adds non-terminal stock/swing exit guards with structured `PENDING_EXIT_EXISTS` fields. The pending follow-up delta adds mismatch-count context to the cycle event and direct regression coverage; it does not change trading behavior. Caps remain daytrading `$5,000`, swing `$3,700`, and crypto `$2,000`.
+The August 21 reliability correction is deployed and live-verified. It aligns legacy strategy `totalPl` with `netTotalPl` while preserving `grossTotalPl`, adds bounded `/api/runs` pagination/filter observability, persists broker-authoritative quantity corrections while retaining the current-cycle BUY safety block, and adds non-terminal stock/swing exit guards with structured `PENDING_EXIT_EXISTS` fields. The final August 21 correction includes mismatch-count context in the cycle event and direct regression coverage; it does not change trading behavior. Caps remain daytrading `$5,000`, swing `$3,700`, and crypto `$2,000`.
 
-Release receipt: source commit `10061d3237878141e8785c27f4a5b744f8d8ef97`; Cloudflare deployment `07615065-0302-41c6-8a22-4203ea38b5c9`; Worker version `bb3f45f3-03e8-453c-bb0d-876181d15d4c`; 100% traffic; all four schedules present. Local validation of the follow-up delta passed with 109 tests/321 assertions, TypeScript, diff-check, and dry-run. The follow-up delta is not deployed yet.
+Final release receipt: source commit `dab504cb091b2bf20120d9f8d3fd2d18ca61a4dc`; follow-up Cloudflare deployment `b1c1bc11ce6a451da97a8325a70f89bb` accepted after base deployment `07615065-0302-41c6-8a22-4203ea38b5c9`; all four schedules remain present. Local validation passed with 109 tests/321 assertions, TypeScript, diff-check, and dry-run. Separate final GET-only checks passed for health, config, dashboard, positions, runs, and trades.
 
-Remaining degraded follow-up: deploy the small observability delta, repeat separate GET-only verification, and observe a natural post-release strategy/reconciliation run. The latest visible reconciliation at `2026-08-21 07:00:24` UTC was `CYCLE_LEASE_HELD`; the unresolved historical partial-exit/mismatch lifecycle remains monitored.
+Remaining degraded follow-up: no post-release successful strategy/reconciliation run is visible yet; the latest reconciliation at `2026-08-21 07:20:24` UTC was `CYCLE_LEASE_HELD`. The unresolved historical partial-exit/mismatch lifecycle remains monitored.
 
 ## Dashboard 1102 hotfix — August 10, 2026
 
