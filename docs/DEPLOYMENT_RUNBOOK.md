@@ -1,8 +1,14 @@
+## August 21, 2026 runtime-cap and scheduler DDL correction — release gate
+
+The local correction makes runtime cap loading consistent with `/api/config`: daytrading uses `maxCapitalUsd` or `max_capital_usd`, and swing uses `swing_maxCapitalUsd` or `swing_max_capital_usd`, with existing defaults retained for missing/malformed values. `scheduled()` no longer mutates D1 schema. It performs a read-only `pragma_table_info('positions')` check before strategy cycles; absent `positions.strategy` blocks the cycle and records an error rather than attempting runtime DDL. Apply `positions-strategy-column-migration.sql` through the normal migration process for legacy databases before an authorized release.
+
+Local gate passed: focused `bun test test/runtime-config-schema.test.ts test/capital-caps.test.ts` (**12 tests / 31 assertions**), full `bun test` (**121 tests / 359 assertions**), `bunx tsc --noEmit`, and `git diff --check`. This correction is **not deployed or live-verified**. Do not call live endpoints, invoke triggers, or use broker-mutating operations during this task. Preserve daytrading **$5,000**, swing **$3,700**, and crypto **$2,000** caps and all strategy thresholds/budgets. Production remains **DEGRADED** pending swing delivery, crypto history/fee-edge, the separate crypto ownership/GTC persistence correction, lifecycle/P&L, and natural scheduled-run evidence.
+
 ## August 21, 2026 swing-cap correction
 
 The confirmed swing admission gap is corrected locally. Swing BUY checks now carry approved cycle-level entry notional into subsequent checks, so current broker-backed swing exposure plus planned entries cannot exceed the unchanged **$3,700** cap; exhausted headroom is recorded as structured `CAPITAL_CAP` observability. Exits, protective behavior, thresholds, turnover/minimum-size behavior, daytrading, crypto, and all vital caps remain unchanged.
 
-Validation passed on August 21, 2026: focused swing/risk/cap/skip tests, full suite **115 tests / 340 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. The correction is deployed and separately read-only verified. Commit `d9c8ec6fd0315980549078169c3e2d69986700d0` is live as Cloudflare deployment `602cdd72-1a49-4db5-bd86-898efea14315`, Worker version `7b20c401-fe15-41e5-ac71-a8d798e8112d`, at 100% traffic. All four schedules and all six GET endpoints passed; no broker-mutating endpoint was used.
+Validation passed on August 21, 2026: focused swing/risk/cap/skip/pagination tests, full suite **115 tests / 346 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. The correction is deployed and separately read-only verified. Commit `d9c8ec6fd0315980549078169c3e2d69986700d0` is live as Cloudflare deployment `602cdd72-1a49-4db5-bd86-898efea14315`, Worker version `7b20c401-fe15-41e5-ac71-a8d798e8112d`, at 100% traffic. All four schedules and all six GET endpoints passed; no broker-mutating endpoint was used.
 
 Known remaining gaps remain explicit: crypto positive-edge BUYs fail closed as `EDGE_CALIBRATION_UNAVAILABLE` because no production caller supplies calibrated `rawEdgeBps`; several broker lifecycle timestamps and crypto GTC `time_in_force` are not fully persisted; P&L remains model/gross-style plus conservative attributed fees rather than fill/lot-exact accounting; and fresh natural post-release strategy/reconciliation success is still required before health can be declared.
 
@@ -54,6 +60,14 @@ After deployment, verify the new Worker version, 100% traffic, configured schedu
 Current candidate validation: 92 tests passed with 273 assertions, typecheck and diff-check passed, and no broker mutation was used. Remote D1 schema and live Worker deployment are verified: deployment `32fdaa9c-0609-4be1-b16c-6369af4dfc8e`, version `dff3e198-1cb3-49d1-ac5d-706a7d292258`, 100% traffic, four schedules, and read-only endpoints passed.
 
 # Deployment runbook
+
+## August 21, 2026 `/api/runs` pagination reliability/observability fix
+
+Local source correction: `GET /api/runs` now derives response `page` from an explicitly supplied offset as `floor(offset / limit) + 1`; requests using `page` continue to derive offset from page exactly as before. This changes only read-only pagination metadata. It does not change daytrading, swing, or crypto caps, strategy thresholds, budgets, order sizing, or trading behavior.
+
+Validation gate before any authorized release: run `bun test test/dashboard-readonly.test.ts`, `bun test`, `bunx tsc --noEmit`, and `git diff --check`. This work is not deployed and must not call a live endpoint. Any future release must use GET-only smoke tests and require natural scheduled-run evidence; never use trigger, order, close, cancel, replace, retry, or other broker-mutating endpoints as validation.
+
+Current production state remains **DEGRADED, not healthy**: missing swing delivery evidence, crypto history/fee or edge-gate blocks, lifecycle/P&L gaps, and pending natural strategy evidence remain. Vital caps are unchanged at daytrading **$5,000**, swing **$3,700**, and crypto **$2,000**.
 
 ## Dashboard 1102 hotfix gate — August 10, 2026
 

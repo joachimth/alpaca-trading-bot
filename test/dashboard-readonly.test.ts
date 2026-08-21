@@ -66,8 +66,17 @@ describe('dashboard read-only hotfix', () => {
     const offsetBody = await offsetResponse.json() as any;
     expect(offsetBody.limit).toBe(3);
     expect(offsetBody.offset).toBe(5);
+    expect(offsetBody.page).toBe(2);
     expect(offsetBody.runs).toHaveLength(3);
     expect(offsetBody.runs.every((run: any) => run.status === 'skipped')).toBe(true);
+
+    const explicitOffsetResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/runs?limit=10&offset=10&page=1'));
+    expect(explicitOffsetResponse.status).toBe(200);
+    const explicitOffsetBody = await explicitOffsetResponse.json() as any;
+    expect(explicitOffsetBody.limit).toBe(10);
+    expect(explicitOffsetBody.offset).toBe(10);
+    expect(explicitOffsetBody.page).toBe(2);
+    expect(explicitOffsetBody.runs).toHaveLength(10);
     expect(tracked.sql.some(statement => statement.includes('LIMIT ? OFFSET ?'))).toBe(true);
   });
 

@@ -15,6 +15,7 @@ import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reas
 import { syncBrokerLedger } from './broker-ledger';
 import { reconcileBrokerOrders } from './order-reconciliation';
 import { reconcileBrokerQuantityMismatches } from './position-reconciliation';
+import { resolveCapitalCapOverride } from './capital-caps';
 
 export interface Env {
   DB: D1Database;
@@ -30,7 +31,7 @@ const CRYPTO_SYMBOLS = new Set([
   'ATOMUSD','LTCUSD','BCHUSD','NEARUSD','AAVEUSD','XLMUSD','ALGOUSD',
 ]);
 
-const FALLBACK_CONFIG = {
+export const FALLBACK_CONFIG = {
     maxPositions: 15,
     maxPositionPct: 20,
     stopLossPct: 8,
@@ -66,17 +67,68 @@ const FALLBACK_CONFIG = {
     maxCapitalUsd: 5000,       // daytrading capital cap (~33,000 DKK)
   };
 
+export function resolveDaytradingConfig(dbConfig: Record<string, string>) {
+  const config = { ...FALLBACK_CONFIG };
+  for (const [key, value] of Object.entries(dbConfig)) {
+    if (key === 'maxCapitalUsd' || key === 'max_capital_usd') continue;
+    if (key in config) {
+      const numVal = parseFloat(value);
+      if (!isNaN(numVal)) (config as any)[key] = numVal;
+      else if (value === 'true') (config as any)[key] = true;
+      else if (value === 'false') (config as any)[key] = false;
+      else (config as any)[key] = value;
+    }
+  }
+  const cap = resolveCapitalCapOverride(dbConfig, 'daytrading');
+  if (cap !== undefined) config.maxCapitalUsd = cap;
+  return config;
+}
+
+export async function positionsStrategySchemaReady(db: D1Database): Promise<boolean> {
+  try {
+    const column = await db.prepare(
+      `SELECT 1 FROM pragma_table_info('positions') WHERE name = ? LIMIT 1`
+    ).bind('strategy').first();
+    return Boolean(column);
+  } catch (error) {
+    console.error('Required positions schema check failed:', error);
+    return false;
+  }
+}
+
+async function logSchemaBlockedRun(env: Env, trigger: string): Promise<void> {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
+       VALUES (?, 0, 0, 0, 0, 1, ?, 'error')`
+    ).bind(
+      trigger,
+      JSON.stringify({ errors: ['Required schema missing: positions.strategy; apply positions-strategy-column-migration.sql before enabling strategy cycles'] }),
+    ).run();
+  } catch (error) {
+    console.error('Unable to record schema-blocked strategy run:', error);
+  }
+}
+
+async function runStrategyWithSchemaGate(env: Env, trigger: string, cycle: (env: Env, trigger: string) => Promise<void>): Promise<void> {
+  if (!await positionsStrategySchemaReady(env.DB)) {
+    await logSchemaBlockedRun(env, trigger);
+    return;
+  }
+  await cycle(env, trigger);
+}
+
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    // Scheduled write/maintenance paths retain the existing idempotent schema readiness.
-    try { await env.DB.prepare('ALTER TABLE positions ADD COLUMN strategy TEXT').run(); } catch (_) {}
-    // Cloudflare passes the configured cron expression verbatim.
+    // Schema changes are explicit migrations, not per-cron side effects. Strategy
+    // cycles are gated by a read-only readiness check and fail closed if legacy
+    // D1 has not yet received positions-strategy-column-migration.sql.
     if (event.cron === '0 22 * * 1-5') {
-      ctx.waitUntil(runSwingCycle(env, 'swing_cron'));
+      ctx.waitUntil(runStrategyWithSchemaGate(env, 'swing_cron', runSwingCycle));
     } else if (event.cron === '7-59/30 * * * *') {
-      ctx.waitUntil(runCryptoCycle(env, 'crypto_cron'));
+      ctx.waitUntil(runStrategyWithSchemaGate(env, 'crypto_cron', runCryptoCycle));
     } else if (event.cron === '*/5 13-21 * * 1-5') {
-      ctx.waitUntil(runTradingCycleWithLease(env, 'cron'));
+      ctx.waitUntil(runStrategyWithSchemaGate(env, 'cron', runTradingCycleWithLease));
     } else if (event.cron === '*/10 * * * *') {
       ctx.waitUntil(runScheduledMaintenance(env, 'reconcile_cron'));
     } else {
@@ -208,6 +260,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
   };
 
   try {
+    await db.assertPositionsStrategySchema();
     // 1. Initialize clients
     const alpaca = new AlpacaClient({
       apiKey: env.ALPACA_API_KEY,
@@ -226,16 +279,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
     // 2. Load config
     const dbConfig = await db.getConfig();
-    const config = { ...FALLBACK_CONFIG };
-    for (const [key, value] of Object.entries(dbConfig)) {
-      if (key in config) {
-        const numVal = parseFloat(value);
-        if (!isNaN(numVal)) (config as any)[key] = numVal;
-        else if (value === 'true') (config as any)[key] = true;
-        else if (value === 'false') (config as any)[key] = false;
-        else (config as any)[key] = value;
-      }
-    }
+    const config = resolveDaytradingConfig(dbConfig);
 
     // 3. Check market status
     const clock = await alpaca.getClock();

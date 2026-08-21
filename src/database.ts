@@ -172,6 +172,17 @@ export class Database {
     await this.schemaReady;
   }
 
+  /** Read-only prerequisite check for strategy ownership metadata. */
+  async assertPositionsStrategySchema(): Promise<void> {
+    await this.ensureTradeSchema();
+    const column = await this.db.prepare(
+      `SELECT 1 FROM pragma_table_info('positions') WHERE name = ? LIMIT 1`
+    ).bind('strategy').first();
+    if (!column) {
+      throw new Error('Required schema missing: positions.strategy; apply positions-strategy-column-migration.sql before enabling strategy cycles');
+    }
+  }
+
   async upsertBrokerActivities(activities: readonly AccountActivity[]): Promise<{ activities: number; fills: number; fees: number }> {
     await this.ensureTradeSchema();
     let fills = 0;

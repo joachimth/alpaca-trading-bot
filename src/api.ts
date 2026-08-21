@@ -289,10 +289,12 @@ export class DashboardAPI {
       return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : fallback;
     };
     const limit = Math.min(parseNonNegativeInt(url.searchParams.get('limit'), 30), 500);
-    const page = parseNonNegativeInt(url.searchParams.get('page'), 1);
-    const offset = url.searchParams.has('offset')
+    const requestedPage = parseNonNegativeInt(url.searchParams.get('page'), 1);
+    const offsetSupplied = url.searchParams.has('offset');
+    const offset = offsetSupplied
       ? parseNonNegativeInt(url.searchParams.get('offset'), 0)
-      : Math.max(0, page - 1) * limit;
+      : Math.max(0, requestedPage - 1) * limit;
+    const page = offsetSupplied ? Math.floor(offset / limit) + 1 : requestedPage;
     const strategy = url.searchParams.get('strategy');
     const runs = await db.getRecentRuns({
       limit,

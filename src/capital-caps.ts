@@ -44,3 +44,21 @@ export function validateCapitalCap(value: unknown): number | null {
   const numeric = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
 }
+
+/**
+ * Resolve a runtime cap override using the same aliases and precedence as the
+ * dashboard resolver. `undefined` means no valid override was found; callers
+ * retain their existing fallback for missing or malformed values.
+ */
+export function resolveCapitalCapOverride(
+  dbConfig: Record<string, string>,
+  strategy: CapitalCapStrategy,
+): number | undefined {
+  const keys = CAPITAL_CAP_KEYS[strategy];
+  for (const key of keys) {
+    if (!(key in dbConfig)) continue;
+    const value = validateCapitalCap(dbConfig[key]);
+    return value === null ? undefined : value;
+  }
+  return undefined;
+}

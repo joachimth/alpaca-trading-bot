@@ -2,7 +2,7 @@
 
 The confirmed swing admission gap is corrected locally. Swing BUY checks now carry approved cycle-level entry notional into subsequent checks, so current broker-backed swing exposure plus planned entries cannot exceed the unchanged **$3,700** cap; exhausted headroom is recorded as structured `CAPITAL_CAP` observability. Exits, protective behavior, thresholds, turnover/minimum-size behavior, daytrading, crypto, and all vital caps remain unchanged.
 
-Validation passed on August 21, 2026: focused swing/risk/cap/skip tests, full suite **115 tests / 340 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. The correction is deployed and separately read-only verified. Commit `d9c8ec6fd0315980549078169c3e2d69986700d0` is live as Cloudflare deployment `602cdd72-1a49-4db5-bd86-898efea14315`, Worker version `7b20c401-fe15-41e5-ac71-a8d798e8112d`, at 100% traffic. All four schedules and all six GET endpoints passed; no broker-mutating endpoint was used.
+Validation passed on August 21, 2026: focused swing/risk/cap/skip/pagination tests, full suite **115 tests / 346 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. The correction is deployed and separately read-only verified. Commit `d9c8ec6fd0315980549078169c3e2d69986700d0` is live as Cloudflare deployment `602cdd72-1a49-4db5-bd86-898efea14315`, Worker version `7b20c401-fe15-41e5-ac71-a8d798e8112d`, at 100% traffic. All four schedules and all six GET endpoints passed; no broker-mutating endpoint was used.
 
 Known remaining gaps remain explicit: crypto positive-edge BUYs fail closed as `EDGE_CALIBRATION_UNAVAILABLE` because no production caller supplies calibrated `rawEdgeBps`; several broker lifecycle timestamps and crypto GTC `time_in_force` are not fully persisted; P&L remains model/gross-style plus conservative attributed fees rather than fill/lot-exact accounting; and fresh natural post-release strategy/reconciliation success is still required before health can be declared.
 
@@ -28,6 +28,21 @@ Result: **DEGRADED, not healthy**. All six required GET endpoints returned HTTP 
 No code, cap, strategy, or deployment mutation was required for this control correction. The follow-up remains natural scheduled evidence for successful daytrading and swing delivery; no trigger, submit, cancel, close, replace, retry, or broker-mutating endpoint was called.
 
 # Alpaca AI Trading Bot
+
+## August 21, 2026 runtime-cap and scheduler DDL correction — local, not deployed
+
+This narrow reliability correction aligns the daytrading and swing runtime loaders with the existing `/api/config` cap aliases: daytrading accepts `maxCapitalUsd` and `max_capital_usd`; swing accepts `swing_maxCapitalUsd` and `swing_max_capital_usd`. Missing or malformed overrides retain the existing fallbacks. The correction also removes the per-cron `ALTER TABLE positions ADD COLUMN strategy` and replaces it with a read-only schema gate; strategy cycles fail closed and record an error when the required column is absent. Apply the explicit `positions-strategy-column-migration.sql` once for legacy D1 databases.
+
+Local validation passed: focused `bun test test/runtime-config-schema.test.ts test/capital-caps.test.ts` (**12 tests / 31 assertions**), full `bun test` (**121 tests / 359 assertions**), `bunx tsc --noEmit`, and `git diff --check`. This work is **not deployed or live-verified**, no live endpoint was called, and no broker-mutating operation was used. Vital caps remain daytrading **$5,000**, swing **$3,700**, and crypto **$2,000**; strategy thresholds, budgets, sizing, exits, and trading behavior are unchanged. Production remains **DEGRADED**, with missing swing delivery evidence, crypto history/fee-edge blocks, lifecycle/P&L gaps, and pending natural scheduled evidence.
+
+
+## August 21, 2026 `/api/runs` pagination reliability fix
+
+Fixed a read-only observability defect in `GET /api/runs`: when `offset` is explicitly supplied, the response now reports `page = floor(offset / limit) + 1`, matching the returned slice; page-based requests retain their existing page-to-offset behavior. This is metadata-only and does not change caps, strategy thresholds, order sizing, trading decisions, or any other trading behavior.
+
+Validation requirements for this local correction are `bun test test/dashboard-readonly.test.ts`, `bun test`, `bunx tsc --noEmit`, and `git diff --check`. Do not deploy or call live endpoints for this change; any later release must use read-only verification and wait for natural scheduled-run evidence.
+
+Production remains **DEGRADED, not healthy**: swing delivery evidence is incomplete, crypto history/fee or edge-gate blocks remain, crypto ownership and GTC/lifecycle persistence still need a separate correction, fill-exact P&L gaps remain, and fresh natural daytrading/swing strategy evidence is still pending. Vital caps remain daytrading **$5,000**, swing **$3,700**, and crypto **$2,000**.
 
 Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persistence, Alpaca paper trading, and a GitHub Pages dashboard.
 

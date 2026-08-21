@@ -19,6 +19,7 @@ import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reas
 import { syncBrokerLedger } from './broker-ledger';
 import { reconcileBrokerOrders } from './order-reconciliation';
 import { reconcileBrokerQuantityMismatches } from './position-reconciliation';
+import { resolveCapitalCapOverride } from './capital-caps';
 import {
   assessSwingBars,
   getSwingBarsWindow,
@@ -26,7 +27,7 @@ import {
   SWING_BAR_LIMIT,
 } from './swing-data';
 
-const SWING_FALLBACK_CONFIG = {
+export const SWING_FALLBACK_CONFIG = {
   ...DEFAULT_SWING_CONFIG,
   // Risk config
   maxPositions: 30,
@@ -48,6 +49,26 @@ const SWING_FALLBACK_CONFIG = {
   maxOrderRatePerMin: 15,
   maxCapitalUsd: 3700,      // ~25,000 DKK cap for swing strategy
 };
+
+export function resolveSwingConfig(dbConfig: Record<string, string>) {
+  const config = { ...SWING_FALLBACK_CONFIG };
+  for (const [key, value] of Object.entries(dbConfig)) {
+    if (!key.startsWith('swing_')) continue;
+    const cleanKey = key.replace('swing_', '');
+    if (cleanKey === 'maxCapitalUsd' || cleanKey === 'max_capital_usd') continue;
+    const numVal = parseFloat(value);
+    if (!isNaN(numVal) && cleanKey in config) {
+      (config as any)[cleanKey] = numVal;
+    } else if (value === 'true' && cleanKey in config) {
+      (config as any)[cleanKey] = true;
+    } else if (value === 'false' && cleanKey in config) {
+      (config as any)[cleanKey] = false;
+    }
+  }
+  const cap = resolveCapitalCapOverride(dbConfig, 'swing');
+  if (cap !== undefined) config.maxCapitalUsd = cap;
+  return config;
+}
 
 export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
   const leaseStart = Date.now();
@@ -96,6 +117,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
   };
 
   try {
+    await db.assertPositionsStrategySchema();
     const alpaca = new AlpacaClient({
       apiKey: env.ALPACA_API_KEY,
       apiSecret: env.ALPACA_API_SECRET,
@@ -111,20 +133,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
 
     // Load swing config from D1 (merge with fallback)
     const dbConfig = await db.getConfig();
-    const config = { ...SWING_FALLBACK_CONFIG };
-    for (const [key, value] of Object.entries(dbConfig)) {
-      if (key.startsWith('swing_')) {
-        const cleanKey = key.replace('swing_', '');
-        const numVal = parseFloat(value);
-        if (!isNaN(numVal) && cleanKey in config) {
-          (config as any)[cleanKey] = numVal;
-        } else if (value === 'true' && cleanKey in config) {
-          (config as any)[cleanKey] = true;
-        } else if (value === 'false' && cleanKey in config) {
-          (config as any)[cleanKey] = false;
-        }
-      }
-    }
+    const config = resolveSwingConfig(dbConfig);
 
     // Check market status — swing runs after close
     const clock = await alpaca.getClock();
