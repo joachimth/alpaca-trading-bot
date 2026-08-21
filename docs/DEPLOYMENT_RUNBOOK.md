@@ -1,3 +1,11 @@
+## August 21, 2026 crypto edge-gate correction
+
+Release scope: add an explicit crypto-only fail-closed gate for a configured positive `minEdgeAfterCosts` when no calibrated `rawEdgeBps` exists; never derive edge from confidence; preserve daytrading/swing behavior and caps `$5,000/$3,700/$2,000`; classify the skip as `EDGE_CALIBRATION_UNAVAILABLE`. No D1 migration is required.
+
+Pre-release evidence: 111 tests passed with 330 assertions, TypeScript passed, `git diff --check` passed, and `bunx wrangler deploy --dry-run --outdir /workspace/alpaca-worker-bundle-crypto-edge-fix` passed. Live GET-only probes passed for `/health`, `/api/config`, `/api/positions`, `/api/dashboard`, and filtered `/api/runs`; the natural crypto run at `2026-08-21 07:37:34` CPH had 7 decisions, 0 trades, and 0 errors. No trigger, submit, cancel, close, replace, retry, or other broker mutation was used.
+
+Release status: **not yet deployed**. The next required steps are commit/push, upload the exact fresh bundle through the documented Cloudflare control-plane path, verify a new Worker version at 100% traffic and all four schedules, run read-only smoke checks, then observe a natural post-release crypto run. A missing credential or deployment-list receipt is a blocker, not a successful release.
+
 ## August 21, 2026 reliability correction candidate
 
 Before deployment, require the complete local gates and review the bounded changes: net/gross presentation consistency, `/api/runs` pagination and filtering, broker-authoritative quantity persistence with the existing mismatch safety block, one cycle-level `POSITION_QTY_MISMATCH` event, and non-terminal stock/swing SELL/CLOSE suppression via `PENDING_EXIT_EXISTS`. Confirm caps remain `$5,000/$3,700/$2,000`, no strategy thresholds or trade budgets changed, protective/risk-reducing exits remain eligible, and no broker-mutating endpoint was used. After deployment, perform a separate read-only verification of all six endpoints, fresh run delivery, skip observability, lifecycle fields, fees/net, caps, and the four schedules.

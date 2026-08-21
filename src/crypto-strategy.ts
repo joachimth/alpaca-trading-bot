@@ -209,6 +209,7 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
       observedFeeBps: feeTelemetry.status === 'available' ? feeTelemetry.rateBps : undefined,
       feeTelemetryStatus: feeTelemetry.status,
       requireFeeTelemetry: true,
+      requireCalibratedEdge: true,
       maxCapitalUsd: config.maxCapitalUsd ?? 0,
     };
     const riskManager = new RiskManager(riskConfig);

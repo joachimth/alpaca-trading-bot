@@ -21,6 +21,14 @@ Validation receipt: 92 tests, 273 assertions, typecheck, and diff-check passed l
 
 # Operations and release notes
 
+## August 21, 2026 crypto edge-gate correction
+
+Crypto BUYs now fail closed when `minEdgeAfterCosts` is positive but no calibrated `rawEdgeBps` is available. Confidence is never converted to basis points. The rejection is exposed as `EDGE_CALIBRATION_UNAVAILABLE`, so the missing economics calibration is visible in `run_log.error_details` and dashboard run details instead of being silently treated as a generic risk decision. Daytrading and swing callers do not opt into this gate.
+
+Validation passed with 111 tests and 330 assertions, typecheck, diff-check, and Wrangler dry-run. Read-only live checks confirmed `/health`, `/api/config`, `/api/positions`, and `/api/dashboard` returned HTTP 200; `/api/runs?trigger=crypto_cron&limit=1` returned the natural `2026-08-21 07:37:34` CPH crypto run with 7 decisions, 0 trades, 0 errors, and explicit skip details. No broker-mutating endpoint was used. Deployment and post-release natural-run verification remain pending, and the system must not be called healthy until those checks pass.
+
+Vital caps remain daytrading `$5,000`, swing `$3,700`, and crypto `$2,000`.
+
 ## August 21, 2026 reliability correction candidate
 
 The August 21 reliability correction is deployed and live-verified. It aligns legacy strategy `totalPl` with `netTotalPl` while preserving `grossTotalPl`, adds bounded `/api/runs` pagination/filter observability, persists broker-authoritative quantity corrections while retaining the current-cycle BUY safety block, and adds non-terminal stock/swing exit guards with structured `PENDING_EXIT_EXISTS` fields. The final August 21 correction includes mismatch-count context in the cycle event and direct regression coverage; it does not change trading behavior. Caps remain daytrading `$5,000`, swing `$3,700`, and crypto `$2,000`.

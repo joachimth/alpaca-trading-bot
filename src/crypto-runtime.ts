@@ -272,6 +272,7 @@ export function classifyCryptoSkip(reason: string): string {
   if (normalized.includes('max positions')) return 'MAX_POSITIONS';
   if (normalized.includes('capital cap') || normalized.includes('available cash')) return 'CAPITAL_CAP';
   if (normalized.includes('confidence')) return 'CONFIDENCE_BELOW_THRESHOLD';
+  if (normalized.includes('calibrated raw edge unavailable')) return 'EDGE_CALIBRATION_UNAVAILABLE';
   if (normalized.includes('edge after costs')) return 'INSUFFICIENT_NET_EDGE';
   if (normalized.includes('rate limit')) return 'ORDER_RATE_LIMIT';
   return 'RISK_DECISION';

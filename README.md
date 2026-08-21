@@ -2,6 +2,14 @@
 
 Autonomous AI-assisted trading bot running on a Cloudflare Worker with D1 persistence, Alpaca paper trading, and a GitHub Pages dashboard.
 
+## August 21, 2026 crypto edge-gate correction
+
+The local correction closes the confirmed crypto economics gap without inventing an edge from confidence. Crypto BUY admission now fails closed when the configured positive `minEdgeAfterCosts` gate has no calibrated `rawEdgeBps` source, and records `EDGE_CALIBRATION_UNAVAILABLE` in structured run details. If a real calibrated edge is later supplied, the existing cost-adjusted edge check remains active. Daytrading and swing behavior are unchanged.
+
+Local validation on August 21, 2026: **111 tests passed, 330 assertions**, TypeScript typecheck, `git diff --check`, and a fresh Wrangler dry-run passed. The existing `/api/runs` pagination/filter correction remains covered and was live-verified with `?trigger=crypto_cron`: the latest observed run at `2026-08-21 07:37:34` CPH recorded 7 decisions, 0 trades, 0 errors, with `NO_POSITION_TO_EXIT` and `FEE_DATA_UNAVAILABLE` skips. No trading cycle, order, cancel, close, replace, retry, or other broker mutation was used.
+
+Deployment of this correction is pending the documented Cloudflare upload and control-plane verification. Vital parameters remain unchanged: daytrading **$5,000**, swing **$3,700**, crypto **$2,000**. Until a new Worker version is confirmed at 100% traffic and a natural post-release run is observed, production remains a release blocker/degraded state.
+
 ## August 21, 2026 reliability correction candidate
 
 The August 21 correction is deployed and live-verified. It fixes the confirmed gross/net presentation bug by aligning legacy `totalPl` with `netTotalPl` while retaining explicit gross fields, adds bounded `/api/runs` pagination and filters, persists broker-authoritative quantities while retaining the current-cycle mismatch safety block, and prevents repeated non-terminal stock/swing SELL/CLOSE submissions with structured `PENDING_EXIT_EXISTS` observability. Final follow-up deployment `b1c1bc11ce6a451da97a8325a70f89bb` was accepted after base deployment `07615065-0302-41c6-8a22-4203ea38b5c9`, from source commit `dab504cb091b2bf20120d9f8d3fd2d18ca61a4dc`; the four schedules remain present. The mismatch guard remains broker-authoritative: new daytrading BUY admission is blocked for the cycle, while risk-reducing/protective exits remain eligible.

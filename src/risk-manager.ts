@@ -29,6 +29,7 @@ export interface RiskConfig {
   observedFeeBps?: number;         // broker-observed fee rate added to estimated costs
   feeTelemetryStatus?: 'available' | 'insufficient' | 'unavailable';
   requireFeeTelemetry?: boolean;   // fail closed for discretionary entries when true
+  requireCalibratedEdge?: boolean; // crypto-only fail-closed gate when minEdgeAfterCosts is enabled
   rawEdgeBps?: number;              // calibrated/telemetry input only; never inferred from confidence
   maxCapitalUsd: number;          // hard cap on total daytrading capital (0 = use full account)
 }
@@ -177,6 +178,22 @@ export class RiskManager {
     const costRate = this.estimateTransactionCosts(price, indicators, 1);
     const edgeBps = this.config.rawEdgeBps;
     const edgeAfterCosts = edgeBps === undefined ? undefined : edgeBps - costRate.bps;
+
+    // Crypto enables this explicitly because its positive configured minimum
+    // must never become an inert gate when calibration is absent. Stock and
+    // daytrading callers keep their existing behavior unless they opt in.
+    if (
+      decision.action === 'BUY' &&
+      this.config.requireCalibratedEdge === true &&
+      this.config.minEdgeAfterCosts > 0 &&
+      edgeBps === undefined
+    ) {
+      return {
+        approved: false,
+        reason: `Calibrated raw edge unavailable for configured minimum edge after costs (${this.config.minEdgeAfterCosts}bps)`,
+        estimatedCosts: costRate.dollar,
+      };
+    }
 
     if (edgeAfterCosts !== undefined && edgeAfterCosts < this.config.minEdgeAfterCosts) {
       return {

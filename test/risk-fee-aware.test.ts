@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { AccountInfo, Position } from '../src/alpaca';
 import type { AIDecision } from '../src/ai-decision';
 import { RiskManager, type RiskConfig } from '../src/risk-manager';
+import { classifyCryptoSkip } from '../src/crypto-runtime';
 import { SwingRiskManager, type SwingRiskConfig } from '../src/swing-risk';
 import type { SwingScore } from '../src/swing-signals';
 import type { TAIndicators } from '../src/technical-analysis';
@@ -233,6 +234,39 @@ describe('fee-aware RiskManager regression coverage', () => {
     expect(result.approved).toBe(true);
     expect(result.estimatedCosts).toBeCloseTo(8.3, 10);
     expect(result.edgeAfterCosts).toBeCloseTo(-33.3, 10);
+  });
+
+  test('crypto-configured BUY admission fails closed without a calibrated raw edge', () => {
+    const manager = new RiskManager(riskConfig({
+      minEdgeAfterCosts: 8,
+      requireFeeTelemetry: true,
+      feeTelemetryStatus: 'available',
+      requireCalibratedEdge: true,
+    }));
+    const result = manager.checkTrade(decision, account(), [], indicators());
+
+    expect(result.approved).toBe(false);
+    expect(result.reason).toContain('Calibrated raw edge unavailable');
+    expect(result.reason).toContain('8bps');
+    expect(result.edgeAfterCosts).toBeUndefined();
+    expect(classifyCryptoSkip(result.reason)).toBe('EDGE_CALIBRATION_UNAVAILABLE');
+  });
+
+  test('crypto-configured BUY admission evaluates calibrated raw edge after costs', () => {
+    const manager = new RiskManager(riskConfig({
+      minEdgeAfterCosts: 8,
+      requireFeeTelemetry: true,
+      feeTelemetryStatus: 'available',
+      requireCalibratedEdge: true,
+      rawEdgeBps: 14,
+    }));
+    const result = manager.checkTrade(decision, account(), [], indicators());
+
+    // Cost estimate is 1.5 bps spread + 5 bps slippage + 0.1 bps regulatory.
+    expect(result.approved).toBe(false);
+    expect(result.edgeAfterCosts).toBeCloseTo(7.4, 10);
+    expect(result.estimatedCosts).toBeCloseTo(0.066, 10);
+    expect(result.reason).toContain('Edge after costs insufficient');
   });
 });
 
