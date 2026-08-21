@@ -137,6 +137,33 @@ describe('dashboard read-only hotfix', () => {
     expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
   });
 
+  test('trades endpoint exposes conservative accounting fields without assigning account-level fees', async () => {
+    const sqlite = seededSqlite();
+    sqlite.prepare(`INSERT INTO trades (alpaca_order_id, ticker, side, qty, filled_qty, avg_fill_price, status, strategy, time_in_force)
+      VALUES (?, ?, 'buy', 1, 1, 100, 'filled', 'crypto', 'gtc')`).run('order-linked', 'BTCUSD');
+    sqlite.prepare(`INSERT INTO trades (alpaca_order_id, ticker, side, qty, filled_qty, avg_fill_price, status, strategy)
+      VALUES (?, ?, 'sell', 1, 1, 110, 'filled', 'crypto')`).run('order-unlinked', 'ETHUSD');
+    sqlite.prepare(`INSERT INTO broker_fees (activity_id, fee_type, order_id, usd_value) VALUES (?, 'CFEE', ?, ?)`)
+      .run('fee-linked', 'order-linked', 0.25);
+    sqlite.prepare(`INSERT INTO broker_fees (activity_id, fee_type, order_id, usd_value) VALUES (?, 'FEE', NULL, ?)`)
+      .run('fee-account', 9.99);
+    const tracked = trackedD1(sqlite);
+    const env = { DB: tracked.d1 } as unknown as Env;
+
+    const response = await new DashboardAPI(env).handle(new Request('https://bot.example/api/trades?limit=10'));
+    expect(response.status).toBe(200);
+    const body = await response.json() as any;
+    expect(body.trades).toHaveLength(2);
+    const linked = body.trades.find((trade: any) => trade.alpaca_order_id === 'order-linked');
+    const unlinked = body.trades.find((trade: any) => trade.alpaca_order_id === 'order-unlinked');
+    expect(linked).toMatchObject({ gross: null, fee: 0.25, net: null, accounting_status: 'unavailable_fill_lot_exact', fee_attribution: 'broker-attributed', time_in_force: 'gtc' });
+    expect(unlinked).toMatchObject({ gross: null, fee: null, net: null, accounting_status: 'unavailable_fill_lot_exact', fee_attribution: 'none-recorded' });
+    expect(Object.prototype.hasOwnProperty.call(linked, 'gross')).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(linked, 'fee')).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(linked, 'net')).toBe(true);
+    expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
+  });
+
   test('dashboard aligns account market value and latest snapshot count with the same broker positions', async () => {
     const sqlite = seededSqlite();
     sqlite.prepare(`INSERT INTO performance_snapshots (timestamp, positions_count) VALUES (?, ?)`).run('2026-08-21 12:00:00', 99);

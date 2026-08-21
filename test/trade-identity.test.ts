@@ -134,7 +134,7 @@ describe('feeTelemetryFromAggregate freshness gate', () => {
 describe('trade observability enrichment', () => {
   test('exposes conservative per-trade accounting fields and only linked fees', async () => {
     const db = createDb();
-    await seedTrade(db, { alpaca_order_id: 'order-with-fee', status: 'filled', filled_qty: 10, avg_fill_price: 100 });
+    await seedTrade(db, { alpaca_order_id: 'order-without-fee', status: 'filled', filled_qty: 10, avg_fill_price: 100 });
     const sqlite = createTestDatabase();
     const dbWithFee = new Database(createFakeD1(sqlite));
     await dbWithFee.logTrade({
@@ -152,6 +152,15 @@ describe('trade observability enrichment', () => {
       accounting_status: 'unavailable_fill_lot_exact',
       fee_attribution: 'broker-attributed',
     });
+    sqlite.prepare(`INSERT INTO broker_fees (activity_id, fee_type, order_id, usd_value) VALUES (?, 'FEE', ?, NULL)`)
+      .run('fee-unknown', 'order-with-unknown-fee');
+    await dbWithFee.logTrade({
+      alpaca_order_id: 'order-with-unknown-fee', client_order_id: 'client-2', ticker: 'MSFT', side: 'sell', qty: 1,
+      fill_price: 200, avg_fill_price: 200, status: 'filled', order_type: 'market', limit_price: null,
+      stop_price: null, estimated_value: 200, decision_id: null, error_message: null, strategy: 'daytrading',
+    });
+    const [, unknownFee] = await dbWithFee.getRecentTrades(10);
+    expect(unknownFee).toMatchObject({ fee: null, fee_attribution: 'broker-linked-value-unavailable', net: null });
     const dbWithoutFee = db;
     const [withoutFee] = await dbWithoutFee.getRecentTrades(10);
     expect(withoutFee).toMatchObject({

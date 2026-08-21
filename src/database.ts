@@ -1050,9 +1050,9 @@ export class Database {
   private async enrichTradeAccounting(trades: any[]): Promise<any[]> {
     if (trades.length === 0) return trades;
     const orderIds = Array.from(new Set(
-      trades.map(trade => trade.alpaca_order_id).filter((id): id is string => typeof id === 'string' && id.length > 0),
+      trades.map(trade => trade.alpaca_order_id).filter((id): id is string => typeof id === 'string' && id.trim().length > 0),
     ));
-    const feesByOrder = new Map<string, number>();
+    const feesByOrder = new Map<string, { fee: number | null; attribution: 'broker-attributed' | 'broker-linked-value-unavailable' }>();
     if (orderIds.length > 0) {
       const placeholders = orderIds.map(() => '?').join(',');
       const feeRows = await this.db.prepare(
@@ -1072,34 +1072,29 @@ export class Database {
         fee_rows?: number | null;
         unknown_fee_rows?: number | null;
       }>) {
-        if (
-          row.order_id &&
-          Number(row.fee_rows ?? 0) > 0 &&
-          Number(row.unknown_fee_rows ?? 0) === 0 &&
-          row.fee_usd != null &&
-          Number.isFinite(Number(row.fee_usd))
-        ) {
-          feesByOrder.set(String(row.order_id), Number(row.fee_usd));
-        }
+        if (!row.order_id || Number(row.fee_rows ?? 0) <= 0) continue;
+        const unknownFeeRows = Number(row.unknown_fee_rows ?? 0);
+        const fee = row.fee_usd == null ? null : Number(row.fee_usd);
+        feesByOrder.set(String(row.order_id), {
+          fee: unknownFeeRows === 0 && fee !== null && Number.isFinite(fee) ? fee : null,
+          attribution: unknownFeeRows === 0 && fee !== null && Number.isFinite(fee)
+            ? 'broker-attributed'
+            : 'broker-linked-value-unavailable',
+        });
       }
     }
     return trades.map(trade => {
       const linkedFee = trade.alpaca_order_id ? feesByOrder.get(String(trade.alpaca_order_id)) : undefined;
       const gross = null;
-      const fee = linkedFee ?? null;
+      const fee = linkedFee?.fee ?? null;
       const net = gross !== null && fee !== null ? gross - fee : null;
-      const accountingStatus = gross === null ? 'unavailable_fill_lot_exact' : 'available';
-      const feeAttribution = linkedFee != null ? 'broker-attributed' : 'none-recorded';
       return {
         ...trade,
         gross,
         fee,
         net,
-        gross_pnl: gross,
-        fee_usd: fee,
-        net_pnl: net,
-        accounting_status: accountingStatus,
-        fee_attribution: feeAttribution,
+        accounting_status: 'unavailable_fill_lot_exact',
+        fee_attribution: linkedFee?.attribution ?? 'none-recorded',
       };
     });
   }
