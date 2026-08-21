@@ -1,8 +1,8 @@
 ## August 21, 2026 Alpaca status
 Production remains **FAIL/DEGRADED**, not healthy.
-Source labeling is `alpaca`, but historical broker/internal mismatches remain for SOFI, MSTR, and NOW.
-Daytrading is lease-held/error, swing delivery is unverified, crypto has cadence/errors, reconciliation is maintenance-only.
-Lifecycle and gross/fee/net fields are null; aggregate crypto telemetry conflicts with runtime FEE_DATA_UNAVAILABLE.
-Deployment 2bf8e6c6/a23c13a1 is artifact-confirmed at 100% from 17:15:44 UTC, but current source-to-Worker identity is unresolved.
-Local D1 batching correction passed 154 tests/488 assertions and dry-run; caps remain $5,000/$3,700/$2,000.
-No deployment or broker mutation occurred in this control; credential/identity repair remains the blocker.
+Correction `f5fddcbe` deployed as `f181f9c3` / Worker `84069389` at 100% on 2026-08-21 21:03:38 UTC.
+Direct deployment retained D1 binding, nodejs_compat, all four schedules, and caps $5,000/$3,700/$2,000.
+Focused 9/76 and full 154/488 regressions, typecheck, diff-check, and dry-run passed.
+Natural post-release crypto run proof is pending; prior D1 variable failures remain historical until rechecked.
+Daytrading lease/error skips, missing fresh swing success, lifecycle/accounting gaps, unattributed exposure, and unexercised rawEdgeBps remain open.
+No trigger or broker mutation was used.

@@ -1,3 +1,11 @@
+## August 21, 2026 D1 SQL-variable correction deployed and awaiting natural run proof
+
+Reliability-only correction `f5fddcbe829a4b6a6436b110ab0d19e3ab11c5aa` batches read-only `broker_fees` enrichment queries in groups of 50, preventing the production `too many SQL variables` failure without changing caps, schedules, thresholds, sizing, order behavior, or broker authority. Focused validation passed 9 tests / 76 assertions; full validation passed 154 tests / 488 assertions, typecheck, diff-check, and Wrangler dry-run.
+
+Direct Cloudflare upload succeeded on **August 21, 2026 at 21:03:38 UTC** as deployment `f181f9c3-4c72-4854-8173-fe88e0ed8cb1`, Worker version `84069389-3596-49b4-98dd-795c694e8d19`, at 100% traffic. Live settings retain D1 `2bc505a2-d744-4322-8c3b-5f5ebe35f9a1`, `nodejs_compat`, and all four schedules: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, and `*/10 * * * *`. Separate post-release GET verification is pending the next natural crypto schedule; no trigger or broker-mutating endpoint was used.
+
+Production remains **FAIL/DEGRADED, not healthy** until a natural crypto run proves the SQL-variable failure is gone and the existing gaps are resolved: daytrading lease/error delivery, no fresh swing success, cadence jitter, null or incomplete lifecycle evidence, aggregate-only gross/fee/net accounting, unattributed exposure, and no live calibrated `rawEdgeBps` comparison. Caps remain **$5,000/$3,700/$2,000**.
+
 ## August 21, 2026 D1 SQL-variable overflow correction — locally validated, source identity unresolved
 
 Incident: live `/api/runs` showed a D1 `too many SQL variables` error at **2026-08-21 18:38:03 UTC**. The affected read-only/scheduled observability path was `Database.enrichTradeAccounting()`, which built one dynamic `broker_fees.order_id IN (...)` statement for all returned trades.
