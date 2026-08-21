@@ -967,12 +967,22 @@ export class Database {
     return updated;
   }
 
-  async getTradesNeedingSync(limit: number = 200): Promise<any[]> {
+  async getTradesNeedingSync(limit: number = 200, includeLifecycleBackfill = false): Promise<any[]> {
     await this.ensureTradeSchema();
+    const terminalStatuses = "'filled', 'canceled', 'cancelled', 'rejected', 'expired', 'replaced', 'done_for_day', 'stopped'";
+    const predicate = includeLifecycleBackfill
+      ? `(status NOT IN (${terminalStatuses})
+          OR (status = 'filled' AND (submitted_at IS NULL OR filled_at IS NULL))
+          OR (status IN ('canceled', 'cancelled') AND (submitted_at IS NULL OR canceled_at IS NULL))
+          OR (status = 'expired' AND (submitted_at IS NULL OR expired_at IS NULL))
+          OR (status = 'replaced' AND (submitted_at IS NULL OR replaced_at IS NULL))
+          OR (status = 'rejected' AND failed_at IS NULL)
+          OR (status IN ('done_for_day', 'stopped') AND submitted_at IS NULL))`
+      : `status NOT IN (${terminalStatuses})`;
     const result = await this.db.prepare(
       `SELECT * FROM trades
        WHERE alpaca_order_id IS NOT NULL
-         AND status NOT IN ('filled', 'canceled', 'cancelled', 'rejected', 'expired', 'replaced', 'done_for_day', 'stopped')
+         AND ${predicate}
        ORDER BY COALESCE(last_reconciled_at, timestamp) ASC LIMIT ?`
     ).bind(limit).all();
     return result.results as any[];

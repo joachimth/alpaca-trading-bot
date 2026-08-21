@@ -124,6 +124,49 @@ describe('scheduled order reconciliation', () => {
     expect(sqlite.query('SELECT owner FROM cycle_leases WHERE lease_key = \'daytrading\'').get()).toEqual({ owner: 'replacement-owner' });
   });
 
+  test('backfills broker lifecycle timestamps on terminal rows without broker mutations', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    await db.reconcileOrders([order({
+      id: 'historical-filled', status: 'filled', filled_qty: 10, leaves_qty: 0,
+      filled_avg_price: 101, updated_at: '2026-08-07T10:05:00Z',
+      submitted_at: null, filled_at: null, canceled_at: null, expired_at: null,
+      failed_at: null, replaced_at: null,
+    })]);
+    const calls: string[] = [];
+    const broker = {
+      getRecentOrders: async () => { calls.push('getRecentOrders'); return []; },
+      getOrder: async (orderId: string) => {
+        calls.push(`getOrder:${orderId}`);
+        return order({
+          id: orderId, status: 'filled', filled_qty: 10, leaves_qty: 0,
+          filled_avg_price: 101, updated_at: '2026-08-07T10:06:00Z',
+          submitted_at: null, filled_at: '2026-08-07T10:04:00Z',
+          canceled_at: null, expired_at: null, failed_at: null, replaced_at: null,
+        });
+      },
+      submitOrder: async () => { calls.push('submitOrder'); throw new Error('must not submit'); },
+      cancelOrder: async () => { calls.push('cancelOrder'); throw new Error('must not cancel'); },
+    };
+    const result = await reconcileBrokerOrders(db, broker as any);
+    expect(result.pendingLookups).toBe(1);
+    expect(calls).toEqual(['getRecentOrders', 'getOrder:historical-filled']);
+    expect((await rows(sqlite))[0]).toMatchObject({
+      status: 'filled', filled_at: '2026-08-07T10:04:00Z',
+      canceled_at: null, expired_at: null, failed_at: null, replaced_at: null,
+    });
+  });
+
+  test('does not repeatedly select inapplicable terminal lifecycle fields for backfill', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    await db.reconcileOrders([order({
+      id: 'already-complete-canceled', status: 'canceled', updated_at: '2026-08-07T10:06:00Z',
+      submitted_at: '2026-08-07T10:00:00Z', canceled_at: '2026-08-07T10:06:00Z',
+    })]);
+    expect(await db.getTradesNeedingSync(200, true)).toHaveLength(0);
+  });
+
   test('shared scheduled reconciliation only reads the broker and performs no order side effects', async () => {
     const sqlite = createTestDatabase();
     const db = new Database(createFakeD1(sqlite));

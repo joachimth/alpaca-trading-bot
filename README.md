@@ -137,7 +137,7 @@ The latest recorded release receipt is the August 21 strategy-filter and broker-
 - **Account mode:** Alpaca paper trading
 - **Status:** **DEGRADED, not healthy**. Fresh crypto and reconciliation deliveries are visible, but the sampled runs are skipped outcomes; fresh successful daytrading and swing delivery is not established.
 
-The live sample also shows broker/internal position divergence, all six exposed nullable lifecycle timestamps null on the 50 sampled trades, no per-trade gross/fee/net fields, fee telemetry skips, and no end-to-end live proof that the crypto edge comparison against the configured threshold was exercised. A bounded local correction now derives account market value from broker long/short aggregates when Alpaca omits the aggregate field and records all broker positions in account-wide snapshots; it does not infer missing lifecycle timestamps. The dashboard is a static GitHub Pages frontend that calls only the Worker API and never contains Alpaca credentials.
+The live sample also shows broker/internal position divergence, all six exposed nullable lifecycle timestamps null on the 50 sampled trades, no per-trade gross/fee/net fields, fee telemetry skips, and no end-to-end live proof that the crypto edge comparison against the configured threshold was exercised. A bounded local correction now derives account market value from broker long/short aggregates when Alpaca omits or returns a false-zero aggregate alongside nonzero broker exposure, records all broker positions in every account-wide snapshot writer, and normalizes submitted-order lifecycle timestamps. Read-only reconciliation also revisits terminal rows with status-relevant missing lifecycle fields and persists only non-null timestamps returned by Alpaca; inapplicable nullable fields remain null and timestamps are never inferred. The dashboard is a static GitHub Pages frontend that calls only the Worker API and never contains Alpaca credentials.
 
 ### Dashboard read-only hotfix (August 10, 2026)
 
@@ -334,7 +334,7 @@ All Alpaca access is server-side inside the Worker.
 
 When `positionsAvailable` is `true`, `positions` contains only broker-present symbols. Broker values such as `qty`, `current_price`, `market_value`, and unrealized P&L come from Alpaca. D1 metadata fields such as `strategy`, stops, and timestamps are carried only when a matching D1 row exists.
 
-When `positionsAvailable` is `false`, `positions` is empty and `positionsError` explains the failure. The frontend must display the unavailable state rather than reconstructing positions from D1.
+When `positionsAvailable` is `false`, `positions` is empty and `positionsError` explains the failure. The dashboard also returns `account.market_value: null` and `latestSnapshot.positions_count: null`; the frontend must display those broker-derived aggregates as unavailable rather than reconstructing them from D1. When positions are available, `account.market_value` is the sum of the broker position `market_value` fields and `latestSnapshot.positions_count` is the broker position count from that same response.
 
 ## Risk management
 

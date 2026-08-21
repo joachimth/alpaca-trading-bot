@@ -12,7 +12,7 @@ describe('Alpaca order normalization', () => {
     globalThis.fetch = (async () => new Response(JSON.stringify({
       id: 'acct-1', account_number: 'paper-1', status: 'ACTIVE', currency: 'USD',
       cash: '9000', portfolio_value: '10000', equity: '10000', buying_power: '20000',
-      long_market_value: '8500', short_market_value: '0', last_equity: '9900',
+      long_market_value: '8500', short_market_value: '0', market_value: '0', last_equity: '9900',
       change_today: '0', change_today_pct: '0', pattern_day_trader: false,
       trading_blocked: false, transfers_blocked: false, account_blocked: false,
     }), { status: 200 })) as typeof fetch;

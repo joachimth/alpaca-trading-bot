@@ -153,7 +153,9 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
       portfolio_value: account.portfolio_value,
       long_market_value: account.long_market_value,
       short_market_value: account.short_market_value,
-      positions_count: cryptoPositions.length,
+      // Shared account snapshot: crypto filtering remains for strategy
+      // logic, but the account count includes every broker position.
+      positions_count: positions.length,
       daily_pl: account.change_today,
       daily_plpc: account.change_today_pct,
       total_pl: account.equity - account.last_equity,

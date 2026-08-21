@@ -46,7 +46,10 @@ export async function reconcileBrokerOrders(
     oldest === undefined ? reservation.createdAt : Math.min(oldest, reservation.createdAt), undefined);
   const recentOrders = await alpaca.getRecentOrders(recentLimit, { after: overlapAfter(oldestReservationCreatedAt), direction: 'desc' });
   const ordersById = new Map<string, Order>(recentOrders.map(order => [order.id, order]));
-  const pending = await db.getTradesNeedingSync(200);
+  // Include terminal rows with missing broker lifecycle fields for a
+  // read-only getOrder refresh. Trading callers keep the old pending-only
+  // semantics and never treat these historical rows as live orders.
+  const pending = await db.getTradesNeedingSync(200, true);
   const pendingIds = pending
     .map(trade => String(trade.alpaca_order_id || ''))
     .filter(Boolean)

@@ -1,4 +1,7 @@
-## August 21, 2026 bounded `/api/runs` trigger-alias observability correction — deployment blocked
+## August 21, 2026 bounded dashboard and order-lifecycle correction — local validation, deployment pending
+
+The correction is limited to reliability and observability: account market value uses broker long/short aggregates when the upstream aggregate is missing or false-zero beside nonzero exposure; all shared account snapshots count every broker position; submitted orders are normalized; and read-only reconciliation refreshes only status-relevant missing lifecycle fields on terminal rows. No timestamps are inferred, inapplicable fields remain null, and risk/trading filtering is unchanged. Caps remain $5,000/$3,700/$2,000, all four schedules and strategy behavior are unchanged, and production remains DEGRADED pending deployment and separate GET-only verification.
+
 
 The local read-only correction fixes false empty evidence when control/documentation requests `daytrading_cron` or `reconciliation_cron` but historical `run_log` stores `cron` and `reconcile_cron`. Only `GET /api/runs` filtering translates `daytrading_cron → cron` and `reconciliation_cron → reconcile_cron`; canonical filters remain valid and returned rows retain canonical stored values. Storage, scheduler dispatch, schedules, caps, strategy thresholds, sizing, and broker behavior are unchanged. No DDL, migration, deployment, live endpoint, trigger, cycle, or broker-mutating endpoint was used.
 

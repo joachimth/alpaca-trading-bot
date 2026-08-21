@@ -133,6 +133,10 @@ describe('audit schedule and dispatch regressions', () => {
 describe('audit equity-direction and risk semantics', () => {
   test('account snapshots count every broker position, not strategy-filtered risk positions', () => {
     expect(workerSource).toContain('positions_count: allBrokerPositions.length');
+    const swingSource = readFileSync(new URL('../src/swing-strategy.ts', import.meta.url), 'utf8');
+    const cryptoSource = readFileSync(new URL('../src/crypto-strategy.ts', import.meta.url), 'utf8');
+    expect(swingSource).toContain('positions_count: allBrokerPositions.length');
+    expect(cryptoSource).toContain('positions_count: positions.length');
   });
 
   test('keeps account total P&L direction as current equity minus last equity', () => {

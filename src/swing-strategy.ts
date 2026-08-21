@@ -180,7 +180,9 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       portfolio_value: account.portfolio_value,
       long_market_value: account.long_market_value,
       short_market_value: account.short_market_value,
-      positions_count: positions.length,
+      // Shared account snapshot: keep swing filtering for risk logic, but
+      // count every broker-authoritative position in the account.
+      positions_count: allBrokerPositions.length,
       daily_pl: account.change_today,
       daily_plpc: account.change_today_pct,
       total_pl: account.equity - account.last_equity,

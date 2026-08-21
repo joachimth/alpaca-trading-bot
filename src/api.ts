@@ -181,20 +181,39 @@ export class DashboardAPI {
       db.getConfig(),
     ]);
 
-    const latestSnapshot = snapshots[0] || null;
+    let latestSnapshot = snapshots[0] || null;
     const capitalCaps = resolveCapitalCaps(dbConfig);
-    const account = await this.tryGetAccount();
+    let account = await this.tryGetAccount();
     let positions: ReturnType<typeof projectBrokerPositions> = [];
+    let brokerPositions: import('./alpaca').Position[] | null = null;
     let positionsAvailable = true;
     let positionsError: string | null = null;
     try {
-      const livePositions = await this.getBrokerPositions();
-      positions = projectBrokerPositions(livePositions, dbPositions);
+      brokerPositions = await this.getBrokerPositions();
+      positions = projectBrokerPositions(brokerPositions, dbPositions);
     } catch (e) {
       positionsAvailable = false;
       positionsError = e instanceof Error ? e.message : 'Broker positions unavailable';
       console.error('Broker position projection failed:', e);
     }
+
+    // Dashboard aggregates describe the broker positions in this same response.
+    // D1 may provide metadata, but never substitutes for a failed broker read.
+    if (account && !account.error) {
+      account = {
+        ...account,
+        market_value: brokerPositions
+          ? brokerPositions.reduce((total, position) => total + position.market_value, 0)
+          : null,
+      };
+    }
+    if (latestSnapshot) {
+      latestSnapshot = {
+        ...latestSnapshot,
+        positions_count: brokerPositions ? brokerPositions.length : null,
+      };
+    }
+
     const strategyComparison = positionsAvailable
       ? await db.getStrategyComparison(positions)
       : null;

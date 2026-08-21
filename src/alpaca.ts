@@ -202,9 +202,13 @@ export class AlpacaClient {
       // Alpaca account payloads may omit market_value while still exposing
       // authoritative long/short market values. Never surface a false zero
       // when those broker aggregates are present.
-      market_value: data.market_value != null && Number.isFinite(parseFloat(data.market_value))
-        ? parseFloat(data.market_value)
-        : parseFloat(data.long_market_value || '0') + parseFloat(data.short_market_value || '0'),
+      market_value: (() => {
+        const longMarketValue = parseFloat(data.long_market_value || '0');
+        const shortMarketValue = parseFloat(data.short_market_value || '0');
+        const aggregate = longMarketValue + shortMarketValue;
+        const reported = data.market_value == null ? NaN : parseFloat(data.market_value);
+        return Number.isFinite(reported) && (reported !== 0 || aggregate === 0) ? reported : aggregate;
+      })(),
       last_equity: parseFloat(data.last_equity || '0'),
       change_today: parseFloat(data.change_today || '0'),
       change_today_pct: parseFloat(data.change_today_pct || '0'),

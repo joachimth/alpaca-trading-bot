@@ -137,6 +137,93 @@ describe('dashboard read-only hotfix', () => {
     expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
   });
 
+  test('dashboard aligns account market value and latest snapshot count with the same broker positions', async () => {
+    const sqlite = seededSqlite();
+    sqlite.prepare(`INSERT INTO performance_snapshots (timestamp, positions_count) VALUES (?, ?)`).run('2026-08-21 12:00:00', 99);
+    const tracked = trackedD1(sqlite);
+    const env = {
+      DB: tracked.d1,
+      ALPACA_API_KEY: 'test',
+      ALPACA_API_SECRET: 'test',
+      ALPACA_BASE_URL: 'https://paper-api.alpaca.markets',
+    } as unknown as Env;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input: RequestInfo | URL): Promise<Response> => {
+      const url = String(input);
+      if (url.endsWith('/v2/account')) return Response.json({
+        id: 'acct-1', account_number: 'paper-1', status: 'ACTIVE', currency: 'USD',
+        cash: '9000', portfolio_value: '10000', equity: '10000', buying_power: '20000',
+        market_value: '0', long_market_value: '9000', short_market_value: '0', last_equity: '10000',
+        change_today: '0', change_today_pct: '0', pattern_day_trader: false,
+        trading_blocked: false, transfers_blocked: false, account_blocked: false,
+      });
+      if (url.endsWith('/v2/positions')) return Response.json([
+        {
+          asset_id: 'asset-a', symbol: 'AAPL', qty: '1', side: 'long', market_value: '125',
+          cost_basis: '100', unrealized_pl: '25', unrealized_plpc: '0.25',
+          unrealized_intraday_pl: '0', unrealized_intraday_plpc: '0', current_price: '125',
+          avg_entry_price: '100', change_today: '0', change_today_pct: '0',
+        },
+        {
+          asset_id: 'asset-b', symbol: 'MSFT', qty: '-1', side: 'short', market_value: '-25',
+          cost_basis: '-30', unrealized_pl: '5', unrealized_plpc: '0.1667',
+          unrealized_intraday_pl: '0', unrealized_intraday_plpc: '0', current_price: '25',
+          avg_entry_price: '30', change_today: '0', change_today_pct: '0',
+        },
+      ]);
+      throw new Error(`unexpected test fetch: ${url}`);
+    };
+
+    try {
+      const response = await new DashboardAPI(env).handle(new Request('https://bot.example/api/dashboard'));
+      expect(response.status).toBe(200);
+      const body = await response.json() as any;
+      expect(body.positionsAvailable).toBe(true);
+      expect(body.positions).toHaveLength(2);
+      expect(body.account.market_value).toBe(100);
+      expect(body.latestSnapshot.positions_count).toBe(2);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test('dashboard marks broker-derived aggregates unavailable instead of falling back to D1', async () => {
+    const sqlite = seededSqlite();
+    sqlite.prepare(`INSERT INTO performance_snapshots (timestamp, positions_count) VALUES (?, ?)`).run('2026-08-21 12:00:00', 7);
+    const tracked = trackedD1(sqlite);
+    const env = {
+      DB: tracked.d1,
+      ALPACA_API_KEY: 'test',
+      ALPACA_API_SECRET: 'test',
+      ALPACA_BASE_URL: 'https://paper-api.alpaca.markets',
+    } as unknown as Env;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input: RequestInfo | URL): Promise<Response> => {
+      const url = String(input);
+      if (url.endsWith('/v2/account')) return Response.json({
+        id: 'acct-1', account_number: 'paper-1', status: 'ACTIVE', currency: 'USD',
+        cash: '9000', portfolio_value: '10000', equity: '10000', buying_power: '20000',
+        market_value: '8500', long_market_value: '8500', short_market_value: '0', last_equity: '10000',
+        change_today: '0', change_today_pct: '0', pattern_day_trader: false,
+        trading_blocked: false, transfers_blocked: false, account_blocked: false,
+      });
+      if (url.endsWith('/v2/positions')) throw new Error('broker positions unavailable');
+      throw new Error(`unexpected test fetch: ${url}`);
+    };
+
+    try {
+      const response = await new DashboardAPI(env).handle(new Request('https://bot.example/api/dashboard'));
+      expect(response.status).toBe(200);
+      const body = await response.json() as any;
+      expect(body.positionsAvailable).toBe(false);
+      expect(body.positions).toEqual([]);
+      expect(body.account.market_value).toBeNull();
+      expect(body.latestSnapshot.positions_count).toBeNull();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test('dashboard bounds chart payload and omits duplicate strategy history', async () => {
     const sqlite = seededSqlite();
     for (let i = 0; i < 120; i += 1) {
