@@ -139,6 +139,13 @@ describe('audit equity-direction and risk semantics', () => {
     expect(cryptoSource).toContain('positions_count: positions.length');
   });
 
+  test('keeps swing RISK_HALTED skip context on the actual halt reason, not the boolean flag', () => {
+    const swingSource = readFileSync(new URL('../src/swing-strategy.ts', import.meta.url), 'utf8');
+    expect(swingSource).toContain("const haltContext = getSwingRiskHaltSkipContext(riskManager);");
+    expect(swingSource).toContain("skips.add('RISK_HALTED', 'cycle', 'Swing trading is halted by risk controls', haltContext);");
+    expect(swingSource).not.toContain("{ reason: riskManager.isTradingHalted() }");
+  });
+
   test('keeps account total P&L direction as current equity minus last equity', () => {
     expect(workerSource).toContain('total_pl: account.equity - account.last_equity');
     expect(workerSource).toContain('total_plpc: account.last_equity > 0 ? ((account.equity - account.last_equity) / account.last_equity) * 100 : 0');

@@ -1,3 +1,13 @@
+## August 22, 2026 Control-9 release decision — FAIL/DEGRADED
+
+A strict GET-only control found a local reliability defect in the broker-authoritative positions failure path. The corrected source attempts the broker snapshot before reading D1 positions metadata, and the failure path returns `503`, `positionsAvailable: false`, `source: alpaca`, with no D1 fallback or DDL. Focused validation passed **61 tests / 246 assertions**, full validation passed **161 tests / 537 assertions**, typecheck and diff-check passed, and Wrangler dry-run passed.
+
+Live verification recovered `/api/positions` to 200 with `source: alpaca` and 29 rows, but `/health=1.0.0` and `/api/config=2.4.0` still conflict with local `2.6.0`; recent Alpaca 503 run errors, absent fresh daytrading/swing success, crypto `:08/:38` jitter, and null per-trade gross/fee/net remain unresolved. Preserve caps `$5,000/$3,700/$2,000`, all four UTC schedules, broker authority, isolated leases, and fail-closed crypto fee/edge gates.
+
+Deployment is blocked until `bunx wrangler whoami` no longer reports `You are not authenticated`. Do not use `wrangler deploy --temporary`. After authorized normal deployment, tie the receipt to the validated artifact and perform separate GET-only verification of all six endpoints, filtered run observability, caps, source, positions, equity direction, schedules, natural strategy delivery, lifecycle fields, and conservative accounting.
+
+Correction record: `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-9.md`.
+
 ## August 22, 2026 Control-6 source and observability audit update — FAIL/DEGRADED
 
 Before any deployment, reconcile the source audit gaps: filtered/analyzed counts are not durable `run_log` fields; no production caller supplies calibrated `rawEdgeBps`, so crypto positive-edge admission must remain fail-closed; and historical live crypto `time_in_force: "day"` conflicts with the current source’s explicit GTC path. Do not change caps, schedules, edge gates, TIF, sizing, or trading behavior to make the evidence appear consistent.
@@ -215,7 +225,25 @@ After deployment, verify the new Worker version, 100% traffic, configured schedu
 
 Current candidate validation: 92 tests passed with 273 assertions, typecheck and diff-check passed, and no broker mutation was used. Remote D1 schema and live Worker deployment are verified: deployment `32fdaa9c-0609-4be1-b16c-6369af4dfc8e`, version `dff3e198-1cb3-49d1-ac5d-706a7d292258`, 100% traffic, four schedules, and read-only endpoints passed.
 
-# Deployment runbook
+# Deployment Runbook
+
+## August 22, 2026 Control-9 release decision
+
+Control-9 is a reliability-only correction. `GET /api/positions` must obtain the broker-authoritative snapshot before any D1 metadata read; on an Alpaca 503 it must return HTTP 503 with an empty position list and issue zero D1 statements. `/api/config.release_version` identifies the active Worker artifact, while `config.version` remains persisted D1 diagnostic data. Scheduled reconciliation 503/error handling remains fail-closed and read-only, with errors persisted in run details and no broker mutation.
+
+Local validation for the correction passed focused **26 tests / 153 assertions**, full **161 tests / 537 assertions**, TypeScript, diff-check, and Wrangler dry-run (**281.69 KiB** upload preview, **63.97 KiB** gzip). Deployment is required to make the correction live but is not authorized through the current environment because `bunx wrangler whoami` reports unauthenticated; do not use `wrangler deploy --temporary`.
+
+After authenticated deployment, tie the receipt to this exact checkout and repeat only GET-only verification of `/health`, `/api/config` and `release_version`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades`, including filtered runs, broker-authoritative position availability, all four schedules, unchanged caps, and reconciliation recovery. Keep production **FAIL/DEGRADED** until those checks pass. Follow-up record: `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-9.md`.
+
+## August 22, 2026 Control-7 release decision
+
+Control-7 is **FAIL/DEGRADED**. The live Worker returned Alpaca HTTP 503 failures from account/positions reads while correctly failing closed; live release identity remains unresolved (`/health` 1.0.0 and `/api/config` 2.4.0 versus local deployable 2.6.0). This work item includes a reliability-only source fix in `src/swing-strategy.ts` plus focused regression coverage and documentation updates. Deployment is blocked until authenticated Wrangler access is restored; no temporary preview is permitted.
+
+Before any future deployment, restore authenticated Wrangler access, prove the bundle-to-Worker identity, run the focused and full regression matrix, and perform a separate GET-only live verification. Do not use triggers or broker-mutating endpoints to validate a release. Keep caps at $5,000/$3,700/$2,000 and preserve all four UTC schedules and fail-closed crypto edge gates.
+
+The reliability-only correction in `src/swing-strategy.ts` now records the actual kill-state reason in swing `RISK_HALTED` context and logs; it never records the boolean halt flag. Focused regression coverage proves the reason remains a string. Preserve the four schedules, caps `$5,000/$3,700/$2,000`, broker-authoritative positions, edge gates, TIF, sizing, and mutation boundaries. The related crypto fee-telemetry timing mismatch (observed around `:08/:38` versus configured `:07/:37`) is deferred, and fee/calibrated-edge checks must remain fail-closed when data is unavailable.
+
+Follow-up record: `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-7.md`.
 
 ## August 21, 2026 `/api/runs` pagination reliability/observability fix
 

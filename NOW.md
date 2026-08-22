@@ -1,12 +1,9 @@
 # NOW
-- Alpaca Control-6 remains FAIL/DEGRADED after strict read-only verification on August 22, 2026.
-- Live identity is unresolved: /health=1.0.0 and /api/config=2.4.0 versus local deployable 2.6.0.
-- Positions are broker-authoritative: source=alpaca, 29 rows; caps remain $5000/$3700/$2000.
-- Equity is 98504.50 versus last_equity 98504.5039, delta -0.0039; daily fields are zero and recent history declined.
-- Reconciliation is fresh MAINTENANCE_ONLY; crypto is near :07/:37 but observed around :08/:38, with UTC labeling unproven.
-- No fresh daytrading/swing delivery is evidenced; historical lease, D1-variable, and subrequest errors remain auditable.
-- Filled trades expose lifecycle fields, but sampled gross/fee/net are null under unavailable_fill_lot_exact; live numeric edge-gate wiring is not exposed.
-- Local authority, four-schedule, cap, alias, and fail-closed edge-gate regressions pass; live aliases omit trigger_alias. Wrangler auth blocks deployment.
-- Saved artifacts add contradictory schedule metadata, empty alias captures, stale/halting day/swing evidence, unattributed MSTR exposure, and one missing reconciliation capture; these reinforce FAIL.
-- Source audit confirms filtered counts are not persisted, no production rawEdgeBps producer exists, and historical crypto TIF evidence conflicts with current GTC source; no behavior change is justified.
-- Follow-up owner Joachim: restore authenticated source verification, then deploy if required and repeat separate GET-only plus natural day/swing verification.
+- Alpaca Control-9 remains FAIL/DEGRADED after strict GET-only verification on August 22, 2026.
+- Local correction: broker-unavailable `/api/positions` now performs no D1 positions read or fallback; focused 61/0 (246 assertions), full 161/0 (537), typecheck, diff-check, and dry-run passed.
+- Live `/health=1.0.0` and `/api/config=2.4.0` conflict with local deployable 2.6.0; Wrangler is unauthenticated, so the correction is not live-proven.
+- Final live pass: `/api/positions` recovered to `200`, `positionsAvailable=true`, `source=alpaca`, 29 broker rows; dashboard equity 98504.50 vs last_equity 98504.5039.
+- Caps remain $5000/$3700/$2000; four local schedules and crypto fail-closed edge gate are unchanged.
+- Fresh reconciliation MAINTENANCE_ONLY and crypto skips delivered, but Alpaca 503 errors occurred at 12:00:46, 12:07:40, and 12:10:40 UTC; crypto is around :08/:38.
+- No fresh successful daytrading/swing delivery is proven; trade lifecycle fields exist, but gross/fee/net remain null under unavailable_fill_lot_exact.
+- Follow-up: restore authenticated release verification, deploy only the validated artifact if authorized, then repeat separate GET-only and natural weekday checks.

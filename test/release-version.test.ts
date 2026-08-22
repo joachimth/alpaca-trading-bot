@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test';
+import { Database as Sqlite } from 'bun:sqlite';
 import { readFileSync } from 'node:fs';
 import { DashboardAPI } from '../src/api';
 import type { Env } from '../src/index';
+import { createFakeD1 } from './helpers/fake-d1';
 import { RELEASE_VERSION } from '../src/version';
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
@@ -28,6 +30,15 @@ describe('release version contract', () => {
       status: 'ok',
       service: 'alpaca-trading-bot',
       version: RELEASE_VERSION,
+    });
+
+    const sqlite = new Sqlite(':memory:');
+    sqlite.run(schemaSql);
+    const configResponse = await new DashboardAPI({ DB: createFakeD1(sqlite) } as unknown as Env).handle(new Request('https://bot.example/api/config'));
+    expect(configResponse.status).toBe(200);
+    expect(await configResponse.json()).toMatchObject({
+      config: { version: RELEASE_VERSION },
+      release_version: RELEASE_VERSION,
     });
   });
 });

@@ -273,10 +273,13 @@ export class DashboardAPI {
   }
 
   private async getPositions(cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB, { readOnly: true });
-    const dbPositions = await db.getOpenPositions();
     try {
+      // Broker positions are authoritative. Do not even read D1 metadata until
+      // the broker snapshot succeeds, so a provider 503 cannot look like a D1
+      // fallback or trigger unnecessary database work.
       const livePositions = await this.getBrokerPositions();
+      const db = new Database(this.env.DB, { readOnly: true });
+      const dbPositions = await db.getOpenPositions();
       const positions = projectBrokerPositions(livePositions, dbPositions);
       return this.json({ positions, positionsAvailable: true, source: 'alpaca' }, cors);
     } catch (e) {
@@ -382,7 +385,10 @@ export class DashboardAPI {
   private async getConfig(cors: Record<string, string>): Promise<Response> {
     const db = new Database(this.env.DB, { readOnly: true });
     const config = await db.getConfig();
-    return this.json({ config }, cors);
+    // Keep persisted D1 config.version separate from the active Worker artifact
+    // identity. This is observability-only and avoids treating a stale database
+    // seed as proof of which release is serving requests.
+    return this.json({ config, release_version: RELEASE_VERSION }, cors);
   }
 
   private async triggerCycle(cors: Record<string, string>): Promise<Response> {

@@ -1,3 +1,27 @@
+## August 22, 2026 Control-9 production correction state: FAIL/DEGRADED
+
+The broker-unavailable read path is corrected locally. `GET /api/positions` now reads Alpaca first and does not touch D1 metadata when the broker snapshot fails, preserving broker authority and returning HTTP 503 with an empty position set and `positionsAvailable: false`. `/api/config` also exposes `release_version` from the Worker artifact separately from persisted D1 `config.version`, which prevents a stale database seed from being mistaken for active Worker identity.
+
+Scheduled reconciliation provider failures remain fail-closed: the maintenance cycle records an `Order reconciliation failed: ...` error in `run_log`, releases its lease, and performs no submit, cancel, close, replace, retry, or other broker mutation. No reconciliation behavior change was needed. Caps remain `$5,000/$3,700/$2,000`; schedules, broker authority, and trading behavior are unchanged.
+
+Focused validation passed **26 tests / 153 assertions** and full validation passed **161 tests / 537 assertions**; typecheck, diff-check, and Wrangler dry-run passed. Deployment remains blocked because `bunx wrangler whoami` reports unauthenticated. Keep production **FAIL/DEGRADED** until authenticated deployment and separate GET-only verification confirm the active release identity, broker positions, and reconciliation recovery. See `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-9.md`.
+
+## August 22, 2026 Control-9 production state: FAIL/DEGRADED
+
+The strict GET-only control found and corrected a local failure-path defect: `/api/positions` now retrieves broker positions before reading D1 metadata. If Alpaca is unavailable, the endpoint returns `503`, `positionsAvailable: false`, `source: alpaca`, and no D1 positions query or fallback. Local validation passed focused **61/0** and full **161/0** tests, with typecheck, diff-check, and dry-run passing.
+
+The final live pass recovered broker reads, but release identity remains unresolved: `/health` is `1.0.0`, `/api/config` is `2.4.0`, and local deployable source is `2.6.0`. Recent run history contains fresh reconciliation maintenance skips and crypto skips, plus Alpaca 503 errors at `12:00:46`, `12:07:40`, and `12:10:40` UTC; daytrading and swing lack fresh successful delivery, crypto is around `:08/:38`, and sampled per-trade gross/fee/net remain conservatively unavailable. Caps remain `$5,000/$3,700/$2,000`; no schedule, broker-authority, edge-gate, TIF, sizing, or trading behavior changed.
+
+Normal deployment is blocked by unauthenticated Wrangler access. Follow `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-9.md`, restore authenticated source verification, deploy only the validated artifact if authorized, and repeat separate GET-only verification. No trigger or broker-mutating route was used.
+
+## August 22, 2026 Control-7 production state: FAIL/DEGRADED
+
+The strict read-only control observed Alpaca account and positions HTTP 503 responses. `/api/positions` correctly returned `positionsAvailable: false` with `source: alpaca` and an empty position list, and `/api/dashboard` retained the same fail-closed state instead of presenting D1 positions as current broker state. Treat this as degraded until Alpaca reads recover and a separate GET-only check confirms broker-authoritative positions.
+
+The live Worker still reports `1.0.0` at `/health` and `2.4.0` at `/api/config`, versus local deployable `2.6.0`; this is unresolved source-to-Worker identity evidence. Do not deploy or mutate trading state from this control without authenticated release verification. Capital caps remain $5,000 daytrading, $3,700 swing, and $2,000 crypto, and all four schedules and crypto fail-closed edge behavior remain unchanged in source.
+
+The correction record is `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-7.md`. The reliability-only swing fix now records the actual kill-state reason in `RISK_HALTED` context and logs, never the boolean halt flag. It does not change schedules, caps ($5,000/$3,700/$2,000), broker authority, edge gates, TIF, sizing, or mutation boundaries. The related crypto fee-telemetry timing mismatch (runs commonly observed around `:08/:38` versus configured `:07/:37`) is deferred; fee and calibrated-edge admission remain fail-closed when telemetry or calibration is unavailable. Required follow-up is authenticated source verification, Alpaca recovery confirmation, fresh natural daytrading/swing delivery evidence, and closure of exact fill/lot accounting and live calibrated-edge evidence gaps. No trigger or broker-mutating route was used.
+
 ## August 22, 2026 Control-6 source and observability audit update — FAIL/DEGRADED
 
 Source review confirms filtered/analyzed counts are console-only, production has no calibrated `rawEdgeBps` producer, and crypto positive-edge BUYs remain correctly fail-closed. Historical live crypto `time_in_force: "day"` conflicts with the current GTC source path and must be resolved through authenticated source identity, not by changing trading behavior. No cap, schedule, edge-gate, TIF, or order-behavior change was made.

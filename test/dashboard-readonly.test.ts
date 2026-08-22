@@ -333,6 +333,34 @@ describe('dashboard read-only hotfix', () => {
     }
   });
 
+  test('positions endpoint returns 503 and no D1 fallback when broker positions are unavailable', async () => {
+    const sqlite = seededSqlite();
+    sqlite.prepare(`INSERT INTO positions (ticker, side, qty, avg_entry_price, current_price, market_value, unrealized_pl, unrealized_plpc) VALUES ('AAPL', 'long', 1, 100, 100, 100, 0, 0)`).run();
+    const tracked = trackedD1(sqlite);
+    const env = {
+      DB: tracked.d1,
+      ALPACA_API_KEY: 'test',
+      ALPACA_API_SECRET: 'test',
+      ALPACA_BASE_URL: 'https://paper-api.alpaca.markets',
+    } as unknown as Env;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (): Promise<Response> => Response.json({ error: 'service unavailable' }, { status: 503 });
+
+    try {
+      const response = await new DashboardAPI(env).handle(new Request('https://bot.example/api/positions'));
+      expect(response.status).toBe(503);
+      expect(await response.json()).toMatchObject({
+        positions: [],
+        positionsAvailable: false,
+        source: 'alpaca',
+      });
+      expect(tracked.sql).toEqual([]);
+      expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test('dashboard marks broker-derived aggregates unavailable instead of falling back to D1', async () => {
     const sqlite = seededSqlite();
     sqlite.prepare(`INSERT INTO performance_snapshots (timestamp, positions_count) VALUES (?, ?)`).run('2026-08-21 12:00:00', 7);

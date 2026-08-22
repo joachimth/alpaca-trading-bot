@@ -106,6 +106,10 @@ export class SwingRiskManager {
     return this.killState.tradingHalted;
   }
 
+  getKillState(): SwingKillSwitchState {
+    return { ...this.killState };
+  }
+
   // ============================================================
   // Pre-trade checks for swing entries
   // ============================================================

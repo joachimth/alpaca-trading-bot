@@ -70,6 +70,10 @@ export function resolveSwingConfig(dbConfig: Record<string, string>) {
   return config;
 }
 
+export function getSwingRiskHaltSkipContext(riskManager: Pick<SwingRiskManager, 'getKillState'>): { reason: string } {
+  return { reason: riskManager.getKillState().reason };
+}
+
 export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
   const leaseStart = Date.now();
   const owner = `swing:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
@@ -279,8 +283,9 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     }
 
     if (riskManager.isTradingHalted() && !hasQtyMismatch) {
-      skips.add('RISK_HALTED', 'cycle', 'Swing trading is halted by risk controls', { reason: riskManager.isTradingHalted() });
-      console.error(`Swing: trading halted — ${riskManager.isTradingHalted()}`);
+      const haltContext = getSwingRiskHaltSkipContext(riskManager);
+      skips.add('RISK_HALTED', 'cycle', 'Swing trading is halted by risk controls', haltContext);
+      console.error(`Swing: trading halted — ${haltContext.reason}`);
       await db.logRun({
         trigger,
         market_open: clock.is_open ? 1 : 0,

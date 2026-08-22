@@ -1,3 +1,39 @@
+## August 22, 2026 Control-9 broker-503 read-path correction — locally validated, deployment blocked
+
+The minimal reliability correction is applied in `src/api.ts`: `GET /api/positions` now attempts the broker snapshot before any D1 read, so an Alpaca HTTP 503 returns `positions: []`, `positionsAvailable: false`, and `source: alpaca` with zero D1 statements and no D1 fallback. The same file now exposes read-only `/api/config.release_version` from the canonical Worker constant while preserving persisted `config.version` as diagnostic D1 data. Existing scheduled reconciliation 503/error handling already fails closed and records the error without broker mutation, so its behavior was preserved.
+
+Regression coverage is in `test/dashboard-readonly.test.ts` and `test/release-version.test.ts`. Focused validation passed **26 tests / 153 assertions**; full `bun test` passed **161 tests / 537 assertions**; TypeScript and `git diff --check` passed; and Wrangler dry-run passed with a **281.69 KiB** upload preview. Deployment was not performed because `bunx wrangler whoami` reports unauthenticated; no temporary preview or broker-mutating endpoint was used. Correction record: `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-9.md`.
+
+Caps remain **$5,000/$3,700/$2,000**, schedules and trading behavior are unchanged, and production remains **FAIL/DEGRADED** pending authenticated deployment, active release identity verification, and separate GET-only Alpaca recovery checks.
+
+## August 22, 2026 Control-9 strict read-only production control — FAIL/DEGRADED
+
+The final strict GET-only control remains **FAIL/DEGRADED, not healthy**. The local correction moved broker position retrieval ahead of D1 metadata access, so a broker outage now returns no D1 fallback; focused validation passed **61 tests / 246 assertions**, full validation passed **161 tests / 537 assertions**, and typecheck, diff-check, and Wrangler dry-run passed. The separate live pass recovered `/api/positions` to HTTP 200 with `positionsAvailable: true`, `source: alpaca`, and 29 broker rows, but `/health` remains `1.0.0` and `/api/config` remains `2.4.0` versus local deployable `2.6.0`, so source-to-Worker identity is unresolved.
+
+Live runs show fresh reconciliation `MAINTENANCE_ONLY` and crypto skips, but also Alpaca 503 errors at `2026-08-22 12:00:46`, `12:07:40`, and `12:10:40` UTC. No fresh successful daytrading or swing delivery is proven, crypto records around `:08/:38` for the configured `:07/:37` cadence, and sampled filled trades still have null `gross`, `fee`, and `net` under `unavailable_fill_lot_exact`. Caps remain exactly **$5,000/$3,700/$2,000**; no trading behavior, schedule, broker-authority, edge-gate, TIF, sizing, or mutation boundary changed.
+
+Correction record: `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-9.md`. Deployment remains blocked because `bunx wrangler whoami` reports `You are not authenticated`; no temporary preview, trigger, or broker-mutating endpoint was used.
+
+## August 22, 2026 Control-9 broker-authoritative failure-path correction — locally validated, deployment blocked
+
+The confirmed reliability defect was that `/api/positions` read D1 positions before attempting the broker snapshot. The corrected path attempts the broker read first and only reads D1 metadata after success, preserving the authoritative broker contract and making provider failure explicitly fail closed. Production remains **FAIL/DEGRADED** pending authenticated source verification, deployment if authorized, provider stability, natural daytrading/swing delivery, and exact fill-lot accounting evidence.
+
+## August 22, 2026 Control-7 strict read-only production control — FAIL/DEGRADED
+
+The current strict GET-only control is **FAIL/DEGRADED, not healthy**. `/health` is HTTP 200 with live version `1.0.0`, `/api/config` is HTTP 200 with live config version `2.4.0`, `/api/dashboard` is HTTP 200 but reports Alpaca account and positions HTTP 503 failures, and `/api/positions` is HTTP 503 with `positionsAvailable: false`, `source: alpaca`, and no D1 fallback. The checked-in deployable source remains version `2.6.0`, so source-to-Worker identity is unresolved.
+
+The local reliability correction is now applied: swing `RISK_HALTED` skip context and logging expose the actual kill-state reason string, matching crypto strategy behavior, rather than the boolean `isTradingHalted()` result. The correction work item is `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-7.md`; it records the provider/live-identity gap and the exact code/test/documentation scope without changing caps, schedules, edge gates, TIF, sizing, or trading behavior. Fresh `/api/runs` still shows reconciliation `MAINTENANCE_ONLY` delivery and crypto skips, while `/api/trades` exposes lifecycle fields but sampled gross/fee/net remain null under `unavailable_fill_lot_exact`. Deployment of this reliability-only fix was blocked by unavailable Wrangler authentication, so no temporary preview was used.
+
+Separate GET-only verification must continue after authenticated source verification and Alpaca recovery. Production remains FAIL/DEGRADED until broker reads, active release identity, fresh daytrading/swing delivery, exact accounting, and live calibrated-edge evidence are independently proven.
+
+## August 22, 2026 Control-7 swing halt-reason reliability correction — locally validated, deployment blocked
+
+The confirmed swing defect is corrected in `src/swing-strategy.ts`: the `RISK_HALTED` skip context and console log now expose `riskManager.getKillState().reason`, matching the crypto strategy, instead of logging/persisting the boolean `isTradingHalted()` result. Focused regression coverage proves the context reason is the configured string and is never boolean. This is a reliability-only observability fix; schedules, caps (**$5,000/$3,700/$2,000**), broker authority, edge gates, TIF, sizing, and mutation boundaries are unchanged.
+
+The related crypto fee-telemetry timing mismatch remains **deferred**: crypto runs commonly record around `:08/:38` against the configured `:07/:37` cadence, and current fee telemetry can be unavailable. Existing fee and calibrated-edge checks therefore remain fail-closed; this work item does not relax or retime them. Local correction record: `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-7.md`.
+
+Deployment was not performed because `bunx wrangler whoami` reports `You are not authenticated`; no temporary preview and no broker-mutating endpoint were used. Production remains **FAIL/DEGRADED** pending authenticated deployment/source verification and separate GET-only verification.
+
 ## August 22, 2026 Control-6 source and observability audit update — FAIL/DEGRADED
 
 The source audit confirms three unresolved reliability gaps: filtered/analyzed candidate counts are console-only and not persisted in `run_log`; no production caller supplies calibrated `rawEdgeBps`, so crypto positive-edge admission remains intentionally fail-closed; and historical live crypto rows showing `time_in_force: "day"` conflict with the current GTC submission path and therefore remain source/deployment identity evidence, not a reason to change TIF behavior. No cap, schedule, edge-gate, TIF, sizing, or trading-behavior change was made.
@@ -435,7 +471,7 @@ All Alpaca access is server-side inside the Worker.
 | `/api/runs` | GET | Read-only run history from D1, returned as `{ runs, limit, offset, page }`; supports bounded `limit` (max 500), `offset` or 1-based `page`, plus `strategy`, `trigger`, and `status` filters |
 | `/api/stats` | GET | Aggregate statistics from D1 |
 | `/api/strategy-comparison` | GET | Historical strategy metrics plus broker-backed current exposure; returns an unavailable state if positions cannot be fetched |
-| `/api/config` | GET | Raw bot configuration from D1 for diagnostics; the dashboard does not infer capital caps from this raw response |
+| `/api/config` | GET | Raw bot configuration from D1 plus read-only `release_version` for active Worker identity; the dashboard does not infer capital caps from this response |
 | `/api/trigger` | POST | Requests the daytrading path to run on its scheduled path; treat as an operational action |
 | `/api/trigger-swing` | POST | Runs a swing cycle immediately; treat as an operational action |
 | `/api/trigger-crypto` | POST | Runs a crypto cycle immediately; treat as an operational action |

@@ -119,6 +119,18 @@ describe('feeTelemetryFromAggregate freshness gate', () => {
     expect(t.status).toBe('unavailable'); // 180s > 60s max age, so fails closed as stale
   });
 
+  test('CFEE that posts on the next UTC day remains unavailable until freshness behavior is explicitly changed', () => {
+    const now = Date.parse('2026-08-22T00:02:00Z');
+    const delayedCfee = feeTelemetryFromAggregate({
+      ...base,
+      asOf: '2026-08-21T23:59:59Z',
+      maxAgeMs: 60_000,
+      nowMs: now,
+    });
+    expect(delayedCfee.status).toBe('unavailable');
+    if (delayedCfee.status !== 'available') expect(delayedCfee.reason).toContain('stale');
+  });
+
   test('insufficient samples returns insufficient, never a rate', () => {
     const t = feeTelemetryFromAggregate({ ...base, sampleCount: 2 });
     expect(t.status).toBe('insufficient');
