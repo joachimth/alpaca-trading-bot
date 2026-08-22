@@ -10,6 +10,7 @@ import { getCryptoSentiment } from './crypto-sentiment';
 import { analyze } from './technical-analysis';
 import { projectBrokerPositions } from './position-projection';
 import { resolveCapitalCaps } from './capital-caps';
+import { RELEASE_VERSION } from './version';
 
 const RUN_TRIGGER_ALIASES: Record<string, string> = {
   daytrading_cron: 'cron',
@@ -42,7 +43,7 @@ export class DashboardAPI {
     try {
       // Routes
       if (path === '/' || path === '/health') {
-        return this.json({ status: 'ok', service: 'alpaca-trading-bot', version: '1.0.0' }, corsHeaders);
+        return this.json({ status: 'ok', service: 'alpaca-trading-bot', version: RELEASE_VERSION }, corsHeaders);
       }
 
       if (path === '/api/dashboard') {

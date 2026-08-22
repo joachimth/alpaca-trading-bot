@@ -1,7 +1,6 @@
-## August 22, 2026 Alpaca status
-Production control remains **FAIL/DEGRADED**, not healthy.
-Read-only correction validated: legacy trade response keys and combined run-filter coverage, no DDL or trading changes.
-Caps unchanged: $5,000 daytrading / $3,700 swing / $2,000 crypto; four schedules and crypto fail-closed edge behavior unchanged.
-Validation passed: focused 24/126, full 156/511, typecheck, diff-check, Wrangler dry-run.
-Deploying the reliability-only patch, then performing separate GET-only verification.
-Remaining gaps: fresh daytrading/swing success, direct cap proof, exact fill-lot accounting, cadence/source identity, historical errors.
+## August 22, 2026 release-version observability correction
+Canonical deployable release version: **`2.6.0`**, sourced from `schema.sql` `bot_config.version` and the existing dashboard release. `package.json`, `src/api.ts` health, dashboard marker/footer, and focused regression coverage now agree. The health response uses `src/version.ts`; `/api/config` remains raw D1 config and runtime config values are unchanged.
+
+Status remains **FAIL/DEGRADED**, not healthy. This local reliability-only correction is **not deployed**; no external or broker-mutating endpoint was called. No trading behavior, schedules, caps, edge gates, broker calls, D1 mutation semantics, or endpoint methods changed.
+
+Validation: focused `bun test test/release-version.test.ts test/dashboard-readonly.test.ts crypto-runtime.test.ts` passed **26 tests / 154 expect() calls**; full `bun test` passed **157 tests / 518 expect() calls**; `bunx tsc --noEmit`, repo-scoped `git diff --check -- .`, and Wrangler dry-run passed. Deployment was attempted but blocked because Wrangler requires `CLOUDFLARE_API_TOKEN`; separate GET-only recheck still shows live `/health` version `1.0.0`. Existing gaps remain: fresh daytrading/swing success, direct cap proof, exact fill-lot accounting, cadence/source identity, and historical runtime errors.

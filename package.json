@@ -1,6 +1,6 @@
 {
   "name": "alpaca-trading-bot",
-  "version": "1.0.0",
+  "version": "2.6.0",
   "description": "AI-powered autonomous daytrading bot using Alpaca API",
   "main": "src/index.ts",
   "scripts": {
