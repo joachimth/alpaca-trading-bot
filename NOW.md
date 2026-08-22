@@ -1,7 +1,9 @@
 # NOW
-- Control-13 corrects the run metric contract: `trades_executed` means broker-confirmed full fills, not submitted orders.
-- Submitted, accepted, pending, rejected, canceled, and partial orders remain lifecycle rows in `trades`; only full fills count in `run_log`.
-- README, operations/runbook docs, dashboard labels, and focused regression coverage now state this boundary.
-- No production behavior, caps ($5000/$3700/$2000), schedules, broker authority, edge gates, or mutation boundaries changed.
-- Focused regression passed 51 tests/227 assertions; full `bun test` passed 168 tests/584 assertions; typecheck, diff-check, and Wrangler dry-run passed.
-- No deployment, temporary preview, trigger, or broker mutation was used; live production remains FAIL/DEGRADED and unchanged.
+- Control-14 strict GET-only production control remains FAIL/DEGRADED.
+- Live identity is unresolved: /health 1.0.0 and config 2.4.0 vs local deployable 2.6.0.
+- Positions remain broker-authoritative: source=alpaca, 29 rows; equity delta is -0.0039.
+- Reconciliation is fresh MAINTENANCE_ONLY; crypto runs are around :07/:37 with jitter.
+- No fresh Saturday proof exists for weekday daytrading/swing delivery.
+- Filled lifecycle fields exist, but exact gross/fee/net remain unavailable_fill_lot_exact.
+- Caps remain $5000/$3700/$2000; local four schedules and crypto fail-closed gates unchanged.
+- Correction record: CORRECTION_WORK_ITEM_2026-08-22_CONTROL-14.md; Wrangler blocker: unauthenticated.

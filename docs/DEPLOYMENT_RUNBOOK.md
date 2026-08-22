@@ -1,3 +1,11 @@
+## Control-14 follow-up and deployment gate - August 22, 2026
+
+The latest strict production control remains **FAIL/DEGRADED**. All six required endpoints were read with GET only and returned HTTP 200, but active release identity is unresolved (`/health=1.0.0`, persisted `/api/config=2.4.0`, local deployable source `2.6.0`). Live positions are broker-authoritative (`positionsAvailable=true`, `source=alpaca`, 29 rows), caps remain `$5,000/$3,700/$2,000`, reconciliation and crypto delivery are present, and the local four-schedule, filtered-run, lifecycle, conservative-accounting, and crypto fail-closed regressions remain validated. Saturday does not prove weekday daytrading/swing delivery; live filled rows still show conservative unavailable exact accounting.
+
+**Deployment gate:** `bunx wrangler whoami` returns **`You are not authenticated`**. Do not use `wrangler deploy --temporary`. Restore authenticated Wrangler access and obtain separate deployment authorization before deploying any artifact. If deployment becomes authorized, use only the validated repository commit, record the receipt, and then run a separate GET-only acceptance pass covering release identity, all six endpoints, alias/canonical run filters, broker source, equity direction, all four schedules, caps, natural weekday strategy delivery, crypto `:07/:37` cadence, lease/error skips, lifecycle fields, and conservative gross/fee/net semantics. If acceptance fails, roll back to the last known-good authenticated deployment and repeat the same read-only checks.
+
+Correction record: `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-14.md`.
+
 ## Control-13 observability contract: `trades_executed` means full fills
 
 For release checks and run-history interpretation, `run_log.trades_executed` counts only broker-confirmed full fills. The implementation requires broker status `filled` and filled quantity at least 99.9% of requested quantity before incrementing the metric. An order being submitted or accepted is not a fill; pending, rejected, canceled, and partially filled orders contribute zero to `trades_executed` and are not fully filled trades.
