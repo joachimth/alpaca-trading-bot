@@ -1,3 +1,15 @@
+## August 22, 2026 Control-18 strict read-only production control - FAIL/DEGRADED
+
+At **2026-08-22 23:00:16-23:00:17 UTC**, the control used only GET requests against `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades`; all six returned HTTP 200. Production remains **OPEN FAIL/DEGRADED, not healthy**: live `/health` is version `1.0.0`, persisted `/api/config.version` is `2.4.0`, and local deployable HEAD `131898b9e4cab3544ae9b793123c1c86d5763cdc` is version `2.6.0`, so active Worker/source identity is unresolved.
+
+`/api/positions` reports `positionsAvailable=true`, `source=alpaca`, and 29 rows, preserving broker-authoritative current state. Dashboard equity is `98,504.50` versus `last_equity=98,504.5039`, approximately `-0.0039`; `change_today=0`, so material equity direction cannot be verified. Caps remain exactly `$5,000` daytrading, `$3,700` swing, and `$2,000` crypto.
+
+Local source retains all four UTC schedules: daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and read-only reconciliation `*/10 * * * *`; active deployed four-schedule identity remains unverified. Reconciliation is fresh through run `2889` at `23:00:53` as structured `MAINTENANCE_ONLY`; crypto is fresh around `:07/:37`, including runs `2882` at `22:07:57` and `2886` at `22:37:56`. Daytrading is stale, with newest filtered row run `2556` at `2026-08-20 21:55:24` and `CYCLE_LEASE_HELD`; swing is stale, with newest known run `2200` at `2026-08-18 22:00:36` and divergence/`RISK_HALTED`. No fresh weekday delivery is proven for either stock strategy.
+
+Lease-held, risk-halted, provider-error, maintenance, fee-telemetry, no-position, and hold skips remain structured and observable. Live filtered alias responses return canonical rows but omit local response-only `trigger_alias`; analyzed/filtered candidate counts are not persisted in `run_log`. Trade lifecycle fields are present, but all 50 sampled filled rows have `gross=null`, `fee=null`, and `net=null` under `unavailable_fill_lot_exact` with `none-recorded` fee attribution, so exact fee/gross/net consistency cannot be verified. Local crypto edge admission remains fail-closed on unavailable fee telemetry or missing calibrated `rawEdgeBps`; live `FEE_DATA_UNAVAILABLE` skips confirm blocking behavior, while positive-edge producer evidence is unavailable.
+
+No code defect was isolated, so this is a documentation/status-only correction recorded in `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-18.md`. Focused regressions passed **78 tests / 327 assertions**; full `bun test` passed **168 tests / 584 assertions**; typecheck and diff checks passed. Wrangler remains blocked by **`You are not authenticated`**. No deployment, trigger, submit, cancel, close, replace, retry, migration, or broker-mutating endpoint was used. Separate GET-only evidence is preserved under `/workspace/alpaca-control-18-live-20260822T230209Z/`; restore authenticated provenance and obtain separate deployment authorization before any promotion, followed by separate GET-only release and natural weekday verification.
+
 ## August 22, 2026 Control-17 strict read-only production control - FAIL/DEGRADED
 
 At **2026-08-22 22:00:07-22:00:09 UTC**, this control used only GET requests against `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades`; all six returned HTTP 200. Production remains **OPEN FAIL/DEGRADED, not healthy**: live `/health` reports version `1.0.0`, persisted `/api/config.version` is `2.4.0`, and the checked-out deployable source is version `2.6.0` at HEAD `1013f3dc979fd9b56a7cae1b843177bb3ab5f21f`; these values do not prove active Worker/source identity.
@@ -297,6 +309,18 @@ Validation run locally:
 - `bunx wrangler deploy --dry-run` — passed; bundle built and dry-run exited without deployment.
 
 Remaining production gaps are explicit: **no fresh August 21 daytrading run; no fresh swing run; lease/error/fee skips; lifecycle timestamps null in the sample; per-trade gross/fee/net absent; crypto edge comparison not live-proven; and source/control-plane identity not independently verified.**
+
+## August 22, 2026 Control-18 strict read-only production control - FAIL/DEGRADED
+
+At **2026-08-22 23:00:16-23:00:17 UTC**, GET-only checks of `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades` all returned HTTP 200. Production remains **OPEN FAIL/DEGRADED, not healthy**: live `/health=1.0.0`, `/api/config.version=2.4.0`, local HEAD `131898b9e4cab3544ae9b793123c1c86d5763cdc`, deployable version `2.6.0`, with active provenance unresolved.
+
+Positions are broker-authoritative for availability (`positionsAvailable=true`, `source=alpaca`, 29 rows). Equity is `98504.50` versus `last_equity=98504.5039` (about `-0.0039`); `change_today=0`, so material direction cannot be verified. Caps remain exactly `5000/3700/2000` USD. Local UTC schedules remain daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and reconciliation `*/10 * * * *`; active deployed four-schedule identity is unresolved.
+
+Fresh reconciliation runs `2888` (`22:50:50`) and `2887` (`22:40:49`) are `MAINTENANCE_ONLY`; fresh crypto runs `2886` (`22:37:56`), `2882` (`22:07:57`), `2878` (`21:37:56`), and `2874` (`21:07:57`) are around `:07/:37` with structured skips. Saturday has no fresh daytrading/swing proof; historical lease/error/risk skips remain.
+
+The live old `/api/trades` response has 50 filled rows with `submitted_at`/`filled_at`, null inapplicable terminal fields, null `gross`/`fee`/`net`, `accounting_status=unavailable_fill_lot_exact`, and `fee_attribution=none-recorded`; aggregate arithmetic is not exact fill-lot proof. It omits locally validated `trigger_alias`, and `run_log` lacks durable analyzed/filtered counts. Local filtered-alias and crypto fee/`rawEdgeBps` fail-closed wiring/tests pass; live positive calibrated-edge producer evidence is unavailable.
+
+No code defect was isolated, so no trading/reliability code, config, cap, schedule, or edge-gate change is made. Wrangler is blocked by **`You are not authenticated`**. Restore authenticated Wrangler, inspect active provenance/schedules, obtain separate deployment authorization, deploy only if required, then perform separate GET-only verification. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker mutation was used. See `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-18.md`.
 
 # Alpaca AI Trading Bot
 

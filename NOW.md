@@ -1,9 +1,19 @@
 # NOW
-- Control-14 strict GET-only production control remains FAIL/DEGRADED.
-- Live identity is unresolved: /health 1.0.0 and config 2.4.0 vs local deployable 2.6.0.
-- Positions remain broker-authoritative: source=alpaca, 29 rows; equity delta is -0.0039.
-- Reconciliation is fresh MAINTENANCE_ONLY; crypto runs are around :07/:37 with jitter.
-- No fresh Saturday proof exists for weekday daytrading/swing delivery.
-- Filled lifecycle fields exist, but exact gross/fee/net remain unavailable_fill_lot_exact.
+- Control-18 strict GET-only production control at 2026-08-22 23:00:16-23:00:17 UTC remains OPEN FAIL/DEGRADED, not healthy; all six endpoints returned HTTP 200.
+- Identity unresolved: live /health 1.0.0 and /api/config 2.4.0 vs local HEAD 131898b9e4cab3544ae9b793123c1c86d5763cdc, deployable 2.6.0.
+- Positions broker-authoritative: positionsAvailable=true, source=alpaca, 29 rows; equity 98504.50 vs last_equity 98504.5039, delta about -0.0039; change_today=0, direction unverified.
+- Caps exactly $5000/$3700/$2000; local UTC schedules retained, active deployed four-schedule identity unresolved.
+- Reconciliation runs 2888 22:50:50 and 2887 22:40:49 are MAINTENANCE_ONLY; crypto runs 2886/2882/2878/2874 are around :07/:37 with structured skips.
+- Saturday has no fresh daytrading/swing proof; historical lease/error/risk skips remain. Trades: 50 filled rows, lifecycle timestamps present, exact fill-lot gross/fee/net unavailable.
+- Live old response omits trigger_alias and durable analyzed/filtered counts; local alias and crypto fee/rawEdgeBps fail-closed wiring/tests pass; positive calibrated edge producer evidence unavailable.
+- No code defect isolated; no trading/reliability code/config/cap/schedule/edge-gate change made. Wrangler blocker: `You are not authenticated`.
+- Required follow-up: restore authenticated Wrangler, inspect active provenance/schedules, obtain separate deployment authorization, deploy only if required, then separate GET-only verification. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker mutation used.
+- Correction record: CORRECTION_WORK_ITEM_2026-08-22_CONTROL-18.md.
+- Control-18 strict GET-only production control remains FAIL/DEGRADED.
+- Live identity unresolved: health 1.0.0/config 2.4.0 vs local deployable 2.6.0 at 131898b.
+- Positions broker-authoritative: source=alpaca, positionsAvailable=true, 29 rows; equity delta about -0.0039.
+- Reconciliation fresh MAINTENANCE_ONLY; crypto near :07/:37; daytrading stale since Aug 20, swing stale since Aug 18.
+- Filled lifecycle fields exist; exact gross/fee/net unavailable_fill_lot_exact; live alias field absent.
 - Caps remain $5000/$3700/$2000; local four schedules and crypto fail-closed gates unchanged.
-- Correction record: CORRECTION_WORK_ITEM_2026-08-22_CONTROL-14.md; Wrangler blocker: unauthenticated.
+- Correction record: CORRECTION_WORK_ITEM_2026-08-22_CONTROL-18.md.
+- Wrangler blocker: You are not authenticated; no deployment or broker mutation used.
