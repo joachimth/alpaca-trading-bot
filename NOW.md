@@ -1,11 +1,7 @@
 # NOW
-- Alpaca Control-10 remains FAIL/DEGRADED after the strict GET-only control on August 22, 2026.
-- Live `/health=1.0.0` and `/api/config=2.4.0` drift from repository deployable `2.6.0`; `/workspace/src` is stale reference material.
-- Provider 503 run errors occurred at 12:00:46, 12:07:40, and 12:10:40 UTC; fresh reconciliation/crypto skips exist and crypto is around :08/:38.
-- No fresh weekday daytrading/swing proof is available on Saturday; filtered run observability works.
-- Positions remain broker-authoritative (`source=alpaca`); equity was 98504.50 vs last_equity 98504.5039 (slightly down).
-- Caps remain $5000/$3700/$2000; four local schedules and crypto edge-gate wiring are correct and unchanged.
-- Lifecycle fields exist, but sampled gross/fee/net remain null under unavailable_fill_lot_exact; estimated_value is pre-fill estimate data.
-- Local correction adds stable `/api/trades` offset/page pagination and read-only estimate-vs-fill fields; final focused 69/282 and full 164/562 pass, typecheck/diff-check/dry-run pass.
-- Final live GET-only check still shows old 1.0.0/2.4.0 identity and old pagination contract, so correction is not deployed.
-- Blocker: Wrangler says `You are not authenticated`; restore auth, deploy exact validated artifact only if authorized, then GET-only and weekday-check.
+- Control-13 corrects the run metric contract: `trades_executed` means broker-confirmed full fills, not submitted orders.
+- Submitted, accepted, pending, rejected, canceled, and partial orders remain lifecycle rows in `trades`; only full fills count in `run_log`.
+- README, operations/runbook docs, dashboard labels, and focused regression coverage now state this boundary.
+- No production behavior, caps ($5000/$3700/$2000), schedules, broker authority, edge gates, or mutation boundaries changed.
+- Focused regression passed 51 tests/227 assertions; full `bun test` passed 168 tests/584 assertions; typecheck, diff-check, and Wrangler dry-run passed.
+- No deployment, temporary preview, trigger, or broker mutation was used; live production remains FAIL/DEGRADED and unchanged.

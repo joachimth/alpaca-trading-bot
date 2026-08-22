@@ -1,4 +1,28 @@
-## August 22, 2026 GET `/api/trades` pagination correction — locally validated, not deployed
+## Control-13 observability contract: `trades_executed` means full fills
+
+`run_log.trades_executed` is a filled-count metric. It increments only after the broker confirms a full fill: order status `filled` with filled quantity at least 99.9% of the requested quantity. It does not count a submitted order, broker acceptance, a pending order, a rejection/cancellation, or a partial fill; those are lifecycle states, not fully filled trades.
+
+The `trades` table records the broader order lifecycle, so submitted, accepted, pending, and partially filled orders may be present there even when `trades_executed` remains zero; only fully filled trades contribute to that count. Use the persisted trade status, filled quantity, leaves quantity, and broker lifecycle timestamps to distinguish order progress from the run's confirmed-full-fill count. This correction is documentation and regression coverage only; caps, schedules, leases, broker authority, edge gates, order behavior, and mutation boundaries are unchanged.
+
+## August 22, 2026 Control-11 strict read-only production control — FAIL/DEGRADED
+
+At approximately 17:00 UTC, the six required production GET endpoints all returned HTTP 200 without any trigger or broker mutation. Live release identity remains unresolved: `/health=1.0.0` and `/api/config` persisted version `2.4.0` conflict with local deployable `2.6.0`, and live trade responses lack the locally validated pagination/estimate-vs-fill correction. Positions remain broker-authoritative (`positionsAvailable=true`, `source=alpaca`, 29 rows). Equity direction is rounding-level down, `98,504.50 - 98,504.5039 = -0.0039`.
+
+Reconciliation is delivering structured `MAINTENANCE_ONLY` skips near the ten-minute schedule. Crypto is delivering around the configured `:07/:37 UTC` cadence, commonly at `:08/:38`, with structured fee/confidence/position skips. No fresh daytrading or swing proof is available in the Saturday run page. Lifecycle fields are populated on sampled filled trades, while exact per-fill `gross`, `fee`, and `net` remain conservatively null under `unavailable_fill_lot_exact`; aggregate strategy arithmetic is not a substitute for fill-lot attribution. Caps remain `$5,000/$3,700/$2,000`, and local four-schedule, broker-authority, filtered-run, and fail-closed crypto-edge regressions remain green.
+
+Local state is ready on commit `b229eb3255097d5c6c13684a351ed2d867731021`; focused validation passed 42 tests / 204 assertions and full validation passed 164 tests / 562 assertions, with TypeScript and diff-check passing. Deployment is blocked because Wrangler reports `You are not authenticated`. Keep production **FAIL/DEGRADED**. After authenticated, separately authorized deployment, first perform read-only release/endpoints/schedule/filter/cap/source/lifecycle/accounting checks, then observe natural weekday daytrading and swing delivery. If any acceptance check fails, restore traffic to the last known-good authenticated deployment and repeat GET-only verification. Never use trigger, submit, cancel, close, replace, retry, migration, or other broker-mutating routes as smoke tests.
+
+## August 22, 2026 Control-12 strict read-only production control - FAIL/DEGRADED
+
+At approximately 18:00 UTC, all six required production GET endpoints returned HTTP 200 without any trigger or broker mutation. Live identity remains unresolved: `/health=1.0.0` and `/api/config=2.4.0` conflict with local deployable `2.6.0`, while live trades still lacks the locally validated pagination/enrichment fields. Positions remain broker-authoritative (`source=alpaca`, 29 rows), and equity is `98,504.50 - 98,504.5039 = -0.0039`.
+
+Reconciliation continues with fresh skips near ten-minute cadence, and crypto skips arrive around `:07/:37 UTC` with observed records at `17:07:58` and `17:37:57`. No fresh weekday daytrading or swing evidence is available on Saturday. Filled lifecycle timestamps are present, but exact gross/fee/net and filled-notional enrichment remain null under `unavailable_fill_lot_exact`; caps remain `$5,000/$3,700/$2,000`.
+
+Local four-schedule, filtered-run, broker-authority, and fail-closed crypto-edge regressions remain green. The reliability correction is validated on `b229eb3255097d5c6c13684a351ed2d867731021`, but Wrangler is unauthenticated, so keep production **FAIL/DEGRADED** and restore authentication before any separately authorized deployment and GET-only verification.
+
+No trigger, submit, cancel, close, replace, retry, migration, or other broker-mutating route was used.
+
+## August 22, 2026 GET `/api/trades` pagination correction - locally validated, not deployed
 
 The contained read-only correction now applies `offset` to `GET /api/trades` queries, supports page-to-offset requests, and returns `limit`, `offset`, and `page` metadata. Stable ordering prevents repeated leading records across pages. No trading behavior changed: strategy filters, the 500-record endpoint cap, broker authority, `$5,000/$3,700/$2,000` caps, schedules, edge gates, and mutation boundaries remain unchanged.
 

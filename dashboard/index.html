@@ -269,7 +269,7 @@
         </div>
       </div>
       <div class="table-section"><div class="section-title"><span>Recent Trades (All)</span></div><div id="tradesTableAll"><div class="loading">Loading trades...</div></div></div>
-      <div class="table-section"><div class="section-title"><span>Run History (All)</span></div><div class="run-history-note">Orders submitted = orders sent to Alpaca. They may be pending, rejected, canceled, partially filled, or filled.</div><div id="runsTableAll"><div class="loading">Loading runs...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Run History (All)</span></div><div class="run-history-note">trades_executed = broker-confirmed full fills. Orders in trades may be submitted, accepted, pending, rejected, canceled, partially filled, or filled; only full fills count.</div><div id="runsTableAll"><div class="loading">Loading runs...</div></div></div>
     </div>
 
     <div class="tab-content" id="contentDaytrading">
@@ -294,7 +294,7 @@
         <div class="table-section"><div class="section-title"><span>Daytrading Decisions</span></div><div id="decisionsTableDay"><div class="loading">Loading...</div></div></div>
       </div>
       <div class="table-section"><div class="section-title"><span>Daytrading Trades</span></div><div id="tradesTableDay"><div class="loading">Loading...</div></div></div>
-      <div class="table-section"><div class="section-title"><span>Daytrading Run History</span></div><div class="run-history-note">Orders submitted = orders sent to Alpaca. They may be pending, rejected, canceled, partially filled, or filled.</div><div id="runsTableDay"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Daytrading Run History</span></div><div class="run-history-note">trades_executed = broker-confirmed full fills. Orders in trades may be submitted, accepted, pending, rejected, canceled, partially filled, or filled; only full fills count.</div><div id="runsTableDay"><div class="loading">Loading...</div></div></div>
     </div>
 
     <div class="tab-content" id="contentSwing">
@@ -320,7 +320,7 @@
         <div class="table-section"><div class="section-title"><span>Swing Decisions (Ranking)</span></div><div id="decisionsTableSwing"><div class="loading">Loading...</div></div></div>
       </div>
       <div class="table-section"><div class="section-title"><span>Swing Trades</span></div><div id="tradesTableSwing"><div class="loading">Loading...</div></div></div>
-      <div class="table-section"><div class="section-title"><span>Swing Run History</span></div><div class="run-history-note">Orders submitted = orders sent to Alpaca. They may be pending, rejected, canceled, partially filled, or filled.</div><div id="runsTableSwing"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Swing Run History</span></div><div class="run-history-note">trades_executed = broker-confirmed full fills. Orders in trades may be submitted, accepted, pending, rejected, canceled, partially filled, or filled; only full fills count.</div><div id="runsTableSwing"><div class="loading">Loading...</div></div></div>
     </div>
 
     <div class="tab-content" id="contentCrypto">
@@ -346,7 +346,7 @@
         <div class="table-section"><div class="section-title"><span>Crypto Decisions</span></div><div id="decisionsTableCrypto"><div class="loading">Loading...</div></div></div>
       </div>
       <div class="table-section"><div class="section-title"><span>Crypto Trades</span></div><div id="tradesTableCrypto"><div class="loading">Loading...</div></div></div>
-      <div class="table-section"><div class="section-title"><span>Crypto Run History</span></div><div class="run-history-note">Orders submitted = orders sent to Alpaca. They may be pending, rejected, canceled, partially filled, or filled.</div><div id="runsTableCrypto"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Crypto Run History</span></div><div class="run-history-note">trades_executed = broker-confirmed full fills. Orders in trades may be submitted, accepted, pending, rejected, canceled, partially filled, or filled; only full fills count.</div><div id="runsTableCrypto"><div class="loading">Loading...</div></div></div>
     </div>
 
     <div class="footer">Alpaca AI Trading Bot v2.6.0 - Cloudflare Worker + D1 - Paper Trading<br>Daytrading: 5-min cron | Swing: daily 22:00 UTC | Crypto: every 30min 24/7 | Auto-refresh 30s</div>
@@ -1003,7 +1003,7 @@
     function renderRuns(rs, elId) {
       const el = document.getElementById(elId);
       if (!rs || !rs.length) { el.innerHTML = '<div class="loading">No runs yet</div>'; return; }
-      let h = '<table><thead><tr><th>Time</th><th>Trigger</th><th>Market</th><th>Decisions</th><th>Orders submitted</th><th>Errors</th><th>Duration</th><th>Status</th><th>Reason / details</th></tr></thead><tbody>';
+      let h = '<table><thead><tr><th>Time</th><th>Trigger</th><th>Market</th><th>Decisions</th><th>Full fills</th><th>Errors</th><th>Duration</th><th>Status</th><th>Reason / details</th></tr></thead><tbody>';
       for (const r of rs.slice(0, 15)) {
         const sc = r.status === 'ok' ? 'var(--green)' : r.status === 'error' ? 'var(--red)' : r.status === 'degraded' ? 'var(--orange)' : 'var(--text-muted)';
         const tl = r.trigger === 'swing_cron' ? '<span style="color:var(--teal)">swing_cron</span>' : escapeHtml(r.trigger);

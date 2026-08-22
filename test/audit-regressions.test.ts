@@ -186,3 +186,20 @@ describe('audit equity-direction and risk semantics', () => {
     expect(manager.getKillState().reason).toContain('Rolling drawdown limit reached');
   });
 });
+
+
+describe('audit run-count lifecycle semantics', () => {
+  test('counts only broker-confirmed full fills, not submitted or partial orders', () => {
+    const swingSource = readFileSync(new URL('../src/swing-strategy.ts', import.meta.url), 'utf8');
+    const cryptoSource = readFileSync(new URL('../src/crypto-strategy.ts', import.meta.url), 'utf8');
+
+    expect(workerSource).toContain('const fullyFilled = alpaca.isOrderFullyFilled(order);');
+    expect(workerSource).toContain('if (fullyFilled) tradesExecuted++;');
+    expect(swingSource).toMatch(/const fullyFilled = order\.status === 'filled'[\s\S]*?if \(fullyFilled\) tradesExecuted\+\+;/);
+    expect(cryptoSource).toMatch(/const fullyFilled = outcome === 'filled';[\s\S]*?if \(fullyFilled\) tradesExecuted\+\+;/);
+
+    expect(workerSource).toContain('Broker order status: ${order.status}; filled ${order.filled_qty}/${order.qty}');
+    expect(swingSource).toContain('Broker order status: ${order.status}; filled ${order.filled_qty}/${order.qty}');
+    expect(cryptoSource).toContain('Order submitted: ${riskCheck.adjustedQty} units; broker status ${order.status}');
+  });
+});

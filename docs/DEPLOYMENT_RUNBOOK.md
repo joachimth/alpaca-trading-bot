@@ -1,3 +1,9 @@
+## Control-13 observability contract: `trades_executed` means full fills
+
+For release checks and run-history interpretation, `run_log.trades_executed` counts only broker-confirmed full fills. The implementation requires broker status `filled` and filled quantity at least 99.9% of requested quantity before incrementing the metric. An order being submitted or accepted is not a fill; pending, rejected, canceled, and partially filled orders contribute zero to `trades_executed` and are not fully filled trades.
+
+`trades` remains the order-lifecycle record and may contain submitted, accepted, pending, or partially filled orders with broker status and quantity fields; only fully filled trades contribute to the run count. Reconcile those rows using `status`, `filled_qty`, `leaves_qty`, and lifecycle timestamps; do not sum all `trades` rows or treat accepted/submitted rows as filled executions. This is a documentation/observability correction only. Do not alter caps, schedules, broker authority, edge gates, order behavior, or mutation boundaries.
+
 ## August 22, 2026 GET `/api/trades` pagination correction — locally validated, not deployed
 
 The contained read-only correction makes `GET /api/trades?limit=30&offset=30` and `offset=60` return their requested slices instead of repeating the `offset=0` leading records, and adds `limit`, `offset`, and `page` response metadata. Existing strategy filtering, the 500-record cap, broker authority, `$5,000/$3,700/$2,000` caps, schedules, edge gates, and mutation boundaries are preserved.
@@ -108,7 +114,23 @@ Test-layout note: crypto runtime regression coverage is stored at the repository
 
 Control evidence confirms `/api/positions` source labeling only. Historical broker/internal quantity mismatches remain recorded for SOFI 73 vs 114 at 16:10:47 UTC, MSTR 3 vs 7 at 16:20:46 UTC, and NOW 1 vs 2 at 16:35:42 UTC; daytrading has lease-held/error delivery, swing is unverified, crypto has cadence gaps/errors, reconciliation is maintenance-only, sampled lifecycle and gross/fee/net fields are null, and calibrated edge-after-costs is not exposed by live evidence. Do not label healthy or manufacture evidence with triggers; caps remain $5,000/$3,700/$2,000 and no deployment or broker mutation occurred.
 
-## August 21, 2026 additive trade observability correction — deployed and GET-only verified
+## August 22, 2026 Control-11 release gate and rollback disposition
+
+The strict production control was GET-only and returned HTTP 200 for `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades`. Do not call triggers or broker-mutating routes to manufacture missing weekday evidence. Production remains **FAIL/DEGRADED** because live identity is still `/health=1.0.0` and persisted config `2.4.0` versus validated local source `2.6.0`; fresh daytrading/swing delivery is unverified; crypto commonly records one minute after the `:07/:37` target; and exact per-fill gross/fee/net attribution remains unavailable. Positions are still broker-authoritative, caps remain `$5,000/$3,700/$2,000`, and local four-schedule and fail-closed crypto-edge tests pass.
+
+The validated correction is commit `b229eb3255097d5c6c13684a351ed2d867731021`. Focused validation passed 42 tests / 204 assertions, full `bun test` passed 164 tests / 562 assertions, TypeScript and `git diff --check` passed, and no schedule, cap, threshold, sizing, edge-gate, TIF, or trading-behavior changes are included. `bunx wrangler whoami` currently returns `You are not authenticated`, so no deployment or temporary preview is permitted from this control.
+
+**Authorized release sequence when credentials are restored:** deploy only the exact validated artifact through the normal authenticated path; capture the deployment/version and schedule receipt; then separately GET-check release identity, all six endpoints, canonical and alias run filters, broker position source, equity direction, all four schedules, lifecycle fields, conservative accounting, and unchanged caps. Observe the next natural weekday daytrading and swing windows before closing the control. **Rollback:** if any post-deploy read-only acceptance check fails or source identity cannot be tied to the artifact, restore traffic to the last known-good authenticated deployment using the Cloudflare release-control procedure, record the receipt, and repeat the GET-only checks. Do not use `--temporary`, triggers, submit, cancel, close, replace, retry, migration, or any broker-mutating endpoint for validation.
+
+## August 22, 2026 Control-12 release gate - FAIL/DEGRADED
+
+The approximately 18:00 UTC control was strictly GET-only and returned HTTP 200 for all six required endpoints. Live `/health=1.0.0` and persisted `/api/config=2.4.0` still conflict with validated local source `2.6.0`; live `/api/trades` still exposes the old pagination/enrichment shape, so the correction is not live-proven. `/api/positions` remains broker-authoritative with 29 rows, equity is down only `0.0039` against `last_equity`, and caps remain `$5,000/$3,700/$2,000`.
+
+Fresh reconciliation skips continue near ten-minute cadence and crypto skips appear around `:07/:37 UTC`; Saturday still cannot prove weekday daytrading or swing delivery. Local tests preserve all four schedules, filtered aliases, broker authority, lifecycle/accounting safeguards, and fail-closed crypto edge gates without changing trading behavior. Wrangler reports `You are not authenticated`, so do not deploy or use a temporary preview from this control.
+
+When authenticated and separately authorized, deploy only the exact validated commit `b229eb3255097d5c6c13684a351ed2d867731021`, capture the release receipt, then perform a separate GET-only check of release identity, all six endpoints, canonical and alias filters, source, equity direction, schedules, lifecycle/accounting fields, and caps. Observe natural weekday daytrading and swing windows; if any acceptance check fails, roll back to the last known-good authenticated deployment and repeat the same GET-only checks. No trigger, submit, cancel, close, replace, retry, migration, or broker-mutating route is valid as a smoke test.
+
+## August 21, 2026 additive trade observability correction - deployed and GET-only verified
 
 Scope was reliability-only: preserve broker-provided `time_in_force` including crypto `gtc`; expose conservative `/api/trades` `gross`, `fee`, and `net` fields with explicit status/attribution metadata; keep gross/net null until deterministic fill/lot matching exists; expose fees only for complete non-negative USD values linked directly by order ID; and persist bounded ledger truncation as top-level `degraded`. All four schedules, caps **$5,000/$3,700/$2,000**, thresholds, sizing, order behavior, and broker mutation boundaries were preserved.
 
