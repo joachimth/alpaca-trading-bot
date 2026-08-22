@@ -156,7 +156,7 @@ describe('trade observability enrichment', () => {
     });
     sqlite.prepare(`INSERT INTO broker_fees (activity_id, fee_type, order_id, usd_value) VALUES (?, 'FEE', ?, ?)`)
       .run('fee-1', 'order-with-fee', 1.25);
-    const [withFee] = await dbWithFee.getRecentTrades(10);
+    const withFee = (await dbWithFee.getRecentTrades(10)).find(trade => trade.alpaca_order_id === 'order-with-fee');
     expect(withFee).toMatchObject({
       gross: null,
       fee: 1.25,
@@ -171,10 +171,10 @@ describe('trade observability enrichment', () => {
       fill_price: 200, avg_fill_price: 200, status: 'filled', order_type: 'market', limit_price: null,
       stop_price: null, estimated_value: 200, decision_id: null, error_message: null, strategy: 'daytrading',
     });
-    const [, unknownFee] = await dbWithFee.getRecentTrades(10);
+    const unknownFee = (await dbWithFee.getRecentTrades(10)).find(trade => trade.alpaca_order_id === 'order-with-unknown-fee');
     expect(unknownFee).toMatchObject({ fee: null, fee_attribution: 'broker-linked-value-unavailable', net: null });
     const dbWithoutFee = db;
-    const [withoutFee] = await dbWithoutFee.getRecentTrades(10);
+    const withoutFee = (await dbWithoutFee.getRecentTrades(10)).find(trade => trade.alpaca_order_id === 'order-without-fee');
     expect(withoutFee).toMatchObject({
       gross: null,
       fee: null,

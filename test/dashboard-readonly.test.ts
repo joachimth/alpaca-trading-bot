@@ -175,6 +175,70 @@ describe('dashboard read-only hotfix', () => {
     expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
   });
 
+  test('trades endpoint honors limit, offset, and page without broker access', async () => {
+    const sqlite = seededSqlite();
+    for (let i = 0; i < 6; i += 1) {
+      sqlite.prepare(`INSERT INTO trades (timestamp, ticker, side, qty, strategy, status)
+        VALUES (?, 'SYM' || ?, 'buy', 1, 'crypto', 'filled')`).run(
+        `2026-08-21 00:0${i}:00`, i,
+      );
+    }
+    const tracked = trackedD1(sqlite);
+    const env = { DB: tracked.d1 } as unknown as Env;
+
+    const pageResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/trades?limit=2&page=2'));
+    expect(pageResponse.status).toBe(200);
+    const pageBody = await pageResponse.json() as any;
+    expect(pageBody).toMatchObject({ limit: 2, offset: 2, page: 2 });
+    expect(pageBody.trades.map((trade: any) => trade.ticker)).toEqual(['SYM3', 'SYM2']);
+
+    const offsetResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/trades?limit=2&offset=4&strategy=crypto'));
+    expect(offsetResponse.status).toBe(200);
+    const offsetBody = await offsetResponse.json() as any;
+    expect(offsetBody).toMatchObject({ limit: 2, offset: 4, page: 3, strategy: 'crypto' });
+    expect(offsetBody.trades.map((trade: any) => trade.ticker)).toEqual(['SYM1', 'SYM0']);
+    expect(tracked.sql.some(statement => statement.includes('LIMIT ? OFFSET ?'))).toBe(true);
+    expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
+  });
+
+  test('trades endpoint returns distinct offset slices with stable ordering', async () => {
+    const sqlite = seededSqlite();
+    for (let i = 0; i < 75; i += 1) {
+      sqlite.prepare(`INSERT INTO trades (timestamp, ticker, side, qty, status) VALUES (?, ?, 'buy', 1, 'filled')`)
+        .run('2026-08-22 12:00:00', `SYM${i}`);
+    }
+    const tracked = trackedD1(sqlite);
+    const env = { DB: tracked.d1 } as unknown as Env;
+    const api = new DashboardAPI(env);
+
+    const pageOneResponse = await api.handle(new Request('https://bot.example/api/trades?limit=30&offset=0'));
+    const pageTwoResponse = await api.handle(new Request('https://bot.example/api/trades?limit=30&offset=30'));
+    const pageThreeResponse = await api.handle(new Request('https://bot.example/api/trades?limit=30&offset=60'));
+    expect(pageOneResponse.status).toBe(200);
+    expect(pageTwoResponse.status).toBe(200);
+    expect(pageThreeResponse.status).toBe(200);
+
+    const pageOne = await pageOneResponse.json() as any;
+    const pageTwo = await pageTwoResponse.json() as any;
+    const pageThree = await pageThreeResponse.json() as any;
+    expect(pageOne).toMatchObject({ limit: 30, offset: 0, page: 1 });
+    expect(pageTwo).toMatchObject({ limit: 30, offset: 30, page: 2 });
+    expect(pageThree).toMatchObject({ limit: 30, offset: 60, page: 3 });
+    expect(pageOne.trades).toHaveLength(30);
+    expect(pageTwo.trades).toHaveLength(30);
+    expect(pageThree.trades).toHaveLength(15);
+    expect(pageOne.trades[0].ticker).toBe('SYM0');
+    expect(pageTwo.trades[0].ticker).toBe('SYM30');
+    expect(pageThree.trades[0].ticker).toBe('SYM60');
+    expect(new Set([
+      ...pageOne.trades.map((trade: any) => trade.ticker),
+      ...pageTwo.trades.map((trade: any) => trade.ticker),
+      ...pageThree.trades.map((trade: any) => trade.ticker),
+    ]).size).toBe(75);
+    expect(tracked.sql.some(statement => statement.includes('LIMIT ? OFFSET ?'))).toBe(true);
+    expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
+  });
+
   test('trades accounting batches order IDs to stay below D1 variable limits', async () => {
     const sqlite = seededSqlite();
     for (let i = 0; i < 101; i += 1) {

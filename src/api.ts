@@ -303,13 +303,19 @@ export class DashboardAPI {
       return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : fallback;
     };
     const limit = Math.min(parseNonNegativeInt(url.searchParams.get('limit'), 50), 500);
+    const requestedPage = parseNonNegativeInt(url.searchParams.get('page'), 1);
+    const offsetSupplied = url.searchParams.has('offset');
+    const offset = offsetSupplied
+      ? parseNonNegativeInt(url.searchParams.get('offset'), 0)
+      : Math.max(0, requestedPage - 1) * limit;
+    const page = offsetSupplied ? Math.floor(offset / limit) + 1 : requestedPage;
     const requestedStrategy = url.searchParams.get('strategy');
     if (requestedStrategy != null && requestedStrategy !== 'daytrading' && requestedStrategy !== 'swing' && requestedStrategy !== 'crypto') {
       return this.json({ error: 'Invalid strategy filter', allowed: ['daytrading', 'swing', 'crypto'] }, cors, 400);
     }
     const strategy = requestedStrategy as 'daytrading' | 'swing' | 'crypto' | undefined;
-    const trades = await db.getRecentTrades(limit, strategy);
-    return this.json({ trades, limit, ...(strategy ? { strategy } : {}) }, cors);
+    const trades = await db.getRecentTrades(limit, strategy, offset);
+    return this.json({ trades, limit, offset, page, ...(strategy ? { strategy } : {}) }, cors);
   }
 
   private async getPerformance(url: URL, cors: Record<string, string>): Promise<Response> {

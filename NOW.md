@@ -1,9 +1,11 @@
 # NOW
-- Alpaca Control-9 remains FAIL/DEGRADED after strict GET-only verification on August 22, 2026.
-- Local correction: broker-unavailable `/api/positions` now performs no D1 positions read or fallback; focused 61/0 (246 assertions), full 161/0 (537), typecheck, diff-check, and dry-run passed.
-- Live `/health=1.0.0` and `/api/config=2.4.0` conflict with local deployable 2.6.0; Wrangler is unauthenticated, so the correction is not live-proven.
-- Final live pass: `/api/positions` recovered to `200`, `positionsAvailable=true`, `source=alpaca`, 29 broker rows; dashboard equity 98504.50 vs last_equity 98504.5039.
-- Caps remain $5000/$3700/$2000; four local schedules and crypto fail-closed edge gate are unchanged.
-- Fresh reconciliation MAINTENANCE_ONLY and crypto skips delivered, but Alpaca 503 errors occurred at 12:00:46, 12:07:40, and 12:10:40 UTC; crypto is around :08/:38.
-- No fresh successful daytrading/swing delivery is proven; trade lifecycle fields exist, but gross/fee/net remain null under unavailable_fill_lot_exact.
-- Follow-up: restore authenticated release verification, deploy only the validated artifact if authorized, then repeat separate GET-only and natural weekday checks.
+- Alpaca Control-10 remains FAIL/DEGRADED after the strict GET-only control on August 22, 2026.
+- Live `/health=1.0.0` and `/api/config=2.4.0` drift from repository deployable `2.6.0`; `/workspace/src` is stale reference material.
+- Provider 503 run errors occurred at 12:00:46, 12:07:40, and 12:10:40 UTC; fresh reconciliation/crypto skips exist and crypto is around :08/:38.
+- No fresh weekday daytrading/swing proof is available on Saturday; filtered run observability works.
+- Positions remain broker-authoritative (`source=alpaca`); equity was 98504.50 vs last_equity 98504.5039 (slightly down).
+- Caps remain $5000/$3700/$2000; four local schedules and crypto edge-gate wiring are correct and unchanged.
+- Lifecycle fields exist, but sampled gross/fee/net remain null under unavailable_fill_lot_exact; estimated_value is pre-fill estimate data.
+- Local correction adds stable `/api/trades` offset/page pagination and read-only estimate-vs-fill fields; final focused 69/282 and full 164/562 pass, typecheck/diff-check/dry-run pass.
+- Final live GET-only check still shows old 1.0.0/2.4.0 identity and old pagination contract, so correction is not deployed.
+- Blocker: Wrangler says `You are not authenticated`; restore auth, deploy exact validated artifact only if authorized, then GET-only and weekday-check.

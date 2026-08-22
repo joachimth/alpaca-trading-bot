@@ -55,6 +55,34 @@ describe('scheduled order reconciliation', () => {
     expect((await rows(sqlite))[0]).toMatchObject(lifecycle);
   });
 
+  test('preserves the order-time estimate and exposes realized filled notional after reconciliation', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    await db.logOrderTrade(order({ id: 'estimate-order', qty: 10, filled_qty: 0, leaves_qty: 10, filled_avg_price: null }), {
+      strategy: 'daytrading',
+      estimatedValue: 1000,
+    });
+    const pending = (await db.getRecentTrades(10)).find(trade => trade.alpaca_order_id === 'estimate-order');
+    expect(pending).toMatchObject({
+      estimated_value: 1000,
+      estimated_value_basis: 'order_time_estimate',
+      filled_notional: null,
+      estimated_vs_filled_delta: null,
+    });
+
+    await db.reconcileOrders([order({
+      id: 'estimate-order', qty: 10, filled_qty: 4, leaves_qty: 6,
+      filled_avg_price: 101, status: 'partially_filled', updated_at: '2026-08-07T10:01:00Z',
+    })]);
+    const partial = (await db.getRecentTrades(10)).find(trade => trade.alpaca_order_id === 'estimate-order');
+    expect(partial).toMatchObject({
+      estimated_value: 1000,
+      estimated_value_basis: 'order_time_estimate',
+      filled_notional: 404,
+      estimated_vs_filled_delta: -596,
+    });
+  });
+
   test('updates linked decision metadata when reconciliation confirms a fill', async () => {
     const sqlite = createTestDatabase();
     const db = new Database(createFakeD1(sqlite));

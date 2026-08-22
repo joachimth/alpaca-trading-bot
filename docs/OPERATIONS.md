@@ -1,3 +1,17 @@
+## August 22, 2026 GET `/api/trades` pagination correction — locally validated, not deployed
+
+The contained read-only correction now applies `offset` to `GET /api/trades` queries, supports page-to-offset requests, and returns `limit`, `offset`, and `page` metadata. Stable ordering prevents repeated leading records across pages. No trading behavior changed: strategy filters, the 500-record endpoint cap, broker authority, `$5,000/$3,700/$2,000` caps, schedules, edge gates, and mutation boundaries remain unchanged.
+
+Focused validation passed **28 tests / 157 assertions**; full `bun test` passed **163 tests / 560 assertions**; `bun run typecheck` and `git diff --check` passed. No deployment or broker-mutating endpoint was used.
+
+## August 22, 2026 Control-10 production state: FAIL/DEGRADED
+
+Control-10 was strictly GET-only: no deployment, trigger, or broker-mutating endpoint was used. Live release identity remains `/health=1.0.0` and `/api/config=2.4.0` versus repository deployable `2.6.0`; `/workspace/src` is stale reference material, not deployable source. Fresh crypto/reconciliation skips were present, crypto was approximately `:08/:38`, and Saturday offers no fresh weekday daytrading/swing proof. Provider 503 run errors were recorded at `12:00:46`, `12:07:40`, and `12:10:40 UTC`.
+
+Positions remain broker-authoritative (`source=alpaca`) and equity direction was slightly down (`98,504.50` versus `last_equity 98,504.5039`). Filtered run observability works; lifecycle fields are present, while sampled `gross`/`fee`/`net` remain null under `unavailable_fill_lot_exact`. Caps remain `$5,000/$3,700/$2,000`; local four-schedule wiring and fail-closed crypto edge-gate wiring are correct. No trading behavior changed.
+
+The exact blocker is Wrangler's **`You are not authenticated`** response. A local reliability correction now makes `/api/trades` honor `offset` and `page` with deterministic `timestamp DESC, id ASC` ordering, and exposes read-only estimate-basis, filled-notional, and estimate-delta fields. Final focused validation passed **69 tests / 282 assertions**; full `bun test` passed **164 tests / 562 assertions**; TypeScript, diff-check, and Wrangler dry-run passed with a **282.79 KiB** upload preview. Historical D1-variable and subrequest errors remain live risk evidence, while current reconciliation, activity, bars, and fee paths are explicitly bounded. The separate final GET-only check still shows production on 1.0.0/2.4.0 and old trade pagination, so the correction is not live. `estimated_value` is an order-time estimate, not realized fill accounting. Restore authentication, deploy the exact validated artifact only if authorized, then run separate GET-only verification and natural weekday checks. See `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-10.md`.
+
 ## August 22, 2026 Control-9 production correction state: FAIL/DEGRADED
 
 The broker-unavailable read path is corrected locally. `GET /api/positions` now reads Alpaca first and does not touch D1 metadata when the broker snapshot fails, preserving broker authority and returning HTTP 503 with an empty position set and `positionsAvailable: false`. `/api/config` also exposes `release_version` from the Worker artifact separately from persisted D1 `config.version`, which prevents a stale database seed from being mistaken for active Worker identity.

@@ -1,3 +1,17 @@
+## August 22, 2026 GET `/api/trades` pagination correction — locally validated, not deployed
+
+The contained read-only correction makes `GET /api/trades?limit=30&offset=30` and `offset=60` return their requested slices instead of repeating the `offset=0` leading records, and adds `limit`, `offset`, and `page` response metadata. Existing strategy filtering, the 500-record cap, broker authority, `$5,000/$3,700/$2,000` caps, schedules, edge gates, and mutation boundaries are preserved.
+
+Focused validation passed **28 tests / 157 assertions**; full `bun test` passed **163 tests / 560 assertions**; `bun run typecheck` and `git diff --check` passed. Do not deploy this correction from this validation pass; no deployment or broker-mutating endpoint was used.
+
+## August 22, 2026 Control-10 release decision — FAIL/DEGRADED
+
+The strict production control was **GET-only**; do not infer deployment or authorize broker mutation from it. Live `/health=1.0.0` and `/api/config=2.4.0` remain inconsistent with repository deployable `2.6.0`, and `/workspace/src` is stale reference material rather than the deployable source. Fresh crypto/reconciliation skips, crypto approximately `:08/:38`, provider 503 errors at `12:00:46`, `12:07:40`, and `12:10:40 UTC`, and the absence of fresh weekday daytrading/swing proof on Saturday keep the release **FAIL/DEGRADED**.
+
+Read-only evidence still shows broker-authoritative positions (`source=alpaca`) and slightly down equity direction (`98,504.50` versus `last_equity 98,504.5039`). Filtered run observability works; lifecycle fields exist, but sampled `gross`/`fee`/`net` remain null under `unavailable_fill_lot_exact`. Preserve caps `$5,000/$3,700/$2,000`, the four local schedules, and correct fail-closed crypto edge-gate wiring; do not change trading behavior.
+
+Deployment is blocked by the exact Wrangler response **`You are not authenticated`**. The local correction adds read-only `/api/trades` offset/page pagination with stable ordering and estimate-basis, filled-notional, and estimate-delta fields. Final focused validation passed **69 tests / 282 assertions**; full `bun test` passed **164 tests / 562 assertions**; TypeScript, diff-check, and Wrangler dry-run passed with a **282.79 KiB** upload preview. Historical D1-variable/subrequest failures remain documented risk evidence, and `estimated_value` must be interpreted as a pre-fill estimate rather than fill accounting. Final separate GET-only verification still shows the old live identity and old pagination contract. Restore auth, deploy the exact validated artifact only if authorized, then perform separate GET-only verification and natural weekday checks. No deployment or broker-mutating endpoint was used. Correction record: `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-10.md`.
+
 ## August 22, 2026 Control-9 release decision — FAIL/DEGRADED
 
 A strict GET-only control found a local reliability defect in the broker-authoritative positions failure path. The corrected source attempts the broker snapshot before reading D1 positions metadata, and the failure path returns `503`, `positionsAvailable: false`, `source: alpaca`, with no D1 fallback or DDL. Focused validation passed **61 tests / 246 assertions**, full validation passed **161 tests / 537 assertions**, typecheck and diff-check passed, and Wrangler dry-run passed.

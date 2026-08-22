@@ -1115,6 +1115,15 @@ export class Database {
       const gross = null;
       const fee = linkedFee?.fee ?? null;
       const net = gross !== null && fee !== null ? gross - fee : null;
+      const filledQty = Number(trade.filled_qty);
+      const averageFillPrice = Number(trade.avg_fill_price);
+      const filledNotional = Number.isFinite(filledQty) && filledQty > 0 && Number.isFinite(averageFillPrice)
+        ? filledQty * averageFillPrice
+        : null;
+      const estimatedValue = Number(trade.estimated_value);
+      const estimatedVsFilledDelta = filledNotional !== null && Number.isFinite(estimatedValue)
+        ? filledNotional - estimatedValue
+        : null;
       const observabilityFields = TRADE_OBSERVABILITY_FIELDS.reduce<Record<string, unknown>>((fields, field) => {
         fields[field] = trade[field] ?? null;
         return fields;
@@ -1125,20 +1134,28 @@ export class Database {
         gross,
         fee,
         net,
+        estimated_value_basis: 'order_time_estimate',
+        filled_notional: filledNotional,
+        estimated_vs_filled_delta: estimatedVsFilledDelta,
         accounting_status: 'unavailable_fill_lot_exact',
         fee_attribution: linkedFee?.attribution ?? 'none-recorded',
       };
     });
   }
 
-  async getRecentTrades(limit: number = 50, strategy?: 'daytrading' | 'swing' | 'crypto'): Promise<any[]> {
+  async getRecentTrades(
+    limit: number = 50,
+    strategy?: 'daytrading' | 'swing' | 'crypto',
+    offset: number = 0,
+  ): Promise<any[]> {
     await this.ensureTradeSchema();
     const query = strategy
-      ? 'SELECT * FROM trades WHERE strategy = ? ORDER BY timestamp DESC LIMIT ?'
-      : 'SELECT * FROM trades ORDER BY timestamp DESC LIMIT ?';
+      ? 'SELECT * FROM trades WHERE strategy = ? ORDER BY timestamp DESC, id ASC LIMIT ? OFFSET ?'
+      : 'SELECT * FROM trades ORDER BY timestamp DESC, id ASC LIMIT ? OFFSET ?';
+    const boundedOffset = Math.max(0, Math.floor(offset));
     const result = strategy
-      ? await this.db.prepare(query).bind(strategy, limit).all()
-      : await this.db.prepare(query).bind(limit).all();
+      ? await this.db.prepare(query).bind(strategy, limit, boundedOffset).all()
+      : await this.db.prepare(query).bind(limit, boundedOffset).all();
     return this.enrichTradeAccounting(result.results as any[]);
   }
 
