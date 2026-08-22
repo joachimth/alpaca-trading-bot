@@ -53,7 +53,28 @@ export interface TradeRecord {
   replaced_at?: string | null;
   intent_stop_loss_price?: number | null;
   intent_take_profit_price?: number | null;
+  gross?: number | null;
+  fee?: number | null;
+  net?: number | null;
+  accounting_status?: string | null;
+  fee_attribution?: string | null;
 }
+
+// Keep the read API shape stable across databases created before lifecycle
+// columns were added. These are response fields, not write/schema operations.
+const TRADE_OBSERVABILITY_FIELDS = [
+  'submitted_at',
+  'filled_at',
+  'canceled_at',
+  'expired_at',
+  'failed_at',
+  'replaced_at',
+  'gross',
+  'fee',
+  'net',
+  'accounting_status',
+  'fee_attribution',
+] as const;
 
 export const CYCLE_LEASE_TTL_MS = 10 * 60 * 1000;
 const CRYPTO_COMMITTED_RESERVATION_TTL_MS = 365 * 24 * 60 * 60 * 1000;
@@ -1094,8 +1115,13 @@ export class Database {
       const gross = null;
       const fee = linkedFee?.fee ?? null;
       const net = gross !== null && fee !== null ? gross - fee : null;
+      const observabilityFields = TRADE_OBSERVABILITY_FIELDS.reduce<Record<string, unknown>>((fields, field) => {
+        fields[field] = trade[field] ?? null;
+        return fields;
+      }, {});
       return {
         ...trade,
+        ...observabilityFields,
         gross,
         fee,
         net,

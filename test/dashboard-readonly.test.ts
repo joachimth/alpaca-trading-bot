@@ -84,6 +84,33 @@ describe('dashboard read-only hotfix', () => {
     expect(await invalidStrategyResponse.json()).toMatchObject({ error: 'Invalid strategy filter' });
   });
 
+  test('runs endpoint combines strategy, status, trigger, and pagination filters', async () => {
+    const sqlite = seededSqlite();
+    const rows = [
+      ['2026-08-21 14:00:00', 'crypto_cron', 'skipped'],
+      ['2026-08-21 13:00:00', 'crypto_cron', 'ok'],
+      ['2026-08-21 12:00:00', 'swing_cron', 'skipped'],
+      ['2026-08-21 11:00:00', 'cron', 'skipped'],
+    ];
+    for (const row of rows) {
+      sqlite.prepare(`INSERT INTO run_log (timestamp, trigger, status) VALUES (?, ?, ?)`).run(...row);
+    }
+    const tracked = trackedD1(sqlite);
+    const env = { DB: tracked.d1 } as unknown as Env;
+    const response = await new DashboardAPI(env).handle(new Request(
+      'https://bot.example/api/runs?strategy=crypto&status=skipped&trigger=crypto_cron&limit=1&page=1',
+    ));
+    expect(response.status).toBe(200);
+    const body = await response.json() as any;
+    expect(body.runs).toHaveLength(1);
+    expect(body.runs[0]).toMatchObject({ trigger: 'crypto_cron', status: 'skipped' });
+    expect(body.offset).toBe(0);
+    expect(body.page).toBe(1);
+    expect(tracked.sql.some(statement => statement.includes('trigger IN'))).toBe(true);
+    expect(tracked.sql.some(statement => statement.includes('status = ?'))).toBe(true);
+    expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
+  });
+
   test('runs endpoint maps production trigger aliases without rewriting canonical history', async () => {
     const sqlite = seededSqlite();
     sqlite.prepare(`INSERT INTO run_log (timestamp, trigger, status) VALUES (?, ?, ?)`).run('2026-08-21 13:00:00', 'cron', 'ok');
@@ -184,6 +211,64 @@ describe('dashboard read-only hotfix', () => {
     expect(Object.prototype.hasOwnProperty.call(linked, 'gross')).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(linked, 'fee')).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(linked, 'net')).toBe(true);
+    expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
+  });
+
+  test('legacy trade rows receive a stable lifecycle and accounting response shape without DDL', async () => {
+    const sqlite = new Sqlite(':memory:');
+    sqlite.run(`
+      CREATE TABLE trades (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+        alpaca_order_id TEXT,
+        ticker TEXT NOT NULL,
+        side TEXT NOT NULL,
+        qty REAL NOT NULL,
+        fill_price REAL,
+        avg_fill_price REAL,
+        status TEXT NOT NULL DEFAULT 'submitted',
+        order_type TEXT NOT NULL DEFAULT 'market',
+        time_in_force TEXT NOT NULL DEFAULT 'day',
+        estimated_value REAL,
+        decision_id INTEGER,
+        error_message TEXT
+      );
+      CREATE TABLE broker_fees (
+        activity_id TEXT PRIMARY KEY,
+        fee_type TEXT NOT NULL,
+        order_id TEXT,
+        usd_value REAL
+      );
+    `);
+    sqlite.prepare(`INSERT INTO trades (alpaca_order_id, ticker, side, qty, avg_fill_price, status)
+      VALUES ('legacy-order', 'AAPL', 'buy', 1, 100, 'filled')`).run();
+    const tracked = trackedD1(sqlite);
+    const env = { DB: tracked.d1 } as unknown as Env;
+
+    const response = await new DashboardAPI(env).handle(new Request('https://bot.example/api/trades?limit=10'));
+    expect(response.status).toBe(200);
+    const body = await response.json() as any;
+    expect(body.trades).toHaveLength(1);
+    const trade = body.trades[0];
+    for (const field of [
+      'submitted_at', 'filled_at', 'canceled_at', 'expired_at', 'failed_at', 'replaced_at',
+      'gross', 'fee', 'net', 'accounting_status', 'fee_attribution',
+    ]) {
+      expect(Object.prototype.hasOwnProperty.call(trade, field)).toBe(true);
+    }
+    expect(trade).toMatchObject({
+      submitted_at: null,
+      filled_at: null,
+      canceled_at: null,
+      expired_at: null,
+      failed_at: null,
+      replaced_at: null,
+      gross: null,
+      fee: null,
+      net: null,
+      accounting_status: 'unavailable_fill_lot_exact',
+      fee_attribution: 'none-recorded',
+    });
     expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
   });
 

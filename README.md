@@ -1,3 +1,9 @@
+## August 22, 2026 read-only observability correction — local validation complete
+
+The deployable source under `/workspace/alpaca-trading-bot` now keeps `GET /api/runs` observability bounded and filterable by `strategy`, `status`, and `trigger`, including the required read-only aliases `daytrading_cron` → `cron` and `reconciliation_cron` → `reconcile_cron`. Legacy trade rows are normalized only in the response shape so `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, `replaced_at`, `gross`, `fee`, `net`, `accounting_status`, and `fee_attribution` are always present; missing values remain `null` or conservative unavailable metadata. No trading logic, crypto edge gate, caps, schedules, broker calls, or database writes changed.
+
+Focused dashboard observability regression passed **11 tests / 99 assertions**. Full `bun test` passed locally; typecheck remains affected by pre-existing unrelated errors documented in the correction note. No deployment is required for local validation, and none was performed. The separate `/workspace/src` tree is stale/quarantined reference code and is not the deployable project; it was not modified.
+
 ## August 21, 2026 strict read-only Alpaca control — FAIL/DEGRADED (latest)
 
 **Status: FAIL/DEGRADED, not healthy.** Final separate GET-only verification completed at approximately **23:01 UTC**. No trigger, cycle, submit, cancel, close, replace, retry, deployment, or other broker-mutating route was used for this control.
@@ -478,3 +484,33 @@ A verified weekly read-only follow-up job, `Alpaca deferred-risk review` (schedu
 ## License
 
 Private project.
+
+## August 21, 2026 strict read-only production control, final status
+
+**Result: FAIL/DEGRADED, not healthy.** The control used only GET requests against `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades`; all six returned HTTP 200. No trigger, submit, cancel, close, replace, retry, or other broker-mutating endpoint was called, and no deployment was performed.
+
+- Broker authority passed: `/api/positions` returned `positionsAvailable: true`, `source: "alpaca"`, and 29 broker-backed positions. D1 contributes strategy and historical metadata only; the broker remains the live position source. MSTR remains broker-present but `unattributed`, so complete strategy cap attribution is not proven.
+- Equity direction passed at the snapshot level: dashboard equity was **$98,546.76** versus `last_equity` **$98,270.0927**; the latest snapshot was **$98,556.33** at `2026-08-21 23:37:58` UTC. Daily change fields remain zero despite changing equity history, so independent daily-direction validation is limited.
+- Configured caps are unchanged at **$5,000 daytrading / $3,700 swing / $2,000 crypto**. Source and `wrangler.toml` retain all four UTC schedules: daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and read-only reconciliation `*/10 * * * *`.
+- Fresh reconciliation delivery is present through `2026-08-22 00:01:01` UTC as structured `MAINTENANCE_ONLY` skips with one ledger page, a five-page budget, and no degradation. Fresh crypto delivery is present at `2026-08-21 23:08:04` and `23:38:04` UTC with structured skips and zero errors. Natural crypto delivery is approximately the expected `:07/:37` cadence but commonly lands at `:08/:38`.
+- Daytrading filtered alias observability works: `GET /api/runs?trigger=daytrading_cron` maps to canonical `cron` and shows repeated `CYCLE_LEASE_HELD` skips, with the latest captured row at `2026-08-20 21:55:24` UTC. No fresh successful daytrading run is proven. No fresh successful swing run is proven. Historical crypto and reconciliation errors include D1 variable overflow and Worker subrequest exhaustion; the deployed batching correction prevents recurrence in the fresh post-release crypto sample, but historical errors remain part of the risk record.
+- Trade and fill lifecycle fields are exposed and persisted conservatively. The current sampled rows are filled with submitted and filled timestamps, while inapplicable terminal fields are null. `gross`, `fee`, and `net` remain null with `accounting_status: unavailable_fill_lot_exact`; deterministic fill/lot accounting and non-crypto strategy fee attribution remain unresolved, so per-trade gross/fee/net consistency cannot be claimed.
+- Crypto edge-gate wiring passes source and regression inspection: fee telemetry is required, calibrated `rawEdgeBps` is required, confidence is never converted to edge, and reservation admission is fail-closed. Live positive calibrated-edge comparison remains unproven; current crypto skips include `FEE_DATA_UNAVAILABLE`.
+- Regression status is green locally: full `bun test` passed **154 tests / 488 assertions**. TypeScript, diff-check, and prior Wrangler dry-run evidence also pass. This does not clear the production evidence gaps.
+- Deployment identity remains unresolved. `bunx wrangler whoami` reports `You are not authenticated`; therefore the active Worker/source mapping and live schedule control-plane state cannot be independently authenticated. No deployment was required for this control.
+
+**Correction work item:** the existing `CORRECTION_WORK_ITEM_2026-08-21.md` remains open and has been updated with this control. No new code correction was justified because the confirmed live issues are unresolved evidence, attribution, cadence, and credential/source-identity gaps, not a newly reproducible cap, schedule, broker-authority, or edge-gate regression. Required follow-up is authenticated read-only Cloudflare verification, natural daytrading and swing evidence, exact fill/lot accounting, and cap-enforcement attribution without changing vital caps or trading behavior.
+
+## Crypto edge/TIF investigation — August 21, 2026
+
+Investigation result: **no safe trading-code correction is justified**. Repository-wide source and history inspection found no production producer for calibrated `rawEdgeBps`; the only positive value is a test fixture. The crypto caller enables `requireCalibratedEdge` and does not derive edge from confidence, TA, sentiment, fees, or any other uncalibrated signal. With the configured positive `minEdgeAfterCosts`, crypto BUY admission therefore remains fail-closed and records `EDGE_CALIBRATION_UNAVAILABLE` in structured run details. Do not add a constant, confidence conversion, fee-derived proxy, or other invented edge.
+
+The reported crypto TIF mismatch is not reproduced in source: `src/crypto-strategy.ts` explicitly submits crypto BUYs with `time_in_force: 'gtc'`; the generic Alpaca client defaults to `day` only when a caller omits TIF. The returned broker TIF is persisted by `logOrderTrade`, and regression coverage confirms `gtc` persistence. No TIF, cap, threshold, sizing, schedule, or order-behavior change was made. If a future live row shows `day`, capture the decision/order ID and broker response before changing code; it would indicate a caller/deployment/source-mapping mismatch rather than this source path.
+
+Required observability remains: monitor structured `EDGE_CALIBRATION_UNAVAILABLE` and `FEE_DATA_UNAVAILABLE` crypto skips, and compare submitted broker TIF to persisted `trades.time_in_force` by `client_order_id`/order ID using read-only evidence. Deployment is **not required** for this documentation-only investigation.
+
+## August 22, 2026 read-only trade-shape correction
+
+The correction adds stable lifecycle and accounting keys to legacy `/api/trades` response rows without DDL or write-path changes, and strengthens combined `/api/runs` filter regression coverage. The stale `/workspace/src` tree is reference-only and must not be treated as deployable source. Caps remain `$5,000/$3,700/$2,000`, crypto calibrated-edge and fee gates remain fail-closed, schedules and trading behavior are unchanged, and no broker-mutating endpoint is used for validation.
+
+Validation passed: focused **24 tests / 126 assertions**, full **156 tests / 511 assertions**, TypeScript, `git diff --check`, and Wrangler dry-run. Release is authorized under the standing maintenance rule as a reliability-only API compatibility fix; separate GET-only live verification remains required after deployment. Production remains **FAIL/DEGRADED** until live strategy-delivery, cap-enforcement, source identity, cadence, and exact fill-lot accounting gaps are resolved.

@@ -11,6 +11,11 @@ import { analyze } from './technical-analysis';
 import { projectBrokerPositions } from './position-projection';
 import { resolveCapitalCaps } from './capital-caps';
 
+const RUN_TRIGGER_ALIASES: Record<string, string> = {
+  daytrading_cron: 'cron',
+  reconciliation_cron: 'reconcile_cron',
+};
+
 export class DashboardAPI {
     private env: Env;
 
@@ -333,11 +338,7 @@ export class DashboardAPI {
     // Stored run_log trigger values are historical canonical values. Keep the
     // alias translation at this read-only API boundary so storage and scheduler
     // dispatch remain unchanged.
-    const trigger = requestedTrigger === 'daytrading_cron'
-      ? 'cron'
-      : requestedTrigger === 'reconciliation_cron'
-        ? 'reconcile_cron'
-        : requestedTrigger;
+    const trigger = requestedTrigger ? (RUN_TRIGGER_ALIASES[requestedTrigger] ?? requestedTrigger) : undefined;
     const runs = await db.getRecentRuns({
       limit,
       offset,

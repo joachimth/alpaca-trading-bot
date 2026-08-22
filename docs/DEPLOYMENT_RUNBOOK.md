@@ -1,3 +1,9 @@
+## August 22, 2026 observability correction release gate — no deployment performed
+
+Release source is `/workspace/alpaca-trading-bot`; `/workspace/src` is stale/quarantined reference code and must not be packaged, tested as the release source, or deployed. The correction is limited to read-only observability: `GET /api/runs` supports bounded `strategy`, `status`, and `trigger` filters, with `daytrading_cron` → `cron` and `reconciliation_cron` → `reconcile_cron` aliases. Legacy trade rows receive a stable response shape containing all requested lifecycle and accounting fields, while unknown lifecycle/accounting values remain conservative `null`/unavailable values.
+
+Focused validation passed **11 tests / 99 assertions** and full `bun test` passed. No migration, deployment, broker call, trigger, order, cancellation, close, replace, retry, cap change, schedule change, crypto edge-gate change, or trading-behavior change was made. Deployment is **not required for local validation** and was not performed; if this correction is later released, use the deployable project path only and repeat focused/full regressions plus separate GET-only verification.
+
 ## August 21, 2026 strict read-only Alpaca control — FAIL/DEGRADED (latest)
 
 **Status: FAIL/DEGRADED, not healthy.** Final separate GET-only verification completed at approximately **23:01 UTC**. No trigger, cycle, submit, cancel, close, replace, retry, deployment, or other broker-mutating route was used for this control.
@@ -426,3 +432,33 @@ The active weekly read-only deferred-risk review is `Alpaca deferred-risk review
 4. Add targeted live-broker integration checks without using trading actions as smoke tests.
 5. Finish swing trigger attribution and decision-row accounting consistency work.
 6. Revalidate Cloudflare deployment identity, 100% traffic, and all four live schedules when authenticated read-only Cloudflare credentials are available; the August 10 conflict remains unresolved.
+
+## Strict read-only production control record, August 21, 2026
+
+**Release/control status: FAIL/DEGRADED, not healthy.** The six required GET endpoints all returned HTTP 200. No trigger, submit, cancel, close, replace, retry, deployment, or broker-mutating operation was used.
+
+Required checks completed:
+
+- Broker-authoritative positions: PASS. `/api/positions` returned `positionsAvailable: true`, `source: "alpaca"`, and 29 rows. D1-only positions are not used as live fallback. MSTR remains unattributed, limiting strategy ownership and cap attribution.
+- Equity direction: PASS for current versus last equity, `$98,546.76 > $98,270.0927`; latest snapshot `$98,556.33` at `2026-08-21 23:37:58` UTC. Daily fields are zero and are not sufficient for independent daily validation.
+- Caps: PASS for unchanged configured values `$5,000/$3,700/$2,000`. Four source schedules remain exact: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, and `*/10 * * * *` UTC.
+- Run delivery: reconciliation is fresh through `2026-08-22 00:01:01` UTC and crypto is fresh at `23:08:04` and `23:38:04` UTC with structured zero-error skips. Crypto timing is approximately `:07/:37` but commonly observed at `:08/:38`. Filtered `daytrading_cron` aliasing and structured lease-held observability pass, but fresh successful daytrading and swing delivery are not proven. Historical SQL-variable and subrequest-limit errors remain documented.
+- Trade lifecycle/accounting: lifecycle fields are exposed and conservatively persisted. Current filled rows have submitted/filled timestamps, but `gross`, `fee`, and `net` are null with `unavailable_fill_lot_exact`; exact fill/lot accounting and complete fee attribution remain unresolved.
+- Crypto edge gate: source and regression wiring pass. Fee telemetry and calibrated raw edge are fail-closed requirements, and confidence is not converted to edge. Live positive `rawEdgeBps` comparison is not proven; current fee telemetry skips are expected degraded evidence.
+- Regression: full local suite passed **154 tests / 488 assertions**; typecheck, diff-check, and dry-run evidence remain green.
+
+No deployment is authorized or required from this control. The exact release-verification blocker is unauthenticated Wrangler control-plane access: `bunx wrangler whoami` returned `You are not authenticated`. Keep the existing correction work item open, repair authenticated read-only Cloudflare access, then independently verify the active Worker/source mapping and schedules. Do not manufacture missing strategy evidence with manual triggers or broker mutations.
+
+## Crypto edge/TIF investigation disposition, August 21, 2026
+
+No deployment is required for this investigation. Source and history inspection found no genuine production `rawEdgeBps` producer: only the RiskManager input and a test fixture exist. The production crypto caller enables calibrated-edge fail-closed behavior without supplying a value, so BUYs must remain observable as `EDGE_CALIBRATION_UNAVAILABLE`; never derive edge from confidence, TA, sentiment, fee telemetry, or a configured constant.
+
+The reported day-vs-GTC mismatch is not reproduced in source. Crypto BUY submission explicitly sets `time_in_force: 'gtc'`; Alpaca’s generic helper default is `'day'` only when TIF is omitted, and returned broker TIF is persisted to `trades.time_in_force`. Before any future code change, obtain read-only evidence linking decision ID, client order ID, broker order response, persisted TIF, and deployed source identity. A `day` row would be evidence of caller/deployment/source mismatch, not proof that crypto should be changed to another TIF.
+
+Validation for this documentation-only disposition must not call triggers or broker-mutating routes. Trading logic, caps, thresholds, sizing, schedules, and order behavior remain unchanged.
+
+## August 22, 2026 read-only trade-shape correction release
+
+Release scope is limited to API compatibility and observability: legacy `/api/trades` rows now receive stable lifecycle/accounting keys, and `/api/runs` combined filter coverage is strengthened. The patch preserves read-only GET semantics, broker-authoritative positions, all four schedules, caps `$5,000/$3,700/$2,000`, crypto fail-closed edge/fee gates, GTC crypto order behavior, and all trading logic.
+
+Pre-release validation passed: focused **24 tests / 126 assertions**, full **156 tests / 511 assertions**, `bunx tsc --noEmit`, `git diff --check`, and `bunx wrangler deploy --dry-run`. Deploy only the repository source at `/workspace/alpaca-trading-bot`; do not use the stale `/workspace/src` tree. After deployment, run separate GET-only checks for all six endpoints plus filtered runs/trades, and record the active release identity if Cloudflare credentials permit.
