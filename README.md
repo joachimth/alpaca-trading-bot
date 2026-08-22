@@ -1,3 +1,7 @@
+## August 22, 2026 Control-3 correction: filtered runs, release identity, and evidence gaps
+
+Additional control evidence keeps production **FAIL/DEGRADED**: `/workspace/alpaca-live-schedules-api.json` has only three schedules and omits reconciliation, while `/workspace/alpaca-post-release-schedules.json` and current `wrangler.toml` contain all four configured expressions. Filtered/analyzed counts are console-only and not persisted in `run_log`; per-trade gross/net remain conservatively null until deterministic fill/lot matching, and aggregate strategy gross/net must not be interpreted as fill/lot exact because it uses broker-snapshot unrealized/realized values plus fees. No cap, schedule, broker-authority, edge-gate, or trading behavior change was made.
+
 ## August 22, 2026 Control-3 correction: filtered runs and release identity
 
 Production control found a release/version mismatch: live `/health` reports `1.0.0` and live `/api/config` reports `2.4.0`, while the deployable source reports `2.6.0`. An earlier capture also showed `/api/runs` filter loss; fresh post-attempt GET probes now return correctly filtered rows, but the corrected source is still not live-proven. The local reliability-only correction is present in `src/api.ts`, `src/database.ts`, and `src/version.ts`; it preserves broker-authoritative positions, all four schedules, caps of **$5,000/$3,700/$2,000**, crypto calibrated-edge fail-closed behavior, and trading semantics.
