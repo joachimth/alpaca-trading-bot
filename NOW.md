@@ -1,9 +1,10 @@
 # NOW
-- Alpaca Control-5 is FAIL/DEGRADED: live run aliases return empty while canonical filters return rows.
-- Live release identity remains unresolved: health 1.0.0/config 2.4.0 versus tested local 2.6.0.
-- Broker positions remain authoritative: source alpaca, 29 rows; caps unchanged at 5000/3700/2000 USD.
-- Fresh reconciliation and crypto delivery exist; daytrading is stale/lease-held and swing is stale/risk-halted.
-- Crypto runs are around :08/:38 UTC; fee telemetry and exact fill-lot gross/net remain unavailable.
-- Control-5 patch adds response-only trigger_alias without changing canonical history or trading behavior.
-- Validation passed locally; authenticated Wrangler deployment is blocked by missing CLOUDFLARE_API_TOKEN.
-- Next gate: restore Wrangler auth, deploy exact commit 57a4efb, then repeat separate GET-only verification.
+- Alpaca Control-6 remains FAIL/DEGRADED after strict read-only verification on August 22, 2026.
+- Live identity is unresolved: /health=1.0.0 and /api/config=2.4.0 versus local deployable 2.6.0.
+- Positions are broker-authoritative: source=alpaca, 29 rows; caps remain $5000/$3700/$2000.
+- Equity is 98504.50 versus last_equity 98504.5039, delta -0.0039; daily fields are zero and recent history declined.
+- Reconciliation is fresh MAINTENANCE_ONLY; crypto is near :07/:37 but observed around :08/:38, with UTC labeling unproven.
+- No fresh daytrading/swing delivery is evidenced; historical lease, D1-variable, and subrequest errors remain auditable.
+- Filled trades expose lifecycle fields, but sampled gross/fee/net are null under unavailable_fill_lot_exact; live numeric edge-gate wiring is not exposed.
+- Local authority, four-schedule, cap, alias, and fail-closed edge-gate regressions pass; live aliases omit trigger_alias. Wrangler auth blocks deployment.
+- Follow-up owner Joachim: restore authenticated source verification, then deploy if required and repeat separate GET-only plus natural day/swing verification.
