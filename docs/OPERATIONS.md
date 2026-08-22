@@ -1,3 +1,7 @@
+## August 22, 2026 Control-6 saved-artifact evidence update — FAIL/DEGRADED
+
+Saved artifacts remain contradictory: `/workspace/alpaca-post-release-schedules.json` has all four schedules, while older `/workspace/alpaca-live-schedules-api.json` omits reconciliation; alias captures for `daytrading_cron` and `reconciliation_cron` are empty while canonical filters contain rows, and the requested limited reconciliation artifact is missing. Saved daytrading evidence ends at `2026-08-20 21:55:24` with `CYCLE_LEASE_HELD`, saved swing evidence ends at `2026-08-18 22:00:36` with divergence/RISK_HALTED, and current positions include an unattributed MSTR row. Keep production **FAIL/DEGRADED**; no trigger or broker mutation is authorized by this evidence.
+
 ## August 22, 2026 Control-6 strict read-only production control — FAIL/DEGRADED
 
 The current control remains **FAIL/DEGRADED**, not healthy. All six required GET endpoints returned HTTP 200 at approximately 11:00 UTC, but live release identity is inconsistent: `/health` is `1.0.0`, `/api/config` is `2.4.0`, and the validated local deployable source is `2.6.0`. Positions remain broker-authoritative (`positionsAvailable: true`, `source: "alpaca"`, 29 rows), equity direction is current `98,504.50` versus `last_equity` `98,504.5039` (`-0.0039`), and caps remain `$5,000/$3,700/$2,000`.

@@ -43,6 +43,13 @@ No deployment was performed. `bunx wrangler whoami` reports **You are not authen
 - Focused validation passed **59 tests / 253 assertions**; full validation passed **157 tests / 520 assertions**; typecheck and diff check passed; Wrangler dry-run passed with a 281.40 KiB upload preview and no upload.
 - `bunx wrangler whoami` still reports **You are not authenticated**. No deployment, temporary preview, trigger, migration, or broker-mutating endpoint was used.
 
+## Saved-artifact evidence update — August 22, 2026
+
+- The complete saved schedule artifact `/workspace/alpaca-post-release-schedules.json` contains all four cron expressions, while the older `/workspace/alpaca-live-schedules-api.json` contains only three and omits `*/10` reconciliation; schedule metadata is therefore stale and contradictory.
+- Saved alias probes for `trigger=daytrading_cron` and `trigger=reconciliation_cron` are empty while canonical `cron` and `reconcile_cron` captures contain rows; this independently preserves the live alias-observability gap. The requested saved path `runs_trigger_reconcile_cron_limit_5.json` is absent, so that exact limited query cannot be reconstructed from artifacts.
+- Saved current-position evidence still reports `positionsAvailable=true`, `source=alpaca`, 29 positions, and an unattributed MSTR position. Saved daytrading evidence is latest `2026-08-20 21:55:24` with `CYCLE_LEASE_HELD`; saved swing evidence is latest `2026-08-18 22:00:36` with divergence/RISK_HALTED. These remain unresolved freshness/delivery gaps, not authorization to trigger runs.
+- Sampled saved filled trades expose lifecycle timestamps and retain null `gross`, `fee`, and `net` under `unavailable_fill_lot_exact`. No saved artifact exposes a numeric computed crypto edge or explicit live edge-gate wiring.
+
 ## Required follow-up
 
 - **Owner:** Joachim.

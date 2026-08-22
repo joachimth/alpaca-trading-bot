@@ -1,3 +1,7 @@
+## August 22, 2026 Control-6 saved-artifact evidence update — FAIL/DEGRADED
+
+Saved artifacts do not close release acceptance: the complete post-release schedule capture has four crons, the older live schedule capture has only three and omits reconciliation, alias-filter captures are empty while canonical captures contain rows, and the requested limited reconciliation capture is missing. Saved daytrading and swing records remain stale or halted, current positions include unattributed MSTR exposure, and sampled trade accounting remains null under `unavailable_fill_lot_exact`. Do not deploy or trigger from these artifacts; restore authenticated source verification first.
+
 ## August 22, 2026 Control-6 strict read-only production control — FAIL/DEGRADED
 
 Do not claim this release healthy. The six required GET endpoints returned HTTP 200 at approximately 11:00 UTC, but live `/health`=`1.0.0` and `/api/config`=`2.4.0` conflict with the validated local deployable `2.6.0`. Live positions remain broker-authoritative (`source: "alpaca"`, 29 rows), caps remain `$5,000/$3,700/$2,000`, and current equity is `98,504.50` versus `last_equity` `98,504.5039`.
