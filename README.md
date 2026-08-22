@@ -1,8 +1,10 @@
-## August 22, 2026 read-only observability correction — local validation complete
+## August 22, 2026 read-only observability correction — deployed and GET-only verified
 
 The deployable source under `/workspace/alpaca-trading-bot` now keeps `GET /api/runs` observability bounded and filterable by `strategy`, `status`, and `trigger`, including the required read-only aliases `daytrading_cron` → `cron` and `reconciliation_cron` → `reconcile_cron`. Legacy trade rows are normalized only in the response shape so `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, `replaced_at`, `gross`, `fee`, `net`, `accounting_status`, and `fee_attribution` are always present; missing values remain `null` or conservative unavailable metadata. No trading logic, crypto edge gate, caps, schedules, broker calls, or database writes changed.
 
-Focused dashboard observability regression passed **11 tests / 99 assertions**. Full `bun test` passed locally; typecheck remains affected by pre-existing unrelated errors documented in the correction note. No deployment is required for local validation, and none was performed. The separate `/workspace/src` tree is stale/quarantined reference code and is not the deployable project; it was not modified.
+Focused validation passed **24 tests / 126 assertions**. Full `bun test` passed **156 tests / 511 assertions**, with `bunx tsc --noEmit`, `git diff --check`, and Wrangler dry-run clean. Direct authenticated upload succeeded on **August 22, 2026 at 01:14:22 UTC** as deployment `7c072992-9457-49e2-b1bc-09141ebd4577`, Worker version `b6293793-727a-4794-9156-95cc284d1b09`, at 100% traffic, tagged `5bb8153`; Cloudflare confirms all four schedules and the expected D1 binding. Separate GET-only verification returned HTTP 200 for all six required endpoints, including combined filtered runs and filtered crypto trades. `/workspace/src` is stale/quarantined reference code and is not the deployable project.
+
+Production remains **FAIL/DEGRADED**, not healthy: no fresh successful daytrading or swing run is proven, direct cap enforcement is not exercised for all strategies, crypto delivery commonly lands at `:08/:38` rather than exact `:07/:37`, exact fill-lot accounting remains unavailable, and historical subrequest/position-divergence evidence remains open. The latest crypto run at **01:08:03 UTC** was a zero-error structured skip, and reconciliation at **01:10:55 UTC** was a zero-degradation `MAINTENANCE_ONLY` read-only skip.
 
 ## August 21, 2026 strict read-only Alpaca control — FAIL/DEGRADED (latest)
 

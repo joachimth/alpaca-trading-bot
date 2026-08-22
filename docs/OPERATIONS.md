@@ -1,8 +1,10 @@
-## August 22, 2026 read-only observability correction — local validation complete
+## August 22, 2026 read-only observability correction — deployed and GET-only verified
 
 The deployable project is `/workspace/alpaca-trading-bot`. Its read-only `GET /api/runs` path applies bounded `strategy`, `status`, and `trigger` filters and translates the required aliases `daytrading_cron` → `cron` and `reconciliation_cron` → `reconcile_cron` without rewriting run history. Trade responses normalize legacy rows to always include lifecycle timestamps and conservative accounting keys: `submitted_at`, `filled_at`, `canceled_at`, `expired_at`, `failed_at`, `replaced_at`, `gross`, `fee`, `net`, `accounting_status`, and `fee_attribution`.
 
-This is a reliability-only response/read correction. Caps remain **$5,000 daytrading / $3,700 swing / $2,000 crypto**; crypto calibrated-edge fail-closed behavior, schedules, broker calls, and database mutation semantics are unchanged. Focused validation passed **11 tests / 99 assertions** and full `bun test` passed. No deployment is required for this local correction, and none was performed. `/workspace/src` is stale/quarantined reference code; do not use it for release or deploy checks, and it was not modified.
+This reliability-only correction was deployed on **August 22, 2026 at 01:14:22 UTC** as deployment `7c072992-9457-49e2-b1bc-09141ebd4577`, Worker version `b6293793-727a-4794-9156-95cc284d1b09`, at 100% traffic, with tag `5bb8153`. Cloudflare read-only metadata confirms the D1 binding and all four schedules: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, and `*/10 * * * *`. Focused validation passed **24 tests / 126 assertions**; full validation passed **156 tests / 511 assertions**; typecheck, diff-check, and Wrangler dry-run passed. Separate GET-only verification passed all six endpoints, combined run filters, filtered trades, broker-authoritative positions, unchanged caps, and structured post-release skips. `/workspace/src` is stale reference code and is not a release source.
+
+Caps remain **$5,000/$3,700/$2,000**; crypto calibrated-edge and fee gates remain fail-closed; schedules, broker calls, and trading behavior are unchanged. Production remains **FAIL/DEGRADED** because fresh daytrading/swing success, direct cap enforcement, exact cadence, exact fill-lot accounting, and historical runtime/divergence follow-up remain unresolved.
 
 ## August 21, 2026 strict read-only Alpaca control — FAIL/DEGRADED (latest)
 
