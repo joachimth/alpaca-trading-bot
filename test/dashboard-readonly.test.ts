@@ -119,20 +119,31 @@ describe('dashboard read-only hotfix', () => {
     const env = { DB: tracked.d1 } as unknown as Env;
     const api = new DashboardAPI(env);
 
-    for (const requestedTrigger of ['cron', 'daytrading_cron']) {
-      const response = await api.handle(new Request(`https://bot.example/api/runs?trigger=${requestedTrigger}`));
-      expect(response.status).toBe(200);
-      const body = await response.json() as any;
-      expect(body.runs).toHaveLength(1);
-      expect(body.runs[0].trigger).toBe('cron');
-    }
-    for (const requestedTrigger of ['reconcile_cron', 'reconciliation_cron']) {
-      const response = await api.handle(new Request(`https://bot.example/api/runs?trigger=${requestedTrigger}`));
-      expect(response.status).toBe(200);
-      const body = await response.json() as any;
-      expect(body.runs).toHaveLength(1);
-      expect(body.runs[0].trigger).toBe('reconcile_cron');
-    }
+    const canonicalDaytradingResponse = await api.handle(new Request('https://bot.example/api/runs?trigger=cron'));
+    expect(canonicalDaytradingResponse.status).toBe(200);
+    const canonicalDaytradingBody = await canonicalDaytradingResponse.json() as any;
+    expect(canonicalDaytradingBody.runs).toHaveLength(1);
+    expect(canonicalDaytradingBody.runs[0]).toMatchObject({ trigger: 'cron' });
+    expect(Object.prototype.hasOwnProperty.call(canonicalDaytradingBody.runs[0], 'trigger_alias')).toBe(false);
+
+    const aliasDaytradingResponse = await api.handle(new Request('https://bot.example/api/runs?trigger=daytrading_cron'));
+    expect(aliasDaytradingResponse.status).toBe(200);
+    const aliasDaytradingBody = await aliasDaytradingResponse.json() as any;
+    expect(aliasDaytradingBody.runs).toHaveLength(1);
+    expect(aliasDaytradingBody.runs[0]).toMatchObject({ trigger: 'cron', trigger_alias: 'daytrading_cron' });
+
+    const canonicalReconciliationResponse = await api.handle(new Request('https://bot.example/api/runs?trigger=reconcile_cron'));
+    expect(canonicalReconciliationResponse.status).toBe(200);
+    const canonicalReconciliationBody = await canonicalReconciliationResponse.json() as any;
+    expect(canonicalReconciliationBody.runs).toHaveLength(1);
+    expect(canonicalReconciliationBody.runs[0]).toMatchObject({ trigger: 'reconcile_cron' });
+    expect(Object.prototype.hasOwnProperty.call(canonicalReconciliationBody.runs[0], 'trigger_alias')).toBe(false);
+
+    const aliasReconciliationResponse = await api.handle(new Request('https://bot.example/api/runs?trigger=reconciliation_cron'));
+    expect(aliasReconciliationResponse.status).toBe(200);
+    const aliasReconciliationBody = await aliasReconciliationResponse.json() as any;
+    expect(aliasReconciliationBody.runs).toHaveLength(1);
+    expect(aliasReconciliationBody.runs[0]).toMatchObject({ trigger: 'reconcile_cron', trigger_alias: 'reconciliation_cron' });
 
     const unsupportedTriggerResponse = await api.handle(new Request('https://bot.example/api/runs?trigger=not_a_real_trigger'));
     expect(unsupportedTriggerResponse.status).toBe(200);

@@ -347,7 +347,10 @@ export class DashboardAPI {
       trigger,
       status: url.searchParams.get('status') || undefined,
     });
-    return this.json({ runs, limit, offset, page }, cors);
+    const annotatedRuns = requestedTrigger && RUN_TRIGGER_ALIASES[requestedTrigger]
+      ? runs.map(run => ({ ...run, trigger_alias: requestedTrigger }))
+      : runs;
+    return this.json({ runs: annotatedRuns, limit, offset, page }, cors);
   }
 
   private async getStats(cors: Record<string, string>): Promise<Response> {
