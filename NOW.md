@@ -8,4 +8,5 @@
 - Filled trades expose lifecycle fields, but sampled gross/fee/net are null under unavailable_fill_lot_exact; live numeric edge-gate wiring is not exposed.
 - Local authority, four-schedule, cap, alias, and fail-closed edge-gate regressions pass; live aliases omit trigger_alias. Wrangler auth blocks deployment.
 - Saved artifacts add contradictory schedule metadata, empty alias captures, stale/halting day/swing evidence, unattributed MSTR exposure, and one missing reconciliation capture; these reinforce FAIL.
+- Source audit confirms filtered counts are not persisted, no production rawEdgeBps producer exists, and historical crypto TIF evidence conflicts with current GTC source; no behavior change is justified.
 - Follow-up owner Joachim: restore authenticated source verification, then deploy if required and repeat separate GET-only plus natural day/swing verification.

@@ -1,3 +1,7 @@
+## August 22, 2026 Control-6 source and observability audit update — FAIL/DEGRADED
+
+Source review confirms filtered/analyzed counts are console-only, production has no calibrated `rawEdgeBps` producer, and crypto positive-edge BUYs remain correctly fail-closed. Historical live crypto `time_in_force: "day"` conflicts with the current GTC source path and must be resolved through authenticated source identity, not by changing trading behavior. No cap, schedule, edge-gate, TIF, or order-behavior change was made.
+
 ## August 22, 2026 Control-6 saved-artifact evidence update — FAIL/DEGRADED
 
 Saved artifacts remain contradictory: `/workspace/alpaca-post-release-schedules.json` has all four schedules, while older `/workspace/alpaca-live-schedules-api.json` omits reconciliation; alias captures for `daytrading_cron` and `reconciliation_cron` are empty while canonical filters contain rows, and the requested limited reconciliation artifact is missing. Saved daytrading evidence ends at `2026-08-20 21:55:24` with `CYCLE_LEASE_HELD`, saved swing evidence ends at `2026-08-18 22:00:36` with divergence/RISK_HALTED, and current positions include an unattributed MSTR row. Keep production **FAIL/DEGRADED**; no trigger or broker mutation is authorized by this evidence.

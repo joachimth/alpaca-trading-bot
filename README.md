@@ -1,3 +1,7 @@
+## August 22, 2026 Control-6 source and observability audit update — FAIL/DEGRADED
+
+The source audit confirms three unresolved reliability gaps: filtered/analyzed candidate counts are console-only and not persisted in `run_log`; no production caller supplies calibrated `rawEdgeBps`, so crypto positive-edge admission remains intentionally fail-closed; and historical live crypto rows showing `time_in_force: "day"` conflict with the current GTC submission path and therefore remain source/deployment identity evidence, not a reason to change TIF behavior. No cap, schedule, edge-gate, TIF, sizing, or trading-behavior change was made.
+
 ## August 22, 2026 Control-6 saved-artifact evidence update — FAIL/DEGRADED
 
 Saved release artifacts add unresolved evidence gaps: `/workspace/alpaca-post-release-schedules.json` contains all four cron expressions, while older `/workspace/alpaca-live-schedules-api.json` omits `*/10` reconciliation. Saved alias probes for `daytrading_cron` and `reconciliation_cron` are empty while canonical filters contain rows, and the requested limited reconciliation artifact is missing. Saved run evidence shows daytrading latest `2026-08-20 21:55:24` as `CYCLE_LEASE_HELD` and swing latest `2026-08-18 22:00:36` as divergence/RISK_HALTED; current positions still include an unattributed MSTR row. These artifacts reinforce **FAIL/DEGRADED** and do not authorize triggers or mutations.

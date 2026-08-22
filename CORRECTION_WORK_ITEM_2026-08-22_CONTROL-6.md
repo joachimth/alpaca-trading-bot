@@ -50,6 +50,13 @@ No deployment was performed. `bunx wrangler whoami` reports **You are not authen
 - Saved current-position evidence still reports `positionsAvailable=true`, `source=alpaca`, 29 positions, and an unattributed MSTR position. Saved daytrading evidence is latest `2026-08-20 21:55:24` with `CYCLE_LEASE_HELD`; saved swing evidence is latest `2026-08-18 22:00:36` with divergence/RISK_HALTED. These remain unresolved freshness/delivery gaps, not authorization to trigger runs.
 - Sampled saved filled trades expose lifecycle timestamps and retain null `gross`, `fee`, and `net` under `unavailable_fill_lot_exact`. No saved artifact exposes a numeric computed crypto edge or explicit live edge-gate wiring.
 
+## Source and observability audit update — August 22, 2026
+
+- Source review confirms filtered/analyzed candidate counts are logged only to console (`src/index.ts`) and are not persisted in `run_log`; durable count observability remains an explicit gap requiring a separate reliability work item.
+- Source review confirms crypto enables `requireFeeTelemetry` and `requireCalibratedEdge`, while no production path assigns calibrated `rawEdgeBps`; positive crypto BUY admission therefore remains intentionally fail-closed. Do not derive an edge from confidence, fees, TA, sentiment, or any uncalibrated proxy.
+- Current source submits crypto BUYs with `time_in_force: 'gtc'` and regression coverage confirms persistence. Historical live rows showing `day` remain a source/deployment identity discrepancy; no TIF or trading-behavior change is justified.
+- Complete and older saved schedule artifacts disagree on three versus four crons, and the requested limited reconciliation artifact is absent. Treat saved artifacts as incomplete evidence, not as authorization to trigger or mutate production.
+
 ## Required follow-up
 
 - **Owner:** Joachim.

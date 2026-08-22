@@ -1,3 +1,7 @@
+## August 22, 2026 Control-6 source and observability audit update — FAIL/DEGRADED
+
+Before any deployment, reconcile the source audit gaps: filtered/analyzed counts are not durable `run_log` fields; no production caller supplies calibrated `rawEdgeBps`, so crypto positive-edge admission must remain fail-closed; and historical live crypto `time_in_force: "day"` conflicts with the current source’s explicit GTC path. Do not change caps, schedules, edge gates, TIF, sizing, or trading behavior to make the evidence appear consistent.
+
 ## August 22, 2026 Control-6 saved-artifact evidence update — FAIL/DEGRADED
 
 Saved artifacts do not close release acceptance: the complete post-release schedule capture has four crons, the older live schedule capture has only three and omits reconciliation, alias-filter captures are empty while canonical captures contain rows, and the requested limited reconciliation capture is missing. Saved daytrading and swing records remain stale or halted, current positions include unattributed MSTR exposure, and sampled trade accounting remains null under `unavailable_fill_lot_exact`. Do not deploy or trigger from these artifacts; restore authenticated source verification first.
