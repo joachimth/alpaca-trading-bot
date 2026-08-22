@@ -1,3 +1,15 @@
+## August 22, 2026 Control-17 strict read-only production control - FAIL/DEGRADED
+
+At **2026-08-22 22:00:07-22:00:09 UTC**, all six required production GET endpoints returned HTTP 200. Acceptance is **FAIL/DEGRADED**, not healthy, because live release identity is unresolved (`/health=1.0.0`, persisted `/api/config.version=2.4.0`) versus deployable source HEAD `1013f3dc979fd9b56a7cae1b843177bb3ab5f21f`, version `2.6.0`.
+
+The live position response is broker-authoritative (`positionsAvailable=true`, `source=alpaca`, 29 rows). Equity is `98,504.50` versus `last_equity=98,504.5039`, approximately `-0.0039`; `change_today=0` means material direction is not established. Caps are unchanged at `$5,000/$3,700/$2,000`.
+
+Local source and saved release metadata specify all four UTC crons: daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, reconciliation `*/10 * * * *`. Captured schedule responses disagree, so active deployed schedule identity must be rechecked after authenticated provenance is restored. Reconciliation delivery is fresh as `MAINTENANCE_ONLY` near ten-minute cadence; crypto delivery is fresh near `:07/:37`; Saturday has no fresh weekday daytrading or swing evidence.
+
+Filtered run aliases return canonical rows but live output lacks local `trigger_alias`; candidate analyzed/filtered counts are not persisted in `run_log`. Lifecycle fields are exposed, while exact per-fill gross/fee/net remains unavailable by design when deterministic lot attribution cannot be proven. Crypto BUY admission remains fail-closed on unavailable fee telemetry or missing calibrated raw edge.
+
+Focused regressions passed **50 tests / 243 assertions**; the full `bun test` passed **168 tests / 584 assertions**; typecheck and diff checks passed. No deployment or broker mutation is authorized or attempted in this control. Required follow-up is authenticated provenance inspection, separate deployment authorization if promotion is still required, and a separate GET-only release verification plus natural weekday strategy observation.
+
 ## August 22, 2026 Control-16 strict read-only production control - FAIL/DEGRADED
 
 At **2026-08-22 21:00:23-21:01:42 UTC**, the production control used only GET requests and all six required endpoints returned HTTP 200. Evidence is preserved under `/workspace/alpaca-control-16-live-20260822T2100Z/`, including response headers, bodies, filtered run queries, and checksums. Production is **FAIL/DEGRADED**, not healthy, because live `/health=1.0.0` and persisted `/api/config.version=2.4.0` do not identify checked-out deployable source HEAD `4cc5df6c1cb7979ffefc7ddb751fdc8e1331d3cd`, version `2.6.0`.

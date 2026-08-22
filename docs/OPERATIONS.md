@@ -1,3 +1,15 @@
+## August 22, 2026 Control-17 strict read-only production control - FAIL/DEGRADED
+
+The **2026-08-22 22:00:07-22:00:09 UTC** production control was strictly GET-only. All six required endpoints returned HTTP 200, but production remains **OPEN FAIL/DEGRADED**, not healthy: live `/health=1.0.0` and persisted `/api/config.version=2.4.0` do not identify deployable source HEAD `1013f3dc979fd9b56a7cae1b843177bb3ab5f21f`, version `2.6.0`.
+
+Positions pass the availability contract only: `positionsAvailable=true`, `source=alpaca`, and 29 broker rows. Equity is `98,504.50` versus `last_equity=98,504.5039`, approximately `-0.0039`; with `change_today=0`, material direction is unverified. Caps remain `$5,000/$3,700/$2,000`. Source/release artifacts retain daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and reconciliation `*/10 * * * *`, but conflicting captured schedule responses leave deployed four-schedule identity unverified.
+
+Reconciliation is fresh and structured as `MAINTENANCE_ONLY` near ten-minute cadence, including run `2880` at `21:50:51 UTC`. Crypto is fresh at `21:07:57` and `21:37:56 UTC`, matching `:07/:37` with jitter. Saturday cannot prove weekday daytrading or swing delivery; filtered evidence remains stale at daytrading run `2556` (`CYCLE_LEASE_HELD`, August 20) and swing run `2200` (position divergence plus `RISK_HALTED`, August 18). Lease/error/skip reasons remain visible.
+
+Filtered aliases return canonical rows but the live old release omits local `trigger_alias`; analyzed/filtered candidate counts remain a known source observability gap because they are not persisted in `run_log`. Trade lifecycle fields are present, but sampled filled rows conservatively retain null `gross`, `fee`, and `net` with `unavailable_fill_lot_exact` and `none-recorded` attribution. Crypto entry remains fail-closed because fee telemetry and calibrated `rawEdgeBps` are required, and no calibrated positive edge is supplied.
+
+This is a documentation/status-only correction. Focused regressions passed **50 tests / 243 assertions**; the full `bun test` passed **168 tests / 584 assertions**; typecheck and diff checks passed. Do not change caps, schedules, broker authority, leases, accounting, edge gates, or trading behavior. Deployment is not performed until authenticated Wrangler access and separate authorization are available.
+
 ## August 22, 2026 Control-16 strict read-only production control - FAIL/DEGRADED
 
 The **2026-08-22 21:00:23-21:01:42 UTC** control was strictly GET-only. All six required production endpoints returned HTTP 200, with timestamped bodies, headers, filtered-run captures, and checksums preserved under `/workspace/alpaca-control-16-live-20260822T2100Z/`. Keep production **FAIL/DEGRADED**, not healthy: live `/health=1.0.0` and persisted `/api/config.version=2.4.0` conflict with deployable source HEAD `4cc5df6c1cb7979ffefc7ddb751fdc8e1331d3cd` at version `2.6.0`.
