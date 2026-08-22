@@ -1,3 +1,15 @@
+## August 22, 2026 Control-16 strict read-only production control - FAIL/DEGRADED
+
+At **2026-08-22 21:00:23-21:01:42 UTC**, the production control used only GET requests and all six required endpoints returned HTTP 200. Evidence is preserved under `/workspace/alpaca-control-16-live-20260822T2100Z/`, including response headers, bodies, filtered run queries, and checksums. Production is **FAIL/DEGRADED**, not healthy, because live `/health=1.0.0` and persisted `/api/config.version=2.4.0` do not identify checked-out deployable source HEAD `4cc5df6c1cb7979ffefc7ddb751fdc8e1331d3cd`, version `2.6.0`.
+
+Read-only acceptance evidence: positions remain broker-authoritative (`positionsAvailable=true`, `source=alpaca`, 29 rows); equity is `98,504.50` versus `last_equity=98,504.5039` with `change_today=0`, so material current-day direction is not proven; caps remain `$5,000/$3,700/$2,000`; and local `wrangler.toml` retains daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and reconciliation `*/10 * * * *`.
+
+Reconciliation delivery is fresh `MAINTENANCE_ONLY` near ten-minute cadence, and crypto delivery is fresh near `:07/:37` at `20:07:59` and `20:37:59`. Saturday provides no fresh weekday daytrading/swing proof. Filtered alias requests return canonical rows without live `trigger_alias`; sampled filled trades contain lifecycle timestamps but conservative null per-fill gross/fee/net under `unavailable_fill_lot_exact`; local crypto edge gates remain fail-closed, while live positive-edge evidence is unavailable. Historical lease-held, risk-halted, and provider-error skips remain visible.
+
+Correction record: `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-16.md`. No source or configuration change is justified. Do not alter caps, schedules, broker authority, leases, accounting, edge gates, or trading behavior. Focused regressions passed 54 tests / 263 assertions; full `bun test` passed 168 tests / 584 assertions; `bun run typecheck`, `git diff --check`, and documentation synchronization checks passed after this update.
+
+Deployment gate: `bunx wrangler whoami` returns **`You are not authenticated`**. Do not use a temporary preview. Restore authenticated access, inspect provenance, obtain separate deployment authorization, and deploy only the validated artifact if required. Then perform a separate GET-only acceptance pass, including natural weekday daytrading/swing observation; if acceptance fails, roll back to the last known-good authenticated deployment and repeat read-only verification. No trigger, order, cancellation, close, replace, retry, migration, or broker-mutating endpoint was used.
+
 ## August 22, 2026 Control-15 strict read-only production control - FAIL/DEGRADED
 
 At **2026-08-22 20:00:26-20:00:28 UTC**, all six required production endpoints returned HTTP 200 through GET-only requests. Production remains **FAIL/DEGRADED, not healthy**: live `/health=1.0.0` and persisted `/api/config.version=2.4.0` conflict with checked-out deployable source `2.6.0`, so active Worker/source identity and the locally validated correction set remain unproven.
