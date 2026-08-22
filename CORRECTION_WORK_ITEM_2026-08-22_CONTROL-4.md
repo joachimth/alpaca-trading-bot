@@ -48,3 +48,10 @@ No trigger, submit, cancel, close, replace, retry, migration, or broker-mutating
 - **Owner:** Joachim. **Trigger:** restored authenticated Cloudflare/Wrangler deployment access.
 - **Acceptance criteria:** deploy only the exact validated 2.6.0 artifact; tie the authenticated receipt to the checked-out source commit and all four UTC schedules; verify matching 2.6.0 across `/health`, `/api/config`, and local release markers; then perform separate GET-only checks for all six endpoints, filtered run predicates and aliases, broker-authoritative positions/source, equity direction, fresh structured terminal records for daytrading/swing/crypto/reconciliation or documented no-op/skip, lifecycle fields, conservative fee/gross/net consistency, crypto edge observability, and unchanged `$5,000/$3,700/$2,000` caps.
 - If credentials remain unavailable, retain this exact blocker and leave the follow-up open. Keep release control **FAIL** and live operations **DEGRADED** until acceptance succeeds. The unresolved run-count persistence, alias-capture contradiction, daily-direction gap, and absent production raw-edge producer require explicit acceptance or separate reliability work items before closure. Do not use trigger, submit, cancel, close, replace, retry, migration, or any broker-mutating endpoint.
+
+## Final retry result: August 22, 2026 08:02 UTC
+
+- The committed artifact is `6bbc315b8069962340ef2b338934b108ff88c3ff`; it contains the validated reliability documentation correction and the fixed read-only smoke-test command.
+- Focused tests remain **26/154**, full tests **157/518**, typecheck, diff-check, and Wrangler dry-run pass.
+- Authorized Wrangler deployment with the stored Cloudflare credential again stopped before upload with the exact error: `In a non-interactive environment, it's necessary to set a CLOUDFLARE_API_TOKEN environment variable for wrangler to work.` No temporary deployment was used.
+- The live Worker therefore remains uncorrected and unverified at `/health` `1.0.0` and `/api/config` `2.4.0`; retain **FAIL/DEGRADED**. Follow-up owner remains Joachim, triggered by a Wrangler-compatible authenticated Cloudflare deployment path.
