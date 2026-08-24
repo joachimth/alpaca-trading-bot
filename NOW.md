@@ -1,10 +1,9 @@
-# NOW
-- Control-60 local reliability fix complete; live production remains OPEN FAIL/DEGRADED.
-- Fixed ambiguous crypto POST reservation release, terminal partial-fill duplicate retry, expired orphan cleanup, crypto duplicate guard, and stale/zero D1 realized P&L writes.
-- Focused validation: 85 tests / 272 assertions. Full validation: 197 tests / 738 assertions. Typecheck and diff-check passed.
-- Live GETs remain reachable, but /health=1.0.0 and /api/config=2.4.0 versus local release 2.6.0; positions are broker-authoritative, source=alpaca, 29 rows.
-- Live reconciliation and crypto cadence are present; swing subrequest failure, stale filters/pagination, stale fee telemetry, unsynchronized account/snapshot reads, and unavailable reservation route remain open.
-- Caps remain 5000/3700/2000 USD; schedules, thresholds, max-trade limits, universe, sizing, signals, and order semantics unchanged.
-- No trigger, broker mutation, migration, or deployment occurred for Control-60; local commit/push is the remaining release-record step.
-- Final local validation is green: focused 85/272, full 197/738, typecheck and diff-check passed.
-- Next: advisor review, final diff/status check, commit all Alpaca project changes, push branch, then keep deployment pending authenticated clean-artifact review and GET-only post-release verification.
+# Current focus
+- Control-70 correction complete locally on 2026-08-24: broker-only reconciliation is structured BROKER_ONLY_RECONCILED, not a false runtime error.
+- Broker authority, D1 reconciliation writes, caps 5000/3700/2000, schedules, and trading behavior unchanged.
+- Local validation passed: focused 100/469 across 8 files, full 201/763 across 26 files, typecheck exit 0, and diff-check exit 0.
+- Production remains OPEN FAIL/DEGRADED: live health/config 1.0.0/2.4.0 versus local 2.6.0.
+- Live positions source=alpaca, equity down 98435.13 vs 98504.5039; no fresh Aug 24 swing run; prior subrequest exhaustion remains open.
+- Exact per-fill economics and live filters/pagination/aliases/candidate counters remain unavailable or unproven.
+- Crypto fee telemetry is labeled available but asOf is 2026-08-18, and conflicting swing exposure aggregates prevent read-only cap-enforcement certification.
+- No deployment or broker mutation occurred; Wrangler is unauthenticated. Follow-up: secure auth, clean authorized deployment if needed, separate GET-only verification.

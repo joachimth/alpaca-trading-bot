@@ -33,6 +33,16 @@ describe('broker-authoritative entry position persistence', () => {
     const syncSection = source.slice(source.indexOf(start));
     expect(syncSection).toContain('getPositions');
     expect(syncSection).toContain('upsertPosition');
+    if (_strategy === 'daytrading') expect(syncSection).toContain("strategy: 'daytrading'");
+  });
+
+  test('daytrading sync keeps broker authority and D1 protective fallback fields unchanged', () => {
+    const syncSection = sectionBetween(workerSource, '// 12. Sync positions from Alpaca to DB', '// 13. Log run');
+    for (const field of ['qty: pos.qty', 'avg_entry_price: pos.avg_entry_price', 'current_price: pos.current_price', 'market_value: pos.market_value', 'unrealized_pl: pos.unrealized_pl', 'unrealized_plpc: pos.unrealized_plpc']) {
+      expect(syncSection).toContain(field);
+    }
+    expect(syncSection).toContain('stop_loss_price: existing?.stop_loss_price ?? null');
+    expect(syncSection).toContain('take_profit_price: existing?.take_profit_price ?? null');
   });
 
   test('protective and exit paths remain present in all strategy sources', () => {

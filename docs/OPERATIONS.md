@@ -1,3 +1,99 @@
+## Control-70 broker-only reconciliation correction - August 24, 2026
+
+Successful broker-only position reconciliation is now structured as `BROKER_ONLY_RECONCILED` non-error observability. Broker authority, D1-only reconciliation writes, caps **5000/3700/2000**, schedules, and trading semantics are unchanged; quantity mismatches and actual failures remain errors. Local validation must include focused and full regressions, typecheck, and diff-check.
+
+Live remains **OPEN FAIL/DEGRADED**: release identity is stale at health/config **1.0.0/2.4.0** versus local **2.6.0**; current positions are Alpaca-authoritative; swing has no fresh August 24 strategy run; exact per-fill economics and newer observability filters remain unavailable or unproven. The dashboard also reports crypto fee telemetry as available with `cryptoFeeAsOf=2026-08-18T09:37:52.56276Z`, which is stale for the August 24 capture, and conflicting swing exposure aggregates prevent read-only certification of the 3700 USD cap. Wrangler authentication remains blocked.
+
+See `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-70.md`.
+
+## Broker-only reconciliation observability correction — August 24, 2026
+
+A successful broker-authoritative position divergence repair continues to upsert broker positions and close D1-only positions exactly as before. The successful outcome is now emitted as structured skip detail with code `BROKER_ONLY_RECONCILED` under reconciliation scope, instead of being appended to the error list. Therefore a run with only this successful repair is not `status=error`; it is `skipped` when no trades ran or `ok` when trades ran. Actual reconciliation exceptions and other runtime failures continue to populate `errors` and produce `status=error`.
+
+Validation completed: focused **100/469** across 8 files, full `bun test` **201/763** across 26 files, typecheck exit 0, and `git diff --check` exit 0. This is reliability/observability-only: preserve broker authority, caps **5000/3700/2000**, schedules, thresholds, sizing, fee freshness, edge policy, and order behavior. Do not deploy or use broker-mutating smoke tests.
+
+## Control-69 status, Monday August 24, 2026
+
+The strict GET-only production control is **OPEN FAIL/DEGRADED**, not healthy. All six endpoints returned HTTP 200, but production identifies as health **1.0.0** and config **2.4.0** while the validated local release is **2.6.0**. Broker positions are authoritative (`positionsAvailable=true`, `source=alpaca`); equity was **98435.77** versus `last_equity=98504.5039` (down); caps remain **5000/3700/2000 USD**.
+
+The four local UTC schedules remain unchanged: daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *` at `:07/:37`, and reconciliation `*/10 * * * *`. Current live runs include crypto 3315 (`DECISION_HOLD`), reconciliation 3316 (`MAINTENANCE_ONLY` with non-degraded ledger context), and daytrading 3317 (`error`); prior 3313 hit Cloudflare subrequest exhaustion. No lease-held row was observed, so lease behavior is not proven.
+
+Local reliability and observability tests pass, including broker-failure no-fallback, filtered runs/trades, stable pagination, lifecycle fields, conservative accounting, and crypto fee/calibrated-edge fail-closed behavior. Live exact fill-lot gross/fee/net and the newer observability fields remain unavailable or unproven. Do not infer per-fill economics, loosen safety gates, change caps, or deploy a dirty artifact.
+
+Wrangler authentication remains the deployment blocker: `You are not authenticated. Please run wrangler login.` Authenticate securely, isolate a clean artifact, deploy only under the standing reliability-maintenance authorization if still required, and immediately repeat the separate GET-only control afterward.
+
+## Monday, August 24, 2026 Control-68 correction work item - LOCAL COMPLETE / LIVE OPEN FAIL-DEGRADED
+
+Control-68 is a documentation/status correction following a strict GET-only control. All six required production GET endpoints returned HTTP 200, but live release identity is **1.0.0/2.4.0** versus local **2.6.0**, so production remains **OPEN FAIL/DEGRADED**, not healthy. `/api/positions` reports broker-authoritative data (`positionsAvailable=true`, `source=alpaca`, 21 current broker rows), and current dashboard equity is **98461.50** versus `last_equity=98504.5039`.
+
+The local tree already contains the reliability fixes required by the observed failures and the requested control: no D1 fallback for broker position failure, bounded read-only reconciliation, structured skip/error persistence, filtered run/trade query support, durable lifecycle fields, conservative fee/gross/net accounting, and fail-closed crypto fee/calibrated-edge admission. Do not add a runtime patch that changes trading behavior. Preserve caps **5000/3700/2000 USD**, all four UTC schedules, thresholds, sizing, fee freshness, edge policy, and order semantics.
+
+Current live evidence includes crypto **3315 at 13:38:00 UTC**, reconciliation **3316 at 13:40:58 UTC**, and daytrading **3317 at 13:41:16 UTC**. Run 3317 is an error run with broker/internal mismatch details; prior live evidence includes Cloudflare subrequest exhaustion. Structured skip/error records are visible, while live lease-held proof, aliases/candidate counters, complete filtering/pagination, and exact per-fill gross/fee/net remain unresolved on the old artifact. Deployment is blocked by unauthenticated Wrangler and must not use a temporary preview path. See `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-68.md`.
+
+## Monday, August 24, 2026 Control-67 strict read-only production control - OPEN FAIL/DEGRADED
+
+Control-67 records current GET-only production evidence. All six required GET endpoints returned **HTTP 200**. Keep production **OPEN FAIL/DEGRADED**, not healthy: live health **1.0.0** and `/api/config` **2.4.0** versus local release **2.6.0** leave source/deployment provenance unresolved.
+
+Broker-authoritative positions are confirmed: `positionsAvailable=true`, `source=alpaca`, **29 rows**. Equity is **98537.99** versus `last_equity=98504.5039`; latest/prior snapshots are **98517.58 at 2026-08-24 12:37:50 UTC** and **98488.55 at 12:07:50 UTC**. Direction is upward versus last; broker daily fields are zero. Preserve exact caps **5000/3700/2000** and local schedules: daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *` (**:07/:37**), reconciliation `*/10 * * * *`.
+
+Crypto run **3299 at 12:37:57 UTC** and reconcile run **3301 at 12:50:51 UTC** confirm recurring **:07/:37** crypto and ten-minute reconciliation cadence. Daytrading current active delivery is present; successful swing delivery is not proven in the current window. Swing run **3182 at 2026-08-23 22:01:16** errored with Cloudflare **Too many subrequests**, with structured broker-authority/held skips.
+
+Run `code`/`search`/`LEASE_HELD` filters return the same unfiltered page; `aliases`, `analyzed_candidates`, and `filtered_candidates` are absent live. Trade `status=filled`/pagination are defective or ignored. Lifecycle fields exist, but filled trade **642** has null gross/fee/net and `accounting_status=unavailable_fill_lot_exact`. Aggregate crypto and overall gross-fee-net arithmetic reconciles, but exact per-fill attribution is unavailable.
+
+Local source retains broker-authoritative position projection, filtered-run fields, and crypto fail-closed edge gating with fresh fee telemetry and `requireCalibratedEdge=true`. Final post-update receipts are `/workspace/alpaca_control_67_focused.txt` (**74/0/361**), `/workspace/alpaca_control_67_full.txt` (**199/0/754**), `/workspace/alpaca_control_67_typecheck.txt` (exit 0), and `/workspace/alpaca_control_67_diff_check.txt` (exit 0). Wrangler is blocked by **`You are not authenticated. Please run wrangler login.`** No deployment or trigger/order/broker mutation occurred. No source or trading behavior changed. See `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-67.md`.
+
+## Monday, August 24, 2026 Control-66 strict read-only production control - OPEN FAIL/DEGRADED
+
+Control-66 is a GET-only production control captured Monday, August 24, 2026 around 12:00 UTC. All six required endpoints returned **HTTP 200**, while live `/health=1.0.0` and `/api/config.version=2.4.0` remain older than local release **2.6.0**. Keep production **OPEN FAIL/DEGRADED**, not healthy, until source-to-Worker provenance is restored.
+
+Positions are broker-authoritative (`positionsAvailable=true`, `source=alpaca`, **29 rows**). One `MSTR` row is unattributed and sampled position metadata is stale. The captured equity is **98511.32** versus `last_equity=98504.5039`; latest snapshot equity is **98515.57**; broker daily fields are zero. Capital caps remain **5000/3700/2000 USD**.
+
+The local four-schedule wiring remains exact: daytrading `*/5 13-21 * * 1-5` → `cron`; swing `0 22 * * 1-5` → `swing_cron`; crypto `7-59/30 * * * *` → `crypto_cron` at **:07/:37 UTC**; reconciliation `*/10 * * * *` → `reconcile_cron`. Live crypto and reconciliation are fresh, with current skips `NO_POSITION_TO_EXIT`, `FEE_DATA_UNAVAILABLE`, and `MAINTENANCE_ONLY`. Historical swing run **3182** recorded Cloudflare subrequest exhaustion; current-session daytrading and successful swing delivery are not proven.
+
+Live strategy-filtered run slices are distinguishable, but `code=LEASE_HELD` and `search=LEASE` are ignored or unproven on the active artifact. Run offset/page probes show distinct saved slices. Trade `status=filled` filtering returns mixed statuses, and `offset=10`/`page=2` repeat the first-page IDs beginning **645, 644, 643, 642, 641, 640, 639, 638, 637, 636**. Lifecycle columns exist, but sampled filled `gross`/`fee`/`net` remain null under conservative `unavailable_fill_lot_exact` / `none-recorded` accounting.
+
+No trading code or behavior changed for Control-66. Local filtered-run and crypto edge-gate regressions are present. Validation results and the verified Wrangler blocker (`You are not authenticated. Please run \`wrangler login\`.`) are recorded in `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-66.md`. No deployment or broker mutation occurred.
+## Monday, August 24, 2026 Control-65 daytrading position ownership correction - LOCAL PASS / LIVE OPEN FAIL-DEGRADED
+
+Control-65 applies the smallest confirmed source correction: the final daytrading broker-position synchronization write now persists `strategy: 'daytrading'`. Broker-authoritative quantities, prices, market values, and P&L remain unchanged, as does the existing D1 protective stop/take metadata fallback. Swing and crypto sync paths, caps **5000/3700/2000 USD**, schedules, thresholds, sizing, fee freshness, edge policy, order semantics, and trading behavior are unchanged.
+
+Focused and full regression validation is rerun on the exact current tree after the correction. The August 10 runbook candidate section is explicitly historical/superseded. No deployment, endpoint mutation, trigger, submit/cancel/close/replace/retry, migration, or broker mutation was performed.
+
+Production remains **OPEN FAIL/DEGRADED**, not healthy: live `/health=1.0.0` and `/api/config.version=2.4.0` versus local release **2.6.0**; `/api/positions` remains broker-authoritative (`source=alpaca`, 29 rows) but stale timestamps and a prior unattributed MSTR row remain unresolved; live run/trade filters, pagination, aliases, candidate counters, lease evidence, and exact stock fill accounting remain unproven or ignored on the old artifact. Crypto and reconciliation delivery are fresh, crypto aggregate gross/fee/net reconciles, current Monday daytrading/swing execution is not proven from `/api/runs`, and Wrangler remains blocked by **`You are not authenticated. Please run \`wrangler login\`.`** See `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-65.md`.
+
+
+## Final separate GET-only post-correction verification
+
+Captured after the local correction on Monday, August 24, 2026, approximately 11:20 UTC. All six required endpoints returned HTTP 200. The active Worker remains unchanged and uncorrected: `/health.version=1.0.0`, `/api/config.config.version=2.4.0`, and no `release_version`; local source remains release 2.6.0 and was not deployed. `/api/positions` remains `positionsAvailable=true`, `source=alpaca`, with 29 rows. Dashboard equity is 98477.43 versus `last_equity=98504.5039`, latest snapshot equity is 98456.97, and caps remain 5000/3700/2000 USD. `/api/runs` is fresh through 11:20:50 UTC with reconciliation and crypto delivery, while current daytrading/swing execution is not proven in the returned window; `code=LEASE_*` and `search=LEASE` probes return the same recent page, and `/api/trades?status=filled`, `offset=10`, and `page=2` return the same first-page IDs with no pagination metadata. Wrangler still reports `You are not authenticated. Please run \`wrangler login\`.` Production therefore remains **OPEN FAIL/DEGRADED**, not healthy; no deployment or broker mutation occurred.
+
+## Monday, August 24, 2026 Control-64 strict read-only production control - OPEN FAIL/DEGRADED
+
+Control-64 records supplied GET-only evidence from approximately **11:00 UTC on Monday, August 24, 2026**. All six required endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned **HTTP 200**, but production remains **OPEN FAIL/DEGRADED**, not healthy: live health is **1.0.0** and config is **2.4.0** versus local release **2.6.0**, so source/release provenance is unresolved.
+
+Positions remain broker-authoritative: `source=alpaca`, `positionsAvailable=true`, **29 rows**. Dashboard account equity is **98474.26** versus `last_equity=98504.5039`; latest snapshot is **98494.79**; broker daily fields are zero. Caps remain exactly **5000/3700/2000 USD**. Local four-cron wiring and current crypto/reconciliation delivery remain present; Monday daytrading and swing have no current run yet because their schedules begin at **13:00 UTC** and **22:00 UTC**. Historical swing run **3182** recorded Cloudflare subrequest exhaustion.
+
+Live filtered rows omit aliases and candidate counts; code/search/status filters plus trade pagination are not proven or are ignored on the old artifact. Lifecycle fields are present, but sampled `gross`/`fee`/`net` remain unavailable under `unavailable_fill_lot_exact` / `none-recorded`. Local crypto edge admission is fail-closed and not live-proven. This is documentation/status-only: no caps, schedules, thresholds, sizing, fee freshness, edge policy, order semantics, or trading behavior changed. No deployment is required or possible from this state; Wrangler is blocked by **`You are not authenticated. Please run \`wrangler login\`.`**. See `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-64.md`.
+
+## Monday, August 24, 2026 Control-63 crypto calibrated-edge correction - LOCAL PASS / LIVE PROVENANCE DEGRADED
+
+Control-63 proves the conservative crypto edge contract end to end: `generateSignal` emits no `rawEdgeBps`, crypto decision preparation keeps it unavailable, and `RiskManager` configured with `requireCalibratedEdge=true` and `minEdgeAfterCosts=8` rejects BUY with **`Calibrated raw edge unavailable`**. Existing injected-edge pass/reject coverage remains. No raw-edge producer or trading-behavior change was introduced; a separately versioned, out-of-sample producer remains a future decision. There is also a deferred candidate wiring issue: preparation names candidate-level `rawEdgeBps` from `candidate.signal.rawEdgeBps`, while the decision loop consumes `signal` and does not consume that candidate-level property. Keep this as unavailable/fail-closed until corrected. Any future artifact must carry immutable model ID/version/checksum; target horizon, bar interval, and timezone; dataset ID/version, universe, schema, cutoff, and exact train/calibration/validation windows; leakage-controlled out-of-sample validation splits; calibration method; sample counts and confidence intervals; realized gross/net-after-cost metrics and acceptance thresholds; and the exact candidate-level-to-decision-level `rawEdgeBps` mapping.
+
+Local cron wiring is unchanged: daytrading `*/5 13-21 * * 1-5` → `cron`; swing `0 22 * * 1-5` → `swing_cron`; crypto `7-59/30 * * * *` → `crypto_cron`; reconciliation `*/10 * * * *` → `reconcile_cron`. On Monday, August 24, 2026, daytrading is not due before **13:00 UTC** and swing is not due before **22:00 UTC**. Historical swing **3182** had a subrequest failure. Live release drift remains **1.0.0/2.4.0** versus local **2.6.0**. `POST /api/trigger` is a no-op for this control and was not called.
+
+Exact gross/net remain unavailable by schema and lot identity; no values are inferred. No calibrated edge producer exists. Fee freshness remains **60s** versus **10m** maintenance, which is suppressive and must not be loosened. No cap, schedule, threshold, sizing, fee-freshness, order-semantics, or trading change was made. See `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-63.md`.
+
+## Monday, August 24, 2026 Control-62 operational status - OPEN FAIL/DEGRADED
+
+Control-62 was a strict GET-only production control at approximately **10:00 UTC on August 24, 2026**. All six required endpoints returned HTTP 200, but live release identity remains unresolved: `/health=1.0.0` and `/api/config.version=2.4.0` versus local release `2.6.0` at clean commit `82e6c7f7da0ae7914d98224c1583389590fdac6f`.
+
+Positions passed the authority check with `positionsAvailable=true`, `source=alpaca`, and 29 broker rows. Account equity `98485.98` and latest snapshot equity `98493.96` are below `last_equity=98504.5039`, so comparison direction is down; broker daily fields remain zero. Caps remain `5000/3700/2000 USD`.
+
+Local schedules and dispatch remain exact: daytrading `*/5 13-21 * * 1-5` → `cron`, swing `0 22 * * 1-5` → `swing_cron`, crypto `7-59/30 * * * *` → `crypto_cron`, and reconciliation `*/10 * * * *` → `reconcile_cron`. Live crypto delivery remains near `:07/:37 UTC`; reconciliation remains near ten-minute cadence with `MAINTENANCE_ONLY` rows. Daytrading and swing are not yet due at this capture time on Monday, August 24, 2026, so later natural delivery remains pending rather than classified as a missed run.
+
+Structured skips are visible and no current `CYCLE_LEASE_HELD` row was observed. Lifecycle fields exist, but sampled filled trades retain null gross/fee/net under conservative unavailable-accounting markers. Repository review confirms gross is intentionally not inferred, fees require exact broker order links, and the fields are synthetic read-time values because authoritative fill-lot attribution is not persisted. Live aliases/candidate counters and complete filter/pagination behavior remain unproven on the old artifact; local broker authority, bounded reconciliation, filtered observability, stable pagination, conservative accounting, and crypto fail-closed edge-gate regressions pass.
+
+No new safe runtime defect was established. This is a documentation-only correction with no cap, schedule, strategy, edge-gate, sizing, order, or broker-state change. Wrangler deployment is blocked by **`You are not authenticated. Please run \`wrangler login\`.`** See `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-62.md`.
+
 ## Monday, August 24, 2026 Control-61 operational status - OPEN FAIL/DEGRADED
 
 Control-61 was a strict GET-only production control captured around 09:00 UTC. All six required endpoints returned HTTP 200, but live release identity remains unresolved: `/health=1.0.0` and `/api/config.version=2.4.0` versus local release `2.6.0` at commit `82e6c7f7da0ae7914d98224c1583389590fdac6f`.

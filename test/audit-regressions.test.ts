@@ -124,6 +124,15 @@ describe('audit schedule and dispatch regressions', () => {
     );
   });
 
+  test('records successful broker-only reconciliation as non-error observability', () => {
+    const reconciliationBranch = workerSource.match(/\} else \{\n        \/\/ Auto-reconcile: upsert all broker positions into DB[\s\S]*?\n      \}\n    \}\n\n    \/\/ 6\./)?.[0] ?? '';
+    expect(reconciliationBranch).toContain("skips.add('BROKER_ONLY_RECONCILED', 'reconciliation'");
+    expect(reconciliationBranch).not.toContain('errors.push');
+    expect(reconciliationBranch).toContain('await db.upsertPosition');
+    expect(reconciliationBranch).toContain("await db.closePosition(dbPos.ticker, null, 'auto_reconcile_not_in_broker')");
+    expect(workerSource).toContain('errors.push(`Broker quantity reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);');
+  });
+
   test('keeps swing and crypto broker fan-out bounded by deferring duplicate reconciliation', () => {
     const swingSource = readFileSync(new URL('../src/swing-strategy.ts', import.meta.url), 'utf8');
     const cryptoSource = readFileSync(new URL('../src/crypto-strategy.ts', import.meta.url), 'utf8');

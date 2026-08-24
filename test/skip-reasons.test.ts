@@ -39,6 +39,17 @@ describe('skip reason details', () => {
     expect(skips.toArray()[0]).toMatchObject({ code: 'POSITION_QTY_MISMATCH', scope: 'cycle', count: 2, context: { strategy: 'daytrading', mismatchCount: 2 } });
   });
 
+  test('successful broker-only reconciliation is observable without becoming an error', () => {
+    const skips = new SkipReasonCollector();
+    skips.add('BROKER_ONLY_RECONCILED', 'reconciliation', 'Broker-authoritative position divergence reconciled into D1', {
+      details: ['MSFT: in broker but not internal'],
+    });
+    expect(runStatus([], skips)).toBe('skipped');
+    expect(runStatus([], skips, false, 1)).toBe('ok');
+    expect(serializeRunDetails([], skips)).toContain('BROKER_ONLY_RECONCILED');
+    expect(runStatus(['broker reconciliation failed'], skips)).toBe('error');
+  });
+
   test('error wins over skips and skip-only runs are labeled skipped', () => {
     const skips = new SkipReasonCollector();
     skips.add('DECISION_HOLD', 'decision', 'HOLD');

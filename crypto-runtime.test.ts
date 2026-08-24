@@ -4,6 +4,7 @@ import { checkCryptoEntryRisk, cryptoRiskSkipContext, prepareCryptoRiskDecision 
 import { RiskManager, type RiskConfig } from '/workspace/alpaca-trading-bot/src/risk-manager';
 import type { AccountInfo } from '/workspace/alpaca-trading-bot/src/alpaca';
 import type { AIDecision } from '/workspace/alpaca-trading-bot/src/ai-decision';
+import { generateSignal } from '/workspace/alpaca-trading-bot/src/technical-analysis';
 import type { TAIndicators } from '/workspace/alpaca-trading-bot/src/technical-analysis';
 
 const account: AccountInfo = {
@@ -167,6 +168,40 @@ describe('crypto runtime correctness helpers', () => {
       { symbol: 'AAVEUSD', signal: { action: 'BUY', confidence: 0.8 } },
     ]);
     expect(ranked.map(x => x.symbol)).toEqual(['BTCUSD', 'ETHUSD', 'AAVEUSD']);
+  });
+
+  test('crypto signal-to-risk path remains fail-closed when generateSignal has no calibrated edge', () => {
+    const generated = generateSignal({
+      ...indicators,
+      rsi: 20,
+      emaTrend: 'up',
+      macdTrend: 'bullish',
+      stochK: 10,
+      bbPosition: 0.05,
+    }, { rsiOversold: 30, rsiOverbought: 70 });
+    expect(generated.action).toBe('BUY');
+    expect(generated).not.toHaveProperty('rawEdgeBps');
+
+    const decision: AIDecision = {
+      action: generated.action,
+      confidence: generated.confidence,
+      reasoning: generated.reasons.join('; '),
+      factors: generated.reasons,
+      adjustedFromTA: false,
+      taSignal: generated,
+    };
+    const prepared = prepareCryptoRiskDecision(decision);
+    const result = checkCryptoEntryRisk(
+      new RiskManager(cryptoRiskConfig({ minEdgeAfterCosts: 8 })),
+      decision,
+      account,
+      [],
+      generated.indicators,
+    );
+
+    expect(prepared.rawEdgeBps).toBeUndefined();
+    expect(result.approved).toBe(false);
+    expect(result.reason).toBe('Calibrated raw edge unavailable for configured minimum edge after costs (8bps)');
   });
 
   test('strategy-level positive calibrated raw edge reaches crypto risk admission', () => {

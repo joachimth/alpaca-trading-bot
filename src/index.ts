@@ -464,9 +464,12 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         riskManager.haltTrading(`New entries blocked by broker/internal quantity mismatch: ${details}`);
         console.error(`DIVERGENCE (new entries blocked): ${details}`);
       } else {
-        // Auto-reconcile: upsert all broker positions into DB
+        // Auto-reconcile: upsert all broker positions into DB. This is a
+        // successful broker-authoritative repair, not an execution error.
         console.warn(`DIVERGENCE (auto-reconciling): ${details}`);
-        errors.push(`Auto-reconciled: ${details}`);
+        skips.add('BROKER_ONLY_RECONCILED', 'reconciliation', 'Broker-authoritative position divergence reconciled into D1', {
+          details: divergence.details,
+        });
         for (const pos of positions) {
           const existing = dbPositions.find(p => p.ticker === pos.symbol);
           await db.upsertPosition({
@@ -927,6 +930,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         unrealized_plpc: pos.unrealized_plpc,
         stop_loss_price: existing?.stop_loss_price ?? null,
         take_profit_price: existing?.take_profit_price ?? null,
+        strategy: 'daytrading',
       });
     }
 
