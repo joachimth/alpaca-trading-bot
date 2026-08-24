@@ -2,7 +2,7 @@
 
 Control-61 was captured around **09:00 UTC on August 24, 2026** using only GET requests against the six required production endpoints plus safe run/trade filter and pagination probes. All six endpoints returned HTTP 200, but live `/health=1.0.0` and `/api/config.version=2.4.0` remain older than the local repository release `2.6.0` at commit `82e6c7f7da0ae7914d98224c1583389590fdac6f`; active deployment/source provenance is therefore unproven.
 
-Live positions remain broker-authoritative: `/api/positions` reports `positionsAvailable=true`, `source=alpaca`, and 29 rows. Dashboard account equity was `98443.97` versus `last_equity=98504.5039`, with latest snapshot equity `98440.07`, so the observed current-vs-last direction is down; broker daily change fields remain zero. Caps remain exactly **5000/3700/2000 USD** for daytrading/swing/crypto.
+Live positions remain broker-authoritative: `/api/positions` reports `positionsAvailable=true`, `source=alpaca`, and 29 rows. Dashboard account equity was `98458.01` versus `last_equity=98504.5039`, with latest snapshot equity `98440.07`, so the observed current-vs-last direction is down; broker daily change fields remain zero. Caps remain exactly **5000/3700/2000 USD** for daytrading/swing/crypto.
 
 Local source preserves all four UTC schedules and dispatch mappings: daytrading `*/5 13-21 * * 1-5` → `cron`; swing `0 22 * * 1-5` → `swing_cron`; crypto `7-59/30 * * * *` → `crypto_cron`; and reconciliation `*/10 * * * *` → `reconcile_cron`. Fresh crypto runs arrived at `08:07:57` and `08:37:58 UTC`, close to the expected `:07/:37` cadence; reconciliation arrived at `08:50:52` and `09:00:57 UTC` as `MAINTENANCE_ONLY`. Current successful daytrading and swing delivery are not proven.
 

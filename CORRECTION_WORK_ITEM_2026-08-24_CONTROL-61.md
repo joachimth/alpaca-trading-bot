@@ -11,7 +11,7 @@ The control used only GET requests against `/health`, `/api/config`, `/api/dashb
 - All six required endpoints returned HTTP 200.
 - `/health` reports version `1.0.0`; `/api/config` reports version `2.4.0`. The local repository release is `2.6.0` at commit `82e6c7f7da0ae7914d98224c1583389590fdac6f`, so the active Worker/source mapping remains unproven.
 - `/api/positions` reports `positionsAvailable=true`, `source=alpaca`, and 29 rows. Broker positions remain authoritative; D1 metadata is not treated as live position state.
-- Dashboard account equity was `98443.97` versus `last_equity=98504.5039`; the latest snapshot was `98440.07`, so the observed current-vs-last direction is down. Broker daily change fields remain zero, limiting independent daily-direction validation.
+- Dashboard account equity was `98458.01` versus `last_equity=98504.5039`; the latest snapshot was `98440.07`, so the observed current-vs-last direction is down. Broker daily change fields remain zero, limiting independent daily-direction validation.
 - Live caps remain exactly `max_capital_usd=5000`, `swing_max_capital_usd=3700`, and `crypto_max_capital_usd=2000` USD.
 - Local source retains all four schedules and dispatch mappings: daytrading `*/5 13-21 * * 1-5` → `cron`; swing `0 22 * * 1-5` → `swing_cron`; crypto `7-59/30 * * * *` → `crypto_cron`; reconciliation `*/10 * * * *` → `reconcile_cron`.
 - Fresh live crypto delivery is present at `08:07:57` and `08:37:58` UTC, close to the expected `:07/:37` cadence. Fresh reconciliation delivery is present at `08:50:52` and `09:00:57` UTC as `MAINTENANCE_ONLY`. Current successful daytrading and swing delivery are not proven by the returned live window.

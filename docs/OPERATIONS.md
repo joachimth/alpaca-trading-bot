@@ -2,7 +2,7 @@
 
 Control-61 was a strict GET-only production control captured around 09:00 UTC. All six required endpoints returned HTTP 200, but live release identity remains unresolved: `/health=1.0.0` and `/api/config.version=2.4.0` versus local release `2.6.0` at commit `82e6c7f7da0ae7914d98224c1583389590fdac6f`.
 
-Positions passed the authority check with `positionsAvailable=true`, `source=alpaca`, and 29 broker rows. Equity direction was down versus `last_equity=98504.5039` (`98443.97` account equity and `98440.07` latest snapshot); broker daily fields remain zero. Caps remain `5000/3700/2000 USD`.
+Positions passed the authority check with `positionsAvailable=true`, `source=alpaca`, and 29 broker rows. Equity direction was down versus `last_equity=98504.5039` (`98458.01` account equity and `98440.07` latest snapshot); broker daily fields remain zero. Caps remain `5000/3700/2000 USD`.
 
 Local schedules remain daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and reconciliation `*/10 * * * *`, mapped to `cron`, `swing_cron`, `crypto_cron`, and `reconcile_cron`. Live crypto delivery is fresh near `08:07:57` and `08:37:58 UTC`, and reconciliation is fresh at `08:50:52` and `09:00:57 UTC` as `MAINTENANCE_ONLY`; successful current daytrading and swing delivery remain unproven.
 
