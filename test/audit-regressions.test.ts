@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { RiskManager, type RiskConfig } from '../src/risk-manager';
-import { daytradingRiskSkipCode, daytradingRiskSkipContext } from '../src/index';
+import {
+  checkDaytradingBuyMinimumNotional,
+  daytradingExitEstimatedValue,
+  daytradingRiskSkipCode,
+  daytradingRiskSkipContext,
+} from '../src/index';
 import { SkipReasonCollector, parseRunDetails, serializeRunDetails } from '../src/skip-reasons';
 import type { AccountInfo } from '../src/alpaca';
 import type { AIDecision } from '../src/ai-decision';
@@ -277,6 +282,41 @@ describe('audit equity-direction and risk semantics', () => {
   });
 });
 
+
+describe('daytrading order preflight regressions', () => {
+  test('rejects below-minimum BUY notionals without resizing the strategy quantity', () => {
+    expect(checkDaytradingBuyMinimumNotional(0.5, 1.99)).toMatchObject({
+      approved: false,
+      estimatedNotionalUsd: 0.995,
+      minimumNotionalUsd: 1,
+    });
+    expect(checkDaytradingBuyMinimumNotional(1, 1)).toMatchObject({ approved: true });
+    expect(checkDaytradingBuyMinimumNotional(0.5, 1.99).reason).toContain('below the broker minimum');
+  });
+
+  test('uses only read-side position data for missing filled-sell estimates', () => {
+    expect(daytradingExitEstimatedValue(
+      { qty: 2, filled_avg_price: null },
+      { qty: 2, current_price: 4.25, market_value: 8.5 },
+    )).toBe(8.5);
+    expect(daytradingExitEstimatedValue(
+      { qty: 2, filled_avg_price: null },
+      { qty: 2, current_price: 0, market_value: 8.5 },
+    )).toBe(8.5);
+  });
+
+  test('keeps MIN_ORDER_SIZE skip structured and immediately before BUY submit only', () => {
+    expect(workerSource).toContain('const minimumNotionalCheck = checkDaytradingBuyMinimumNotional(qty, signal.indicators.price);');
+    expect(workerSource).toContain("skips.add('MIN_ORDER_SIZE', 'decision'");
+    expect(workerSource).toContain('serializeDecisionSkip(minimumNotionalCheck.reason, skipContext)');
+    const minimumCheckIndex = workerSource.indexOf('const minimumNotionalCheck = checkDaytradingBuyMinimumNotional(qty, signal.indicators.price);');
+    const submitIndex = workerSource.indexOf('const order = await alpaca.submitOrder({', minimumCheckIndex);
+    expect(minimumCheckIndex).toBeGreaterThanOrEqual(0);
+    expect(submitIndex).toBeGreaterThan(minimumCheckIndex);
+    expect(workerSource.slice(minimumCheckIndex, submitIndex)).toContain('continue;');
+    expect(workerSource).not.toContain('signal.action === \'SELL\' && checkDaytradingBuyMinimumNotional');
+  });
+});
 
 describe('daytrading risk rejection observability', () => {
   test('persists structured risk reason/context while preserving the decision reason and broker-free rejection', () => {

@@ -11,7 +11,7 @@ import { DashboardAPI } from './api';
 import { runSwingCycle } from './swing-strategy';
 import { runCryptoCycle } from './crypto-strategy';
 import { projectBrokerPositions, summarizeByCategory } from './position-projection';
-import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
+import { SkipReasonCollector, serializeDecisionSkip, serializeRunDetails, runStatus } from './skip-reasons';
 import { syncBrokerLedger } from './broker-ledger';
 import { reconcileBrokerOrders } from './order-reconciliation';
 import { reconcileBrokerQuantityMismatches } from './position-reconciliation';
@@ -52,6 +52,51 @@ export function daytradingRiskSkipContext(input: {
   if (Number.isFinite(input.riskCheck.estimatedCosts)) context.estimated_cost_usd = input.riskCheck.estimatedCosts;
   if (Number.isFinite(input.riskCheck.edgeAfterCosts)) context.edge_after_costs = input.riskCheck.edgeAfterCosts;
   return context;
+}
+
+/** Alpaca's confirmed minimum notional for daytrading stock BUY submissions. */
+export const DAYTRADING_MIN_ORDER_NOTIONAL_USD = 1;
+
+export interface DaytradingBuyNotionalCheck {
+  approved: boolean;
+  estimatedNotionalUsd: number;
+  minimumNotionalUsd: number;
+  reason: string;
+}
+
+/**
+ * Read-only preflight for the broker's minimum stock order notional. This is
+ * intentionally limited to daytrading BUY entries; exits and protective
+ * orders remain broker-authoritative and are never routed through this check.
+ */
+export function checkDaytradingBuyMinimumNotional(
+  qty: number,
+  price: number,
+  minimumNotionalUsd = DAYTRADING_MIN_ORDER_NOTIONAL_USD,
+): DaytradingBuyNotionalCheck {
+  const estimatedNotionalUsd = qty * price;
+  const approved = Number.isFinite(estimatedNotionalUsd) && estimatedNotionalUsd >= minimumNotionalUsd;
+  return {
+    approved,
+    estimatedNotionalUsd,
+    minimumNotionalUsd,
+    reason: approved
+      ? 'Daytrading BUY meets the broker minimum order notional'
+      : `Daytrading BUY estimated notional $${Number.isFinite(estimatedNotionalUsd) ? estimatedNotionalUsd.toFixed(2) : 'invalid'} is below the broker minimum order notional $${minimumNotionalUsd.toFixed(2)}`,
+  };
+}
+
+/** Read-only order-record estimate for a daytrading position exit. */
+export function daytradingExitEstimatedValue(
+  order: { qty: number; filled_avg_price: number | null },
+  position: { qty: number; current_price: number; market_value: number },
+): number | undefined {
+  const price = Number.isFinite(position.current_price) && position.current_price > 0
+    ? position.current_price
+    : position.qty > 0 && Number.isFinite(position.market_value) && position.market_value > 0
+      ? position.market_value / position.qty
+      : undefined;
+  return price !== undefined && Number.isFinite(order.qty) && order.qty > 0 ? order.qty * price : undefined;
 }
 
 // Default fallback config if D1 is empty
@@ -507,8 +552,11 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           if (pendingExit) continue;
           console.log(`Closing ${action.symbol}: ${action.reason}`);
           const order = await alpaca.closePosition(action.symbol);
-          await db.logOrderTrade(order, { strategy: dbPositions.find(p => p.ticker === action.symbol)?.strategy ?? 'daytrading' });
           const pos = positions.find(p => p.symbol === action.symbol);
+          await db.logOrderTrade(order, {
+            strategy: dbPositions.find(p => p.ticker === action.symbol)?.strategy ?? 'daytrading',
+            estimatedValue: pos ? daytradingExitEstimatedValue(order, pos) : undefined,
+          });
           if (pos && alpaca.isOrderFullyFilled(order)) {
             await db.closePosition(action.symbol, null, action.reason);
             closedSymbols.add(action.symbol);
@@ -538,7 +586,10 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           if (pendingExit) continue;
           const order = await alpaca.closePosition(pos.symbol);
           closeOrders.push(order);
-          await db.logOrderTrade(order, { strategy: 'daytrading' });
+          await db.logOrderTrade(order, {
+            strategy: 'daytrading',
+            estimatedValue: daytradingExitEstimatedValue(order, pos),
+          });
           if (alpaca.isOrderFullyFilled(order)) {
             await db.closePosition(pos.symbol, null, 'eod_flatten');
             closedSymbols.add(pos.symbol);
@@ -763,7 +814,11 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           }
           try {
             const order = await alpaca.closePosition(signal.indicators.symbol);
-            await db.logOrderTrade(order, { decisionId, strategy: 'daytrading' });
+            await db.logOrderTrade(order, {
+              decisionId,
+              strategy: 'daytrading',
+              estimatedValue: daytradingExitEstimatedValue(order, existingPos),
+            });
             if (alpaca.isOrderFullyFilled(order)) {
               await db.closePosition(signal.indicators.symbol, null, 'ai_signal');
               await db.updateDecisionStatus(decisionId, 1, 'Position closed');
@@ -824,7 +879,11 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           }
           try {
             const order = await alpaca.closePosition(signal.indicators.symbol);
-            await db.logOrderTrade(order, { decisionId, strategy: 'daytrading' });
+            await db.logOrderTrade(order, {
+              decisionId,
+              strategy: 'daytrading',
+              estimatedValue: daytradingExitEstimatedValue(order, existingPos),
+            });
             if (alpaca.isOrderFullyFilled(order)) {
               await db.closePosition(signal.indicators.symbol, null, 'ai_signal');
               await db.updateDecisionStatus(decisionId, 1, 'Position closed (sell signal)');
@@ -873,6 +932,28 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           console.log(`Skip BUY ${signal.indicators.symbol}: duplicate client_order_id ${clientOrderId}`);
           continue;
         }
+
+        // Final read-only guard immediately before broker submission. This does
+        // not resize the strategy order and does not apply to any exit path.
+        const minimumNotionalCheck = checkDaytradingBuyMinimumNotional(qty, signal.indicators.price);
+        if (!minimumNotionalCheck.approved) {
+          const skipContext = {
+            strategy: 'daytrading',
+            symbol: signal.indicators.symbol,
+            decision_id: decisionId,
+            action: 'BUY',
+            qty,
+            reference_price: signal.indicators.price,
+            estimated_notional_usd: minimumNotionalCheck.estimatedNotionalUsd,
+            minimum_notional_usd: minimumNotionalCheck.minimumNotionalUsd,
+            reason: minimumNotionalCheck.reason,
+          };
+          await db.updateDecisionStatus(decisionId, 2, serializeDecisionSkip(minimumNotionalCheck.reason, skipContext));
+          skips.add('MIN_ORDER_SIZE', 'decision', 'Daytrading BUY skipped because estimated order notional is below the broker minimum', skipContext);
+          console.log(`Skip BUY ${signal.indicators.symbol}: ${minimumNotionalCheck.reason}`);
+          continue;
+        }
+
         try {
           // Submit market order
           const order = await alpaca.submitOrder({

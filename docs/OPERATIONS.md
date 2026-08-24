@@ -1,3 +1,10 @@
+## Control-71 strict read-only production control - August 24, 2026
+
+Control-71 is **OPEN FAIL/DEGRADED**, not healthy. All six required GET endpoints returned HTTP 200 JSON, but live health/config remain **1.0.0/2.4.0** versus local **2.6.0**. `/api/positions` reports `positionsAvailable=true`, `source=alpaca`, and 26 broker rows; equity is approximately **98401.66 USD** versus `last_equity=98504.5039` (down by comparison). Caps remain exactly **5000/3700/2000 USD**.
+
+Local schedules remain daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *` near `:07/:37`, and reconciliation `*/10 * * * *`. Live daytrading, reconciliation, and crypto delivery is present; no fresh August 24 swing run or lease-held record is proven. Runs show structured `MAINTENANCE_ONLY`, `FEE_DATA_UNAVAILABLE`, and other skips, but also a PLUG minimum-order 403, Cloudflare subrequest exhaustion, and broker/internal mismatches.
+
+The local correction is limited to a daytrading BUY broker-minimum-order preflight with `MIN_ORDER_SIZE` observability. It does not change caps, schedules, thresholds, sizing intent, broker authority, fee freshness, crypto edge policy, order semantics, or trading behavior, and no broker mutation or deployment is performed. Exact filled-trade gross/fee/net remains conservatively unavailable; stale fee telemetry, conflicting swing exposure, missing live edge/filter/pagination proof, and live release drift remain open. See `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-71.md`.
 ## Control-70 broker-only reconciliation correction - August 24, 2026
 
 Successful broker-only position reconciliation is now structured as `BROKER_ONLY_RECONCILED` non-error observability. Broker authority, D1-only reconciliation writes, caps **5000/3700/2000**, schedules, and trading semantics are unchanged; quantity mismatches and actual failures remain errors. Local validation must include focused and full regressions, typecheck, and diff-check.
