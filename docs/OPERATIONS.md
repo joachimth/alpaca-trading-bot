@@ -1,3 +1,15 @@
+## Monday, August 24, 2026 Control-61 operational status - OPEN FAIL/DEGRADED
+
+Control-61 was a strict GET-only production control captured around 09:00 UTC. All six required endpoints returned HTTP 200, but live release identity remains unresolved: `/health=1.0.0` and `/api/config.version=2.4.0` versus local release `2.6.0` at commit `82e6c7f7da0ae7914d98224c1583389590fdac6f`.
+
+Positions passed the authority check with `positionsAvailable=true`, `source=alpaca`, and 29 broker rows. Equity direction was down versus `last_equity=98504.5039` (`98443.97` account equity and `98440.07` latest snapshot); broker daily fields remain zero. Caps remain `5000/3700/2000 USD`.
+
+Local schedules remain daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and reconciliation `*/10 * * * *`, mapped to `cron`, `swing_cron`, `crypto_cron`, and `reconcile_cron`. Live crypto delivery is fresh near `08:07:57` and `08:37:58 UTC`, and reconciliation is fresh at `08:50:52` and `09:00:57 UTC` as `MAINTENANCE_ONLY`; successful current daytrading and swing delivery remain unproven.
+
+Structured skip reasons are visible and no current `CYCLE_LEASE_HELD` row was observed. Lifecycle identifiers and timestamps are present, while sampled filled trades retain null gross/fee/net with conservative unavailable-accounting markers. Live candidate counters/aliases and complete filter/pagination behavior remain unproven, and local fail-closed crypto fee/calibrated-edge wiring is not live-proven.
+
+No new safe runtime defect was found. This is a documentation-only correction with no cap, schedule, strategy, edge-gate, sizing, order, or broker-state change. Wrangler deployment is blocked by **`You are not authenticated. Please run \`wrangler login\`.`** See `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-61.md` for evidence and follow-up.
+
 ## Monday, August 24, 2026 Control-60 targeted reliability correction - LOCAL COMPLETE / LIVE OPEN FAIL-DEGRADED
 
 Control-60 fixed five non-vital lifecycle/accounting defects without changing caps, thresholds, max-trade limits, strategy universes, schedules, sizing, signals, edge policy, or order semantics. Ambiguous crypto submit exceptions now retain reservations until read-only reconciliation; crypto duplicate admission blocks matching non-terminal or already-partially-filled client IDs; terminal partial fills retain reservation protection; bounded maintenance removes only expired active reservation orphans with no linked trade/order; and all D1 close callers now persist unavailable realized P&L as `NULL` rather than using broker snapshot `unrealized_pl` or zero.

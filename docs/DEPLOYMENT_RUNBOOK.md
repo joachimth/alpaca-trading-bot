@@ -1,3 +1,11 @@
+## Monday, August 24, 2026 Control-61 release status - OPEN FAIL/DEGRADED
+
+Control-61 completed a strict GET-only production control. All six required endpoints returned HTTP 200, but the active Worker remains source-unverifiable: live health/config are `1.0.0/2.4.0`, while the local validated repository release is `2.6.0` at commit `82e6c7f7da0ae7914d98224c1583389590fdac6f`.
+
+The live evidence still confirms broker-authoritative positions (`source=alpaca`, 29 rows), unchanged caps (`5000/3700/2000 USD`), crypto delivery near `:07/:37 UTC`, and ten-minute reconciliation delivery as `MAINTENANCE_ONLY`. It does not prove current successful daytrading/swing delivery, complete live run aliases/candidate counters/filtering, stable trade pagination/status filtering, exact per-fill gross/fee/net, or positive calibrated crypto-edge admission. Filled trades remain conservatively marked with null gross/fee/net where deterministic lot accounting is unavailable.
+
+No deployment was attempted. `bunx wrangler whoami` returns **`You are not authenticated. Please run \`wrangler login\`.`** Do not deploy a dirty or source-unverifiable artifact. After authentication, verify the remote schema required by the exact release, confirm the clean immutable commit and four schedules, deploy only the reliability correction if still required and authorized under the standing maintenance rule, and then repeat the six endpoint checks plus read-only filter/pagination probes. Keep production **OPEN FAIL/DEGRADED** until provenance and natural weekday daytrading/swing evidence are confirmed.
+
 ## Monday, August 24, 2026 Control-60 targeted reliability correction - LOCAL COMPLETE / LIVE OPEN FAIL-DEGRADED
 
 Control-60 is locally complete and production remains **OPEN FAIL/DEGRADED**. The correction is reliability-only and preserves all vital parameters: daytrading/swing/crypto caps `5000/3700/2000 USD`, confidence thresholds, max-trade limits, universes, schedules, sizing, signals, edge policy, and order semantics.
