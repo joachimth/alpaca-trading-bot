@@ -5,6 +5,8 @@ import {
   parseRunDetails,
   runStatus,
   serializeRunDetails,
+  parseDecisionSkip,
+  serializeDecisionSkip,
 } from '../src/skip-reasons';
 
 describe('skip reason details', () => {
@@ -48,6 +50,26 @@ describe('skip reason details', () => {
   test('legacy plain strings still parse', () => {
     expect(parseRunDetails('["old error"]')).toEqual(['old error']);
     expect(parseRunDetails('old plain error')).toEqual(['old plain error']);
+  });
+
+  test('decision skip envelopes preserve readable reason and structured context', () => {
+    const encoded = serializeDecisionSkip('Calibrated raw edge unavailable', {
+      configured_threshold_bps: 8,
+      edge_source: 'unavailable',
+      edge_status: 'unavailable',
+      estimated_cost_bps: 6.6,
+    });
+    expect(parseDecisionSkip(encoded)).toEqual({
+      type: 'skip',
+      message: 'Calibrated raw edge unavailable',
+      context: {
+        configured_threshold_bps: 8,
+        edge_source: 'unavailable',
+        edge_status: 'unavailable',
+        estimated_cost_bps: 6.6,
+      },
+    });
+    expect(parseDecisionSkip('legacy reason')).toBeNull();
   });
 });
 

@@ -12,6 +12,8 @@ export interface AIDecision {
   factors: string[];
   adjustedFromTA: boolean; // true if AI changed the TA signal
   taSignal: TASignal;
+  /** Optional calibrated gross edge in basis points; never inferred from confidence. */
+  rawEdgeBps?: number;
 }
 
 export interface AIMarketContext {
@@ -73,6 +75,7 @@ export async function refineWithLLM(
         factors: signal.reasons,
         adjustedFromTA: false,
         taSignal: signal,
+        ...(signal.rawEdgeBps !== undefined ? { rawEdgeBps: signal.rawEdgeBps } : {}),
       };
     }
 
@@ -109,6 +112,7 @@ export async function refineWithLLM(
       factors: parsed.factors,
       adjustedFromTA: adjusted,
       taSignal: signal,
+      ...(signal.rawEdgeBps !== undefined ? { rawEdgeBps: signal.rawEdgeBps } : {}),
     };
   } catch (error) {
     // Any error → fall back to TA
@@ -120,6 +124,7 @@ export async function refineWithLLM(
       factors: signal.reasons,
       adjustedFromTA: false,
       taSignal: signal,
+      ...(signal.rawEdgeBps !== undefined ? { rawEdgeBps: signal.rawEdgeBps } : {}),
     };
   }
 }

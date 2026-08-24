@@ -16,8 +16,6 @@ import { SwingRiskManager, type SwingRiskConfig } from './swing-risk';
 import { projectBrokerPositions, summarizeByCategory } from './position-projection';
 import type { Env } from './index';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
-import { syncBrokerLedger } from './broker-ledger';
-import { reconcileBrokerOrders } from './order-reconciliation';
 import { closeBrokerAbsentPositions, reconcileBrokerQuantityMismatches } from './position-reconciliation';
 import { resolveCapitalCapOverride } from './capital-caps';
 import {
@@ -98,9 +96,10 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
   const db = new Database(env.DB);
   const errors: string[] = [];
   const skips = new SkipReasonCollector();
-  let ledgerDegraded = false;
   let decisionsMade = 0;
   let tradesExecuted = 0;
+  let analyzedCandidates = 0;
+  let filteredCandidates = 0;
   const findPendingSwingExit = async (symbol: string, context: Record<string, unknown> = {}) => {
     const pending = await db.findNonTerminalExitBySymbol('swing', symbol);
     if (!pending) return undefined;
@@ -129,18 +128,16 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
     });
 
-    try {
-      const ledger = await syncBrokerLedger(db, alpaca);
-      console.log(JSON.stringify({ event: 'broker_ledger_sync', trigger, ...ledger }));
-      if (ledger.degraded) {
-        ledgerDegraded = true;
-        skips.add('BROKER_LEDGER_DEGRADED', 'reconciliation', 'Broker activity import reached its explicit page budget; the next scheduled overlap will continue convergence', { pages: ledger.pages, pageBudget: ledger.pageBudget, activities: ledger.activities });
-      }
-    } catch (error) {
-      errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    // Scheduled maintenance owns broker ledger/order reconciliation. Keeping
+    // this strategy read path out of the swing invocation avoids duplicating
+    // paginated broker work and preserves the maintenance lease boundary.
+    skips.add('RECONCILIATION_DEFERRED_TO_MAINTENANCE', 'reconciliation', 'Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path', {
+      strategy: 'swing',
+      maintenanceTrigger: 'reconcile_cron',
+      maintenanceSchedule: '*/10 * * * *',
+    });
 
-    // Load swing config from D1 (merge with fallback)
+
     const dbConfig = await db.getConfig();
     const config = resolveSwingConfig(dbConfig);
 
@@ -164,14 +161,10 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         trades_executed: 0,
         errors: 0,
         error_details: serializeRunDetails([], skips),
-        status: runStatus(errors, skips, ledgerDegraded, tradesExecuted),
+        status: runStatus(errors, skips, false, tradesExecuted),
       });
       return;
     }
-
-    // Read-only broker status reconciliation before evaluating swing positions.
-    const reconciliation = await reconcileBrokerOrders(db, alpaca);
-    console.log(`Swing order reconciliation: ${reconciliation.brokerOrders} broker orders, ${reconciliation.pendingLookups} pending lookups, ${reconciliation.lookupFailures} lookup failures`);
 
     // Swing may only manage positions explicitly tagged as swing.
     const account = await alpaca.getAccount();
@@ -231,7 +224,9 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       maxOrderRatePerMin: config.maxOrderRatePerMin,
       maxCapitalUsd: config.maxCapitalUsd || 0,
     };
+    const recentEquityHistory = await db.getRecentEquityHistory();
     const riskManager = new SwingRiskManager(riskConfig);
+    riskManager.setEquityHistory(recentEquityHistory);
     riskManager.updateEquitySnapshot(account.equity);
 
     // Reconciliation
@@ -294,7 +289,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         trades_executed: 0,
         errors: errors.length,
         error_details: serializeRunDetails(errors, skips),
-        status: runStatus(errors, skips, ledgerDegraded, tradesExecuted),
+        status: runStatus(errors, skips, false, tradesExecuted),
       });
       return;
     }
@@ -373,11 +368,13 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       }
     });
     const validIndicators = indicatorResults.filter((i): i is NonNullable<typeof i> => i !== null);
+    analyzedCandidates = validIndicators.length;
 
     // Filter universe by liquidity; existing price/volume/history thresholds
     // remain unchanged.
     const filtered = filterUniverse(validIndicators, config);
     diagnostics.filtered = filtered.length;
+    filteredCandidates = filtered.length;
     console.log(`Swing: universe diagnostics ${JSON.stringify(diagnostics)}`);
 
     const entryDataDegraded = isSwingEntryDataDegraded(filtered.length);
@@ -406,6 +403,8 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
           errors: errors.length,
           error_details: serializeRunDetails(errors, skips),
           status: runStatus(errors, skips, true),
+          analyzed_candidates: analyzedCandidates,
+          filtered_candidates: filteredCandidates,
         });
         return;
       }
@@ -484,14 +483,22 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         const pendingExit = await findPendingSwingExit(sell.symbol, { exitType: sell.exitType, reason: sell.reason });
         if (pendingExit) continue;
         const pos = positions.find(p => p.symbol === sell.symbol);
-        const order = await alpaca.closePosition(sell.symbol);
+        // Submit the exit without synchronous getOrder polling. The bounded
+        // maintenance lane confirms accepted/partial fills later, avoiding
+        // one or more extra broker requests per swing exit.
+        const order = await alpaca.closePosition(sell.symbol, { waitForFill: false });
         await db.logOrderTrade(order, { strategy: 'swing' });
         console.log(`Swing ${sell.exitType} exit ${sell.symbol}: ${sell.reason}`);
         if (pos && alpaca.isOrderFullyFilled(order)) {
-          await db.closePosition(sell.symbol, pos.unrealized_pl, sell.reason);
+          await db.closePosition(sell.symbol, null, sell.reason);
           tradesExecuted++;
         } else if (pos) {
-          errors.push(`Swing exit not fully filled ${sell.symbol}: ${order.status}`);
+          const pending = ['new', 'accepted', 'pending_new', 'partially_filled', 'pending_cancel', 'pending_replace'].includes(String(order.status).toLowerCase());
+          if (pending) {
+            skips.add('EXIT_PENDING_RECONCILIATION', 'decision', 'Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation', { symbol: sell.symbol, status: order.status, alpacaOrderId: order.id, filledQty: order.filled_qty, leavesQty: order.leaves_qty });
+          } else {
+            errors.push(`Swing exit not fully filled ${sell.symbol}: ${order.status}`);
+          }
         }
 
         console.log(`Swing SELL ${sell.symbol}: ${sell.reason}`);
@@ -669,7 +676,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     const finalBrokerSymbols = new Set(finalPositions.map(pos => pos.symbol));
     for (const dbPos of syncDbPositions.filter(position => position.strategy === 'swing')) {
       if (!finalBrokerSymbols.has(dbPos.ticker) && !pendingSwingSymbols.has(dbPos.ticker)) {
-        await db.closePosition(dbPos.ticker, 0, 'broker_authoritative_sync_absent');
+        await db.closePosition(dbPos.ticker, null, 'broker_authoritative_sync_absent');
       }
     }
 
@@ -682,7 +689,9 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       trades_executed: tradesExecuted,
       errors: errors.length,
       error_details: serializeRunDetails(errors, skips),
-      status: runStatus(errors, skips, ledgerDegraded || entryDataDegraded, tradesExecuted),
+      status: runStatus(errors, skips, entryDataDegraded, tradesExecuted),
+      analyzed_candidates: analyzedCandidates,
+      filtered_candidates: filteredCandidates,
     });
 
     console.log(`Swing cycle complete: ${decisionsMade} decisions, ${tradesExecuted} trades, ${errors.length} errors, ${Date.now() - startTime}ms`);
@@ -700,6 +709,8 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       errors: errors.length,
       error_details: serializeRunDetails(errors, skips),
       status: 'error',
+      analyzed_candidates: analyzedCandidates,
+      filtered_candidates: filteredCandidates,
     });
   }
 }

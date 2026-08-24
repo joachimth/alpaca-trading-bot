@@ -76,6 +76,20 @@ describe('crypto persistent reservations', () => {
     expect(await db.getCryptoEntryReservationNotional(1_060_000)).toBe(0);
   });
 
+  test('terminal partial fill retains reservation and blocks duplicate retry', async () => {
+    const sqlite = createReservationDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    await reservation(db);
+    await db.finalizeCryptoEntryReservation('crypto_1_BTCUSD', 'owner-1', true, 1_000_000);
+    await db.reconcileCryptoEntryReservation({
+      id: 'order-partial', client_order_id: 'crypto_1_BTCUSD', symbol: 'BTCUSD', qty: 1, filled_qty: 0.25, leaves_qty: 0.75,
+      filled_avg_price: 400, type: 'market', side: 'buy', status: 'canceled', time_in_force: 'gtc',
+      created_at: '2026-08-07T10:00:00Z', updated_at: '2026-08-07T10:01:00Z', submitted_at: null, filled_at: null, canceled_at: '2026-08-07T10:01:00Z', expired_at: null, failed_at: null, replaced_at: null, limit_price: null, stop_price: null, trail_price: null, trail_percent: null,
+    });
+    expect(await db.getCryptoEntryReservationNotional(1_060_000)).toBe(100);
+    expect(await reservation(db, { owner: 'owner-2', nowMs: 1_060_000 })).toMatchObject({ reserved: false });
+  });
+
   test('lookup failure does not release an expired unresolved reservation', async () => {
     const sqlite = createReservationDatabase();
     const db = new Database(createFakeD1(sqlite));
@@ -86,12 +100,45 @@ describe('crypto persistent reservations', () => {
     expect((await db.getCryptoEntryReservations())[0]?.reservationKey).toBe('crypto_1_BTCUSD');
   });
 
+  test('same-key retry after expiry removes only an unlinked active orphan', async () => {
+    const sqlite = createReservationDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    await reservation(db, { nowMs: 1_000_000, ttlMs: 100, windowMs: 100 });
+    expect(await reservation(db, { nowMs: 1_000_101, owner: 'owner-1', windowMs: 100 })).toEqual({ reserved: true, idempotent: false });
+  });
+
+  test('expired active reservation linked to a trade remains retained and blocks same-key retry', async () => {
+    const sqlite = createReservationDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    await reservation(db, { nowMs: 1_000_000, ttlMs: 100, windowMs: 100 });
+    sqlite.run(`INSERT INTO trades (alpaca_order_id, client_order_id, ticker, side, qty, filled_qty, leaves_qty, status, order_type, time_in_force, strategy)
+      VALUES ('order-linked', 'crypto_1_BTCUSD', 'BTCUSD', 'buy', 1, 0, 1, 'accepted', 'market', 'gtc', 'crypto')`);
+    expect(await reservation(db, { nowMs: 1_000_101, owner: 'owner-1' })).toMatchObject({ reserved: false, idempotent: true });
+    expect(await db.getCryptoEntryReservations(1_000_101)).toHaveLength(0);
+    expect(Number(sqlite.query(`SELECT COUNT(*) AS count FROM crypto_entry_reservations WHERE reservation_key = 'crypto_1_BTCUSD'`).get().count)).toBe(1);
+  });
+
   test('only an explicitly verified pre-submit active orphan may be released', async () => {
     const sqlite = createReservationDatabase();
     const db = new Database(createFakeD1(sqlite));
     await reservation(db);
     expect(await db.releaseExpiredCryptoEntryReservation('crypto_1_BTCUSD', 1_200_001)).toBe(true);
     expect(await db.getCryptoEntryReservations()).toHaveLength(0);
+  });
+
+  test('bounded cleanup removes expired active orphans but retains committed and unresolved rows', async () => {
+    const sqlite = createReservationDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    await reservation(db, { reservationKey: 'orphan', nowMs: 1_000_000, ttlMs: 100, windowMs: 100, maxOrdersPerWindow: 10 });
+    await reservation(db, { reservationKey: 'committed', nowMs: 1_000_000, ttlMs: 100, windowMs: 100, maxOrdersPerWindow: 10 });
+    await db.finalizeCryptoEntryReservation('committed', 'owner-1', true, 1_000_000);
+    await reservation(db, { reservationKey: 'linked', nowMs: 1_000_000, ttlMs: 100, windowMs: 100, maxOrdersPerWindow: 10 });
+    sqlite.run(`INSERT INTO trades (alpaca_order_id, client_order_id, ticker, side, qty, filled_qty, leaves_qty, status, order_type, time_in_force, strategy)
+      VALUES ('linked-order', 'linked', 'BTCUSD', 'buy', 1, 0, 1, 'accepted', 'market', 'gtc', 'crypto')`);
+    expect(await db.cleanupExpiredCryptoEntryReservations(10, 1_000_101)).toBe(1);
+    expect(Number(sqlite.query('SELECT COUNT(*) AS count FROM crypto_entry_reservations').get().count)).toBe(2);
+    expect(Number(sqlite.query(`SELECT COUNT(*) AS count FROM crypto_entry_reservations WHERE reservation_key = 'committed'`).get().count)).toBe(1);
+    expect(Number(sqlite.query(`SELECT COUNT(*) AS count FROM crypto_entry_reservations WHERE reservation_key = 'linked'`).get().count)).toBe(1);
   });
 
   test('imported terminal broker orders release matching reservations during reconciliation', async () => {

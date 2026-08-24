@@ -42,6 +42,8 @@ export interface RiskCheckResult {
   takeProfitPrice?: number;
   trailingStopPct?: number;
   estimatedCosts?: number;        // estimated transaction costs in $
+  estimatedCostBps?: number;       // estimated transaction cost rate in basis points
+  rawEdgeBps?: number;              // calibrated edge input; never confidence-derived
   edgeAfterCosts?: number;        // calibrated/telemetry edge after costs; not confidence-derived
 }
 
@@ -58,13 +60,18 @@ export class RiskManager {
   private config: RiskConfig;
   private killState: KillSwitchState;
 
-  constructor(config: RiskConfig) {
+  constructor(config: RiskConfig, initialEquityHistory: readonly number[] = []) {
     this.config = config;
     this.killState = {
       tradingHalted: false,
       reason: '',
       triggeredAt: null,
-      equityHistory: [],
+      // Restore the durable rolling window before this invocation's snapshot
+      // is appended. Invalid values are ignored so a malformed historical row
+      // cannot corrupt the drawdown calculation.
+      equityHistory: initialEquityHistory
+        .filter(equity => Number.isFinite(equity))
+        .slice(-20),
       orderTimestamps: [],
     };
   }
@@ -72,6 +79,12 @@ export class RiskManager {
   // ============================================================
   // Kill switch management
   // ============================================================
+
+  setEquityHistory(equities: number[]): void {
+    this.killState.equityHistory = equities
+      .filter(equity => Number.isFinite(equity))
+      .slice(-20);
+  }
 
   updateEquitySnapshot(equity: number): void {
     this.killState.equityHistory.push(equity);
@@ -176,7 +189,10 @@ export class RiskManager {
     // 6. Transaction cost estimation. Only a real calibrated raw edge may
     // activate the edge gate; confidence is intentionally not converted to bps.
     const costRate = this.estimateTransactionCosts(price, indicators, 1);
-    const edgeBps = this.config.rawEdgeBps;
+    const decisionEdgeBps = decision.rawEdgeBps;
+    const edgeBps = Number.isFinite(decisionEdgeBps)
+      ? decisionEdgeBps
+      : this.config.rawEdgeBps;
     const edgeAfterCosts = edgeBps === undefined ? undefined : edgeBps - costRate.bps;
 
     // Crypto enables this explicitly because its positive configured minimum
@@ -192,6 +208,7 @@ export class RiskManager {
         approved: false,
         reason: `Calibrated raw edge unavailable for configured minimum edge after costs (${this.config.minEdgeAfterCosts}bps)`,
         estimatedCosts: costRate.dollar,
+        estimatedCostBps: costRate.bps,
       };
     }
 
@@ -200,6 +217,8 @@ export class RiskManager {
         approved: false,
         reason: `Edge after costs insufficient: ${edgeAfterCosts.toFixed(1)}bps < ${this.config.minEdgeAfterCosts}bps (est. costs: ${costRate.bps}bps)`,
         estimatedCosts: costRate.dollar,
+        estimatedCostBps: costRate.bps,
+        rawEdgeBps: edgeBps,
         edgeAfterCosts,
       };
     }
@@ -272,6 +291,8 @@ export class RiskManager {
       takeProfitPrice,
       trailingStopPct: this.config.trailingStopPct,
       estimatedCosts: estimatedCosts.dollar,
+      estimatedCostBps: estimatedCosts.bps,
+      rawEdgeBps: edgeBps,
       edgeAfterCosts,
     };
   }

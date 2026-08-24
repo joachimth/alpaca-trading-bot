@@ -26,7 +26,7 @@ export async function closeBrokerAbsentPositions(
 
   for (const internal of internalPositions) {
     if (brokerSymbols.has(internal.ticker) || excludedSymbols.has(internal.ticker)) continue;
-    await db.closePosition(internal.ticker, 0, reason);
+    await db.closePosition(internal.ticker, null, reason);
     absentSymbols.push(internal.ticker);
   }
 

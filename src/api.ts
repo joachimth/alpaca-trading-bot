@@ -224,6 +224,7 @@ export class DashboardAPI {
       ? await db.getStrategyComparison(positions)
       : null;
     const categoryHistory = await this.getCategoryHistory(db);
+    const freshness = this.positionFreshness(positions);
 
     return this.json({
       stats,
@@ -232,6 +233,7 @@ export class DashboardAPI {
       positions,
       positionsAvailable,
       positionsError,
+      freshness,
       recentDecisions,
       recentTrades,
       recentRuns: runs,
@@ -251,6 +253,29 @@ export class DashboardAPI {
    * than 2 recorded points is explicitly reported as unavailable rather
    * than rendered as a fabricated trend.
    */
+  private positionFreshness(
+    positions: ReturnType<typeof projectBrokerPositions>,
+  ): {
+    current_state_source: 'alpaca';
+    current_state_observed_at: string;
+    metadata_source: 'd1' | 'none';
+    metadata_updated_at: string | null;
+    semantics: string;
+  } {
+    const metadataUpdatedAt = positions.reduce<string | null>((latest, position) => {
+      const updated = position.metadata_updated_at;
+      if (!updated) return latest;
+      return !latest || Date.parse(updated) > Date.parse(latest) ? updated : latest;
+    }, null);
+    return {
+      current_state_source: 'alpaca',
+      current_state_observed_at: new Date().toISOString(),
+      metadata_source: positions.some(position => position.metadata_source === 'd1') ? 'd1' : 'none',
+      metadata_updated_at: metadataUpdatedAt,
+      semantics: 'Broker position quantities, prices, values, and P&L are current-state evidence; D1 fields are metadata only and may be stale.',
+    };
+  }
+
   private async getCategoryHistory(db: Database): Promise<{
     series: Record<string, any[]>;
     available: Record<string, boolean>;
@@ -281,7 +306,12 @@ export class DashboardAPI {
       const db = new Database(this.env.DB, { readOnly: true });
       const dbPositions = await db.getOpenPositions();
       const positions = projectBrokerPositions(livePositions, dbPositions);
-      return this.json({ positions, positionsAvailable: true, source: 'alpaca' }, cors);
+      return this.json({
+        positions,
+        positionsAvailable: true,
+        source: 'alpaca',
+        freshness: this.positionFreshness(positions),
+      }, cors);
     } catch (e) {
       const error = e instanceof Error ? e.message : 'Broker positions unavailable';
       return this.json({ positions: [], positionsAvailable: false, source: 'alpaca', error }, cors, 503);
@@ -314,8 +344,16 @@ export class DashboardAPI {
       return this.json({ error: 'Invalid strategy filter', allowed: ['daytrading', 'swing', 'crypto'] }, cors, 400);
     }
     const strategy = requestedStrategy as 'daytrading' | 'swing' | 'crypto' | undefined;
-    const trades = await db.getRecentTrades(limit, strategy, offset);
-    return this.json({ trades, limit, offset, page, ...(strategy ? { strategy } : {}) }, cors);
+    const status = url.searchParams.get('status') || undefined;
+    const trades = await db.getRecentTrades(limit, strategy, offset, status);
+    return this.json({
+      trades,
+      limit,
+      offset,
+      page,
+      ...(strategy ? { strategy } : {}),
+      ...(status ? { status } : {}),
+    }, cors);
   }
 
   private async getPerformance(url: URL, cors: Record<string, string>): Promise<Response> {
@@ -349,17 +387,28 @@ export class DashboardAPI {
     // alias translation at this read-only API boundary so storage and scheduler
     // dispatch remain unchanged.
     const trigger = requestedTrigger ? (RUN_TRIGGER_ALIASES[requestedTrigger] ?? requestedTrigger) : undefined;
+    const code = url.searchParams.get('code') || undefined;
+    const search = url.searchParams.get('search') || undefined;
     const runs = await db.getRecentRuns({
       limit,
       offset,
       strategy: strategy === 'daytrading' || strategy === 'swing' || strategy === 'crypto' ? strategy : undefined,
       trigger,
       status: url.searchParams.get('status') || undefined,
+      code,
+      search,
     });
     const annotatedRuns = requestedTrigger && RUN_TRIGGER_ALIASES[requestedTrigger]
       ? runs.map(run => ({ ...run, trigger_alias: requestedTrigger }))
       : runs;
-    return this.json({ runs: annotatedRuns, limit, offset, page }, cors);
+    return this.json({
+      runs: annotatedRuns,
+      limit,
+      offset,
+      page,
+      ...(code ? { code } : {}),
+      ...(search ? { search } : {}),
+    }, cors);
   }
 
   private async getStats(cors: Record<string, string>): Promise<Response> {
@@ -447,7 +496,7 @@ export class DashboardAPI {
       await db.logOrderTrade(order, { strategy: dbPos?.strategy ?? null });
       // Mark position closed only after a confirmed full broker fill.
       if (pos && alpaca.isOrderFullyFilled(order)) {
-        await db.closePosition(symbol.toUpperCase(), pos.unrealized_pl, 'manual_close');
+        await db.closePosition(symbol.toUpperCase(), null, 'manual_close');
       }
       return this.json({ success: true, order, filled: alpaca.isOrderFullyFilled(order), message: `Close order submitted for ${symbol}` }, cors);
     } catch (e) {
@@ -467,7 +516,7 @@ export class DashboardAPI {
         await db.logOrderTrade(order, { strategy: dbPos?.strategy ?? null });
         const pos = positions.find(p => p.symbol === order.symbol);
         if (pos && alpaca.isOrderFullyFilled(order)) {
-          await db.closePosition(pos.symbol, pos.unrealized_pl, 'manual_close_all');
+          await db.closePosition(pos.symbol, null, 'manual_close_all');
         }
       }
       return this.json({ success: true, orders, message: 'All positions closed' }, cors);

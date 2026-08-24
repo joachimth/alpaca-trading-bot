@@ -14,6 +14,41 @@ export interface SkipReason {
 
 export type RunDetail = string | SkipReason;
 
+/**
+ * Decision skip reasons are persisted in the legacy execution_reason TEXT
+ * column. A small self-describing envelope lets read-only consumers expose
+ * truthful structured context without adding a schema migration or changing
+ * the existing decision response field.
+ */
+export interface StructuredDecisionSkip {
+  type: 'skip';
+  message: string;
+  context: Record<string, unknown>;
+}
+
+export function serializeDecisionSkip(message: string, context?: Record<string, unknown>): string {
+  const compact = compactContext(context);
+  return compact
+    ? JSON.stringify({ type: 'skip', message, context: compact })
+    : message;
+}
+
+export function parseDecisionSkip(value: unknown): StructuredDecisionSkip | null {
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || (parsed as any).type !== 'skip' || typeof (parsed as any).message !== 'string') return null;
+    const context = (parsed as any).context;
+    return {
+      type: 'skip',
+      message: (parsed as any).message,
+      context: context && typeof context === 'object' && !Array.isArray(context) ? context as Record<string, unknown> : {},
+    };
+  } catch {
+    return null;
+  }
+}
+
 const MAX_REASONS = 50;
 const MAX_CONTEXT_KEYS = 12;
 const MAX_CONTEXT_VALUE_LENGTH = 240;

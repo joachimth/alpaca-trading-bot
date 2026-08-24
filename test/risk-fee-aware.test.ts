@@ -249,6 +249,8 @@ describe('fee-aware RiskManager regression coverage', () => {
     expect(result.reason).toContain('Calibrated raw edge unavailable');
     expect(result.reason).toContain('8bps');
     expect(result.edgeAfterCosts).toBeUndefined();
+    expect(result.estimatedCostBps).toBeCloseTo(6.6, 10);
+    expect(result.rawEdgeBps).toBeUndefined();
     expect(classifyCryptoSkip(result.reason)).toBe('EDGE_CALIBRATION_UNAVAILABLE');
   });
 

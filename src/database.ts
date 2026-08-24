@@ -10,7 +10,7 @@ import {
   type PositionAttributionMetadata,
 } from './crypto-attribution';
 import type { CategoryPositionSummary, CategoryStrategy } from './position-projection';
-import { parseRunDetails } from './skip-reasons';
+import { parseDecisionSkip, parseRunDetails } from './skip-reasons';
 
 export interface DecisionRecord {
   ticker: string;
@@ -95,6 +95,7 @@ export class Database {
       : Promise.all([
           this.ensureTradeLifecycleColumns(),
           this.ensureCycleLeaseSchema(),
+          this.ensureRunLogSchema(),
           this.ensureCategorySnapshotSchema(),
           this.ensureBrokerLedgerSchema(),
         ]).then(() => undefined);
@@ -142,6 +143,32 @@ export class Database {
         expires_at INTEGER NOT NULL
       )
     `).run();
+  }
+
+  private async ensureRunLogSchema(): Promise<void> {
+    const table = await this.db.prepare(
+      `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'run_log' LIMIT 1`
+    ).first();
+    // Some focused unit fixtures intentionally contain only trade tables. The
+    // production schema always has run_log, but absent fixtures must remain
+    // valid and must not receive a create-table side effect here.
+    if (!table) return;
+    const columns = [
+      ['analyzed_candidates', 'INTEGER NOT NULL DEFAULT 0'],
+      ['filtered_candidates', 'INTEGER NOT NULL DEFAULT 0'],
+    ] as const;
+    for (const [name, definition] of columns) {
+      const column = await this.db.prepare(
+        `SELECT 1 FROM pragma_table_info('run_log') WHERE name = ? LIMIT 1`
+      ).bind(name).first();
+      if (column) continue;
+      try {
+        await this.db.prepare(`ALTER TABLE run_log ADD COLUMN ${name} ${definition}`).run();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!message.toLowerCase().includes('duplicate column')) throw error;
+      }
+    }
   }
 
   private async ensureCategorySnapshotSchema(): Promise<void> {
@@ -315,7 +342,6 @@ export class Database {
            FROM broker_fees
           WHERE fee_type = 'CFEE'
             AND usd_value > 0
-            AND symbol IN (${DEFAULT_CRYPTO_UNIVERSE.map(symbol => `'${symbol}'`).join(',')})
             AND COALESCE(created_at, created_date) >= datetime('now', '-7 days')) as crypto_usd_recent,
         COALESCE(SUM(CASE WHEN fee_type = 'FEE' THEN usd_value ELSE 0 END), 0) as regulatory_usd,
         COALESCE(SUM(CASE WHEN attribution_status = 'unattributed' THEN usd_value ELSE 0 END), 0) as unattributed_usd,
@@ -324,7 +350,6 @@ export class Database {
           WHERE fee_type = 'CFEE'
             AND usd_value IS NOT NULL
             AND usd_value > 0
-            AND symbol IN (${DEFAULT_CRYPTO_UNIVERSE.map(symbol => `'${symbol}'`).join(',')})
             AND COALESCE(created_at, created_date) >= datetime('now', '-7 days')) as crypto_fee_samples,
         (SELECT COALESCE(SUM(ABS(qty * price)), 0)
            FROM broker_fills
@@ -336,8 +361,7 @@ export class Database {
            FROM broker_fees
           WHERE fee_type = 'CFEE'
             AND usd_value IS NOT NULL
-            AND usd_value > 0
-            AND symbol IN (${DEFAULT_CRYPTO_UNIVERSE.map(symbol => `'${symbol}'`).join(',')})) as crypto_fee_as_of
+            AND usd_value > 0) as crypto_fee_as_of
       FROM broker_fees
     `).first() as any;
     const cryptoUsd = Number(row?.crypto_usd ?? 0);
@@ -418,7 +442,14 @@ export class Database {
         if (existing.status === 'committed') {
           return { reserved: false, idempotent: true, reason: 'crypto reservation already committed' };
         }
-        return { reserved: true, idempotent: true };
+        if (Number(existing.expires_at) <= nowMs) {
+          const released = await this.releaseExpiredCryptoEntryReservation(input.reservationKey, nowMs);
+          if (!released) {
+            return { reserved: false, idempotent: true, reason: 'expired crypto reservation remains linked to an unresolved trade/order' };
+          }
+        } else {
+          return { reserved: true, idempotent: true };
+        }
       }
 
       // The INSERT ... SELECT is the atomic D1/SQLite rate-window boundary.
@@ -529,11 +560,48 @@ export class Database {
 
   async releaseExpiredCryptoEntryReservation(reservationKey: string, nowMs = Date.now()): Promise<boolean> {
     await this.ensureTradeSchema();
+    // Expiry alone is not evidence that a broker submit was never accepted.
+    // Delete only an active expired row with no locally linked trade/order;
+    // committed and unresolved rows remain durable for reconciliation.
     const result = await this.db.prepare(`
       DELETE FROM crypto_entry_reservations
-      WHERE reservation_key = ? AND status = 'active' AND expires_at <= ?
+       WHERE reservation_key = ?
+         AND status = 'active'
+         AND expires_at <= ?
+         AND NOT EXISTS (
+           SELECT 1 FROM trades
+            WHERE trades.client_order_id = crypto_entry_reservations.reservation_key
+               OR trades.alpaca_order_id = crypto_entry_reservations.reservation_key
+         )
     `).bind(reservationKey, nowMs).run();
     return (result.meta.changes ?? 0) > 0;
+  }
+
+  /**
+   * Bounded maintenance cleanup for expired active reservation orphans. A row
+   * is removed only when no local trade/order references its deterministic key;
+   * committed reservations and any linked/unknown state are retained.
+   */
+  async cleanupExpiredCryptoEntryReservations(limit = 25, nowMs = Date.now()): Promise<number> {
+    await this.ensureTradeSchema();
+    const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+    const result = await this.db.prepare(`
+      DELETE FROM crypto_entry_reservations
+       WHERE rowid IN (
+         SELECT reservation.rowid
+           FROM crypto_entry_reservations AS reservation
+          WHERE reservation.status = 'active'
+            AND reservation.expires_at <= ?
+            AND NOT EXISTS (
+              SELECT 1 FROM trades
+               WHERE trades.client_order_id = reservation.reservation_key
+                  OR trades.alpaca_order_id = reservation.reservation_key
+            )
+          ORDER BY reservation.expires_at ASC, reservation.created_at ASC
+          LIMIT ?
+       )
+    `).bind(nowMs, safeLimit).run();
+    return result.meta.changes ?? 0;
   }
 
   async reconcileCryptoEntryReservation(order: Order): Promise<void> {
@@ -542,9 +610,21 @@ export class Database {
     if (!reservationKey) return;
     try {
       if (TERMINAL_ORDER_STATUSES.has(order.status)) {
-        await this.db.prepare(
-          'DELETE FROM crypto_entry_reservations WHERE reservation_key = ?'
-        ).bind(reservationKey).run();
+        const hasPartialFill = order.filled_qty > 0 && order.filled_qty < order.qty * 0.999;
+        if (!hasPartialFill) {
+          await this.db.prepare(
+            'DELETE FROM crypto_entry_reservations WHERE reservation_key = ?'
+          ).bind(reservationKey).run();
+          return;
+        }
+        // A canceled/expired/replaced order can still leave broker exposure.
+        // Retain the reservation until the current broker position and the
+        // terminal trade are reconciled, preventing a duplicate full retry.
+        await this.db.prepare(`
+          UPDATE crypto_entry_reservations
+          SET status = 'committed', expires_at = ?
+          WHERE reservation_key = ?
+        `).bind(Date.now() + CRYPTO_COMMITTED_RESERVATION_TTL_MS, reservationKey).run();
         return;
       }
       await this.db.prepare(`
@@ -626,11 +706,21 @@ export class Database {
     ).bind(executed, reason, id).run();
   }
 
+  private shapeDecision(row: any): any {
+    const storedReason = row.execution_reason || row.reason || '';
+    const structured = parseDecisionSkip(row.execution_reason);
+    return {
+      ...row,
+      execution_reason: structured?.message ?? storedReason,
+      ...(structured ? { skip_context: structured.context } : {}),
+    };
+  }
+
   async getRecentDecisions(limit: number = 50): Promise<any[]> {
     const result = await this.db.prepare(
       'SELECT * FROM decisions ORDER BY timestamp DESC LIMIT ?'
     ).bind(limit).all();
-    return (result.results as any[]).map(row => ({ ...row, execution_reason: row.execution_reason || row.reason || '' }));
+    return (result.results as any[]).map(row => this.shapeDecision(row));
   }
 
   async getRecentDecisionsByStrategy(strategy: 'daytrading' | 'swing' | 'crypto', limit: number = 100): Promise<any[]> {
@@ -642,7 +732,7 @@ export class Database {
     const result = await this.db.prepare(
       `SELECT * FROM decisions WHERE ${predicate} ORDER BY timestamp DESC LIMIT ?`
     ).bind(limit).all();
-    return (result.results as any[]).map(row => ({ ...row, execution_reason: row.execution_reason || row.reason || '' }));
+    return (result.results as any[]).map(row => this.shapeDecision(row));
   }
 
   // ============================================================
@@ -702,30 +792,63 @@ export class Database {
   }
 
   /**
-   * Detect an existing non-terminal trade with the same client_order_id.
-   *
-   * Deterministic client order IDs (derived from decision ID + symbol) allow a
-   * retry/duplicate submission to be identified and skipped before it reaches
-   * the broker. Only non-terminal rows block a retry: a terminal row
-   * (rejected/canceled/expired/done_for_day/stopped) proves the prior order
-   * never (or no longer) leads to an open position, so a retry is allowed.
-   * Returns undefined when no blocking trade exists.
+   * Detect a trade that must block reuse of the same deterministic
+   * client_order_id. Non-terminal rows always block. Terminal rows with any
+   * broker-confirmed fill also block because retrying could duplicate exposure;
+   * zero-fill terminal rejected/canceled/expired rows remain retryable.
    */
   async findNonTerminalTradeByClientOrderId(clientOrderId: string): Promise<
-    | { tradeId: number; status: string; side: string; ticker: string }
+    | {
+        tradeId: number;
+        status: string;
+        side: string;
+        ticker: string;
+        filledQty: number;
+        leavesQty: number;
+        alpacaOrderId: string | null;
+        clientOrderId: string | null;
+        decisionId: number | null;
+        strategy: TradeRecord['strategy'];
+      }
     | undefined
   > {
     await this.ensureTradeSchema();
     const row = await this.db.prepare(
-      `SELECT id, status, side, ticker FROM trades
-       WHERE client_order_id = ?
-         AND status NOT IN ('rejected', 'canceled', 'cancelled', 'expired', 'replaced', 'done_for_day', 'stopped')
-       ORDER BY COALESCE(broker_updated_at, timestamp) DESC, id DESC LIMIT 1`
-    ).bind(clientOrderId).first() as
-      | { id: number; status: string; side: string; ticker: string }
-      | null;
+      `SELECT id, status, side, ticker, qty, filled_qty, leaves_qty,
+              alpaca_order_id, client_order_id, decision_id, strategy
+         FROM trades
+        WHERE client_order_id = ?
+          AND (
+            status NOT IN ('rejected', 'canceled', 'cancelled', 'expired', 'replaced', 'done_for_day', 'stopped')
+            OR COALESCE(filled_qty, 0) > 0
+          )
+        ORDER BY COALESCE(broker_updated_at, timestamp) DESC, id DESC LIMIT 1`
+    ).bind(clientOrderId).first() as {
+      id: number;
+      status: string;
+      side: string;
+      ticker: string;
+      qty: number;
+      filled_qty: number | null;
+      leaves_qty: number | null;
+      alpaca_order_id: string | null;
+      client_order_id: string | null;
+      decision_id: number | null;
+      strategy: TradeRecord['strategy'];
+    } | null;
     if (!row) return undefined;
-    return { tradeId: row.id, status: row.status, side: row.side, ticker: row.ticker };
+    return {
+      tradeId: row.id,
+      status: row.status,
+      side: row.side,
+      ticker: row.ticker,
+      filledQty: Number(row.filled_qty ?? 0),
+      leavesQty: Number(row.leaves_qty ?? Math.max(0, Number(row.qty ?? 0) - Number(row.filled_qty ?? 0))),
+      alpacaOrderId: row.alpaca_order_id,
+      clientOrderId: row.client_order_id,
+      decisionId: row.decision_id,
+      strategy: row.strategy ?? null,
+    };
   }
 
   async logOrderTrade(order: Order, options: {
@@ -1147,15 +1270,23 @@ export class Database {
     limit: number = 50,
     strategy?: 'daytrading' | 'swing' | 'crypto',
     offset: number = 0,
+    status?: string,
   ): Promise<any[]> {
     await this.ensureTradeSchema();
-    const query = strategy
-      ? 'SELECT * FROM trades WHERE strategy = ? ORDER BY timestamp DESC, id ASC LIMIT ? OFFSET ?'
-      : 'SELECT * FROM trades ORDER BY timestamp DESC, id ASC LIMIT ? OFFSET ?';
+    const predicates: string[] = [];
+    const bindings: unknown[] = [];
+    if (strategy) {
+      predicates.push('strategy = ?');
+      bindings.push(strategy);
+    }
+    if (status) {
+      predicates.push('status = ?');
+      bindings.push(status);
+    }
+    const where = predicates.length > 0 ? ` WHERE ${predicates.join(' AND ')}` : '';
+    const query = `SELECT * FROM trades${where} ORDER BY timestamp DESC, id ASC LIMIT ? OFFSET ?`;
     const boundedOffset = Math.max(0, Math.floor(offset));
-    const result = strategy
-      ? await this.db.prepare(query).bind(strategy, limit, boundedOffset).all()
-      : await this.db.prepare(query).bind(limit, boundedOffset).all();
+    const result = await this.db.prepare(query).bind(...bindings, limit, boundedOffset).all();
     return this.enrichTradeAccounting(result.results as any[]);
   }
 
@@ -1219,7 +1350,7 @@ export class Database {
       ).run();
   }
 
-  async closePosition(ticker: string, closedPl: number, reason: string): Promise<void> {
+  async closePosition(ticker: string, closedPl: number | null, reason: string): Promise<void> {
     await this.db.prepare(
       `UPDATE positions SET closed_at = datetime('now'), closed_pl = ?, close_reason = ? WHERE ticker = ? AND closed_at IS NULL`
     ).bind(closedPl, reason, ticker).run();
@@ -1287,6 +1418,15 @@ export class Database {
     return result.results as any[];
   }
 
+  /** Read the latest durable account-equity observations for rolling risk checks. */
+  async getRecentEquityHistory(limit: number = 20): Promise<number[]> {
+    const snapshots = await this.getRecentSnapshots(limit);
+    return snapshots
+      .map(snapshot => Number(snapshot.equity))
+      .filter(equity => Number.isFinite(equity))
+      .reverse();
+  }
+
   // ============================================================
   // Category snapshots (per-strategy market value & P&L, broker-authoritative)
   // ============================================================
@@ -1351,10 +1491,12 @@ export class Database {
       errors: number;
       error_details: string | null;
       status: string;
+      analyzed_candidates?: number;
+      filtered_candidates?: number;
     }): Promise<void> {
     await this.db.prepare(
-      `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status, analyzed_candidates, filtered_candidates)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       run.trigger,
       run.market_open,
@@ -1363,7 +1505,9 @@ export class Database {
       run.trades_executed,
       run.errors,
       run.error_details,
-      run.status
+      run.status,
+      run.analyzed_candidates ?? 0,
+      run.filtered_candidates ?? 0
     ).run();
   }
 
@@ -1374,6 +1518,8 @@ export class Database {
       strategy?: 'daytrading' | 'swing' | 'crypto';
       trigger?: string;
       status?: string;
+      code?: string;
+      search?: string;
     } = 30,
     legacyOffset: number = 0,
   ): Promise<any[]> {
@@ -1396,6 +1542,17 @@ export class Database {
     if (options.status) {
       predicates.push('status = ?');
       bindings.push(options.status);
+    }
+    if (options.code) {
+      // Structured skip/error codes are persisted in error_details. INSTR
+      // avoids LIKE wildcard semantics and also matches legacy plain-string
+      // details such as CYCLE_LEASE_HELD.
+      predicates.push("INSTR(COALESCE(error_details, ''), ?) > 0");
+      bindings.push(options.code);
+    }
+    if (options.search) {
+      predicates.push("INSTR(COALESCE(error_details, ''), ?) > 0");
+      bindings.push(options.search);
     }
     const limit = Math.max(0, Math.floor(options.limit ?? 30));
     const offset = Math.max(0, Math.floor(options.offset ?? 0));

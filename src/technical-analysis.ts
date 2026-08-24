@@ -46,6 +46,8 @@ export interface TASignal {
   confidence: number;    // 0.0 to 1.0
   reasons: string[];
   indicators: TAIndicators;
+  /** Optional calibrated gross edge in basis points; never inferred from confidence. */
+  rawEdgeBps?: number;
 }
 
 // ============================================================

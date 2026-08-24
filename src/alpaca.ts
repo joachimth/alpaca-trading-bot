@@ -340,14 +340,17 @@ export class AlpacaClient {
     return order;
   }
 
-  async closePosition(symbol: string): Promise<Order> {
+  async closePosition(symbol: string, options: { waitForFill?: boolean } = {}): Promise<Order> {
     const resp = await this.request(`/v2/positions/${symbol}`, { method: 'DELETE' });
     if (!resp.ok) {
       const text = await resp.text();
       throw new Error(`Alpaca closePosition failed: ${resp.status} ${text}`);
     }
     const order = this.parseOrder(await resp.json());
-    return order.id ? await this.waitForOrder(order.id) : order;
+    // Strategy cycles may submit an exit and defer broker confirmation to the
+    // bounded scheduled reconciliation pass. Existing callers retain the
+    // synchronous confirmation default.
+    return order.id && options.waitForFill !== false ? await this.waitForOrder(order.id) : order;
   }
 
   async closeAllPositions(): Promise<Order[]> {

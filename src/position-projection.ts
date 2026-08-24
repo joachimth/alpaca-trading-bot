@@ -15,6 +15,13 @@ export interface PositionMetadata {
   updated_at?: string | null;
 }
 
+export type PositionFreshnessSemantics = {
+  current_state_source: 'alpaca';
+  current_state_observed_at: string;
+  metadata_source: 'd1' | 'none';
+  metadata_updated_at: string | null;
+};
+
 export interface BrokerPositionProjection {
   asset_id: string;
   ticker: string;
@@ -36,6 +43,8 @@ export interface BrokerPositionProjection {
   take_profit_price: number | null;
   opened_at: string | null;
   updated_at: string | null;
+  metadata_source: 'd1' | 'none';
+  metadata_updated_at: string | null;
 }
 
 /**
@@ -73,6 +82,8 @@ export function projectBrokerPositions(
       take_profit_price: metadata?.take_profit_price ?? null,
       opened_at: metadata?.opened_at ?? null,
       updated_at: metadata?.updated_at ?? null,
+      metadata_source: metadata ? 'd1' : 'none',
+      metadata_updated_at: metadata?.updated_at ?? null,
     };
   });
 }

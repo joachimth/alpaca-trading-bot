@@ -215,6 +215,7 @@ describe('Database category snapshots (real SQLite, UTC day boundaries)', () => 
     });
     expect(crypto.totalPl).not.toBe(crypto.grossTotalPl);
     expect(comparison.accountLevelFeesUsd).toBe(3);
+    // Aggregate net includes the account-level regulatory fee exactly once.
     expect(comparison.netTotalPl).toBeCloseTo(146.8, 10);
   });
 

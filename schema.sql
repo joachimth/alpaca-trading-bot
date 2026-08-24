@@ -67,7 +67,8 @@ CREATE INDEX IF NOT EXISTS idx_trades_ticker ON trades(ticker);
 CREATE INDEX IF NOT EXISTS idx_trades_client_order_id ON trades(client_order_id);
 CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
 
--- Global account-wide lease preventing overlapping strategy cycles.
+-- Isolated lease keys for maintenance, daytrading, swing, and crypto.
+-- Each key prevents same-key overlap; leases do not block across keys.
 CREATE TABLE IF NOT EXISTS cycle_leases (
   lease_key TEXT PRIMARY KEY,
   owner TEXT NOT NULL,
@@ -215,6 +216,8 @@ CREATE TABLE IF NOT EXISTS run_log (
   errors INTEGER DEFAULT 0,
   error_details TEXT,                         -- JSON array of legacy error strings and/or structured skip details
   status TEXT NOT NULL DEFAULT 'ok',          -- ok, error, skipped, degraded
+  analyzed_candidates INTEGER NOT NULL DEFAULT 0, -- valid candidates analyzed this cycle
+  filtered_candidates INTEGER NOT NULL DEFAULT 0, -- candidates admitted to decision processing
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

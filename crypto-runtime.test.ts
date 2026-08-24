@@ -1,5 +1,40 @@
 import { describe, expect, test } from 'bun:test';
-import { classifyCryptoOrder, cryptoBudgetDecision, cryptoClientOrderId, cryptoFeeRateBps, cryptoMinimumOrderCheck, cryptoReservationNotional, evaluateCryptoProtectiveExit, feeTelemetryFromAggregate, hasPendingCryptoExit, projectedPositions, rankCryptoCandidates, resolveCryptoConfig, createCycleExposure, reserveEntry, shouldFinalizeCryptoPosition } from '/workspace/alpaca-trading-bot/src/crypto-runtime';
+import { classifyCryptoOrder, classifyCryptoSubmitError, cryptoBudgetDecision, cryptoClientOrderId, cryptoFeeRateBps, cryptoMinimumOrderCheck, cryptoReservationNotional, evaluateCryptoProtectiveExit, feeTelemetryFromAggregate, hasPendingCryptoExit, projectedPositions, rankCryptoCandidates, resolveCryptoConfig, createCycleExposure, reserveEntry, shouldFinalizeCryptoPosition } from '/workspace/alpaca-trading-bot/src/crypto-runtime';
+import { checkCryptoEntryRisk, cryptoRiskSkipContext, prepareCryptoRiskDecision } from '/workspace/alpaca-trading-bot/src/crypto-strategy';
+import { RiskManager, type RiskConfig } from '/workspace/alpaca-trading-bot/src/risk-manager';
+import type { AccountInfo } from '/workspace/alpaca-trading-bot/src/alpaca';
+import type { AIDecision } from '/workspace/alpaca-trading-bot/src/ai-decision';
+import type { TAIndicators } from '/workspace/alpaca-trading-bot/src/technical-analysis';
+
+const account: AccountInfo = {
+  id: 'acct-1', account_number: 'paper-1', status: 'ACTIVE', currency: 'USD',
+  cash: 10_000, portfolio_value: 10_000, equity: 10_000, buying_power: 10_000,
+  long_market_value: 0, short_market_value: 0, market_value: 0, last_equity: 10_000,
+  change_today: 0, change_today_pct: 0, pattern_day_trader: false,
+  trading_blocked: false, transfers_blocked: false, account_blocked: false,
+};
+
+const indicators: TAIndicators = {
+  symbol: 'BTCUSD', price: 100, rsi: 50, emaFast: 100, emaSlow: 99, emaTrend: 'up',
+  macd: 1, macdSignal: 0.5, macdHistogram: 0.5, macdTrend: 'bullish', atr: 1, atrPct: 1,
+  volume: 1_000_000, volumeAvg: 1_000_000, volumeRatio: 1, support: 98, resistance: 102,
+  pricePosition: 0.5, stochK: 60, stochD: 55, bbUpper: 103, bbMiddle: 100, bbLower: 97,
+  bbPosition: 0.5, adx: 25, obv: 1_000, obvTrend: 'up', shortTermReturn: 0.01,
+  shortTermReturnPeriods: 5, gapPct: 0, vwap: 100, vwapDeviation: 0, intradayReturn: 0.01,
+};
+
+const cryptoRiskConfig = (values: Partial<RiskConfig> = {}): RiskConfig => ({
+  maxPositions: 5, maxPositionPct: 50, stopLossATRMultiplier: 1.5, takeProfitATRMultiplier: 2,
+  trailingStopPct: 2, dailyLossLimitPct: 10, rollingDrawdownLimitPct: 20, minConfidence: 0.5,
+  enableMargin: false, eodFlatten: false, targetVolatilityPct: 2, maxOrderRatePerMin: 10,
+  minEdgeAfterCosts: 8, feeTelemetryStatus: 'available', requireFeeTelemetry: true,
+  requireCalibratedEdge: true, maxCapitalUsd: 2_000, ...values,
+});
+
+const cryptoBuyDecision = (rawEdgeBps?: number): AIDecision => {
+  const signal = { action: 'BUY' as const, confidence: 0.9, reasons: ['calibrated test'], indicators, ...(rawEdgeBps === undefined ? {} : { rawEdgeBps }) };
+  return { ...signal, reasoning: 'calibrated test', factors: signal.reasons, adjustedFromTA: false, taSignal: signal };
+};
 
 describe('crypto runtime correctness helpers', () => {
   test('resolves camelCase before snake_case and rejects numeric prefixes', () => {
@@ -24,6 +59,8 @@ describe('crypto runtime correctness helpers', () => {
 
   test('fails closed for missing, stale, or insufficient fee telemetry', () => {
     expect(feeTelemetryFromAggregate({ feeUsd: 1, notionalUsd: 1000, sampleCount: 0, minSamples: 3 }).status).toBe('insufficient');
+    expect(feeTelemetryFromAggregate({ feeUsd: 1, notionalUsd: 1000, sampleCount: 3, minSamples: 3, maxAgeMs: 60_000, nowMs: Date.parse('2026-08-09T00:02:00.000Z') }).status).toBe('unavailable');
+    expect(feeTelemetryFromAggregate({ feeUsd: 1, notionalUsd: 1000, sampleCount: 3, minSamples: 3, asOf: 'not-a-date', maxAgeMs: 60_000, nowMs: Date.parse('2026-08-09T00:02:00.000Z') }).status).toBe('unavailable');
     expect(feeTelemetryFromAggregate({ feeUsd: 1, notionalUsd: 1000, sampleCount: 3, minSamples: 3, asOf: '2026-08-09T00:00:00.000Z', maxAgeMs: 60_000, nowMs: Date.parse('2026-08-09T00:02:00.000Z') }).status).toBe('unavailable');
     expect(feeTelemetryFromAggregate({ feeUsd: 1, notionalUsd: 1000, sampleCount: 3, minSamples: 3, asOf: '2026-08-09T00:00:00.000Z', maxAgeMs: 180_000, nowMs: Date.parse('2026-08-09T00:02:00.000Z') }).status).toBe('available');
   });
@@ -69,6 +106,16 @@ describe('crypto runtime correctness helpers', () => {
     expect(evaluateCryptoProtectiveExit(position({ current_price: 85, unrealized_pl: -15, unrealized_plpc: -0.15 }), {}, 12, 8)?.kind).toBe('stop_loss');
     expect(evaluateCryptoProtectiveExit(position({ current_price: 105, unrealized_pl: 5, unrealized_plpc: 0.05, change_today_pct: -8 }), {}, 12, 8)?.kind).toBe('trailing_stop');
     expect(evaluateCryptoProtectiveExit(position({ current_price: 105, unrealized_pl: 5, unrealized_plpc: 0.05, change_today_pct: -7.9 }), {}, 12, 8)).toBeNull();
+  });
+
+  test('classifies thrown submits fail-closed except conclusive client or broker rejection', () => {
+    expect(classifyCryptoSubmitError(new Error('Failed to fetch'))).toBe('ambiguous');
+    expect(classifyCryptoSubmitError(new Error('The operation was aborted'))).toBe('ambiguous');
+    for (const status of [408, 409, 429, 500, 502, 503]) {
+      expect(classifyCryptoSubmitError(new Error(`Alpaca submitOrder failed: ${status} upstream`))).toBe('ambiguous');
+    }
+    expect(classifyCryptoSubmitError(new Error('Alpaca submitOrder failed: 400 invalid quantity'))).toBe('definitive_rejection');
+    expect(classifyCryptoSubmitError(new Error('Alpaca submitOrder failed: 422 insufficient buying power'))).toBe('definitive_rejection');
   });
 
   test('classifies partial, rejected, cancelled, expired, pending, and timed-out orders without inventing fills', () => {
@@ -120,5 +167,81 @@ describe('crypto runtime correctness helpers', () => {
       { symbol: 'AAVEUSD', signal: { action: 'BUY', confidence: 0.8 } },
     ]);
     expect(ranked.map(x => x.symbol)).toEqual(['BTCUSD', 'ETHUSD', 'AAVEUSD']);
+  });
+
+  test('strategy-level positive calibrated raw edge reaches crypto risk admission', () => {
+    const manager = new RiskManager(cryptoRiskConfig());
+    const decision = cryptoBuyDecision(20);
+    const prepared = prepareCryptoRiskDecision(decision);
+    const result = checkCryptoEntryRisk(manager, decision, account, [], indicators);
+
+    expect(prepared.rawEdgeBps).toBe(20);
+    expect(result.approved).toBe(true);
+    expect(result.edgeAfterCosts).toBeCloseTo(13.4, 10);
+  });
+
+  test('strategy-level missing calibrated raw edge remains rejected', () => {
+    const manager = new RiskManager(cryptoRiskConfig());
+    const decision = cryptoBuyDecision();
+    const result = checkCryptoEntryRisk(manager, decision, account, [], indicators);
+
+    expect(prepareCryptoRiskDecision(decision).rawEdgeBps).toBeUndefined();
+    expect(result.approved).toBe(false);
+    expect(result.reason).toContain('Calibrated raw edge unavailable');
+  });
+
+  test('structured crypto edge skip context exposes numeric comparison without inventing edge or fees', () => {
+    const manager = new RiskManager(cryptoRiskConfig({ rawEdgeBps: 14 }));
+    const result = checkCryptoEntryRisk(manager, cryptoBuyDecision(14), account, [], indicators);
+    const context = cryptoRiskSkipContext({
+      symbol: 'BTCUSD',
+      decisionId: 42,
+      skipCode: 'INSUFFICIENT_NET_EDGE',
+      riskCheck: result,
+      minEdgeAfterCostsBps: 8,
+      feeTelemetryStatus: 'available',
+    });
+
+    expect(result.approved).toBe(false);
+    expect(context).toMatchObject({
+      edge_gate_evaluated: true,
+      min_edge_after_costs_bps: 8,
+      edge_source: 'calibrated_raw_edge_bps',
+      edge_status: 'available',
+      raw_edge_bps: 14,
+      estimated_cost_bps: 6.6,
+      estimated_cost_usd: 0.066,
+      edgeAfterCosts: 7.4,
+      fee_telemetry_status: 'available',
+    });
+    expect(context).not.toHaveProperty('edge_status_reason');
+    expect(context).not.toHaveProperty('fee_usd');
+    expect(context).not.toHaveProperty('gross');
+    expect(context).not.toHaveProperty('net');
+  });
+
+  test('missing-edge skip context reports unavailable status and omits unavailable edge values', () => {
+    const manager = new RiskManager(cryptoRiskConfig());
+    const result = checkCryptoEntryRisk(manager, cryptoBuyDecision(), account, [], indicators);
+    const context = cryptoRiskSkipContext({
+      symbol: 'BTCUSD',
+      decisionId: 43,
+      skipCode: 'EDGE_CALIBRATION_UNAVAILABLE',
+      riskCheck: result,
+      minEdgeAfterCostsBps: 8,
+      feeTelemetryStatus: 'available',
+    });
+
+    expect(context).toMatchObject({
+      edge_gate_evaluated: true,
+      min_edge_after_costs_bps: 8,
+      edge_source: 'unavailable',
+      edge_status: 'unavailable',
+      edge_status_reason: 'Calibrated raw edge unavailable for configured minimum edge after costs (8bps)',
+      estimated_cost_bps: 6.6,
+      estimated_cost_usd: 0.066,
+    });
+    expect(context).not.toHaveProperty('raw_edge_bps');
+    expect(context).not.toHaveProperty('edgeAfterCosts');
   });
 });

@@ -37,6 +37,8 @@ describe('projectBrokerPositions', () => {
     expect(result[0].qty).toBe(14);
     expect(result[0].market_value).toBe(260);
     expect(result[0].strategy).toBe('daytrading');
+    expect(result[0].metadata_source).toBe('d1');
+    expect(result[0].metadata_updated_at).toBeNull();
     expect(result[0].stop_loss_price).toBe(16.5);
   });
 

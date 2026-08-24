@@ -39,19 +39,59 @@ describe('findNonTerminalTradeByClientOrderId', () => {
     expect(hit?.status).toBe('new');
   });
 
-  test('returns undefined when the row is terminal (rejected/canceled/expired), so a retry is allowed', async () => {
+  test('returns undefined when a terminal row has zero fill, so a retry is allowed', async () => {
     const db = createDb();
     for (const status of ['rejected', 'canceled', 'cancelled', 'expired', 'done_for_day', 'stopped', 'replaced']) {
       const unique = createDb();
-      await seedTrade(unique, { client_order_id: `bot_1_${status}`, status });
+      await seedTrade(unique, { client_order_id: `bot_1_${status}`, status, filled_qty: 0 });
       expect(await unique.findNonTerminalTradeByClientOrderId(`bot_1_${status}`)).toBeUndefined();
     }
+  });
+
+  test('blocks a terminal row when it has any filled quantity and returns structured context', async () => {
+    const db = createDb();
+    await seedTrade(db, {
+      client_order_id: 'crypto_1_BTCUSD',
+      alpaca_order_id: 'crypto-order-1',
+      ticker: 'BTCUSD',
+      status: 'canceled',
+      filled_qty: 0.25,
+      leaves_qty: 0.75,
+      decision_id: 1,
+      strategy: 'crypto',
+    });
+    expect(await db.findNonTerminalTradeByClientOrderId('crypto_1_BTCUSD')).toMatchObject({
+      tradeId: 1,
+      status: 'canceled',
+      side: 'buy',
+      ticker: 'BTCUSD',
+      filledQty: 0.25,
+      leavesQty: 0.75,
+      alpacaOrderId: 'crypto-order-1',
+      clientOrderId: 'crypto_1_BTCUSD',
+      decisionId: 1,
+      strategy: 'crypto',
+    });
   });
 
   test('returns undefined when no row matches the client order id', async () => {
     const db = createDb();
     await seedTrade(db);
     expect(await db.findNonTerminalTradeByClientOrderId('bot_999_MSFT')).toBeUndefined();
+  });
+
+  test('closePosition preserves close reason while persisting NULL when realized fill P&L is unavailable', async () => {
+    const sqlite = createTestDatabase();
+    const directDb = new Database(createFakeD1(sqlite));
+    sqlite.run(`INSERT INTO positions (ticker, side, qty, avg_entry_price, current_price, market_value, unrealized_pl, unrealized_plpc, strategy)
+      VALUES ('BTCUSD', 'long', 1, 100, 120, 120, 20, 0.2, 'crypto')`);
+    await directDb.closePosition('BTCUSD', null, 'broker_authoritative_sync_absent');
+    expect(sqlite.query(`SELECT closed_pl, close_reason FROM positions WHERE ticker = 'BTCUSD'`).get()).toEqual({ closed_pl: null, close_reason: 'broker_authoritative_sync_absent' });
+
+    sqlite.run(`INSERT INTO positions (ticker, side, qty, avg_entry_price, current_price, market_value, unrealized_pl, unrealized_plpc, strategy)
+      VALUES ('ETHUSD', 'long', 1, 100, 120, 120, 20, 0.2, 'crypto')`);
+    await directDb.closePosition('ETHUSD', null, 'manual_close');
+    expect(sqlite.query(`SELECT closed_pl, close_reason FROM positions WHERE ticker = 'ETHUSD'`).get()).toEqual({ closed_pl: null, close_reason: 'manual_close' });
   });
 
   test('only the newest blocking row is returned across repeated submissions', async () => {

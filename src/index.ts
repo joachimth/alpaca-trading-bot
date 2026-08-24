@@ -25,6 +25,35 @@ export interface Env {
   LLM_API_KEY: string;
 }
 
+/**
+ * Keep daytrading RiskManager rejections durable in the shared structured skip
+ * stream without changing the existing decision reason or broker path.
+ */
+export function daytradingRiskSkipCode(reason: string): string {
+  return reason.toLowerCase().includes('capital cap') || reason.toLowerCase().includes('available cash')
+    ? 'CAPITAL_CAP'
+    : 'NO_ENTRY_RISK';
+}
+
+export function daytradingRiskSkipContext(input: {
+  symbol: string;
+  decisionId: number;
+  action: 'BUY' | 'SELL';
+  riskCheck: RiskCheckResult;
+}): Record<string, unknown> {
+  const context: Record<string, unknown> = {
+    strategy: 'daytrading',
+    symbol: input.symbol,
+    decision_id: input.decisionId,
+    action: input.action,
+    reason: input.riskCheck.reason,
+  };
+  if (Number.isFinite(input.riskCheck.estimatedCostBps)) context.estimated_cost_bps = input.riskCheck.estimatedCostBps;
+  if (Number.isFinite(input.riskCheck.estimatedCosts)) context.estimated_cost_usd = input.riskCheck.estimatedCosts;
+  if (Number.isFinite(input.riskCheck.edgeAfterCosts)) context.edge_after_costs = input.riskCheck.edgeAfterCosts;
+  return context;
+}
+
 // Default fallback config if D1 is empty
 const CRYPTO_SYMBOLS = new Set([
   'BTCUSD','ETHUSD','SOLUSD','AVAXUSD','LINKUSD','MATICUSD','DOTUSD','UNIUSD',
@@ -155,6 +184,7 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
   const skips = new SkipReasonCollector();
   const errors: string[] = [];
   let ledgerDegraded = false;
+  let reconciliationDegraded = false;
   if (!await db.acquireCycleLease(owner, undefined, leaseKey)) {
     skips.add('CYCLE_LEASE_HELD', 'maintenance', 'Maintenance skipped because another maintenance run holds the maintenance lease', { trigger });
     console.log(JSON.stringify({ event: 'maintenance_skipped', trigger, reason: 'cycle_lease_held' }));
@@ -178,6 +208,13 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
       baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
     });
     const reconciliation = await reconcileBrokerOrders(db, alpaca);
+    if (reconciliation.lookupFailures > 0) {
+      reconciliationDegraded = true;
+      skips.add('BROKER_ORDER_LOOKUP_DEGRADED', 'reconciliation', 'One or more broker order lookups failed; unresolved local orders remain for a later read-only pass', {
+        lookupFailures: reconciliation.lookupFailures,
+        pendingLookups: reconciliation.pendingLookups,
+      });
+    }
     let ledger: Awaited<ReturnType<typeof syncBrokerLedger>> | null = null;
     try {
       ledger = await syncBrokerLedger(db, alpaca);
@@ -196,6 +233,8 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
       skips.add('MAINTENANCE_ONLY', 'maintenance', 'Scheduled maintenance reconciled broker state without running a trading strategy', {
         brokerOrders: reconciliation.brokerOrders,
         imported: reconciliation.imported,
+        pendingLookups: reconciliation.pendingLookups,
+        lookupFailures: reconciliation.lookupFailures,
         ledgerActivities: ledger?.activities ?? 0,
         ledgerPages: ledger?.pages ?? 0,
         ledgerPageBudget: ledger?.pageBudget ?? 0,
@@ -216,7 +255,7 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
       trades_executed: 0,
       errors: errors.length,
       error_details: serializeRunDetails(errors, skips),
-      status: errors.length > 0 ? 'error' : ledgerDegraded ? 'degraded' : 'skipped',
+      status: errors.length > 0 ? 'error' : (ledgerDegraded || reconciliationDegraded) ? 'degraded' : 'skipped',
     });
     await db.releaseCycleLease(owner, leaseKey);
   }
@@ -253,6 +292,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
   let ledgerDegraded = false;
   let decisionsMade = 0;
   let tradesExecuted = 0;
+  let analyzedCandidates = 0;
+  let filteredCandidates = 0;
   const findPendingDayExit = async (symbol: string, scope: string, context: Record<string, unknown> = {}) => {
     const pending = await db.findNonTerminalExitBySymbol('daytrading', symbol);
     if (!pending) return undefined;
@@ -337,6 +378,10 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       !CRYPTO_SYMBOLS.has(p.symbol) && (daySymbols.has(p.symbol) || !taggedSymbols.has(p.symbol))
     );
 
+    // Restore the durable rolling equity window before appending this cycle's
+    // snapshot. RiskManager instances are recreated on every Worker run.
+    const recentEquityHistory = await db.getRecentEquityHistory();
+
     // Log performance snapshot
     await db.logSnapshot({
       account_id: account.id,
@@ -384,9 +429,9 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       observedFeeBps: 0,
       maxCapitalUsd: config.maxCapitalUsd || 0,
     };
-    const riskManager = new RiskManager(riskConfig);
+    const riskManager = new RiskManager(riskConfig, recentEquityHistory);
 
-    // Update kill switch with equity snapshot
+    // Update kill switch with the current broker equity after loading durable history.
     riskManager.updateEquitySnapshot(account.equity);
 
     // 5b. Reconciliation: check for position divergence
@@ -441,7 +486,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         const brokerSymbols = new Set(positions.map(p => p.symbol));
         for (const dbPos of dbPositions) {
           if (!brokerSymbols.has(dbPos.ticker)) {
-            await db.closePosition(dbPos.ticker, 0, 'auto_reconcile_not_in_broker');
+            await db.closePosition(dbPos.ticker, null, 'auto_reconcile_not_in_broker');
           }
         }
       }
@@ -462,7 +507,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           await db.logOrderTrade(order, { strategy: dbPositions.find(p => p.ticker === action.symbol)?.strategy ?? 'daytrading' });
           const pos = positions.find(p => p.symbol === action.symbol);
           if (pos && alpaca.isOrderFullyFilled(order)) {
-            await db.closePosition(action.symbol, pos.unrealized_pl, action.reason);
+            await db.closePosition(action.symbol, null, action.reason);
             closedSymbols.add(action.symbol);
           } else if (pos) {
             errors.push(`Exit order for ${action.symbol} not fully filled: ${order.status}`);
@@ -492,7 +537,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           closeOrders.push(order);
           await db.logOrderTrade(order, { strategy: 'daytrading' });
           if (alpaca.isOrderFullyFilled(order)) {
-            await db.closePosition(pos.symbol, pos.unrealized_pl, 'eod_flatten');
+            await db.closePosition(pos.symbol, null, 'eod_flatten');
             closedSymbols.add(pos.symbol);
           } else {
             errors.push(`EOD exit for ${pos.symbol} not fully filled`);
@@ -591,10 +636,12 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     }
 
     // 10. Filter to actionable signals
+    analyzedCandidates = signals.length;
     const actionableSignals = signals.filter(s => s.action !== 'HOLD' || s.confidence > 0.7);
     // For held positions, also include HOLD signals (potential CLOSE)
     const heldPositionSignals = signals.filter(s => positions.some(p => p.symbol === s.indicators.symbol));
     const signalsToProcess = [...new Set([...actionableSignals, ...heldPositionSignals])];
+    filteredCandidates = signalsToProcess.length;
 
     console.log(`TA complete: ${signals.length} analyzed, ${signalsToProcess.length} to process`);
 
@@ -715,7 +762,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             const order = await alpaca.closePosition(signal.indicators.symbol);
             await db.logOrderTrade(order, { decisionId, strategy: 'daytrading' });
             if (alpaca.isOrderFullyFilled(order)) {
-              await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
+              await db.closePosition(signal.indicators.symbol, null, 'ai_signal');
               await db.updateDecisionStatus(decisionId, 1, 'Position closed');
               tradesExecuted++;
             } else {
@@ -738,6 +785,13 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         riskCheck = riskManager.checkTrade(decision, account, positions, signal.indicators, cycleEntryNotionalUsd);
         if (!riskCheck.approved) {
           await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
+          const skipCode = daytradingRiskSkipCode(riskCheck.reason);
+          skips.add(skipCode, 'decision', 'Daytrading entry skipped by risk controls', daytradingRiskSkipContext({
+            symbol: signal.indicators.symbol,
+            decisionId,
+            action: decision.action,
+            riskCheck,
+          }));
           console.log(`Skipped ${signal.indicators.symbol}: ${riskCheck.reason}`);
           continue;
         }
@@ -769,7 +823,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             const order = await alpaca.closePosition(signal.indicators.symbol);
             await db.logOrderTrade(order, { decisionId, strategy: 'daytrading' });
             if (alpaca.isOrderFullyFilled(order)) {
-              await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
+              await db.closePosition(signal.indicators.symbol, null, 'ai_signal');
               await db.updateDecisionStatus(decisionId, 1, 'Position closed (sell signal)');
               tradesExecuted++;
             } else {
@@ -884,7 +938,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     const finalBrokerSymbols = new Set(finalPositions.map(pos => pos.symbol));
     for (const dbPos of dbPositions) {
       if (!finalBrokerSymbols.has(dbPos.ticker) && !pendingDaySymbols.has(dbPos.ticker)) {
-        await db.closePosition(dbPos.ticker, 0, 'broker_authoritative_sync_absent');
+        await db.closePosition(dbPos.ticker, null, 'broker_authoritative_sync_absent');
       }
     }
 
@@ -898,6 +952,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       errors: errors.length,
       error_details: serializeRunDetails(errors, skips),
       status: runStatus(errors, skips, ledgerDegraded, tradesExecuted),
+      analyzed_candidates: analyzedCandidates,
+      filtered_candidates: filteredCandidates,
     });
 
     console.log(`Cycle complete: ${decisionsMade} decisions, ${tradesExecuted} trades, ${errors.length} errors, ${Date.now() - startTime}ms`);
@@ -915,6 +971,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       errors: errors.length,
       error_details: serializeRunDetails(errors, skips),
       status: 'error',
+      analyzed_candidates: analyzedCandidates,
+      filtered_candidates: filteredCandidates,
     });
   }
 }

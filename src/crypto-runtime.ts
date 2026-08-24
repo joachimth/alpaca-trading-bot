@@ -14,6 +14,26 @@ export type CryptoOrderOutcome =
   | 'expired'
   | 'timed_out';
 
+export type CryptoSubmitErrorDisposition = 'ambiguous' | 'definitive_rejection';
+
+/**
+ * A submit exception is ambiguous unless its error proves the broker rejected
+ * the request before accepting it. Network/timeout/unknown failures retain the
+ * reservation because the broker may have accepted the order even though no
+ * response reached the worker. HTTP 408/409/429 and all 5xx responses remain
+ * ambiguous for the same reason.
+ */
+export function classifyCryptoSubmitError(error: unknown): CryptoSubmitErrorDisposition {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  const statusMatch = message.match(/\b(?:status|failed:)\s*(\d{3})\b/i) ?? message.match(/\bHTTP\s*(\d{3})\b/i);
+  const status = statusMatch ? Number(statusMatch[1]) : undefined;
+  if (status !== undefined) {
+    if (status === 408 || status === 409 || status === 429 || status >= 500) return 'ambiguous';
+    if (status >= 400 && status < 500) return 'definitive_rejection';
+  }
+  return 'ambiguous';
+}
+
 /**
  * Classify a broker snapshot without treating submission or a local timeout as
  * a fill. This is shared by entries and protective exits so position/accounting
@@ -316,8 +336,12 @@ export function feeTelemetryFromAggregate(input: {
   }
   const rateBps = cryptoFeeRateBps(input.feeUsd, input.notionalUsd);
   if (rateBps === null || rateBps <= 0) return { status: 'unavailable', reason: 'missing or invalid crypto fee notional' };
-  if (input.asOf && input.maxAgeMs !== undefined && (input.nowMs ?? Date.now()) - Date.parse(input.asOf) > input.maxAgeMs) {
-    return { status: 'unavailable', reason: 'crypto fee telemetry is stale' };
+  if (input.maxAgeMs !== undefined) {
+    if (!input.asOf) return { status: 'unavailable', reason: 'crypto fee telemetry freshness unavailable' };
+    const asOfMs = Date.parse(input.asOf);
+    if (!Number.isFinite(asOfMs) || (input.nowMs ?? Date.now()) - asOfMs > input.maxAgeMs) {
+      return { status: 'unavailable', reason: 'crypto fee telemetry is stale' };
+    }
   }
   return { status: 'available', rateBps, sampleCount: input.sampleCount, notionalUsd: input.notionalUsd, asOf: input.asOf ?? new Date().toISOString() };
 }

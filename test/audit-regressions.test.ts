@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { RiskManager, type RiskConfig } from '../src/risk-manager';
+import { daytradingRiskSkipCode, daytradingRiskSkipContext } from '../src/index';
+import { SkipReasonCollector, parseRunDetails, serializeRunDetails } from '../src/skip-reasons';
 import type { AccountInfo } from '../src/alpaca';
 import type { AIDecision } from '../src/ai-decision';
 import type { Position } from '../src/alpaca';
@@ -122,6 +124,43 @@ describe('audit schedule and dispatch regressions', () => {
     );
   });
 
+  test('keeps swing and crypto broker fan-out bounded by deferring duplicate reconciliation', () => {
+    const swingSource = readFileSync(new URL('../src/swing-strategy.ts', import.meta.url), 'utf8');
+    const cryptoSource = readFileSync(new URL('../src/crypto-strategy.ts', import.meta.url), 'utf8');
+    const alpacaSource = readFileSync(new URL('../src/alpaca.ts', import.meta.url), 'utf8');
+    for (const [strategy, source] of [['swing', swingSource], ['crypto', cryptoSource]] as const) {
+      expect(source, `${strategy} must not import broker ledger reconciliation`).not.toContain("from './broker-ledger'");
+      expect(source, `${strategy} must not import broker order reconciliation`).not.toContain("from './order-reconciliation'");
+      expect(source, `${strategy} must not call broker ledger reconciliation`).not.toContain('syncBrokerLedger(');
+      expect(source, `${strategy} must not call broker order reconciliation`).not.toContain('reconcileBrokerOrders(');
+      expect(source, `${strategy} must record deferred reconciliation evidence`).toContain("RECONCILIATION_DEFERRED_TO_MAINTENANCE");
+      expect(source, `${strategy} must name the maintenance cron`).toContain("maintenanceTrigger: 'reconcile_cron'");
+    }
+    expect(swingSource).toContain("closePosition(sell.symbol, { waitForFill: false })");
+    expect(alpacaSource).toContain('options: { waitForFill?: boolean } = {}');
+    expect(alpacaSource).toContain('options.waitForFill !== false');
+  });
+
+  test('keeps close paths conservative when fill-derived realized P&L is unavailable', () => {
+    for (const source of [workerSource,
+      readFileSync(new URL('../src/swing-strategy.ts', import.meta.url), 'utf8'),
+      readFileSync(new URL('../src/crypto-strategy.ts', import.meta.url), 'utf8'),
+      readFileSync(new URL('../src/api.ts', import.meta.url), 'utf8'),
+      readFileSync(new URL('../src/position-reconciliation.ts', import.meta.url), 'utf8')]) {
+      expect(source).not.toMatch(/closePosition\([^\n]*,\s*(?:pos|existingPos)\.unrealized_pl/);
+      expect(source).not.toMatch(/closePosition\([^\n]*,\s*0\s*,/);
+    }
+  });
+
+  test('keeps crypto fee telemetry fail-closed when maintenance data is missing or stale', () => {
+    const cryptoSource = readFileSync(new URL('../src/crypto-strategy.ts', import.meta.url), 'utf8');
+    const runtimeSource = readFileSync(new URL('../src/crypto-runtime.ts', import.meta.url), 'utf8');
+    expect(cryptoSource).toContain("const feeTelemetry: FeeTelemetry = !feeSummary");
+    expect(cryptoSource).toContain("maxAgeMs: 60_000");
+    expect(runtimeSource).toContain("if (!input.asOf) return { status: 'unavailable'");
+    expect(runtimeSource).toContain("reason: 'crypto fee telemetry is stale'");
+  });
+
   test('keeps each cron expression mapped to its current dispatch path', () => {
     expect(workerSource).toMatch(/event\.cron === '0 22 \* \* 1-5'[\s\S]*?runStrategyWithSchemaGate\(env, 'swing_cron', runSwingCycle\)/);
     expect(workerSource).toMatch(/event\.cron === '7-59\/30 \* \* \* \*'[\s\S]*?runStrategyWithSchemaGate\(env, 'crypto_cron', runCryptoCycle\)/);
@@ -144,6 +183,27 @@ describe('audit equity-direction and risk semantics', () => {
     expect(swingSource).toContain("const haltContext = getSwingRiskHaltSkipContext(riskManager);");
     expect(swingSource).toContain("skips.add('RISK_HALTED', 'cycle', 'Swing trading is halted by risk controls', haltContext);");
     expect(swingSource).not.toContain("{ reason: riskManager.isTradingHalted() }");
+  });
+
+  test('logs crypto candidate counts and does no downstream decision or order work when TA is insufficient', () => {
+    const cryptoSource = readFileSync(new URL('../src/crypto-strategy.ts', import.meta.url), 'utf8');
+    const earlyReturn = cryptoSource.match(/if \(validTA\.length < 3\) \{([\s\S]*?)\n    \}\n\n    \/\/ Generate signals/);
+
+    expect(earlyReturn).not.toBeNull();
+    expect(earlyReturn?.[1]).toContain('analyzed_candidates: validTA.length');
+    expect(earlyReturn?.[1]).toContain('filtered_candidates: 0');
+    expect(earlyReturn?.[1]).toContain('return;');
+    expect(earlyReturn?.[1]).not.toMatch(/generateSignal|refineWithLLM|logDecision|submitOrder|closePosition/);
+  });
+
+  test('loads durable rolling equity history before each fresh RiskManager invocation', () => {
+    expect(workerSource).toContain('const recentEquityHistory = await db.getRecentEquityHistory();');
+    expect(workerSource).toContain('new RiskManager(riskConfig, recentEquityHistory)');
+    const cryptoSource = readFileSync(new URL('../src/crypto-strategy.ts', import.meta.url), 'utf8');
+    expect(cryptoSource).toContain('const recentEquityHistory = await db.getRecentEquityHistory();');
+    expect(cryptoSource).toContain('new RiskManager(riskConfig, recentEquityHistory)');
+
+    expect(workerSource).toContain('performance snapshot');
   });
 
   test('keeps account total P&L direction as current equity minus last equity', () => {
@@ -181,12 +241,85 @@ describe('audit equity-direction and risk semantics', () => {
     manager.updateEquitySnapshot(9_500);
     expect(manager.isTradingHalted()).toBe(false);
 
+    // Repeated values and a recovery do not trigger the halt; only the
+    // actual 10,500 peak-to-9,300 current decline crosses 10%.
     manager.updateEquitySnapshot(9_300);
     expect(manager.isTradingHalted()).toBe(true);
     expect(manager.getKillState().reason).toContain('Rolling drawdown limit reached');
   });
+
+  test('preserves durable rolling history when a new RiskManager instance is created', () => {
+    const durableHistory = [10_000, 10_500, 10_000, 9_500];
+    const first = new RiskManager(riskConfig, durableHistory);
+    first.updateEquitySnapshot(9_700);
+    expect(first.isTradingHalted()).toBe(false);
+
+    const second = new RiskManager(riskConfig, first.getKillState().equityHistory);
+    second.updateEquitySnapshot(9_300);
+    expect(second.getKillState().equityHistory).toEqual([...durableHistory, 9_700, 9_300]);
+    expect(second.isTradingHalted()).toBe(true);
+    expect(second.getKillState().reason).toContain('Rolling drawdown limit reached');
+  });
+
+  test('bounds and filters restored rolling equity history', () => {
+    const bounded = new RiskManager(riskConfig, [NaN, ...Array.from({ length: 25 }, (_, index) => index + 1)]);
+    expect(bounded.getKillState().equityHistory).toHaveLength(20);
+    expect(bounded.getKillState().equityHistory[0]).toBe(6);
+  });
 });
 
+
+describe('daytrading risk rejection observability', () => {
+  test('persists structured risk reason/context while preserving the decision reason and broker-free rejection', () => {
+    const manager = new RiskManager({ ...riskConfig, maxPositions: 0 });
+    const riskCheck = manager.checkTrade(buyDecision, account(), [], indicators);
+    expect(riskCheck.approved).toBe(false);
+    expect(riskCheck.reason).toContain('Max positions reached');
+
+    const skips = new SkipReasonCollector();
+    const skipCode = daytradingRiskSkipCode(riskCheck.reason);
+    expect(skipCode).toBe('NO_ENTRY_RISK');
+    skips.add(skipCode, 'decision', 'Daytrading entry skipped by risk controls', daytradingRiskSkipContext({
+      symbol: indicators.symbol,
+      decisionId: 91,
+      action: 'BUY',
+      riskCheck,
+    }));
+    const persisted = parseRunDetails(serializeRunDetails([], skips));
+    expect(persisted).toEqual([
+      expect.objectContaining({
+        type: 'skip',
+        code: 'NO_ENTRY_RISK',
+        scope: 'decision',
+        count: 1,
+        context: {
+          strategy: 'daytrading',
+          symbol: 'AAPL',
+          decision_id: 91,
+          action: 'BUY',
+          reason: riskCheck.reason,
+        },
+      }),
+    ]);
+
+    // Risk rejection occurs before any Alpaca client call; this test exercises
+    // the same pure decision boundary and intentionally has no broker client.
+    expect(riskCheck.adjustedQty).toBeUndefined();
+  });
+
+  test('keeps the daytrading rejection path structured without changing broker mutation order', () => {
+    expect(workerSource).toContain("await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);");
+    expect(workerSource).toContain("const skipCode = daytradingRiskSkipCode(riskCheck.reason);");
+    expect(workerSource).toContain("skips.add(skipCode, 'decision', 'Daytrading entry skipped by risk controls'");
+    expect(workerSource).toContain('console.log(`Skipped ${signal.indicators.symbol}: ${riskCheck.reason}`);');
+    const rejectionBlock = workerSource.match(/riskCheck = riskManager\.checkTrade\(decision, account, positions, signal\.indicators, cycleEntryNotionalUsd\);([\s\S]*?)\n        \}\n      \}/)?.[1] ?? '';
+    expect(rejectionBlock).toContain('updateDecisionStatus(decisionId, 2, riskCheck.reason);');
+    expect(rejectionBlock).toContain('const skipCode = daytradingRiskSkipCode(riskCheck.reason);');
+    expect(rejectionBlock).toContain("skips.add(skipCode, 'decision'");
+    expect(rejectionBlock).toContain('console.log(`Skipped ${signal.indicators.symbol}: ${riskCheck.reason}`);');
+    expect(rejectionBlock).not.toMatch(/submitOrder|closePosition|cancelOrder|replaceOrder/);
+  });
+});
 
 describe('audit run-count lifecycle semantics', () => {
   test('counts only broker-confirmed full fills, not submitted or partial orders', () => {

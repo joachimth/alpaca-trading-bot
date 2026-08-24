@@ -70,6 +70,12 @@ export class SwingRiskManager {
   // Kill switch management (shared pattern with daytrading)
   // ============================================================
 
+  setEquityHistory(equities: number[]): void {
+    this.killState.equityHistory = equities
+      .filter(equity => Number.isFinite(equity))
+      .slice(-20);
+  }
+
   updateEquitySnapshot(equity: number): void {
     this.killState.equityHistory.push(equity);
     if (this.killState.equityHistory.length > 20) {

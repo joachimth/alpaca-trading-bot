@@ -33,6 +33,26 @@ import { syncBrokerLedger } from '../src/broker-ledger';
     expect(summary.unattributedUsd).toBeCloseTo(1.348875, 6);
   });
 
+  test('includes symbol-less USD CFEE records in crypto telemetry without changing symbol normalization', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    const now = Date.now();
+    const createdAt = (offsetMs: number) => new Date(now - offsetMs).toISOString();
+    await db.upsertBrokerActivities([
+      { id: 'fill-crypto-1', activity_type: 'FILL', symbol: 'BTCUSD', qty: '1', price: '100', transaction_time: createdAt(3_000) },
+      { id: 'fill-crypto-2', activity_type: 'FILL', symbol: 'ETHUSD', qty: '1', price: '100', transaction_time: createdAt(2_000) },
+      { id: 'fill-crypto-3', activity_type: 'FILL', symbol: 'SOLUSD', qty: '1', price: '100', transaction_time: createdAt(1_000) },
+      { id: 'cfee-symbol-less-1', activity_type: 'CFEE', date: createdAt(3_000).slice(0, 10), created_at: createdAt(3_000), net_amount: '-2.00', currency: 'USD' },
+      { id: 'cfee-symbol-less-2', activity_type: 'CFEE', date: createdAt(2_000).slice(0, 10), created_at: createdAt(2_000), net_amount: '-1.00', currency: 'USD' },
+      { id: 'cfee-symbol-less-3', activity_type: 'CFEE', date: createdAt(1_000).slice(0, 10), created_at: createdAt(1_000), net_amount: '-1.00', currency: 'USD' },
+    ] as any);
+    const summary = await db.getBrokerFeeSummary();
+    expect(summary.cryptoUsdRecent).toBe(4);
+    expect(summary.cryptoFeeSampleCount).toBe(3);
+    expect(summary.cryptoFeeAsOf).toBe(createdAt(1_000));
+    expect(summary.cryptoFeeTelemetryStatus).toBe('available');
+  });
+
   test('uses the bounded read path and preserves read-only idempotent ledger semantics when truncated', async () => {
     const sqlite = createTestDatabase();
     const db = new Database(createFakeD1(sqlite));

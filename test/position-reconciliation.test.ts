@@ -81,7 +81,7 @@ describe('broker quantity reconciliation', () => {
     );
 
     expect(absent).toEqual(['UAL']);
-    expect(closed).toEqual([['UAL', 0, 'broker_authoritative_sync_absent']]);
+    expect(closed).toEqual([['UAL', null, 'broker_authoritative_sync_absent']]);
   });
 
   test('does not invent internal rows for broker-only positions', async () => {

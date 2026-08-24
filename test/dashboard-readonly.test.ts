@@ -27,6 +27,26 @@ function trackedD1(sqlite: Sqlite): { d1: any; sql: string[] } {
 }
 
 describe('dashboard read-only hotfix', () => {
+  test('run table renders durable candidate counts and filtered trigger aliases', () => {
+    const dashboard = readFileSync(new URL('../dashboard/index.html', import.meta.url), 'utf8');
+    expect(dashboard).toContain('<th>Alias</th>');
+    expect(dashboard).toContain('<th>Analyzed</th>');
+    expect(dashboard).toContain('<th>Filtered</th>');
+    expect(dashboard).toContain('r.trigger_alias');
+    expect(dashboard).toContain('r.analyzed_candidates');
+    expect(dashboard).toContain('r.filtered_candidates');
+  });
+
+  test('trade table labels order-time estimates and renders available fill comparison fields', () => {
+    const dashboard = readFileSync(new URL('../dashboard/index.html', import.meta.url), 'utf8');
+    expect(dashboard).toContain('Est. Value<br><small>(order-time)</small>');
+    expect(dashboard).toContain('<th>Filled Notional</th>');
+    expect(dashboard).toContain('<th>Est. vs Filled Δ</th>');
+    expect(dashboard).toContain('fmtMoney(t.filled_notional)');
+    expect(dashboard).toContain('fmtSignedMoney(t.estimated_vs_filled_delta)');
+    expect(dashboard).toContain('Filled notional and estimate delta are shown only when broker fill data is available');
+  });
+
   test('read-only Database construction performs no schema repair', async () => {
     const tracked = trackedD1(seededSqlite());
     const db = new Database(tracked.d1, { readOnly: true });
@@ -38,6 +58,20 @@ describe('dashboard read-only hotfix', () => {
     ]);
 
     expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);
+  });
+
+  test('loads the bounded chronological equity window from durable performance snapshots', async () => {
+    const sqlite = seededSqlite();
+    for (let i = 0; i < 22; i += 1) {
+      sqlite.prepare(
+        `INSERT INTO performance_snapshots (timestamp, account_id, equity) VALUES (?, ?, ?)`,
+      ).run(`2026-08-20 00:${String(i).padStart(2, '0')}:00`, 'acct-1', 10_000 + i);
+    }
+
+    const db = new Database(createFakeD1(sqlite), { readOnly: true });
+    await expect(db.getRecentEquityHistory(20)).resolves.toEqual(
+      Array.from({ length: 20 }, (_, index) => 10_002 + index),
+    );
   });
 
   test('runs endpoint honors limit, offset, page, and filters without broker access', async () => {
@@ -82,6 +116,51 @@ describe('dashboard read-only hotfix', () => {
     const invalidStrategyResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/runs?strategy=typo'));
     expect(invalidStrategyResponse.status).toBe(400);
     expect(await invalidStrategyResponse.json()).toMatchObject({ error: 'Invalid strategy filter' });
+
+    sqlite.prepare(`INSERT INTO run_log (timestamp, trigger, status, error_details) VALUES (?, ?, ?, ?)`).run(
+      '2026-08-21 00:50:00', 'cron', 'skipped', JSON.stringify([{ type: 'skip', code: 'CYCLE_LEASE_HELD', scope: 'cycle', message: 'Lease held' }]),
+    );
+    const codeResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/runs?limit=10&code=LEASE_HELD'));
+    expect(codeResponse.status).toBe(200);
+    const codeBody = await codeResponse.json() as any;
+    expect(codeBody).toMatchObject({ code: 'LEASE_HELD', offset: 0, page: 1 });
+    expect(codeBody.runs).toHaveLength(1);
+    expect(codeBody.runs[0].error_details).toContain('CYCLE_LEASE_HELD');
+
+    const searchResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/runs?limit=10&search=Lease%20held'));
+    expect(searchResponse.status).toBe(200);
+    const searchBody = await searchResponse.json() as any;
+    expect(searchBody).toMatchObject({ search: 'Lease held' });
+    expect(searchBody.runs).toHaveLength(1);
+  });
+
+  test('runs endpoint exposes durable analyzed and filtered candidate counts', async () => {
+    const sqlite = seededSqlite();
+    sqlite.prepare(`INSERT INTO run_log (timestamp, trigger, status, analyzed_candidates, filtered_candidates) VALUES (?, ?, ?, ?, ?)`).run(
+      '2026-08-21 13:00:00', 'crypto_cron', 'skipped', 15, 4,
+    );
+    const env = { DB: createFakeD1(sqlite) } as unknown as Env;
+    const response = await new DashboardAPI(env).handle(new Request('https://bot.example/api/runs?trigger=crypto_cron'));
+    expect(response.status).toBe(200);
+    expect((await response.json() as any).runs[0]).toMatchObject({ analyzed_candidates: 15, filtered_candidates: 4 });
+  });
+
+  test('decisions endpoint exposes structured crypto skip context without rewriting legacy reason', async () => {
+    const sqlite = seededSqlite();
+    sqlite.prepare(`INSERT INTO decisions (timestamp, ticker, action, confidence, signal_source, reason, execution_reason, executed) VALUES (?, ?, 'BUY', ?, 'crypto', ?, ?, 2)`).run(
+      '2026-08-21 13:00:00', 'BTCUSD', 0.9, 'crypto signal', JSON.stringify({
+        type: 'skip',
+        message: 'Calibrated raw edge unavailable',
+        context: { configured_threshold_bps: 8, edge_source: 'unavailable', edge_status: 'unavailable', estimated_cost_bps: 6.6 },
+      }),
+    );
+    const env = { DB: createFakeD1(sqlite) } as unknown as Env;
+    const response = await new DashboardAPI(env).handle(new Request('https://bot.example/api/decisions?limit=1'));
+    expect(response.status).toBe(200);
+    expect((await response.json() as any).decisions[0]).toMatchObject({
+      execution_reason: 'Calibrated raw edge unavailable',
+      skip_context: { configured_threshold_bps: 8, edge_source: 'unavailable', edge_status: 'unavailable', estimated_cost_bps: 6.6 },
+    });
   });
 
   test('runs endpoint combines strategy, status, trigger, and pagination filters', async () => {
@@ -155,6 +234,7 @@ describe('dashboard read-only hotfix', () => {
     const sqlite = seededSqlite();
     sqlite.prepare(`INSERT INTO trades (ticker, side, qty, strategy, status) VALUES (?, 'buy', 1, ?, 'filled')`).run('BTCUSD', 'crypto');
     sqlite.prepare(`INSERT INTO trades (ticker, side, qty, strategy, status) VALUES (?, 'buy', 1, ?, 'filled')`).run('AAPL', 'daytrading');
+    sqlite.prepare(`INSERT INTO trades (ticker, side, qty, strategy, status) VALUES (?, 'sell', 1, ?, 'accepted')`).run('ETHUSD', 'crypto');
     const tracked = trackedD1(sqlite);
     const env = { DB: tracked.d1 } as unknown as Env;
 
@@ -162,8 +242,16 @@ describe('dashboard read-only hotfix', () => {
     expect(cryptoResponse.status).toBe(200);
     const cryptoBody = await cryptoResponse.json() as any;
     expect(cryptoBody.strategy).toBe('crypto');
-    expect(cryptoBody.trades).toHaveLength(1);
-    expect(cryptoBody.trades[0].ticker).toBe('BTCUSD');
+    expect(cryptoBody.trades).toHaveLength(2);
+    expect(cryptoBody.trades.some((trade: any) => trade.ticker === 'BTCUSD')).toBe(true);
+    expect(cryptoBody.trades.some((trade: any) => trade.ticker === 'ETHUSD')).toBe(true);
+
+    const filledResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/trades?strategy=crypto&status=filled&limit=10'));
+    expect(filledResponse.status).toBe(200);
+    const filledBody = await filledResponse.json() as any;
+    expect(filledBody).toMatchObject({ strategy: 'crypto', status: 'filled' });
+    expect(filledBody.trades).toHaveLength(1);
+    expect(filledBody.trades[0]).toMatchObject({ ticker: 'BTCUSD', status: 'filled' });
 
     const boundedResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/trades?limit=9999'));
     expect(boundedResponse.status).toBe(200);
@@ -390,6 +478,12 @@ describe('dashboard read-only hotfix', () => {
       const body = await response.json() as any;
       expect(body.positionsAvailable).toBe(true);
       expect(body.positions).toHaveLength(2);
+      expect(body.positions[0]).toMatchObject({ metadata_source: 'none', metadata_updated_at: null });
+      expect(body.freshness.current_state_source).toBe('alpaca');
+      expect(body.freshness.current_state_observed_at).toMatch(/^2026-/);
+      expect(body.freshness.metadata_source).toBe('none');
+      expect(body.freshness.metadata_updated_at).toBeNull();
+      expect(body.freshness.semantics).toContain('D1 fields are metadata only');
       expect(body.account.market_value).toBe(100);
       expect(body.latestSnapshot.positions_count).toBe(2);
     } finally {

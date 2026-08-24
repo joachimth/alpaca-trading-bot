@@ -36,6 +36,15 @@ export async function reconcileBrokerOrders(
   alpaca: AlpacaClient,
   recentLimit = 100,
 ): Promise<ReconciliationResult> {
+  // Remove only expired active reservation orphans. Linked or unknown-state
+  // reservations remain durable for broker reconciliation, and committed rows
+  // are never eligible for this cleanup.
+  try {
+    await db.cleanupExpiredCryptoEntryReservations(25);
+  } catch (error) {
+    if (!(error instanceof Error && error.message.toLowerCase().includes('no such table'))) throw error;
+  }
+
   let reservations: Awaited<ReturnType<Database['getCryptoEntryReservations']>> = [];
   try {
     reservations = await db.getCryptoEntryReservations();
