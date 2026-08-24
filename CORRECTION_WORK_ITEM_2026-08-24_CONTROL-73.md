@@ -59,12 +59,12 @@ The checked-out source and existing minimum-order change were inspected without 
 
 ## Validation and deployment boundary
 
-This work item is documentation/status-only because the required runtime reliability fix is already present in the checked-out 2.6.0 source and no additional code change is justified by the evidence. No migration or broker mutation occurred. The authorized production deployment attempt reached Wrangler but produced no deployment receipt; `bunx wrangler whoami` and the deployment path report `You are not authenticated. Please run wrangler login.` The active Worker therefore remains uncorrected and unproven. Local validation for the resulting tree is recorded below after execution:
+This work item is documentation/status-only because the required runtime reliability fix is already present in the checked-out 2.6.0 source and no additional code change is justified by the evidence. No deployment was attempted, no migration was run, and no broker mutation occurred. Wrangler remains unauthenticated; `bunx wrangler whoami` reports `You are not authenticated. Please run wrangler login.` The active Worker therefore remains uncorrected and unproven. Local validation for the resulting tree completed as follows:
 
-- Focused audit/capital/position-authority/crypto-edge/observability regressions: **54 tests / 319 assertions passed** across the requested control suites.
-- Full `bun test`: **204 tests / 775 assertions passed**, 0 failed.
-- `bunx tsc --noEmit`: exit **0**.
-- `git diff --check`: exit **0**.
+- Focused audit/capital/position-authority/crypto-edge/observability regressions: **117 passed / 0 failed / 504 assertions across 10 files**. Command: `bun test test/audit-regressions.test.ts test/capital-caps.test.ts test/entry-position-authority.test.ts test/position-projection.test.ts test/position-reconciliation.test.ts crypto-runtime.test.ts test/crypto-attribution.test.ts test/dashboard-readonly.test.ts test/skip-reasons.test.ts test/risk-fee-aware.test.ts`. Receipt: `/workspace/alpaca_control_73_focused.txt`.
+- Full `bun test`: **204 passed / 0 failed / 775 assertions across 26 files**. Receipt: `/workspace/alpaca_control_73_full.txt`.
+- `bunx tsc --noEmit`: **passed, exit 0**. Receipt: `/workspace/alpaca_control_73_typecheck.txt`.
+- `git diff --check`: **passed, exit 0**.
 
 The local pass does not certify the stale live artifact. Do not use a trigger or broker-mutating endpoint as a smoke test.
 
