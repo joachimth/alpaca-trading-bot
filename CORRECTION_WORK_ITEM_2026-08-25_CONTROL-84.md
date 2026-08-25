@@ -11,7 +11,7 @@ This was a strict read-only production control for `https://alpaca-trading-bot.j
 
 - Repository: `/workspace/alpaca-trading-bot`
 - Branch: `fix/remove-premature-position-upsert-entryside`
-- Exact current HEAD: `c4c92b4793b78ad5c9b3b10128b910dbe3d31262`
+- Exact runtime source HEAD at Control-85 start: `786be98c5be32f1b5cdfd46dfbcb033a9f3ca44f`
 - Release: `2.6.0`
 - HEAD commit: documentation-only; runtime source identity remains unchanged.
 
@@ -40,12 +40,11 @@ Production stays **OPEN FAIL/DEGRADED**. No code correction or cap/trading-behav
 
 To be completed after the documentation-only update: focused and full Bun regressions, TypeScript, `git diff --check`, and final file-integrity checks. No source file or runtime configuration file may change.
 
-## Final post-update validation receipts
+## Control-85 documentation correction addendum
 
-- Focused: **75 pass / 0 fail / 363 assertions** across 6 files, Bun `1.3.11`.
-- Full: **213 pass / 0 fail / 796 assertions** across 28 files, Bun `1.3.11`.
-- `bun run typecheck`: exit 0.
-- `git diff --check`: exit 0.
-- Final documentation identity: `README.md`, `docs/OPERATIONS.md`, `docs/DEPLOYMENT_RUNBOOK.md`, and `/workspace/NOW.md` identify exact HEAD `c4c92b4793b78ad5c9b3b10128b910dbe3d31262` on `fix/remove-premature-position-upsert-entryside`, release `2.6.0`.
-- Final changed-file boundary: repository changes are limited to the three required docs and `CORRECTION_WORK_ITEM_2026-08-25_CONTROL-84.md`; `/workspace/NOW.md` was updated separately. No source, runtime configuration, cap, schedule, migration, or trading-behavior file changed.
-- No deployment or broker mutation occurred. Live status remains **OPEN FAIL/DEGRADED**.
+- Control-85 identified and corrected the stale Control-84 source pin. The exact deployable runtime source remains HEAD `786be98c5be32f1b5cdfd46dfbcb033a9f3ca44f` on `fix/remove-premature-position-upsert-entryside`, release `2.6.0`; later control commits are documentation-only.
+- Separate post-correction live GET verification at approximately `2026-08-25 07:10 UTC` again showed health `1.0.0`, config `2.4.0`, broker-authoritative positions `source=alpaca` with 21 rows, caps `5000/3700/2000`, 47 filled plus 3 accepted trades, and null per-fill gross/fee/net under `unavailable_fill_lot_exact`.
+- Focused: **72 pass / 0 fail / 339 assertions** across 7 files, Bun `1.3.11`; full: **213 pass / 0 fail / 796 assertions** across 28 files, Bun `1.3.11`.
+- `bun run typecheck`: exit 0; `git diff --check`: exit 0.
+- Changed-file boundary before final commit: required docs, `/workspace/NOW.md`, and this correction receipt only; no source, runtime configuration, cap, schedule, migration, or trading-behavior file changed.
+- No deployment or broker mutation occurred. Live status remains **OPEN FAIL/DEGRADED**. Wrangler remains blocked by `You are not authenticated. Please run \`wrangler login\`.`
