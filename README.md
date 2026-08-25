@@ -1,3 +1,11 @@
+## August 25, 2026 Control-88 DEPLOY of release 2.6.0 - LIVE VERIFIED
+
+Control-88 deployed the locally validated release 2.6.0 (code commit `ce58d018`, HEAD `1609e0e` on branch `fix/remove-premature-position-upsert-entryside`) to the live Cloudflare Worker. Joachim granted self-directed deploy authorization on Aug 25, 2026. The deploy was performed via direct Cloudflare API PUT (`/accounts/.../workers/scripts/alpaca-trading-bot`) because `bunx wrangler deploy` silently exits with code 0 without uploading (a known Wrangler 4.123.0 bug). The upload succeeded at 2026-08-25T09:51:58Z; all four cron triggers and both secrets (ALPACA_API_KEY, ALPACA_API_SECRET) remained intact; ALPACA_BASE_URL has a hardcoded fallback to `https://paper-api.alpaca.markets`.
+
+Live verification at 10:01 UTC confirmed: `/health` reports **2.6.0** (was 1.0.0); dashboard equity **$98,533.80**, status ACTIVE, 21 broker-authoritative positions; run 3480 at 10:00:41 UTC `reconcile_cron status=ok errors=0` ran successfully with the new code. Previously-defective live filters now work: `code=FEE_DATA_UNAVAILABLE` returns only FEE_DATA_UNAVAILABLE runs (3473/3469/3465), and `status=filled` returns only filled trades (700/699/698). `/api/config.config.version` still reports 2.4.0 (D1-seeded value, not updated by this deploy). Caps remain **$5,000 / $3,700 / $2,000** unchanged.
+
+Local validation before deploy: 217 tests / 816 assertions, typecheck, diff-check, dry-run (311.52 KiB). Remaining follow-up: natural swing run without subrequest exhaustion, `rawEdgeBps` producer for crypto edge, `/api/config` version sync, D1 optimization before Sep 1 2026 free-tier enforcement, and plan upgrade decision.
+
 ## August 25, 2026 Control-87 strict read-only production control - LIVE OPEN FAIL-DEGRADED
 
 Control-87 was strictly read-only. It called only GET requests to `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades`, plus same-endpoint GET-only filter and pagination probes. No trigger, submit, cancel, close, replace, retry, migration, deployment, external write, or broker-mutating endpoint was called.

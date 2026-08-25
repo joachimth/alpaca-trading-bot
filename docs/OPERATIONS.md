@@ -1,3 +1,7 @@
+## August 25, 2026 Control-88 DEPLOY of release 2.6.0 - LIVE VERIFIED
+
+Deployed release 2.6.0 (code commit `ce58d018`, HEAD `1609e0e`) to live Worker via direct Cloudflare API PUT at 09:51:58 UTC. Joachim granted self-directed deploy authorization Aug 25, 2026. `/health` now reports **2.6.0** (was 1.0.0). Run 3480 `reconcile_cron status=ok` at 10:00:41 UTC confirms new code running. Live filters now work: `code=FEE_DATA_UNAVAILABLE` and `status=filled` return correct filtered results. Dashboard equity $98,533.80, 21 positions, caps $5,000/$3,700/$2,000 unchanged. Wrangler deploy silently exits without uploading; direct API upload is the working path. `/api/config` version still 2.4.0 (D1-seeded). Follow-up: natural swing run, rawEdgeBps producer, D1 optimization, plan upgrade.
+
 ## August 25, 2026 Control-87 strict read-only production control - LIVE OPEN FAIL-DEGRADED
 
 Control-87 was strictly read-only. It called only GET requests to `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades`, plus same-endpoint GET-only filter and pagination probes. No trigger, submit, cancel, close, replace, retry, migration, deployment, external write, or broker-mutating endpoint was called.

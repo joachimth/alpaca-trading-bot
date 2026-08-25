@@ -1,3 +1,7 @@
+## August 25, 2026 Control-88 DEPLOY of release 2.6.0 - LIVE VERIFIED
+
+Deployed release 2.6.0 (code commit `ce58d018`, HEAD `1609e0e`) via direct Cloudflare API PUT at 09:51:58 UTC. `bunx wrangler deploy` silently exits with code 0 without uploading (Wrangler 4.123.0 bug); direct API PUT with multipart metadata + module upload is the working deploy path. Account ID `763e5b5405cdf8b307fe62dbf68c4f32`, D1 binding `2bc505a2-d744-4322-8c3b-5f5ebe35f9a1`. All four cron triggers and both secrets intact post-deploy. `/health` = 2.6.0, run 3480 status=ok, filters verified. Caps unchanged $5,000/$3,700/$2,000. Joachim granted self-directed deploy authorization Aug 25, 2026.
+
 ## August 25, 2026 Control-87 strict read-only production control - LIVE OPEN FAIL-DEGRADED
 
 Control-87 was strictly read-only. It called only GET requests to `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades`, plus same-endpoint GET-only filter and pagination probes. No trigger, submit, cancel, close, replace, retry, migration, deployment, external write, or broker-mutating endpoint was called.
