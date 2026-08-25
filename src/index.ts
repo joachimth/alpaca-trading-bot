@@ -173,13 +173,20 @@ export async function positionsStrategySchemaReady(db: D1Database): Promise<bool
 }
 
 async function logSchemaBlockedRun(env: Env, trigger: string): Promise<void> {
+  const skips = new SkipReasonCollector();
+  skips.add(
+    'REQUIRED_SCHEMA_MISSING',
+    'schema',
+    'Strategy cycle skipped because positions.strategy is unavailable; apply positions-strategy-column-migration.sql before enabling strategy cycles',
+    { required: 'positions.strategy', migration: 'positions-strategy-column-migration.sql', failClosed: true },
+  );
   try {
     await env.DB.prepare(
       `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
-       VALUES (?, 0, 0, 0, 0, 1, ?, 'error')`
+       VALUES (?, 0, 0, 0, 0, 0, ?, 'skipped')`
     ).bind(
       trigger,
-      JSON.stringify({ errors: ['Required schema missing: positions.strategy; apply positions-strategy-column-migration.sql before enabling strategy cycles'] }),
+      serializeRunDetails([], skips),
     ).run();
   } catch (error) {
     console.error('Unable to record schema-blocked strategy run:', error);
@@ -294,17 +301,20 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
     errors.push(`Order reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);
     console.error(JSON.stringify({ event: 'maintenance_error', trigger, errors }));
   } finally {
-    await db.logRun({
-      trigger,
-      market_open: 0,
-      duration_ms: Date.now() - started,
-      decisions_made: 0,
-      trades_executed: 0,
-      errors: errors.length,
-      error_details: serializeRunDetails(errors, skips),
-      status: errors.length > 0 ? 'error' : (ledgerDegraded || reconciliationDegraded) ? 'degraded' : 'ok',
-    });
-    await db.releaseCycleLease(owner, leaseKey);
+    try {
+      await db.logRun({
+        trigger,
+        market_open: 0,
+        duration_ms: Date.now() - started,
+        decisions_made: 0,
+        trades_executed: 0,
+        errors: errors.length,
+        error_details: serializeRunDetails(errors, skips),
+        status: errors.length > 0 ? 'error' : (ledgerDegraded || reconciliationDegraded) ? 'degraded' : 'ok',
+      });
+    } finally {
+      await db.releaseCycleLease(owner, leaseKey);
+    }
   }
 }
 

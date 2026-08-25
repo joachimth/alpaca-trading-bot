@@ -10,6 +10,7 @@ import { getCryptoSentiment } from './crypto-sentiment';
 import { analyze } from './technical-analysis';
 import { projectBrokerPositions } from './position-projection';
 import { resolveCapitalCaps } from './capital-caps';
+import { accountWithEquityDirection } from './equity-observability';
 import { RELEASE_VERSION } from './version';
 
 const RUN_TRIGGER_ALIASES: Record<string, string> = {
@@ -540,7 +541,7 @@ export class DashboardAPI {
   private async tryGetAccount(): Promise<any> {
     try {
       const alpaca = this.getAlpacaClient();
-      return await alpaca.getAccount();
+      return accountWithEquityDirection(await alpaca.getAccount());
     } catch (e) {
       return { error: e instanceof Error ? e.message : 'Failed to get account' };
     }

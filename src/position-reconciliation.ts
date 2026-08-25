@@ -1,5 +1,6 @@
 import type { Position } from './alpaca';
 import type { Database } from './database';
+import { normalizePositionSymbol } from './position-projection';
 
 interface InternalPositionMetadata {
   ticker: string;
@@ -21,11 +22,17 @@ export async function closeBrokerAbsentPositions(
   excludedSymbols: ReadonlySet<string> = new Set(),
   reason = 'broker_authoritative_sync_absent',
 ): Promise<string[]> {
-  const brokerSymbols = new Set(brokerPositions.map(position => position.symbol));
+  const brokerSymbols = new Set(brokerPositions.map(position => normalizePositionSymbol(position.symbol)));
+  const excludedPositionSymbols = new Set(
+    [...excludedSymbols].map(symbol => normalizePositionSymbol(symbol)),
+  );
   const absentSymbols: string[] = [];
 
   for (const internal of internalPositions) {
-    if (brokerSymbols.has(internal.ticker) || excludedSymbols.has(internal.ticker)) continue;
+    if (
+      brokerSymbols.has(normalizePositionSymbol(internal.ticker)) ||
+      excludedPositionSymbols.has(normalizePositionSymbol(internal.ticker))
+    ) continue;
     await db.closePosition(internal.ticker, null, reason);
     absentSymbols.push(internal.ticker);
   }
@@ -44,11 +51,13 @@ export async function reconcileBrokerQuantityMismatches(
   brokerPositions: readonly Position[],
   internalPositions: readonly InternalPositionMetadata[],
 ): Promise<number> {
-  const internalByTicker = new Map(internalPositions.map(position => [position.ticker, position]));
+  const internalByTicker = new Map(
+    internalPositions.map(position => [normalizePositionSymbol(position.ticker), position]),
+  );
   let reconciled = 0;
 
   for (const brokerPosition of brokerPositions) {
-    const internal = internalByTicker.get(brokerPosition.symbol);
+    const internal = internalByTicker.get(normalizePositionSymbol(brokerPosition.symbol));
     if (!internal || Math.abs(internal.qty - brokerPosition.qty) <= 0.001) continue;
 
     await db.upsertPosition({

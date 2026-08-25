@@ -45,6 +45,11 @@ describe('dashboard read-only hotfix', () => {
     expect(dashboard).toContain('fmtMoney(t.filled_notional)');
     expect(dashboard).toContain('fmtSignedMoney(t.estimated_vs_filled_delta)');
     expect(dashboard).toContain('Filled notional and estimate delta are shown only when broker fill data is available');
+    expect(dashboard).toContain('<th>Gross</th>');
+    expect(dashboard).toContain('<th>Fee</th>');
+    expect(dashboard).toContain('<th>Net</th>');
+    expect(dashboard).toContain('<th>Accounting</th>');
+    expect(dashboard).toContain('t.accounting_status');
   });
 
   test('read-only Database construction performs no schema repair', async () => {
@@ -450,7 +455,7 @@ describe('dashboard read-only hotfix', () => {
       const url = String(input);
       if (url.endsWith('/v2/account')) return Response.json({
         id: 'acct-1', account_number: 'paper-1', status: 'ACTIVE', currency: 'USD',
-        cash: '9000', portfolio_value: '10000', equity: '10000', buying_power: '20000',
+        cash: '9000', portfolio_value: '10000', equity: '9900', buying_power: '20000',
         market_value: '0', long_market_value: '9000', short_market_value: '0', last_equity: '10000',
         change_today: '0', change_today_pct: '0', pattern_day_trader: false,
         trading_blocked: false, transfers_blocked: false, account_blocked: false,
@@ -485,7 +490,15 @@ describe('dashboard read-only hotfix', () => {
       expect(body.freshness.metadata_updated_at).toBeNull();
       expect(body.freshness.semantics).toContain('D1 fields are metadata only');
       expect(body.account.market_value).toBe(100);
+      expect(body.account.change_today).toBe(-100);
+      expect(body.account.change_today_pct).toBe(-1);
       expect(body.latestSnapshot.positions_count).toBe(2);
+
+      const accountResponse = await new DashboardAPI(env).handle(new Request('https://bot.example/api/account'));
+      expect(accountResponse.status).toBe(200);
+      expect(await accountResponse.json()).toMatchObject({
+        account: { change_today: -100, change_today_pct: -1, equity: 9900, last_equity: 10000 },
+      });
     } finally {
       globalThis.fetch = originalFetch;
     }

@@ -11,9 +11,11 @@ This was a strict read-only production control for `https://alpaca-trading-bot.j
 
 - Repository: `/workspace/alpaca-trading-bot`
 - Branch: `fix/remove-premature-position-upsert-entryside`
-- Exact runtime source HEAD at Control-85 start: `786be98c5be32f1b5cdfd46dfbcb033a9f3ca44f`
+- Historical runtime source recorded at Control-85 start: `786be98c5be32f1b5cdfd46dfbcb033a9f3ca44f`
+- Current Control-86 checkout: branch `fix/remove-premature-position-upsert-entryside`, HEAD `9f09b145d922597d1e0b7c80bb827a768c147706`
+- Last code-changing runtime commit identified in history: `20d80ac87e08271fb0d9c1c7ea1027b72eebd48d`
 - Release: `2.6.0`
-- HEAD commit: documentation-only; runtime source identity remains unchanged.
+- Later commits are documentation/status records; live Worker identity remains unproven.
 
 ## Exact live evidence
 
@@ -38,7 +40,7 @@ Production stays **OPEN FAIL/DEGRADED**. No code correction or cap/trading-behav
 
 ## Validation receipts
 
-To be completed after the documentation-only update: focused and full Bun regressions, TypeScript, `git diff --check`, and final file-integrity checks. No source file or runtime configuration file may change.
+Control-84 was a historical documentation record. Its validation receipts are superseded by Control-86, which includes local reliability source/test corrections and final validation. No broker mutation or deployment occurred.
 
 ## Control-85 documentation correction addendum
 

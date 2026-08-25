@@ -56,11 +56,11 @@ export function projectBrokerPositions(
   metadataPositions: readonly PositionMetadata[],
 ): BrokerPositionProjection[] {
   const metadataBySymbol = new Map(
-    metadataPositions.map(position => [normalizeSymbol(position.ticker), position]),
+    metadataPositions.map(position => [normalizePositionSymbol(position.ticker), position]),
   );
 
   return brokerPositions.map(position => {
-    const metadata = metadataBySymbol.get(normalizeSymbol(position.symbol));
+    const metadata = metadataBySymbol.get(normalizePositionSymbol(position.symbol));
     return {
       asset_id: position.asset_id,
       ticker: position.symbol,
@@ -94,7 +94,7 @@ export function projectBrokerPositions(
  * stock tickers (including ones with punctuation, e.g. BRK.B) pass through
  * unchanged so this never invents a match for a non-crypto symbol.
  */
-function normalizeSymbol(symbol: string): string {
+export function normalizePositionSymbol(symbol: string): string {
   const value = symbol.trim().toUpperCase();
   return normalizeCryptoSymbol(value) ?? value;
 }

@@ -42,6 +42,41 @@ describe('scheduled maintenance reconciliation observability', () => {
     expect(details).toContainEqual(expect.objectContaining({ code: 'MAINTENANCE_ONLY' }));
   });
 
+  test('releases the maintenance lease when run-log persistence fails', async () => {
+    const sqlite = seededSqlite();
+    const base = createFakeD1(sqlite);
+    const statements: string[] = [];
+    const env = {
+      DB: {
+        prepare(statement: string) {
+          statements.push(statement);
+          if (/INSERT INTO run_log/i.test(statement)) {
+            return {
+              bind() {
+                return { run: async () => { throw new Error('run-log unavailable'); } };
+              },
+            };
+          }
+          return base.prepare(statement);
+        },
+      },
+      ALPACA_API_KEY: 'test-key',
+      ALPACA_API_SECRET: 'test-secret',
+      ALPACA_BASE_URL: 'https://paper-api.alpaca.markets',
+      LLM_API_KEY: '',
+    } as unknown as Env;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/v2/orders?')) return new Response('[]', { status: 200 });
+      if (url.includes('/v2/account/activities?')) return new Response('[]', { status: 200 });
+      throw new Error(`unexpected broker request: ${url}`);
+    }) as typeof fetch;
+
+    await expect(runScheduledMaintenance(env, 'run_log_failure_test')).rejects.toThrow('run-log unavailable');
+    expect(statements.some(statement => statement.includes('DELETE FROM cycle_leases'))).toBe(true);
+    expect(sqlite.query(`SELECT COUNT(*) AS count FROM cycle_leases WHERE lease_key = 'maintenance'`).get()).toEqual({ count: 0 });
+  });
+
   test('persists lookupFailures and marks an individual lookup failure degraded without broker mutations', async () => {
     const sqlite = seededSqlite();
     sqlite.prepare(`

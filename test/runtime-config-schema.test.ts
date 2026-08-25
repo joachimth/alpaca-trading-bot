@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { Database as Sqlite } from 'bun:sqlite';
 import { readFileSync } from 'node:fs';
-import { FALLBACK_CONFIG, positionsStrategySchemaReady, resolveDaytradingConfig } from '../src/index';
+import worker, { FALLBACK_CONFIG, positionsStrategySchemaReady, resolveDaytradingConfig } from '../src/index';
+import { parseRunDetails } from '../src/skip-reasons';
 import { SWING_FALLBACK_CONFIG, resolveSwingConfig } from '../src/swing-strategy';
 import { createFakeD1 } from './helpers/fake-d1';
 
@@ -46,5 +47,49 @@ describe('scheduled schema readiness', () => {
     const sqlite = new Sqlite(':memory:');
     sqlite.run(`CREATE TABLE positions (ticker TEXT)`);
     expect(await positionsStrategySchemaReady(createFakeD1(sqlite))).toBe(false);
+  });
+
+  test('persists a structured skipped run without broker access when the schema gate blocks a cron', async () => {
+    const sqlite = new Sqlite(':memory:');
+    sqlite.run(`
+      CREATE TABLE positions (ticker TEXT);
+      CREATE TABLE run_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        trigger TEXT NOT NULL,
+        market_open INTEGER NOT NULL DEFAULT 0,
+        duration_ms INTEGER NOT NULL DEFAULT 0,
+        decisions_made INTEGER NOT NULL DEFAULT 0,
+        trades_executed INTEGER NOT NULL DEFAULT 0,
+        errors INTEGER NOT NULL DEFAULT 0,
+        error_details TEXT,
+        status TEXT NOT NULL
+      )
+    `);
+    const sql: string[] = [];
+    const base = createFakeD1(sqlite);
+    const env = { DB: { prepare(statement: string) { sql.push(statement); return base.prepare(statement); } } } as any;
+    let pending: Promise<void> | undefined;
+    await worker.scheduled(
+      { cron: '0 22 * * 1-5' } as ScheduledEvent,
+      env,
+      { waitUntil(value: Promise<void>) { pending = value; } } as ExecutionContext,
+    );
+    await pending;
+
+    const run = sqlite.query(`SELECT status, errors, error_details FROM run_log WHERE trigger = 'swing_cron'`).get() as {
+      status: string;
+      errors: number;
+      error_details: string;
+    };
+    const details = parseRunDetails(run.error_details);
+    expect(run.status).toBe('skipped');
+    expect(run.errors).toBe(0);
+    expect(details).toContainEqual(expect.objectContaining({
+      type: 'skip',
+      code: 'REQUIRED_SCHEMA_MISSING',
+      scope: 'schema',
+      context: expect.objectContaining({ required: 'positions.strategy', failClosed: true }),
+    }));
+    expect(sql.some(statement => /\\b(?:ALTER|CREATE|DROP)\\b/i.test(statement))).toBe(false);
   });
 });

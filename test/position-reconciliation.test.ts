@@ -84,6 +84,46 @@ describe('broker quantity reconciliation', () => {
     expect(closed).toEqual([['UAL', null, 'broker_authoritative_sync_absent']]);
   });
 
+  test('matches known crypto punctuation across broker and D1 symbols without stripping stock punctuation', async () => {
+    const closed: any[] = [];
+    const db = { closePosition: async (...args: any[]) => { closed.push(args); } };
+
+    const absent = await closeBrokerAbsentPositions(
+      db,
+      [brokerPosition('BTC/USD', 1), brokerPosition('BRKB', 1)],
+      [
+        { ticker: 'BTCUSD', qty: 1, strategy: 'crypto' },
+        { ticker: 'BRK.B', qty: 1, strategy: 'swing' },
+      ],
+    );
+
+    expect(absent).toEqual(['BRK.B']);
+    expect(closed).toEqual([['BRK.B', null, 'broker_authoritative_sync_absent']]);
+  });
+
+  test('reconciles quantity for known crypto symbols across broker punctuation while preserving the broker symbol', async () => {
+    const writes: any[] = [];
+    const db = { upsertPosition: async (position: any) => { writes.push(position); } };
+
+    const reconciled = await reconcileBrokerQuantityMismatches(
+      db,
+      [brokerPosition('BTC/USD', 2), brokerPosition('BRKB', 2)],
+      [
+        { ticker: 'BTCUSD', qty: 1, strategy: 'crypto', stop_loss_price: 80, take_profit_price: 110 },
+        { ticker: 'BRK.B', qty: 1, strategy: 'swing' },
+      ],
+    );
+
+    expect(reconciled).toBe(1);
+    expect(writes).toEqual([expect.objectContaining({
+      ticker: 'BTC/USD',
+      qty: 2,
+      strategy: 'crypto',
+      stop_loss_price: 80,
+      take_profit_price: 110,
+    })]);
+  });
+
   test('does not invent internal rows for broker-only positions', async () => {
     const writes: any[] = [];
     const db = { upsertPosition: async (position: any) => { writes.push(position); } };
