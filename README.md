@@ -1,3 +1,27 @@
+## August 25, 2026 Control-92 strict read-only production control - HEALTHY/DEGRADED
+
+Control-92 ran a strict GET-only production control at ~14:00 UTC. All six endpoints returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no correction or deploy required. This is a read-only control with documentation update only.
+
+**Version identity (all aligned):** `/health`=2.6.0, `/api/config` `release_version`=2.6.0, `/api/config` `config.version`=2.6.0. Local HEAD `0140fbc` (docs), code commits `62ff44f`+`6876a92`+`22e962f`, release **2.6.0**. Live Worker matches local source. Wrangler remains unauthenticated but irrelevant (direct Cloudflare API PUT is the proven deploy path since Control-88).
+
+**Major resolution since Control-91:** the swing sell orders 701 (EOG qty 0.9), 702 (HON qty 0.54), 703 (PLD qty 0.89) — stuck since the Aug 24 subrequest-exhausted swing run 3409 — have now FILLED at the broker on 2026-08-25 13:30:01-13:30:41 UTC (US market open). Swing exposure is now **zero**. The current 16 broker-authoritative positions (AAL, AEP, AMD, CCL, DAL, DDOG, F, FCEL, GOOGL, LCID, NCLH, NEE, NXPI, RIVN, SIRI, UNH, total MV $8,218.63) are ALL `strategy=daytrading`. The ~$9k swing-cap exposure concern is resolved in practice. Tonight's 22:00 UTC swing run is the first natural swing test of deployed 2.6.0 code against an empty swing book.
+
+**Live state:** equity **$98,497.56**, last_equity $98,386.6243, change_today $110.94 (+0.113% via equity-direction fallback), cash $90,278.93, buying_power $382,752.60, long_market_value $8,218.63, status ACTIVE, pattern_day_trader false. `positionsAvailable=true`, `freshness.current_state_source=alpaca`. Caps unchanged **$5,000 / $3,700 / $2,000**.
+
+**Four schedules confirmed:** reconciliation `*/10 * * * *` delivering ok every 10 min (run 3521 at 13:51 UTC, MAINTENANCE_ONLY, ledgerActivities=5, ledgerPages=1, not truncated, 0 errors — watermark holding); daytrading `*/5 13-21 * * 1-5` (runs 3522/3523 at 13:51/13:56 UTC, market_open=1, skipped on DAYTRADING_BARS_STALE ~973s vs 900s window + EQUITY_DIRECTION_FALLBACK — Alpaca paper bars ~16min lag); crypto `7-59/30 * * * *` at :07/:37 UTC (run 3517 at 13:38 UTC, skipped: RECONCILIATION_DEFERRED_TO_MAINTENANCE, EQUITY_DIRECTION_FALLBACK, CRYPTO_BARS_STALE ETHUSD ~22h stale, CRYPTO_BARS_UNAVAILABLE MATICUSD empty, CRYPTO_DATA_INSUFFICIENT validTA=0); swing `0 22 * * 1-5` last run 3409 still status=error (4 errors: subrequest exhaustion) — tonight's run is the natural proof.
+
+**Trade lifecycle and accounting:** trades 701/702/703 now `status=filled`, `filled_qty` matches qty, `filled_at` 2026-08-25T13:30 UTC, `accounting_status=filled_lot_exact_unavailable`, gross/fee/net conservatively null, `fee_attribution=none-recorded`, `estimated_value_basis=order_time_estimate`, `filled_notional` populated. New daytrading fills 704 (LUV qty 2.14) and 705 (RUN qty 40) filled 13:36 UTC with full lifecycle fields. Trade 703 (PLD) shows `strategy=null` — minor attribution gap on the subrequest-exhausted swing sell.
+
+**Filtered observability confirmed:** `trigger=crypto_cron`/`trigger=swing_cron`/`trigger=reconcile_cron` return correct subsets; `status=error` returns run 3409; `status=filled`/`page=2` trades pagination returns distinct rows (no repeated IDs). Run rows include `analyzed_candidates`, `filtered_candidates`, structured `run_details`/`error_details`.
+
+**D1 free-tier optimizations confirmed live:** `broker_ledger_synced_until`=2026-08-25T13:51:06Z, `last_prune_date`=2026-08-25, `cached_fee_summary` present and refreshed by maintenance, ledgerActivities down to 5-8 per run (was 111 before watermark).
+
+**Crypto edge gate:** fail-closed in source — `crypto_min_edge_after_costs=8`, `requireFeeTelemetry=true`, `requireCalibratedEdge=true`, no `rawEdgeBps` producer exists in `technical-analysis.ts`. Normal crypto BUYs always blocked. No positive-edge path evidenced.
+
+**Status: HEALTHY (code/deployment), trading delivery DEGRADED (external data-feed).** The prior OPEN FAIL blockers (version drift, filter/pagination defects, deployment provenance) are resolved. Remaining degradation is external: daytrading bars lag ~16min beyond the 15-min freshness window, and crypto bars are ~22h stale / empty. The bot correctly fail-safe skips on stale data. No bot code defect. 220 tests / 822 assertions pass locally; typecheck clean. No caps, schedules, thresholds, or trading behavior changed.
+
+**Remaining follow-ups:** natural swing run at 22:00 UTC today (first live test on 2.6.0, empty swing book), `rawEdgeBps` producer for crypto edge gate, crypto bar freshness investigation (ETHUSD 22h stale, MATICUSD empty), daytrading bar freshness (~16min lag), D1 plan upgrade decision, Sep 1 free-tier enforcement monitoring, trade 703 strategy attribution gap.
+
 ## August 25, 2026 Control-91 strict read-only production control and config.version sync - LIVE VERIFIED
 
 Control-91 ran a strict GET-only production control at ~13:00 UTC, then synced the D1-seeded `config.version` from 2.4.0 to 2.6.0 via the D1 REST API. All three version surfaces now align: `/health`=2.6.0, `/api/config` `release_version`=2.6.0, `/api/config` `config.version`=2.6.0 (was 2.4.0, D1-seeded and not updated by Worker deploy). No code change was needed for the sync; it was a single D1 UPDATE on `bot_config SET value='2.6.0' WHERE key='version'`.

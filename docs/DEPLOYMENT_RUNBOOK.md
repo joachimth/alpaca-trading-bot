@@ -1,3 +1,15 @@
+## August 25, 2026 Control-92 strict read-only production control - HEALTHY/DEGRADED
+
+Control-92 was a strict GET-only production control at ~14:00 UTC. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no correction or deploy required — documentation update only.
+
+Version identity all aligned: `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Local HEAD `0140fbc` (docs), code commits `62ff44f`+`6876a92`+`22e962f`. Live Worker matches local source. Deploy path remains direct Cloudflare API PUT (Wrangler silently exits without uploading).
+
+**Major resolution:** swing sells 701/702/703 (stuck since Aug 24 subrequest-exhausted run 3409) FILLED at broker 2026-08-25 13:30:01-13:30:41 UTC. Swing exposure now zero; 16 positions all daytrading. Tonight's 22:00 UTC swing run is the first natural swing test on 2.6.0 against an empty swing book.
+
+Equity $98,497.56, ACTIVE, caps $5,000/$3,700/$2,000 unchanged. Reconciliation healthy (watermark holding, 0 errors). Daytrading + crypto skipping on stale bars (external data-feed, fail-safe). Trade lifecycle and accounting confirmed. Filters and pagination working. 220 tests / 822 assertions, typecheck clean.
+
+**Status: HEALTHY (code/deployment), DEGRADED (external data-feed).** Prior OPEN FAIL blockers (version drift, filter/pagination defects, deployment provenance) are resolved. Remaining degradation is external data-feed staleness (daytrading ~16min lag, crypto ~22h stale), not a bot defect. Remaining follow-ups: natural swing run tonight, rawEdgeBps producer, crypto/daytrading bar freshness, D1 plan upgrade, Sep 1 free-tier monitoring, trade 703 strategy attribution gap.
+
 ## August 25, 2026 Control-91 strict read-only production control and config.version sync - LIVE VERIFIED
 
 Control-91 was a strict GET-only production control followed by a D1 metadata sync. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. The only mutation was a single D1 REST API UPDATE: `bot_config SET value='2.6.0' WHERE key='version'`, syncing the D1-seeded `config.version` from 2.4.0 to 2.6.0. No Worker redeploy, code change, order, cancellation, migration, or broker mutation occurred.

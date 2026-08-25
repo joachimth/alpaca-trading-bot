@@ -1,3 +1,13 @@
+## August 25, 2026 Control-92 strict read-only production control - HEALTHY/DEGRADED
+
+Control-92 ran a strict GET-only production control at ~14:00 UTC. All six endpoints HTTP 200. No code defect found; no correction or deploy required. Version identity all aligned at 2.6.0 (health, release_version, config.version). Local HEAD `0140fbc`, code `62ff44f`+`6876a92`+`22e962f`.
+
+**Major resolution:** swing sells 701/702/703 (stuck since Aug 24 subrequest-exhausted run 3409) FILLED at broker 2026-08-25 13:30 UTC. Swing exposure now zero. 16 broker-authoritative positions all daytrading (MV $8,218.63). Tonight's 22:00 UTC swing run is first natural test on 2.6.0 with empty swing book.
+
+Live state: equity $98,497.56 (+0.113% via equity-direction fallback), ACTIVE, cash $90,278.93. Caps $5,000/$3,700/$2,000 unchanged. Reconciliation ok every 10 min (watermark holding, ledgerActivities 5-8, 0 errors). Daytrading skipped on DAYTRADING_BARS_STALE (~16min bar lag vs 15min window). Crypto :07/:37 skipped (ETHUSD 22h stale, MATICUSD empty, fail-closed no rawEdgeBps). Trade lifecycle fields populated, accounting_status correct (no_fill vs filled_lot_exact_unavailable). Filters and pagination working (no repeated IDs). D1 optimizations live (watermark, pruning, cached fee summary).
+
+**Status: HEALTHY (code/deployment), DEGRADED (external data-feed).** Prior OPEN FAIL blockers resolved. Remaining degradation is external data-feed staleness, not a bot defect. 220 tests / 822 assertions, typecheck clean. No caps or trading behavior changed. Remaining: natural swing run tonight, rawEdgeBps producer, crypto/daytrading bar freshness, D1 plan upgrade, Sep 1 monitoring, trade 703 strategy attribution gap.
+
 ## August 25, 2026 Control-91 strict read-only production control and config.version sync - LIVE VERIFIED
 
 Control-91 ran a strict GET-only production control at ~13:00 UTC. All six endpoints returned HTTP 200. The D1-seeded `config.version` was synced from 2.4.0 to 2.6.0 via a single D1 REST API UPDATE; all three version surfaces now align at 2.6.0. No code change or Worker redeploy needed.
