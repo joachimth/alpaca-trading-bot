@@ -8,7 +8,7 @@ The exact current code-bearing checkout is branch `fix/remove-premature-position
 
 ## August 25, 2026 Control-90 D1 free-tier optimization - LIVE VERIFIED
 
-Deployed D1 optimizations (commit `62ff44f`) via direct Cloudflare API PUT at 12:01:37 UTC. Removed syncBrokerLedger from daytrading, added watermark (3-day to 15-min overlap), batched upserts, added 3 indexes, cached fee summary, LIMIT 500 on time-series, daily retention pruning. `/health`=2.6.0, run 3496 ok, equity $98,529.73. 220 tests / 822 assertions. No caps or trading behavior changed. Remaining: natural swing run, rawEdgeBps, plan upgrade decision.
+Deployed D1 optimizations (commit `62ff44f` + fee-cache-refresh fix in HEAD `6876a92`) via direct Cloudflare API PUT at 12:04:59 UTC (deployment_id `639c65b5`). Key changes: removed syncBrokerLedger from daytrading cycle, added broker_ledger_synced_until watermark (15-min overlap), batched upsertBrokerActivities with D1 batch(), added indexes (broker_fees order_id/fee_type+date, broker_fills symbol+time), cached getBrokerFeeSummary in bot_config with maintenance refresh every 10 min, LIMIT 500 on strategy comparison time-series, daily retention pruning. 220 tests / 822 assertions. Post-deploy: `/health`=2.6.0, run 3498 at 12:11 UTC ok, equity $98,535.09, 21 positions. No caps or trading behavior changed. Remaining: natural swing run, rawEdgeBps, D1 config.version sync, plan upgrade decision.
 
 ## August 25, 2026 Control-88 DEPLOY of release 2.6.0 - LIVE VERIFIED
 
