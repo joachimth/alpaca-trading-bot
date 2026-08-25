@@ -1,3 +1,11 @@
+## August 25, 2026 Control-96 strict read-only production control - HEALTHY/DEGRADED
+
+Control-96 was a strict GET-only production control at ~18:00 UTC (20:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required — documentation update only (HEAD reference corrected to current commit `c39ba36`).
+
+Version identity all aligned: `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Local HEAD `c39ba36` (docs), code commits `62ff44f`+`6876a92`+`22e962f`. Live Worker matches local source. Deploy path remains direct Cloudflare API PUT (Wrangler silently exits without uploading).
+
+No deployment performed. Live state unchanged: ACTIVE, equity $98,529.85, 15 broker-authoritative positions all daytrading, swing exposure 0, caps $5,000/$3,700/$2,000. New finding: run 3524 transient free-tier subrequest exhaustion (isolated, recovered; same class as swing lane). No code defect. Status: HEALTHY (code/deployment), DEGRADED (external data-feed/resource). 220 tests / 822 assertions.
+
 ## August 25, 2026 Control-95 strict read-only production control - HEALTHY/DEGRADED
 
 Control-95 was a strict GET-only production control at ~17:00 UTC (19:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required — documentation update only (HEAD reference corrected to current commit `a0ae8c3`).

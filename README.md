@@ -1,3 +1,21 @@
+## August 25, 2026 Control-96 strict read-only production control - HEALTHY/DEGRADED
+
+Control-96 ran a strict GET-only production control at ~18:00 UTC (20:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (HEAD reference corrected to current commit `c39ba36`).
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Local HEAD `c39ba36` (docs), code commits `62ff44f`+`6876a92`+`22e962f`, release **2.6.0**. Live Worker matches local source.
+
+**Live state:** Account ACTIVE, equity $98,529.85, cash $90,582.30, long_market_value $7,947.55, change_today_pct +0.146% (equity-direction fallback active: broker per-position `change_today_pct` zero, fallback to equity delta). 15 broker-authoritative positions (`source`=`alpaca`), all `strategy`=`daytrading`; swing exposure = 0. NCLH sold (trade 706 filled 17:36 UTC). Caps $5,000/$3,700/$2,000 unchanged.
+
+**Schedules:** Daytrading cron every 5 min (runs 3533/3531/3530/3528/3527) — all `skipped` on `DAYTRADING_BARS_STALE` (~974s vs 900s window) + `EQUITY_DIRECTION_FALLBACK`. Reconcile_cron every 10 min (runs 3529/3526) — `status=ok`, `MAINTENANCE_ONLY`, ledgerActivities 5, 1 page, not truncated, 0 errors, watermark holding. Crypto_cron :07/:37 (run 3525 at 17:38) — `skipped` on `RECONCILIATION_DEFERRED_TO_MAINTENANCE` + `CRYPTO_BARS_STALE` (BTCUSD ~22h stale) + `CRYPTO_BARS_UNAVAILABLE` (MATICUSD empty) + `CRYPTO_DATA_INSUFFICIENT` (validTA 0 < 3).
+
+**New finding:** Run 3524 (17:36 UTC cron, market_open=0) recorded `errors=1` — "Fatal: Too many subrequests by single Worker invocation." This is the same Cloudflare free-tier subrequest-budget constraint class that chronically affected the swing lane, now seen once in the daytrading lane. It was isolated and transient: the NCLH sell (trade 706) still filled at broker, and runs 3525-3533 (including freshest 3533 at 18:01) completed cleanly with `errors=0`. No code defect; external resource constraint, consistent with the standing DEGRADED (external data-feed/resource) classification. Monitor for recurrence.
+
+**Trade/fill lifecycle:** Trade 706 (NCLH sell, qty 17.72, filled 17:36) `accounting_status`=`filled_lot_exact_unavailable`, gross/fee/net=null (conservative). Swing sells 701/702 `strategy`=`swing`; trade 703 `strategy`=`null` (persistent gap from subrequest-exhausted run 3409). All filled trades expose `filled_notional` and `estimated_vs_filled_delta` alongside the order-time `estimated_value`.
+
+**Crypto edge-gate:** Fail-closed confirmed in source (`prepareCryptoRiskDecision`, `crypto-strategy.ts:29-30`, `Number.isFinite(calibratedRawEdgeBps)` gate; `rawEdgeBps` optional in `ai-decision.ts`). No `rawEdgeBps` producer exists, so crypto BUYs are always blocked. No production positive-edge path evidenced.
+
+**Status: HEALTHY** (code/deployment), **DEGRADED** (external data-feed/resource — stale daytrading bars, stale/unavailable crypto bars, intermittent free-tier subrequest budget). 220 tests / 822 assertions pass; TypeScript and `git diff --check` clean. No caps, schedules, thresholds, sizing, fee policy, edge policy, order semantics, or trading behavior changed. Remaining follow-ups: natural swing run tonight 22:00 UTC (first on deployed 2.6.0 with empty swing book), `rawEdgeBps` producer, crypto/daytrading bar freshness, D1 Sep 1 enforcement monitoring, paid-plan upgrade decision, trade 703 `strategy=null` gap.
+
 ## August 25, 2026 Control-95 strict read-only production control - HEALTHY/DEGRADED
 
 Control-95 ran a strict GET-only production control at ~17:00 UTC (19:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (HEAD reference corrected to current commit `a0ae8c3`).
