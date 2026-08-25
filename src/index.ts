@@ -16,6 +16,8 @@ import { syncBrokerLedger } from './broker-ledger';
 import { reconcileBrokerOrders } from './order-reconciliation';
 import { reconcileBrokerQuantityMismatches } from './position-reconciliation';
 import { resolveCapitalCapOverride } from './capital-caps';
+import { assessIntradayBars, DAYTRADING_BAR_INTERVAL_SECONDS, DAYTRADING_MAX_BAR_STALE_INTERVALS } from './market-data-quality';
+import { accountWithEquityDirection, resolveEquityDirection } from './equity-observability';
 
 export interface Env {
   DB: D1Database;
@@ -300,7 +302,7 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
       trades_executed: 0,
       errors: errors.length,
       error_details: serializeRunDetails(errors, skips),
-      status: errors.length > 0 ? 'error' : (ledgerDegraded || reconciliationDegraded) ? 'degraded' : 'skipped',
+      status: errors.length > 0 ? 'error' : (ledgerDegraded || reconciliationDegraded) ? 'degraded' : 'ok',
     });
     await db.releaseCycleLease(owner, leaseKey);
   }
@@ -426,6 +428,18 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     // Restore the durable rolling equity window before appending this cycle's
     // snapshot. RiskManager instances are recreated on every Worker run.
     const recentEquityHistory = await db.getRecentEquityHistory();
+    const equityDirection = resolveEquityDirection(account);
+    const accountForRisk = accountWithEquityDirection(account);
+    if (equityDirection.fallbackUsed) {
+      skips.add('EQUITY_DIRECTION_FALLBACK', 'account', 'Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls', {
+        source: equityDirection.source,
+        change_today_pct: account.change_today_pct,
+        equity: account.equity,
+        last_equity: account.last_equity,
+        fallback_change_today_pct: equityDirection.changeTodayPct,
+        reason: equityDirection.reason,
+      });
+    }
 
     // Log performance snapshot
     await db.logSnapshot({
@@ -440,8 +454,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       // strategy-specific, but the snapshot count must include every
       // broker-authoritative position.
       positions_count: allBrokerPositions.length,
-      daily_pl: account.change_today,
-      daily_plpc: account.change_today_pct,
+      daily_pl: accountForRisk.change_today,
+      daily_plpc: accountForRisk.change_today_pct,
       total_pl: account.equity - account.last_equity,
       total_plpc: account.last_equity > 0 ? ((account.equity - account.last_equity) / account.last_equity) * 100 : 0,
     });
@@ -477,7 +491,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     const riskManager = new RiskManager(riskConfig, recentEquityHistory);
 
     // Update kill switch with the current broker equity after loading durable history.
-    riskManager.updateEquitySnapshot(account.equity);
+    riskManager.updateEquitySnapshot(accountForRisk.equity);
 
     // 5b. Reconciliation: check for position divergence
     const dbPositions = (await db.getOpenPositions()).filter(p =>
@@ -651,8 +665,17 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     const heldPositionBarPromises = positions.map(async pos => {
       try {
         const bars = await alpaca.getBars(pos.symbol, '5Min', 200);
-        if (bars.length < 30) return null;
-        const indicators = analyze(bars, pos.symbol, taConfig);
+        const assessment = assessIntradayBars(bars, DAYTRADING_BAR_INTERVAL_SECONDS, new Date(), DAYTRADING_MAX_BAR_STALE_INTERVALS);
+        if (assessment.quality !== 'ok') {
+          const code = assessment.quality === 'future' ? 'DAYTRADING_BARS_FUTURE' : assessment.quality === 'stale' ? 'DAYTRADING_BARS_STALE' : 'DAYTRADING_BARS_UNAVAILABLE';
+          skips.add(code, 'data', 'Daytrading signal skipped because the latest bar timestamp failed freshness validation', { strategy: 'daytrading', symbol: pos.symbol, quality: assessment.quality, latestBarAt: assessment.latestBarAt, futureBarAt: assessment.futureBarAt, ageSeconds: assessment.ageSeconds, maxStaleSeconds: assessment.maxStaleSeconds, received: assessment.received, valid: assessment.valid });
+          return null;
+        }
+        if (assessment.bars.length < 30) {
+          skips.add('DAYTRADING_BARS_SHORT', 'data', 'Daytrading signal skipped because the validated bar history is too short', { strategy: 'daytrading', symbol: pos.symbol, bars: assessment.bars.length, required: 30, latestBarAt: assessment.latestBarAt });
+          return null;
+        }
+        const indicators = analyze(assessment.bars, pos.symbol, taConfig);
         return generateSignal(indicators, { rsiOversold: config.rsiOversold, rsiOverbought: config.rsiOverbought });
       } catch (e) {
         errors.push(`TA failed for ${pos.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
@@ -675,8 +698,17 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     const candidateBarPromises = newCandidates.slice(0, scanLimit).map(async symbol => {
       try {
         const bars = await alpaca.getBars(symbol, '5Min', 200);
-        if (bars.length < 30) return null;
-        const indicators = analyze(bars, symbol, taConfig);
+        const assessment = assessIntradayBars(bars, DAYTRADING_BAR_INTERVAL_SECONDS, new Date(), DAYTRADING_MAX_BAR_STALE_INTERVALS);
+        if (assessment.quality !== 'ok') {
+          const code = assessment.quality === 'future' ? 'DAYTRADING_BARS_FUTURE' : assessment.quality === 'stale' ? 'DAYTRADING_BARS_STALE' : 'DAYTRADING_BARS_UNAVAILABLE';
+          skips.add(code, 'data', 'Daytrading signal skipped because the latest bar timestamp failed freshness validation', { strategy: 'daytrading', symbol, quality: assessment.quality, latestBarAt: assessment.latestBarAt, futureBarAt: assessment.futureBarAt, ageSeconds: assessment.ageSeconds, maxStaleSeconds: assessment.maxStaleSeconds, received: assessment.received, valid: assessment.valid });
+          return null;
+        }
+        if (assessment.bars.length < 30) {
+          skips.add('DAYTRADING_BARS_SHORT', 'data', 'Daytrading signal skipped because the validated bar history is too short', { strategy: 'daytrading', symbol, bars: assessment.bars.length, required: 30, latestBarAt: assessment.latestBarAt });
+          return null;
+        }
+        const indicators = analyze(assessment.bars, symbol, taConfig);
         return generateSignal(indicators, { rsiOversold: config.rsiOversold, rsiOverbought: config.rsiOverbought });
       } catch (e) {
         console.error(`TA failed for ${symbol}:`, e);
@@ -729,7 +761,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         equity: account.equity,
         cash: account.cash,
         positionsCount: positions.length,
-        dailyPlPct: account.change_today_pct,
+        dailyPlPct: accountForRisk.change_today_pct,
       },
       marketRegime: marketRegime,
       topMovers: { gainers: [], losers: [] },
@@ -840,7 +872,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       // never pass through BUY-oriented sizing/cost checks.
       let riskCheck: RiskCheckResult | null = null;
       if (decision.action === 'BUY') {
-        riskCheck = riskManager.checkTrade(decision, account, positions, signal.indicators, cycleEntryNotionalUsd);
+        riskCheck = riskManager.checkTrade(decision, accountForRisk, positions, signal.indicators, cycleEntryNotionalUsd);
         if (!riskCheck.approved) {
           await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
           const skipCode = daytradingRiskSkipCode(riskCheck.reason);

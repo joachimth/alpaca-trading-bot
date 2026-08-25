@@ -13,11 +13,12 @@ import {
   type SwingScore,
 } from './swing-signals';
 import { SwingRiskManager, type SwingRiskConfig } from './swing-risk';
-import { projectBrokerPositions, summarizeByCategory } from './position-projection';
+import { projectBrokerPositions, summarizeByCategory, unattributedBrokerExposure } from './position-projection';
 import type { Env } from './index';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 import { closeBrokerAbsentPositions, reconcileBrokerQuantityMismatches } from './position-reconciliation';
 import { resolveCapitalCapOverride } from './capital-caps';
+import { accountWithEquityDirection, resolveEquityDirection } from './equity-observability';
 import {
   assessSwingBars,
   getSwingBarsWindow,
@@ -172,6 +173,19 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     const allDbPositions = await db.getOpenPositions();
     const swingSymbols = new Set(allDbPositions.filter(p => p.strategy === 'swing').map(p => p.ticker));
     const positions = allBrokerPositions.filter(p => swingSymbols.has(p.symbol));
+    const equityDirection = resolveEquityDirection(account);
+    const accountForRisk = accountWithEquityDirection(account);
+    if (equityDirection.fallbackUsed) {
+      skips.add('EQUITY_DIRECTION_FALLBACK', 'account', 'Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls', {
+        strategy: 'swing',
+        source: equityDirection.source,
+        change_today_pct: account.change_today_pct,
+        equity: account.equity,
+        last_equity: account.last_equity,
+        fallback_change_today_pct: equityDirection.changeTodayPct,
+        reason: equityDirection.reason,
+      });
+    }
 
     // Log performance snapshot (shared table, tagged via trigger)
     await db.logSnapshot({
@@ -185,8 +199,8 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       // Shared account snapshot: keep swing filtering for risk logic, but
       // count every broker-authoritative position in the account.
       positions_count: allBrokerPositions.length,
-      daily_pl: account.change_today,
-      daily_plpc: account.change_today_pct,
+      daily_pl: accountForRisk.change_today,
+      daily_plpc: accountForRisk.change_today_pct,
       total_pl: account.equity - account.last_equity,
       total_plpc: account.last_equity > 0 ? ((account.equity - account.last_equity) / account.last_equity) * 100 : 0,
     });
@@ -227,7 +241,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     const recentEquityHistory = await db.getRecentEquityHistory();
     const riskManager = new SwingRiskManager(riskConfig);
     riskManager.setEquityHistory(recentEquityHistory);
-    riskManager.updateEquitySnapshot(account.equity);
+    riskManager.updateEquitySnapshot(accountForRisk.equity);
 
     // Reconciliation
     const dbPositions = allDbPositions.filter(p => p.strategy === 'swing');
@@ -515,6 +529,11 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     const updatedAccount = await alpaca.getAccount();
     const updatedAllPositions = await alpaca.getPositions();
     const updatedPositions = updatedAllPositions.filter(p => swingSymbols.has(p.symbol));
+    const updatedProjections = projectBrokerPositions(updatedAllPositions, await db.getOpenPositions());
+    const unattributedExposureUsd = unattributedBrokerExposure(updatedProjections);
+    if (unattributedExposureUsd > 0) {
+      skips.add('UNATTRIBUTED_BROKER_EXPOSURE', 'reconciliation', 'Unattributed broker exposure is included conservatively in swing cap accounting', { strategy: 'swing', unattributedExposureUsd });
+    }
     // Never buy a symbol already held by another strategy.
     const heldSymbols = new Set(updatedAllPositions.map(p => p.symbol));
 
@@ -534,7 +553,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       // if (riskManager.isEarningsBlackout(score.symbol, earningsCal)) continue;
 
       const price = score.indicators.price;
-      const riskCheck = riskManager.checkEntry(score, updatedAccount, updatedPositions, price, plannedEntryNotionalUsd);
+      const riskCheck = riskManager.checkEntry(score, accountWithEquityDirection(updatedAccount), updatedPositions, price, plannedEntryNotionalUsd, unattributedExposureUsd);
       decisionsMade++;
 
       const decisionId = await db.logDecision({

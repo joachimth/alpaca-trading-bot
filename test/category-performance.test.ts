@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { Position } from '../src/alpaca';
 import { Database } from '../src/database';
-import { projectBrokerPositions, summarizeByCategory, type BrokerPositionProjection } from '../src/position-projection';
+import { projectBrokerPositions, summarizeByCategory, unattributedBrokerExposure, type BrokerPositionProjection } from '../src/position-projection';
 import { createFakeD1, createTestDatabase } from './helpers/fake-d1';
 
 const brokerPosition = (symbol: string, values: Partial<Position> = {}): Position => ({
@@ -38,9 +38,11 @@ describe('summarizeByCategory', () => {
     expect(byStrategy.crypto).toEqual({ strategy: 'crypto', positionsCount: 2, marketValue: 800, unrealizedPl: 40, unrealizedIntradayPl: 3 });
     // swing has no current positions — real zero exposure, not a missing/fabricated value
     expect(byStrategy.swing).toEqual({ strategy: 'swing', positionsCount: 0, marketValue: 0, unrealizedPl: 0, unrealizedIntradayPl: 0 });
-    // the unattributed broker position must not be folded into any category
+    // the unattributed broker position must not be folded into any category,
+    // but its notional remains available for conservative swing cap accounting.
     const totalCounted = summary.reduce((n, s) => n + s.positionsCount, 0);
     expect(totalCounted).toBe(3);
+    expect(unattributedBrokerExposure(projections)).toBe(1000);
   });
 });
 

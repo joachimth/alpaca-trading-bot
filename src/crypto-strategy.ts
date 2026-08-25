@@ -19,6 +19,8 @@ import { projectBrokerPositions, summarizeByCategory } from './position-projecti
 import type { Env } from './index';
 import { SkipReasonCollector, serializeDecisionSkip, serializeRunDetails, runStatus } from './skip-reasons';
 import { classifyCryptoOrder, classifyCryptoSkip, classifyCryptoSubmitError, createCycleExposure, cryptoBudgetDecision, cryptoClientOrderId, cryptoMinimumOrderCheck, cryptoReservationNotional, evaluateCryptoProtectiveExit, feeTelemetryFromAggregate, hasPendingCryptoExit, projectedPositions, rankCryptoCandidates, reserveEntry, resolveCryptoConfig, shouldFinalizeCryptoPosition, type FeeTelemetry } from './crypto-runtime';
+import { assessIntradayBars, CRYPTO_BAR_INTERVAL_SECONDS, CRYPTO_MAX_BAR_STALE_INTERVALS } from './market-data-quality';
+import { accountWithEquityDirection, resolveEquityDirection } from './equity-observability';
 
 /**
  * Apply the crypto strategy's explicit calibrated edge to a decision without
@@ -215,6 +217,19 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
     // Restore the durable rolling equity window before appending this cycle's
     // snapshot. RiskManager instances are recreated on every Worker run.
     const recentEquityHistory = await db.getRecentEquityHistory();
+    const equityDirection = resolveEquityDirection(account);
+    const accountForRisk = accountWithEquityDirection(account);
+    if (equityDirection.fallbackUsed) {
+      skips.add('EQUITY_DIRECTION_FALLBACK', 'account', 'Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls', {
+        strategy: 'crypto',
+        source: equityDirection.source,
+        change_today_pct: account.change_today_pct,
+        equity: account.equity,
+        last_equity: account.last_equity,
+        fallback_change_today_pct: equityDirection.changeTodayPct,
+        reason: equityDirection.reason,
+      });
+    }
 
     // Log snapshot
     await db.logSnapshot({
@@ -228,8 +243,8 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
       // Shared account snapshot: crypto filtering remains for strategy
       // logic, but the account count includes every broker position.
       positions_count: positions.length,
-      daily_pl: account.change_today,
-      daily_plpc: account.change_today_pct,
+      daily_pl: accountForRisk.change_today,
+      daily_plpc: accountForRisk.change_today_pct,
       total_pl: account.equity - account.last_equity,
       total_plpc: account.last_equity > 0 ? ((account.equity - account.last_equity) / account.last_equity) * 100 : 0,
     });
@@ -287,7 +302,7 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
       maxCapitalUsd: config.maxCapitalUsd ?? 0,
     };
     const riskManager = new RiskManager(riskConfig, recentEquityHistory);
-    riskManager.updateEquitySnapshot(account.equity);
+    riskManager.updateEquitySnapshot(accountForRisk.equity);
 
     // Protective exits are evaluated before discretionary risk halts. A halt
     // blocks new exposure, but must never leave an existing loss unmanaged.
@@ -376,8 +391,17 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
     const taPromises = symbolsToScan.map(async symbol => {
       try {
         const bars = await alpaca.getCryptoBars(symbol, '15Min', 200);
-        if (bars.length < 50) return null;
-        const indicators = analyze(bars, symbol, {
+        const assessment = assessIntradayBars(bars, CRYPTO_BAR_INTERVAL_SECONDS, new Date(), CRYPTO_MAX_BAR_STALE_INTERVALS);
+        if (assessment.quality !== 'ok') {
+          const code = assessment.quality === 'future' ? 'CRYPTO_BARS_FUTURE' : assessment.quality === 'stale' ? 'CRYPTO_BARS_STALE' : 'CRYPTO_BARS_UNAVAILABLE';
+          skips.add(code, 'data', 'Crypto signal skipped because the latest bar timestamp failed freshness validation', { strategy: 'crypto', symbol, quality: assessment.quality, latestBarAt: assessment.latestBarAt, futureBarAt: assessment.futureBarAt, ageSeconds: assessment.ageSeconds, maxStaleSeconds: assessment.maxStaleSeconds, received: assessment.received, valid: assessment.valid });
+          return null;
+        }
+        if (assessment.bars.length < 50) {
+          skips.add('CRYPTO_BARS_SHORT', 'data', 'Crypto signal skipped because the validated bar history is too short', { strategy: 'crypto', symbol, bars: assessment.bars.length, required: 50, latestBarAt: assessment.latestBarAt });
+          return null;
+        }
+        const indicators = analyze(assessment.bars, symbol, {
           rsiPeriod: 14, rsiOversold: 30, rsiOverbought: 70,
           emaFast: 9, emaSlow: 21,
           macdFast: 12, macdSlow: 26, macdSignal: 9,
@@ -487,7 +511,7 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
                 equity: account.equity,
                 cash: account.cash,
                 positionsCount: cryptoPositions.length,
-                dailyPlPct: account.change_today_pct || 0,
+                dailyPlPct: accountForRisk.change_today_pct,
               },
               marketRegime: 'crypto',
               topMovers: { gainers: [], losers: [] },
@@ -607,7 +631,7 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
         const riskCheck = checkCryptoEntryRisk(
           riskManager,
           decision,
-          account,
+          accountForRisk,
           projected,
           indicators,
           reservedNotionalUsd,

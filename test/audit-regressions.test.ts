@@ -7,7 +7,7 @@ import {
   daytradingRiskSkipCode,
   daytradingRiskSkipContext,
 } from '../src/index';
-import { SkipReasonCollector, parseRunDetails, serializeRunDetails } from '../src/skip-reasons';
+import { SkipReasonCollector, parseRunDetails, runStatus, serializeRunDetails } from '../src/skip-reasons';
 import type { AccountInfo } from '../src/alpaca';
 import type { AIDecision } from '../src/ai-decision';
 import type { Position } from '../src/alpaca';
@@ -136,6 +136,14 @@ describe('audit schedule and dispatch regressions', () => {
     expect(reconciliationBranch).toContain('await db.upsertPosition');
     expect(reconciliationBranch).toContain("await db.closePosition(dbPos.ticker, null, 'auto_reconcile_not_in_broker')");
     expect(workerSource).toContain('errors.push(`Broker quantity reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);');
+  });
+
+  test('keeps informational reconciliation deferral from making an evaluated no-trade cycle skipped', () => {
+    const skips = new SkipReasonCollector();
+    skips.add('RECONCILIATION_DEFERRED_TO_MAINTENANCE', 'reconciliation', 'delegated');
+    skips.add('DECISION_HOLD', 'decision', 'no trade');
+    expect(serializeRunDetails([], skips)).toContain('RECONCILIATION_DEFERRED_TO_MAINTENANCE');
+    expect(runStatus([], skips)).toBe('ok');
   });
 
   test('keeps swing and crypto broker fan-out bounded by deferring duplicate reconciliation', () => {
@@ -361,7 +369,7 @@ describe('daytrading risk rejection observability', () => {
     expect(workerSource).toContain("const skipCode = daytradingRiskSkipCode(riskCheck.reason);");
     expect(workerSource).toContain("skips.add(skipCode, 'decision', 'Daytrading entry skipped by risk controls'");
     expect(workerSource).toContain('console.log(`Skipped ${signal.indicators.symbol}: ${riskCheck.reason}`);');
-    const rejectionBlock = workerSource.match(/riskCheck = riskManager\.checkTrade\(decision, account, positions, signal\.indicators, cycleEntryNotionalUsd\);([\s\S]*?)\n        \}\n      \}/)?.[1] ?? '';
+    const rejectionBlock = workerSource.match(/riskCheck = riskManager\.checkTrade\(decision, accountForRisk, positions, signal\.indicators, cycleEntryNotionalUsd\);([\s\S]*?)\n        \}\n      \}/)?.[1] ?? '';
     expect(rejectionBlock).toContain('updateDecisionStatus(decisionId, 2, riskCheck.reason);');
     expect(rejectionBlock).toContain('const skipCode = daytradingRiskSkipCode(riskCheck.reason);');
     expect(rejectionBlock).toContain("skips.add(skipCode, 'decision'");

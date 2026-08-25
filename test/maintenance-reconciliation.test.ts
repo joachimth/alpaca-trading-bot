@@ -18,6 +18,30 @@ function seededSqlite(): Sqlite {
 }
 
 describe('scheduled maintenance reconciliation observability', () => {
+  test('marks a clean maintenance reconciliation as ok while retaining MAINTENANCE_ONLY detail', async () => {
+    const sqlite = seededSqlite();
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/v2/orders?')) return new Response('[]', { status: 200 });
+      if (url.includes('/v2/account/activities?')) return new Response('[]', { status: 200 });
+      throw new Error(`unexpected broker request: ${url}`);
+    }) as typeof fetch;
+    const env = {
+      DB: createFakeD1(sqlite),
+      ALPACA_API_KEY: 'test-key',
+      ALPACA_API_SECRET: 'test-secret',
+      ALPACA_BASE_URL: 'https://paper-api.alpaca.markets',
+      LLM_API_KEY: '',
+    } as unknown as Env;
+
+    await runScheduledMaintenance(env, 'clean_reconcile_test');
+    const run = sqlite.query(`SELECT status, errors, error_details FROM run_log WHERE trigger = 'clean_reconcile_test' ORDER BY id DESC LIMIT 1`).get() as { status: string; errors: number; error_details: string };
+    const details = parseRunDetails(run.error_details);
+    expect(run.status).toBe('ok');
+    expect(run.errors).toBe(0);
+    expect(details).toContainEqual(expect.objectContaining({ code: 'MAINTENANCE_ONLY' }));
+  });
+
   test('persists lookupFailures and marks an individual lookup failure degraded without broker mutations', async () => {
     const sqlite = seededSqlite();
     sqlite.prepare(`

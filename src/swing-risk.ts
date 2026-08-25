@@ -126,6 +126,7 @@ export class SwingRiskManager {
     positions: Position[],
     price: number,
     reservedNotionalUsd = 0,
+    unattributedExposureUsd = 0,
   ): SwingRiskCheckResult {
   // Kill switch
   if (this.killState.tradingHalted) {
@@ -168,16 +169,20 @@ export class SwingRiskManager {
   const safeReservedNotional = Number.isFinite(reservedNotionalUsd)
     ? Math.max(0, reservedNotionalUsd)
     : 0;
+  const safeUnattributedExposure = Number.isFinite(unattributedExposureUsd)
+    ? Math.max(0, unattributedExposureUsd)
+    : 0;
   const cycleReservedNotional = this.config.maxCapitalUsd > 0 ? safeReservedNotional : 0;
-  if (this.config.maxCapitalUsd > 0 && currentGross + cycleReservedNotional >= this.config.maxCapitalUsd) {
+  const conservativeGross = currentGross + (this.config.maxCapitalUsd > 0 ? safeUnattributedExposure : 0);
+  if (this.config.maxCapitalUsd > 0 && conservativeGross + cycleReservedNotional >= this.config.maxCapitalUsd) {
     return {
       approved: false,
-      reason: `Swing capital cap exhausted: $${(currentGross + cycleReservedNotional).toFixed(2)} allocated against $${this.config.maxCapitalUsd.toFixed(2)}`,
+      reason: `Swing capital cap exhausted: $${(conservativeGross + cycleReservedNotional).toFixed(2)} allocated against $${this.config.maxCapitalUsd.toFixed(2)}`,
     };
   }
   const swingGrossUsed = this.config.maxCapitalUsd > 0
-    ? Math.min(currentGross + cycleReservedNotional, this.config.maxCapitalUsd)
-    : currentGross;
+    ? Math.min(conservativeGross + cycleReservedNotional, this.config.maxCapitalUsd)
+    : conservativeGross;
   const swingGrossPct = swingCapital > 0 ? (swingGrossUsed / swingCapital) * 100 : 0;
   if (swingGrossPct >= this.config.maxGrossExposure) {
     return { approved: false, reason: `Swing gross exposure ${swingGrossPct.toFixed(1)}% >= max ${this.config.maxGrossExposure}%` };
@@ -200,13 +205,13 @@ export class SwingRiskManager {
   const maxValue = swingCapital * (this.config.maxPositionPct / 100);
   // Available cash: respect the swing capital cap
   const availableForSwing = this.config.maxCapitalUsd > 0
-    ? Math.min(Math.max(0, this.config.maxCapitalUsd - currentGross - cycleReservedNotional), account.cash)
+    ? Math.min(Math.max(0, this.config.maxCapitalUsd - conservativeGross - cycleReservedNotional), account.cash)
     : (this.config.enableMargin ? account.buying_power : account.cash);
 
   if (this.config.maxCapitalUsd > 0 && availableForSwing <= 0) {
     return {
       approved: false,
-      reason: `Swing capital cap exhausted: $${(currentGross + cycleReservedNotional).toFixed(2)} allocated against $${this.config.maxCapitalUsd.toFixed(2)}`,
+      reason: `Swing capital cap exhausted: $${(conservativeGross + cycleReservedNotional).toFixed(2)} allocated against $${this.config.maxCapitalUsd.toFixed(2)}`,
     };
   }
 
@@ -402,14 +407,16 @@ export class SwingRiskManager {
   // Portfolio heat
   // ============================================================
 
-  getPortfolioHeat(positions: Position[], account: AccountInfo): number {
+  getPortfolioHeat(positions: Position[], account: AccountInfo, unattributedExposureUsd = 0): number {
     const swingCapital = this.config.maxCapitalUsd > 0
       ? Math.min(this.config.maxCapitalUsd, account.portfolio_value)
       : account.portfolio_value;
     const totalExposure = positions.reduce((sum, p) => sum + Math.abs(p.market_value), 0);
+    const safeUnattributedExposure = Number.isFinite(unattributedExposureUsd) ? Math.max(0, unattributedExposureUsd) : 0;
+    const conservativeExposure = totalExposure + (this.config.maxCapitalUsd > 0 ? safeUnattributedExposure : 0);
     const cappedExposure = this.config.maxCapitalUsd > 0
-      ? Math.min(totalExposure, this.config.maxCapitalUsd)
-      : totalExposure;
+      ? Math.min(conservativeExposure, this.config.maxCapitalUsd)
+      : conservativeExposure;
     return swingCapital > 0 ? (cappedExposure / swingCapital) * 100 : 0;
   }
 

@@ -99,6 +99,12 @@ function normalizeSymbol(symbol: string): string {
   return normalizeCryptoSymbol(value) ?? value;
 }
 
+export function unattributedBrokerExposure(projections: readonly BrokerPositionProjection[]): number {
+  return projections
+    .filter(projection => projection.strategy === 'unattributed')
+    .reduce((total, projection) => total + Math.abs(Number.isFinite(projection.market_value) ? projection.market_value : 0), 0);
+}
+
 export type CategoryStrategy = 'daytrading' | 'swing' | 'crypto';
 
 const CATEGORY_STRATEGIES: readonly CategoryStrategy[] = ['daytrading', 'swing', 'crypto'];

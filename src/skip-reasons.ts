@@ -111,11 +111,25 @@ export function hasSkipDetails(value: unknown): boolean {
   return parseRunDetails(value).some(item => typeof item === 'object' && item !== null && (item as SkipReason).type === 'skip');
 }
 
+const INFORMATIONAL_SKIP_CODES = new Set([
+  'MAINTENANCE_ONLY',
+  'RECONCILIATION_DEFERRED_TO_MAINTENANCE',
+  'BROKER_ONLY_RECONCILED',
+  'EQUITY_DIRECTION_FALLBACK',
+  'DECISION_HOLD',
+  'HELD_POSITION',
+  'HELD_NO_SCORE',
+  'HELD_DEGRADED_DATA',
+  'NO_POSITION_TO_EXIT',
+]);
+
 export function runStatus(errors: readonly string[], skips: SkipReasonCollector, degraded = false, tradesExecuted = 0): string {
   if (errors.length > 0) return 'error';
   if (degraded) return 'degraded';
-  // A cycle containing successful orders is still an ordinary successful run;
-  // only a run made up entirely of skips gets the visibly distinct skipped label.
-  if (skips.size > 0 && tradesExecuted === 0) return 'skipped';
+  // Informational details describe work that completed or was intentionally
+  // delegated; they do not mean the evaluated cycle was blocked. Preserve
+  // true blocking skips such as lease-held, market-closed, or stale data.
+  const hasBlockingSkip = skips.toArray().some(skip => !INFORMATIONAL_SKIP_CODES.has(skip.code));
+  if (hasBlockingSkip && tradesExecuted === 0) return 'skipped';
   return 'ok';
 }

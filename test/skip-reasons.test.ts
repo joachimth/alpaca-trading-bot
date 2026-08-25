@@ -44,7 +44,7 @@ describe('skip reason details', () => {
     skips.add('BROKER_ONLY_RECONCILED', 'reconciliation', 'Broker-authoritative position divergence reconciled into D1', {
       details: ['MSFT: in broker but not internal'],
     });
-    expect(runStatus([], skips)).toBe('skipped');
+    expect(runStatus([], skips)).toBe('ok');
     expect(runStatus([], skips, false, 1)).toBe('ok');
     expect(serializeRunDetails([], skips)).toContain('BROKER_ONLY_RECONCILED');
     expect(runStatus(['broker reconciliation failed'], skips)).toBe('error');
@@ -52,7 +52,7 @@ describe('skip reason details', () => {
 
   test('error wins over skips and skip-only runs are labeled skipped', () => {
     const skips = new SkipReasonCollector();
-    skips.add('DECISION_HOLD', 'decision', 'HOLD');
+    skips.add('MARKET_CLOSED', 'cycle', 'Market is closed');
     expect(runStatus([], skips)).toBe('skipped');
     expect(runStatus([], skips, false, 1)).toBe('ok');
     expect(runStatus(['real error'], skips)).toBe('error');

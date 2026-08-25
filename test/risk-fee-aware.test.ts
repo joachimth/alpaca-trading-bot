@@ -329,6 +329,20 @@ describe('fee-aware SwingRiskManager regression coverage', () => {
     expect(plannedEntryNotionalUsd).toBeLessThanOrEqual(3700);
   });
 
+  test('includes unattributed broker exposure conservatively in the swing cap', () => {
+    const manager = new SwingRiskManager(swingConfig({ maxCapitalUsd: 3700, maxPositionPct: 100, targetPositionPct: 100, minTradeSize: 0 }));
+    const result = manager.checkEntry(
+      score(),
+      account({ cash: 100_000, portfolio_value: 100_000 }),
+      [],
+      100,
+      0,
+      3700,
+    );
+    expect(result.approved).toBe(false);
+    expect(result.reason).toContain('$3700.00');
+  });
+
   test('fails closed when current and planned swing exposure exhaust the cap', () => {
     const manager = new SwingRiskManager(swingConfig({ maxCapitalUsd: 3700 }));
     const result = manager.checkEntry(
