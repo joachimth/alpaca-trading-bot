@@ -1,3 +1,23 @@
+## August 25, 2026 Control-97 strict read-only production control - HEALTHY/DEGRADED
+
+Control-97 ran a strict GET-only production control at ~19:00 UTC (21:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (HEAD reference corrected to current commit `60db928`).
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Local HEAD `60db928` (docs), code commits `62ff44f`+`6876a92`+`22e962f`, release **2.6.0**. Live Worker matches local source.
+
+**Live state:** Account ACTIVE, equity $98,524.19, cash $90,582.30, long_market_value $7,941.89, change_today_pct +0.140% (equity-direction fallback active in run cycles; broker per-position `change_today_pct` zero, fallback to equity delta). 15 broker-authoritative positions (`source`=`alpaca`), all `strategy`=`daytrading`; swing exposure = 0. Caps $5,000/$3,700/$2,000 unchanged. `broker_ledger_synced_until`=2026-08-25T18:51:04Z (fresh), `last_prune_date`=2026-08-25.
+
+**Schedules:** Daytrading cron every 5 min (runs 3550/3548/3547/3544/3543 at 18:31-18:51) — all `skipped` on `DAYTRADING_BARS_STALE` (~974s vs 900s window) + `EQUITY_DIRECTION_FALLBACK`, `errors=0`. Reconcile_cron every 10 min (runs 3549/3546 at 18:41/18:51) — `status=ok`, `MAINTENANCE_ONLY`, ledgerActivities 0, 1 page, not truncated, 0 errors, watermark holding. Crypto_cron :07/:37 (run 3545 at 18:38) — `skipped` on `RECONCILIATION_DEFERRED_TO_MAINTENANCE` + `CRYPTO_BARS_STALE` (LINKUSD ~22h stale) + `CRYPTO_BARS_UNAVAILABLE` (MATICUSD empty) + `CRYPTO_DATA_INSUFFICIENT` (validTA 0 < 3). Swing `0 22 * * 1-5` not yet run today (first natural test on deployed 2.6.0 with empty swing book, expected 22:00 UTC).
+
+**Subrequest-budget follow-up:** No recurrence of the run 3524 (17:36 UTC) free-tier subrequest exhaustion. Runs 3543-3550 (18:31-18:51) all completed with `errors=0`. The transient event remains isolated; monitor continues.
+
+**Trade/fill lifecycle:** Trade 706 (NCLH sell, qty 17.72, filled 17:36 UTC) `accounting_status`=`filled_lot_exact_unavailable`, gross/fee/net=null (conservative), `filled_notional`=$303.37, `estimated_value_basis`=`order_time_estimate`. Trades 705/704 (LUV/RUN sells, filled 13:36) daytrading. Swing sells 701/702 `strategy`=`swing`; trade 703 `strategy`=`null` (persistent gap from subrequest-exhausted run 3409). All lifecycle fields (`submitted_at`, `filled_at`, `broker_updated_at`, `last_reconciled_at`) populated; `canceled_at`/`expired_at`/`failed_at`/`replaced_at` null.
+
+**Crypto edge-gate:** Fail-closed confirmed. No `rawEdgeBps` producer exists, so crypto BUYs are always blocked. No production positive-edge path evidenced.
+
+**Filtered run observability:** `analyzed_candidates` and `filtered_candidates` present in run responses (0/0 for skipped cycles, correct).
+
+**Status: HEALTHY** (code/deployment), **DEGRADED** (external data-feed/resource — stale daytrading bars, stale/unavailable crypto bars, intermittent free-tier subrequest budget). 220 tests / 822 assertions pass; TypeScript and `git diff --check` clean. No caps, schedules, thresholds, sizing, fee policy, edge policy, order semantics, or trading behavior changed. Remaining follow-ups: natural swing run tonight 22:00 UTC (first on deployed 2.6.0 with empty swing book), `rawEdgeBps` producer, crypto/daytrading bar freshness, D1 Sep 1 enforcement monitoring, paid-plan upgrade decision, trade 703 `strategy=null` gap.
+
 ## August 25, 2026 Control-96 strict read-only production control - HEALTHY/DEGRADED
 
 Control-96 ran a strict GET-only production control at ~18:00 UTC (20:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (HEAD reference corrected to current commit `c39ba36`).

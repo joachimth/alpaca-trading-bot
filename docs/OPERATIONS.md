@@ -1,3 +1,15 @@
+## August 25, 2026 Control-97 strict read-only production control - HEALTHY/DEGRADED
+
+Control-97 was a strict GET-only production control at ~19:00 UTC (21:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required — documentation update only (HEAD reference corrected to current commit `60db928`).
+
+Version identity all aligned: `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Local HEAD `60db928` (docs), code commits `62ff44f`+`6876a92`+`22e962f`. Live Worker matches local source. Deploy path remains direct Cloudflare API PUT (Wrangler silently exits without uploading).
+
+Live state: ACTIVE, equity $98,524.19, cash $90,582.30, 15 broker-authoritative positions all daytrading (MV $7,941.89), swing exposure 0, +0.140% (equity-direction fallback). Caps $5,000/$3,700/$2,000 unchanged. Reconcile_cron ok every 10 min (ledgerActivities 0, 0 errors, watermark holding, not truncated). Daytrading skipped on DAYTRADING_BARS_STALE (~974s vs 900s) + EQUITY_DIRECTION_FALLBACK. Crypto :07/:37 skipped (LINKUSD ~22h stale, MATICUSD empty, CRYPTO_DATA_INSUFFICIENT, fail-closed no-rawEdgeBps).
+
+Subrequest-budget follow-up: no recurrence of run 3524 (17:36 UTC) transient exhaustion. Runs 3543-3550 (18:31-18:51) all errors=0. Event remains isolated. Monitor continues.
+
+Status: HEALTHY (code/deployment), DEGRADED (external data-feed/resource). 220 tests / 822 assertions, typecheck clean. Remaining: swing run tonight 22:00 UTC, rawEdgeBps producer, crypto/daytrading bar freshness, D1 Sep 1 enforcement monitoring, paid-plan upgrade decision, trade 703 strategy=null gap.
+
 ## August 25, 2026 Control-96 strict read-only production control - HEALTHY/DEGRADED
 
 Control-96 was a strict GET-only production control at ~18:00 UTC (20:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required — documentation update only (HEAD reference corrected to current commit `c39ba36`).
