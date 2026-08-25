@@ -1,4 +1,71 @@
-## Control-74 release gate - August 24, 2026 - OPEN FAIL/DEGRADED
+## August 25, 2026 Control-82 reliability correction - LOCAL VALIDATED / LIVE OPEN FAIL-DEGRADED
+
+Control-82 corrected reliability and observability only: clean maintenance runs are `ok` with informational `MAINTENANCE_ONLY`; intentional reconciliation deferral no longer mislabels evaluated no-trade cycles; daytrading and crypto reject invalid, stale, or future intraday bars; equity-direction fallback is explicit; and unattributed broker exposure is included conservatively in swing cap checks. Caps, schedules, thresholds, sizing, order semantics, and trading behavior were not changed.
+
+The exact validated Alpaca source is HEAD `20d80ac87e08271fb0d9c1c7ea1027b72eebd48d` on `fix/remove-premature-position-upsert-entryside`, release **2.6.0**. Full validation passed **213 tests / 796 assertions**, TypeScript, and `git diff --check`. No deployment, migration, trigger, broker mutation, or external mutation occurred. Live production remains **OPEN FAIL/DEGRADED** because the Worker still reports health/config **1.0.0 / 2.4.0**, Wrangler authentication is unavailable, and separate GET-only live verification of this commit has not occurred.
+
+## Tuesday, August 25, 2026 Control-81 strict read-only production control - LOCAL VALIDATED / LIVE OPEN FAIL-DEGRADED
+
+Control-81 used only GET requests against `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades`, plus GET-only filter/pagination probes on those same endpoints. All six returned HTTP 200; no trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
+
+The exact deployable checkout is HEAD `1c6914d1766e420fc3cfa3be2f1e2914c5e197de` on `fix/remove-premature-position-upsert-entryside`, release **2.6.0**. Required docs identify this same HEAD. Live identity remains `/health=1.0.0` and `/api/config.version=2.4.0`; `bunx wrangler whoami` is blocked by `You are not authenticated. Please run wrangler login.`, so source-to-Worker provenance and deployment of this HEAD are not verified.
+
+Live positions remain broker-authoritative: `positionsAvailable=true`, `source=alpaca`, 21 rows. Dashboard equity is **98410.64 USD** versus `last_equity=98504.5039`, down **93.8639 USD**; the latest snapshot is **98390.96 USD** with `total_pl=-113.54389999998966`. Caps remain exactly **5000 / 3700 / 2000 USD**. Local four-schedule wiring remains daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, and reconciliation `*/10 * * * *`.
+
+Fresh daytrading, crypto, and reconciliation deliveries are observable, but daytrading is skipped/errored in the sampled window, crypto is skipped, reconciliation is repeatedly `CYCLE_LEASE_HELD`, and the latest swing run **3409** at **2026-08-24 22:01:37 UTC** failed with Cloudflare subrequest exhaustion. Crypto completion timestamps are consistently around **:08/:38 UTC**, not literal **:07/:37**, so requested cadence is not verified. Structured skip/error observability is present locally and in live run payloads.
+
+Trade lifecycle fields are present for filled and accepted orders, but sampled rows retain `gross=null`, `fee=null`, `net=null`, `accounting_status=unavailable_fill_lot_exact`, and `fee_attribution=none-recorded`; exact fill-lot economics therefore remains unavailable. Live filter/pagination behavior is stale or defective: status/code/search and offsets/page probes repeat unfiltered or first-page results, while the checked-out source has regression coverage for the corrected behavior. Crypto edge wiring is locally fail-closed at `crypto_min_edge_after_costs=8`, requiring fresh fee telemetry and calibrated raw edge; live fee/edge admission is not proven.
+
+No code/config correction was justified by this capture beyond status documentation: the checked-out reliability implementation passes **204 tests / 775 assertions**, TypeScript, diff-check, and Wrangler dry-run. Keep production **OPEN FAIL/DEGRADED**. Required follow-up remains secure Wrangler authentication and source provenance, authorized deployment only after clean-release review, separate GET-only post-release verification, swing subrequest remediation, exact cadence verification, live filter/pagination verification, exact fill accounting, cap semantics, and fresh fee/edge evidence; no cap or trading-behavior changes are authorized.
+
+## Control-80 release gate - August 25, 2026 - OPEN FAIL/DEGRADED
+
+Exact Alpaca checkout identity: HEAD `1c6914d1766e420fc3cfa3be2f1e2914c5e197de`, branch `fix/remove-premature-position-upsert-entryside`, release **2.6.0**. Separate workspace-root HEAD: `d145a98321cb928a334f8d3685ece6076c0eacd1`. Never use the workspace-root hash as the Alpaca release hash. Live health/config are **1.0.0 / 2.4.0** and Wrangler returns `You are not authenticated. Please run `wrangler login`.`
+
+The control used only GET requests against the six approved endpoints plus GET-only filter/pagination probes. Broker positions are authoritative (`positionsAvailable=true`, `source=alpaca`, 21 rows); equity is down 114.9439 USD; caps remain exactly 5000/3700/2000 USD.
+
+The four source schedules remain exact, but live evidence is degraded: fresh successful daytrading is not proven, swing run 3409 failed from Cloudflare subrequest exhaustion, reconciliation run 3433 is lease-held, and crypto completions observed at :08/:38 fail the requested :07/:37 cadence check. Live run code/search filtering and trade status/pagination are defective or stale; exact fill-level gross/fee/net is unavailable; and live swing exposure approximately 8938.576216 USD versus the unchanged 3700 USD cap is unresolved by read-only evidence.
+
+Do not deploy until secure authentication establishes active Worker provenance and deployment authorization. If authorized under the standing maintenance rule, deploy only the already-validated reliability artifact, then run a separate GET-only verification for canonical version/provenance, fresh schedules, filters/pagination, lifecycle/accounting, cap semantics, fee freshness, and computed crypto edge.
+
+## Control-79 release gate - August 25, 2026 - OPEN FAIL/DEGRADED
+
+Exact local release identity is HEAD `1c6914d1766e420fc3cfa3be2f1e2914c5e197de` on `fix/remove-premature-position-upsert-entryside`, release **2.6.0**. Live health/config are **1.0.0 / 2.4.0**, and `bunx wrangler whoami` is blocked by `You are not authenticated. Please run \`wrangler login\`.`
+
+The six approved endpoints returned HTTP 200. Broker positions are authoritative with 21 rows; equity is down **109.9339 USD** versus `last_equity`; caps remain **5000 / 3700 / 2000 USD**; and the four UTC schedules remain unchanged. Fresh daytrading, crypto, and reconciliation delivery is present with structured skips and crypto :07/:37 cadence evidence, while swing run 3409 errored on Cloudflare subrequest exhaustion.
+
+Live run code/search filters and trade status/pagination are defective or stale, exact per-fill gross/fee/net is unavailable, swing exposure is approximately **8938.576216 USD** versus the unchanged **3700 USD** cap, and live crypto edge/fee proof is insufficient: the checked-out signal/AI types carry optional `rawEdgeBps`, but no raw-edge producer assignment was found, so the crypto gate correctly fails closed rather than admitting uncalibrated entries. Do not deploy or mutate the broker without authenticated provenance and authorization. Keep the gate **OPEN FAIL/DEGRADED**, retain follow-up `864e3971-0655-4d0f-ac81-95ba66595335`, and require separate GET-only post-release verification. See `CORRECTION_WORK_ITEM_2026-08-25_CONTROL-79.md`.
+
+## Control-78 release gate - August 25, 2026 - OPEN FAIL/DEGRADED
+
+The strict control used only the six approved GET endpoints and same-endpoint GET filter/pagination probes. Exact local source identity is HEAD `1c6914d1766e420fc3cfa3be2f1e2914c5e197de` on `fix/remove-premature-position-upsert-entryside`, release **2.6.0**; live identity remains unresolved because health/config report **1.0.0 / 2.4.0** and Wrangler returns `You are not authenticated. Please run `wrangler login`.`
+
+Release invariants remain exact: caps **5000 / 3700 / 2000 USD** and schedules `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, and `*/10 * * * *`. Broker positions are authoritative with 21 rows; equity is down `113.5439 USD`; crypto history confirms the `:07/:37 UTC` cadence; reconciliation is fresh with structured `CYCLE_LEASE_HELD` and `MAINTENANCE_ONLY` skips; and swing run `3409` errored on Cloudflare subrequest exhaustion.
+
+Live run code/search filters are defective, trade status/pagination probes are defective, exact per-fill gross/fee/net economics are unavailable, dashboard swing exposure is `8938.576216 USD` against the unchanged `3700 USD` cap, and dashboard decision/trade-count and fee-attribution contradictions remain unexplained. The local source already contains the intended reliability controls and fail-closed crypto edge/fee wiring. Do not change caps, schedules, positions, edge policy, fees, or order behavior to compensate. Keep the gate **OPEN FAIL/DEGRADED**, retain follow-up `864e3971-0655-4d0f-ac81-95ba66595335`, restore secure Wrangler authentication, and deploy only if separately authorized by the standing maintenance rule, followed by separate GET-only verification. See `CORRECTION_WORK_ITEM_2026-08-25_CONTROL-78.md`.
+
+## Control-77 release gate - August 24, 2026 - OPEN FAIL/DEGRADED
+
+The strict control used only the six approved GET endpoints and same-endpoint GET filter/pagination probes. Exact local source identity is HEAD `1c6914d1766e420fc3cfa3be2f1e2914c5e197de` on `fix/remove-premature-position-upsert-entryside`, release **2.6.0**; live identity is unresolved because health/config report **1.0.0 / 2.4.0** and Wrangler returns `You are not authenticated. Please run `wrangler login`.`
+
+Release invariants remain exact: caps **5000 / 3700 / 2000 USD** and schedules `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, and `*/10 * * * *`. Broker positions are authoritative with 21 rows; equity is down `113.5439 USD`; filtered crypto history confirms the configured `:07/:37` cadence with seconds-level jitter, swing run `3409` errored on Cloudflare subrequest exhaustion, and reconciliation is fresh with bounded ledger context. Filled trade lifecycle fields exist, but per-fill gross/fee/net are conservatively unavailable; live trade status filters and offsets are defective; run code/search filters are also defective; crypto live edge evidence is incomplete; and an `executed=2` versus `trades_executed=0` contradiction remains. Fee attribution is also internally inconsistent, and accepted trades 701-703 have unexplained persistence-after-submission timestamps.
+
+Do not change caps, schedules, positions, edge policy, fees, or order behavior to compensate. No source correction or deployment was justified; restore secure Wrangler auth, establish provenance and authorization, deploy only if separately authorized by the standing maintenance rule, then perform separate GET-only verification. Keep the gate **OPEN FAIL/DEGRADED** and retain follow-up `864e3971-0655-4d0f-ac81-95ba66595335`. See `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-77.md`.
+
+## Control-76 release gate - August 24, 2026 - LOCAL VALIDATED / LIVE OPEN FAIL-DEGRADED
+
+The strict control used only the six approved GET endpoints and performed no deployment, migration, trigger, submit, cancel, close, replace, retry, external write, or broker mutation. The exact deployable source is HEAD `1c6914d1766e420fc3cfa3be2f1e2914c5e197de` on `fix/remove-premature-position-upsert-entryside`, release **2.6.0**; live `/health` is **1.0.0** and `/api/config` is **2.4.0**, so the active Worker is not source-tied. Wrangler authentication is blocked by `You are not authenticated. Please run wrangler login.`
+
+Release invariants remain exact: caps **5000 / 3700 / 2000 USD** and schedules `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, and `*/10 * * * *`. Positions are broker-authoritative with 21 live broker rows; the post-update equity direction is down `108.2639 USD`; fresh daytrading, crypto, and reconciliation delivery is observed, while swing run `3409` errored from Cloudflare subrequest exhaustion. Filled trade lifecycle fields are present, but exact per-fill gross/fee/net economics are unavailable and remain null conservatively. Live status filters are ignored (`status=accepted` and `status=filled` return mixed rows), live trade offsets repeat the first page, and the dashboard reports **$8,943.86301** of 21 open swing positions against the **$3,700** swing cap. Treat swing cap enforcement as **FAIL** if the cap governs current gross exposure; do not repair this by changing the cap or closing positions during a read-only control.
+
+No source correction or deployment is justified from this capture. The checked-out source has the intended read-only filters and entry-side cap checks, so the live defects are deployment-drift evidence while Worker provenance is unresolved. Keep the release gate **OPEN FAIL/DEGRADED**, retain the existing hourly read-only follow-up, restore authenticated provenance, and require separate GET-only post-release verification before any healthy designation. See `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-76.md`.
+
+## Control-75 release gate - August 24, 2026 - LOCAL VALIDATED / LIVE OPEN FAIL-DEGRADED
+
+The exact checked-out HEAD is `1c6914d1766e420fc3cfa3be2f1e2914c5e197de`, release **2.6.0**; worktree cleanliness is not used as provenance evidence. The required source contracts for filtered run observability, durable candidate counters, and crypto fail-closed calibrated-edge gating are already present and locally regression-tested; no source or trading-behavior correction was justified.
+
+Release safety invariants remain exact: caps **5000 / 3700 / 2000 USD** and schedules `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, and `*/10 * * * *`. This work performed no deployment, migration, trigger, submit, cancel, close, replace, retry, external write, or broker mutation. `bunx wrangler deploy --dry-run` passed as preview only. `bunx wrangler whoami` remains blocked by `You are not authenticated. Please run wrangler login.`, so active Worker provenance and deployment authorization remain unresolved. Keep production **OPEN FAIL/DEGRADED**, not healthy, until authenticated provenance and separate GET-only post-release verification are complete. See `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-75.md`.
+
 
 Do not label production healthy. The strict control used only GET requests to `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades`, plus read-only filter/pagination probes; all six returned HTTP 200 JSON. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker mutation occurred.
 
@@ -1211,6 +1278,14 @@ Local focused validation is **89 tests / 323 assertions**; full validation is **
 
 **Follow-up owner: Joachim.** Restore authenticated reproducible Cloudflare deployment/source verification, then separately repeat GET-only checks and observe natural day/swing windows. Keep production **FAIL/DEGRADED**, not healthy. Correction work item: `CORRECTION_WORK_ITEM_2026-08-22_CONTROL-6.md`.
 
+
+## Control-82 release gate — August 25, 2026
+
+**Local artifact only; production remains OPEN FAIL/DEGRADED.** Control-82 changes reliability handling only: maintenance status truthfulness, informational reconciliation deferral classification, bounded daytrading/crypto latest-bar freshness/future validation, equity-direction fallback observability, and conservative swing cap accounting for unattributed exposure. It does not change caps (`5000/3700/2000 USD`), schedules, thresholds, order semantics, or intended trading behavior.
+
+Exact local HEAD before/after this work remains `1c6914d1766e420fc3cfa3be2f1e2914c5e197de` because no commit was created. Validation passed **213 tests / 796 assertions**, `bun run typecheck`, and `git diff --check`. No deployment, migration, trigger, or external/broker mutation was performed.
+
+Do not close the release gate from local tests. Before any release, require authenticated source-tied deployment and separate GET-only verification of live identity, all four schedules, structured run status/skip details, latest-bar freshness evidence, equity direction source, conservative cap behavior, and unchanged caps/order semantics. Until then the disposition is **OPEN FAIL/DEGRADED**.
 
 ## August 22, 2026 Control-6 strict read-only production control
 
