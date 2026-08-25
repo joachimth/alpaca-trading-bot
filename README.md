@@ -1,3 +1,21 @@
+## August 25, 2026 Control-95 strict read-only production control - HEALTHY/DEGRADED
+
+Control-95 ran a strict GET-only production control at ~17:00 UTC (19:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (HEAD reference corrected to current commit `a0ae8c3`).
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Local HEAD `a0ae8c3` (docs), code commits `62ff44f`+`6876a92`+`22e962f`, release **2.6.0**. Live Worker matches local source.
+
+**Four schedules confirmed:** reconciliation `*/10 * * * *` ok every 10 min (run 3521 at 13:51, ledgerActivities=5; run 3518 at 13:41, ledgerActivities=8; 0 errors, not truncated, watermark holding); daytrading `*/5 13-21 * * 1-5` (runs 3519-3523 at 13:41-13:56, market_open=1, skipped on DAYTRADING_BARS_STALE ~973s vs 900s + EQUITY_DIRECTION_FALLBACK + DAYTRADING_BARS_UNAVAILABLE SQ empty); crypto `7-59/30 * * * *` at :07/:37 (runs 3517 13:38, 3507 13:08, 3501 12:38, 3497 12:08, 3493 11:37 — all skipped: RECONCILIATION_DEFERRED_TO_MAINTENANCE, CRYPTO_BARS_STALE ETHUSD ~22h stale, CRYPTO_BARS_UNAVAILABLE MATICUSD empty, CRYPTO_DATA_INSUFFICIENT validTA=0); swing `0 22 * * 1-5` not yet run today (expected 22:00 UTC, first natural test on 2.6.0 with empty swing book).
+
+**Broker-authoritative positions:** `source=alpaca`, `freshness.current_state_source=alpaca`, observed 2026-08-25T17:00:18Z. 16 positions (AAL, AEP, AMD, CCL, DAL, DDOG, F, FCEL, GOOGL, LCID, NCLH, NEE, NXPI, RIVN, SIRI, UNH), ALL `strategy=daytrading`, long_market_value $8,286.65. Swing exposure = 0. Equity $98,565.58 (+0.18%), ACTIVE, cash $90,278.93. `broker_ledger_synced_until` 2026-08-25T13:51:06Z, `last_prune_date` 2026-08-25. Cached fee summary: totalUsd $272.82, cryptoFeeTelemetryStatus=available.
+
+**Trade/fill lifecycle:** trades 704 (LUV sell 2.14@$41.10) and 705 (RUN sell 40@$9.05) filled 13:36 UTC, daytrading, status=filled, filled_qty=qty. Trades 701 (EOG swing), 702 (HON swing), 703 (PLD) filled at broker 13:30 UTC. All trades: gross/fee/net=null, `accounting_status=filled_lot_exact_unavailable`, `fee_attribution=none-recorded` (conservative — uncertain fees unattributed). Trade 703 strategy=null (persistent observability gap).
+
+**Crypto edge-gate wiring confirmed** in source: `prepareCryptoRiskDecision` (crypto-strategy.ts:29) requires `Number.isFinite(calibratedRawEdgeBps)`, `requireCalibratedEdge: true` (line 308). No rawEdgeBps producer exists in signal generation, so crypto BUYs always fail-closed. Skip observability structured: all run_details have type/code/scope/message/context/count.
+
+**Filtered run observability confirmed:** `trigger=crypto_cron` filter returns only crypto_cron runs (3517/3507/3501/3497/3493). No code defect, no deploy required. 220 tests / 822 assertions pass, typecheck clean. No caps, schedules, thresholds, sizing, fee policy, edge policy, order semantics, or trading behavior changed.
+
+**Status: HEALTHY (code/deployment), DEGRADED (external data-feed).** Remaining follow-ups: natural swing run tonight 22:00 UTC (first live test on 2.6.0, empty swing book), `rawEdgeBps` producer for crypto edge gate, crypto bar freshness (ETHUSD ~22h stale, MATICUSD empty), daytrading bar freshness (~973s vs 900s), D1 plan upgrade decision, Sep 1 free-tier enforcement monitoring, trade 703 strategy attribution gap.
+
 ## August 25, 2026 Control-94 strict read-only production control - HEALTHY/DEGRADED
 
 Control-94 ran a strict GET-only production control at ~16:00 UTC. All six endpoints returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (HEAD reference corrected to current commit `cc66ca2`).

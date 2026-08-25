@@ -1,3 +1,13 @@
+## August 25, 2026 Control-95 strict read-only production control - HEALTHY/DEGRADED
+
+Control-95 was a strict GET-only production control at ~17:00 UTC (19:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required — documentation update only (HEAD reference corrected to current commit `a0ae8c3`).
+
+Version identity all aligned: `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Local HEAD `a0ae8c3` (docs), code commits `62ff44f`+`6876a92`+`22e962f`. Live Worker matches local source. Deploy path remains direct Cloudflare API PUT (Wrangler silently exits without uploading).
+
+Equity $98,565.58 (+0.18%), ACTIVE, caps $5,000/$3,700/$2,000 unchanged. 16 broker-authoritative positions all daytrading (MV $8,286.65), swing exposure zero. Reconciliation healthy (run 3521 at 13:51, ledgerActivities=5; run 3518 at 13:41, ledgerActivities=8; 0 errors, watermark holding, not truncated). Daytrading skipping on stale bars (~973s vs 900s, SQ unavailable) + EQUITY_DIRECTION_FALLBACK. Crypto :07/:37 cadence confirmed (runs 3517/3507/3501/3497/3493), all skipped: RECONCILIATION_DEFERRED_TO_MAINTENANCE, ETHUSD ~22h stale, MATICUSD empty, fail-closed. Trades 704/705 filled 13:36 UTC; 701/702/703 filled 13:30 UTC; 703 strategy=null (persistent gap). Trade lifecycle and accounting confirmed conservative (gross/fee/net null, filled_lot_exact_unavailable). Crypto edge-gate wiring confirmed in source (`prepareCryptoRiskDecision`, `Number.isFinite(rawEdgeBps)`, `requireCalibratedEdge: true`, fail-closed). 220 tests / 822 assertions, typecheck clean.
+
+**Status: HEALTHY (code/deployment), DEGRADED (external data-feed).** Remaining follow-ups: natural swing run tonight 22:00 UTC, rawEdgeBps producer, crypto/daytrading bar freshness, D1 plan upgrade, Sep 1 free-tier monitoring, trade 703 strategy attribution gap.
+
 ## August 25, 2026 Control-94 strict read-only production control - HEALTHY/DEGRADED
 
 Control-94 ran a strict GET-only production control at ~16:00 UTC. All six endpoints HTTP 200. No code defect found; no deploy required. HEAD reference corrected to `cc66ca2` (docs-only change). Version identity all aligned at 2.6.0 (health, release_version, config.version). Code commits `62ff44f`+`6876a92`+`22e962f`.
