@@ -1,6 +1,18 @@
-## August 25, 2026 Control-99 strict read-only production control - HEALTHY/DEGRADED
+## August 25, 2026 Control-100 strict read-only production control - HEALTHY/DEGRADED (swing milestone)
 
-Control-99 was a strict GET-only production control at ~21:00 UTC (23:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (HEAD reference corrected to current commit `48f8160`).
+Control-100 was a strict GET-only production control at ~22:00 UTC (Aug 26 00:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (HEAD reference corrected to current commit `2936167`).
+
+Version identity all aligned: `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Local HEAD `2936167` (docs), code commits `62ff44f`+`6876a92`+`22e962f`. Live Worker matches local source. Deploy path remains direct Cloudflare API PUT (Wrangler silently exits without uploading).
+
+MILESTONE: Swing run 3574 at 22:01:33 UTC completed successfully — trigger=`swing_cron`, status=`skipped`, errors=0, duration=40311ms. First natural swing run on deployed 2.6.0 code and first clean swing run ever. Previous swing runs all errored from Cloudflare subrequest exhaustion (3409=4 err, 3182=8 err, 2200=1 err, 1395=2 err). The Control-90 D1 optimizations (removed syncBrokerLedger from daytrading, watermark, batched upserts) reduced subrequest count enough for the swing lane to complete within the free-tier budget. This resolves the natural swing proof thread.
+
+Live state: equity $98,539.05 (+0.155%), ACTIVE, cash $90,582.30. 15 broker-authoritative positions all daytrading, swing exposure 0. Reconciliation ok every 10 min (3573/3570/3567, ledgerActivities=0, 0 errors). Caps unchanged 5000/3700/2000. Daytrading MARKET_CLOSED. Crypto :07/:37 fail-closed (bars stale/unavailable, no rawEdgeBps). 220 tests / 822 assertions, typecheck clean.
+
+Operational findings (not code defects): CYCLE_LEASE_HELD streaks 20:20-21:20 UTC (cleared by 21:36, after market close, no trading impact); run-log delivery gaps (missing crypto runs 13:38-17:38); trade 703 strategy=null persistent gap. External resource constraint (Cloudflare Workers Free). Paid-plan upgrade remains the remedy.
+
+Status: HEALTHY (code/deployment), DEGRADED (external data-feed/resource + run-log delivery gaps + CYCLE_LEASE_HELD streaks). Swing subrequest exhaustion resolved by D1 optimizations.
+
+## August 25, 2026 Control-99 strict read-only production control - HEALTHY/DEGRADED
 
 Version identity all aligned: `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Local HEAD `48f8160` (docs), code commits `62ff44f`+`6876a92`+`22e962f`. Live Worker matches local source. Deploy path remains direct Cloudflare API PUT (Wrangler silently exits without uploading).
 
