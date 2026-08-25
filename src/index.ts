@@ -290,6 +290,17 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
     } catch (pruneError) {
       console.log(JSON.stringify({ event: 'retention_prune_failed', trigger, error: pruneError instanceof Error ? pruneError.message : String(pruneError) }));
     }
+
+    // D1 read-budget optimization: refresh the cached broker fee summary once
+    // per maintenance cycle (every 10 min). Crypto strategy and dashboard read
+    // the cache instead of running a full-table scan on every cycle/load.
+    // This must run AFTER syncBrokerLedger so the cache reflects fresh fees.
+    try {
+      await db.getBrokerFeeSummary();
+    } catch (feeError) {
+      console.log(JSON.stringify({ event: 'fee_summary_cache_refresh_failed', trigger, error: feeError instanceof Error ? feeError.message : String(feeError) }));
+    }
+
     if (errors.length === 0) {
       if (ledger?.degraded) {
         ledgerDegraded = true;

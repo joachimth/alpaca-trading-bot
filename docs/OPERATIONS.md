@@ -6,6 +6,10 @@ Control-89 ran a strict GET-only production control at 11:00 UTC, then applied t
 
 The exact current code-bearing checkout is branch `fix/remove-premature-position-upsert-entryside`, code commit `22e962fac86e2e4cb2f0679fa1745992c0eae8d8`, release **2.6.0**. Deployed via direct Cloudflare API PUT with GET-only post-deploy verification. Remaining follow-ups: D1-seeded `config.version` sync to 2.6.0, natural swing run recovery from subrequest exhaustion, crypto bar freshness investigation, `rawEdgeBps` producer for crypto edge gate, D1 free-tier optimization before Sep 1, and plan upgrade decision.
 
+## August 25, 2026 Control-90 D1 free-tier optimization - LIVE VERIFIED
+
+Deployed D1 optimizations (commit `62ff44f`) via direct Cloudflare API PUT at 12:01:37 UTC. Removed syncBrokerLedger from daytrading, added watermark (3-day to 15-min overlap), batched upserts, added 3 indexes, cached fee summary, LIMIT 500 on time-series, daily retention pruning. `/health`=2.6.0, run 3496 ok, equity $98,529.73. 220 tests / 822 assertions. No caps or trading behavior changed. Remaining: natural swing run, rawEdgeBps, plan upgrade decision.
+
 ## August 25, 2026 Control-88 DEPLOY of release 2.6.0 - LIVE VERIFIED
 
 Deployed release 2.6.0 (code commit `ce58d018`, HEAD `1609e0e`) to live Worker via direct Cloudflare API PUT at 09:51:58 UTC. Joachim granted self-directed deploy authorization Aug 25, 2026. `/health` now reports **2.6.0** (was 1.0.0). Run 3480 `reconcile_cron status=ok` at 10:00:41 UTC confirms new code running. Live filters now work: `code=FEE_DATA_UNAVAILABLE` and `status=filled` return correct filtered results. Dashboard equity $98,533.80, 21 positions, caps $5,000/$3,700/$2,000 unchanged. Wrangler deploy silently exits without uploading; direct API upload is the working path. `/api/config` version still 2.4.0 (D1-seeded). Follow-up: natural swing run, rawEdgeBps producer, D1 optimization, plan upgrade.

@@ -6,6 +6,10 @@ Control-89 ran a strict GET-only production control at 11:00 UTC, then applied t
 
 The exact current code-bearing checkout is branch `fix/remove-premature-position-upsert-entryside`, code commit `22e962fac86e2e4cb2f0679fa1745992c0eae8d8`, release **2.6.0**. Deployed via direct Cloudflare API PUT with GET-only post-deploy verification. Remaining follow-ups: D1-seeded `config.version` sync to 2.6.0, natural swing run recovery from subrequest exhaustion, crypto bar freshness investigation, `rawEdgeBps` producer for crypto edge gate, D1 free-tier optimization before Sep 1, and plan upgrade decision.
 
+## August 25, 2026 Control-90 D1 free-tier optimization - LIVE VERIFIED
+
+Deployed D1 optimizations (commit `62ff44f`) via direct Cloudflare API PUT at 12:01:37 UTC. Key changes: removed syncBrokerLedger from daytrading cycle, added broker_ledger_synced_until watermark (15-min overlap), batched upsertBrokerActivities with D1 batch(), added indexes (broker_fees order_id/fee_type+date, broker_fills symbol+time), cached getBrokerFeeSummary in bot_config, LIMIT 500 on strategy comparison time-series, daily retention pruning. 220 tests / 822 assertions. `/health`=2.6.0, run 3496 ok. No caps changed.
+
 ## August 25, 2026 Control-88 DEPLOY of release 2.6.0 - LIVE VERIFIED
 
 Deployed release 2.6.0 (code commit `ce58d018`, HEAD `1609e0e`) via direct Cloudflare API PUT at 09:51:58 UTC. `bunx wrangler deploy` silently exits with code 0 without uploading (Wrangler 4.123.0 bug); direct API PUT with multipart metadata + module upload is the working deploy path. Account ID `763e5b5405cdf8b307fe62dbf68c4f32`, D1 binding `2bc505a2-d744-4322-8c3b-5f5ebe35f9a1`. All four cron triggers and both secrets intact post-deploy. `/health` = 2.6.0, run 3480 status=ok, filters verified. Caps unchanged $5,000/$3,700/$2,000. Joachim granted self-directed deploy authorization Aug 25, 2026.
