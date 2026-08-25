@@ -2,7 +2,7 @@
 
 Control-82 corrected reliability and observability only: clean maintenance runs are `ok` with informational `MAINTENANCE_ONLY`; intentional reconciliation deferral no longer mislabels evaluated no-trade cycles; daytrading and crypto reject invalid, stale, or future intraday bars; equity-direction fallback is explicit; and unattributed broker exposure is included conservatively in swing cap checks. Caps, schedules, thresholds, sizing, order semantics, and trading behavior were not changed.
 
-The exact validated Alpaca source is HEAD `20d80ac87e08271fb0d9c1c7ea1027b72eebd48d` on `fix/remove-premature-position-upsert-entryside`, release **2.6.0**. Full validation passed **213 tests / 796 assertions**, TypeScript, and `git diff --check`. No deployment, migration, trigger, broker mutation, or external mutation occurred. Live production remains **OPEN FAIL/DEGRADED** because the Worker still reports health/config **1.0.0 / 2.4.0**, Wrangler authentication is unavailable, and separate GET-only live verification of this commit has not occurred.
+The exact validated Alpaca source is HEAD `1d14eb9f97c16012b54b7ef24e244513c1f3b0bf` on `fix/remove-premature-position-upsert-entryside`, release **2.6.0**. Full validation passed **213 tests / 796 assertions**, TypeScript, and `git diff --check`. No deployment, migration, trigger, broker mutation, or external mutation occurred. Live production remains **OPEN FAIL/DEGRADED** because the Worker still reports health/config **1.0.0 / 2.4.0**, Wrangler authentication is unavailable, and separate GET-only live verification of this commit has not occurred.
 
 ## Tuesday, August 25, 2026 Control-81 strict read-only production control - LOCAL VALIDATED / LIVE OPEN FAIL-DEGRADED
 

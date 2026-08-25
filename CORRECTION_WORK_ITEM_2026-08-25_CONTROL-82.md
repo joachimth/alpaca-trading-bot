@@ -7,11 +7,11 @@
 ## Exact source identity
 
 - Repository: `/workspace/alpaca-trading-bot`
-- Exact HEAD before source commit: `1c6914d1766e420fc3cfa3be2f1e2914c5e197de`
-- Exact validated HEAD after source commit: `20d80ac87e08271fb0d9c1c7ea1027b72eebd48d`
+- Exact source HEAD before correction commit: `1c6914d1766e420fc3cfa3be2f1e2914c5e197de`
+- Exact validated source HEAD after correction commit: `1d14eb9f97c16012b54b7ef24e244513c1f3b0bf`
 - Branch: `fix/remove-premature-position-upsert-entryside`
 - Release metadata: `2.6.0`
-- Commit created: `20d80ac87e08271fb0d9c1c7ea1027b72eebd48d` (`fix: harden runtime observability and data freshness`).
+- Commit created: `1d14eb9f97c16012b54b7ef24e244513c1f3b0bf` (`fix: harden runtime observability and data freshness`).
 
 ## Corrections implemented
 
