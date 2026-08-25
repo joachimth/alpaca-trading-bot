@@ -34,6 +34,13 @@ export function createFakeD1(sqlite: Sqlite): any {
     prepare(sql: string) {
       return new FakeStatement(sqlite, sql);
     },
+    async batch(statements: FakeStatement[]): Promise<{ meta: { changes: number; last_row_id: number } }[]> {
+      const results: { meta: { changes: number; last_row_id: number } }[] = [];
+      for (const stmt of statements) {
+        results.push(await stmt.run());
+      }
+      return results;
+    },
   };
 }
 
@@ -136,6 +143,75 @@ CREATE TABLE IF NOT EXISTS broker_fees (
   strategy TEXT,
   description TEXT,
   created_record_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS cycle_leases (
+  lease_key TEXT PRIMARY KEY,
+  owner TEXT NOT NULL,
+  acquired_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS crypto_entry_reservations (
+  reservation_key TEXT PRIMARY KEY,
+  owner TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  notional_usd REAL NOT NULL,
+  status TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS performance_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+  account_id TEXT,
+  equity REAL,
+  cash REAL,
+  buying_power REAL,
+  portfolio_value REAL,
+  long_market_value REAL,
+  short_market_value REAL,
+  positions_count INTEGER DEFAULT 0,
+  daily_pl REAL,
+  daily_plpc REAL,
+  total_pl REAL,
+  total_plpc REAL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS category_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+  strategy TEXT NOT NULL,
+  market_value REAL NOT NULL DEFAULT 0,
+  unrealized_pl REAL NOT NULL DEFAULT 0,
+  realized_pl_today REAL NOT NULL DEFAULT 0,
+  daily_pl REAL NOT NULL DEFAULT 0,
+  positions_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS run_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+  trigger TEXT NOT NULL DEFAULT 'cron',
+  market_open INTEGER NOT NULL DEFAULT 0,
+  duration_ms INTEGER,
+  decisions_made INTEGER DEFAULT 0,
+  trades_executed INTEGER DEFAULT 0,
+  errors INTEGER DEFAULT 0,
+  error_details TEXT,
+  status TEXT NOT NULL DEFAULT 'ok',
+  analyzed_candidates INTEGER NOT NULL DEFAULT 0,
+  filtered_candidates INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS bot_config (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `;
 

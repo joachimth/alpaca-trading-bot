@@ -225,8 +225,11 @@ export class Database {
       )
     `).run();
     await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_broker_fills_order ON broker_fills(order_id)').run();
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_broker_fills_symbol_time ON broker_fills(symbol, transaction_time)').run();
     await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_broker_fees_date ON broker_fees(created_date)').run();
     await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_broker_fees_strategy ON broker_fees(strategy)').run();
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_broker_fees_order ON broker_fees(order_id)').run();
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_broker_fees_type_date ON broker_fees(fee_type, created_date)').run();
   }
 
   private async ensureTradeSchema(): Promise<void> {
@@ -248,31 +251,35 @@ export class Database {
     await this.ensureTradeSchema();
     let fills = 0;
     let fees = 0;
+    const fillStmts: D1PreparedStatement[] = [];
+    const feeStmts: D1PreparedStatement[] = [];
+
     for (const activity of activities) {
       if (!activity.id) continue;
       if (activity.activity_type === 'FILL') {
-        const result = await this.db.prepare(`
-          INSERT INTO broker_fills (activity_id, order_id, symbol, side, qty, price, transaction_time, fill_type)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(activity_id) DO UPDATE SET
-            order_id = excluded.order_id,
-            symbol = excluded.symbol,
-            side = excluded.side,
-            qty = excluded.qty,
-            price = excluded.price,
-            transaction_time = excluded.transaction_time,
-            fill_type = excluded.fill_type
-        `).bind(
-          activity.id,
-          activity.order_id ?? null,
-          (activity.symbol ?? '').replace('/', '').toUpperCase(),
-          activity.side ?? null,
-          activity.qty ?? null,
-          activity.price ?? null,
-          activity.transaction_time ?? activity.created_at ?? null,
-          activity.type ?? null,
-        ).run();
-        fills += result.meta.changes ?? 0;
+        fillStmts.push(
+          this.db.prepare(`
+            INSERT INTO broker_fills (activity_id, order_id, symbol, side, qty, price, transaction_time, fill_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(activity_id) DO UPDATE SET
+              order_id = excluded.order_id,
+              symbol = excluded.symbol,
+              side = excluded.side,
+              qty = excluded.qty,
+              price = excluded.price,
+              transaction_time = excluded.transaction_time,
+              fill_type = excluded.fill_type
+          `).bind(
+            activity.id,
+            activity.order_id ?? null,
+            (activity.symbol ?? '').replace('/', '').toUpperCase(),
+            activity.side ?? null,
+            activity.qty ?? null,
+            activity.price ?? null,
+            activity.transaction_time ?? activity.created_at ?? null,
+            activity.type ?? null,
+          )
+        );
       } else if (activity.activity_type === 'CFEE' || activity.activity_type === 'FEE') {
         const isCryptoFee = activity.activity_type === 'CFEE';
         const qty = activity.qty ?? null;
@@ -281,42 +288,54 @@ export class Database {
         const derivedUsd = isCryptoFee && qty !== null && price !== null && Number.isFinite(qty * price)
           ? Math.abs(qty * price)
           : (netAmount !== null ? Math.abs(netAmount) : null);
-        const result = await this.db.prepare(`
-          INSERT INTO broker_fees (
-            activity_id, fee_type, activity_sub_type, created_date, created_at, symbol,
-            order_id, asset_or_currency, qty, price, net_amount, usd_value,
-            attribution_status, strategy, description
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unattributed', NULL, ?)
-          ON CONFLICT(activity_id) DO UPDATE SET
-            fee_type = excluded.fee_type,
-            activity_sub_type = excluded.activity_sub_type,
-            created_date = excluded.created_date,
-            created_at = excluded.created_at,
-            symbol = excluded.symbol,
-            order_id = excluded.order_id,
-            asset_or_currency = excluded.asset_or_currency,
-            qty = excluded.qty,
-            price = excluded.price,
-            net_amount = excluded.net_amount,
-            usd_value = excluded.usd_value,
-            description = excluded.description
-        `).bind(
-          activity.id,
-          activity.activity_type,
-          activity.activity_sub_type ?? null,
-          activity.date ?? null,
-          activity.created_at ?? null,
-          activity.symbol?.replace('/', '').toUpperCase() ?? null,
-          activity.order_id ?? null,
-          activity.currency ?? (activity.symbol ? activity.symbol.replace('/', '').toUpperCase().replace(/USD$/, '') : 'USD'),
-          qty,
-          price,
-          netAmount,
-          derivedUsd,
-          activity.description ?? null,
-        ).run();
-        fees += result.meta.changes ?? 0;
+        feeStmts.push(
+          this.db.prepare(`
+            INSERT INTO broker_fees (
+              activity_id, fee_type, activity_sub_type, created_date, created_at, symbol,
+              order_id, asset_or_currency, qty, price, net_amount, usd_value,
+              attribution_status, strategy, description
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unattributed', NULL, ?)
+            ON CONFLICT(activity_id) DO UPDATE SET
+              fee_type = excluded.fee_type,
+              activity_sub_type = excluded.activity_sub_type,
+              created_date = excluded.created_date,
+              created_at = excluded.created_at,
+              symbol = excluded.symbol,
+              order_id = excluded.order_id,
+              asset_or_currency = excluded.asset_or_currency,
+              qty = excluded.qty,
+              price = excluded.price,
+              net_amount = excluded.net_amount,
+              usd_value = excluded.usd_value,
+              description = excluded.description
+          `).bind(
+            activity.id,
+            activity.activity_type,
+            activity.activity_sub_type ?? null,
+            activity.date ?? null,
+            activity.created_at ?? null,
+            activity.symbol?.replace('/', '').toUpperCase() ?? null,
+            activity.order_id ?? null,
+            activity.currency ?? (activity.symbol ? activity.symbol.replace('/', '').toUpperCase().replace(/USD$/, '') : 'USD'),
+            qty,
+            price,
+            netAmount,
+            derivedUsd,
+            activity.description ?? null,
+          )
+        );
       }
+    }
+
+    // D1 batch() sends all statements in a single round-trip, dramatically
+    // reducing subrequest count and write overhead versus one .run() per row.
+    if (fillStmts.length > 0) {
+      const results = await this.db.batch(fillStmts);
+      fills = results.reduce((sum, r) => sum + (r.meta.changes ?? 0), 0);
+    }
+    if (feeStmts.length > 0) {
+      const results = await this.db.batch(feeStmts);
+      fees = results.reduce((sum, r) => sum + (r.meta.changes ?? 0), 0);
     }
     return { activities: activities.length, fills, fees };
   }
@@ -369,7 +388,18 @@ export class Database {
     const notionalUsd = Number(row?.crypto_notional_usd ?? 0);
     const sampleCount = Number(row?.crypto_fee_samples ?? 0);
     const cryptoRateBps = recentCryptoUsd > 0 && notionalUsd > 0 ? (recentCryptoUsd / notionalUsd) * 10000 : null;
-    return {
+    const result: {
+      totalUsd: number;
+      cryptoUsd: number;
+      cryptoUsdRecent: number;
+      regulatoryUsd: number;
+      unattributedUsd: number;
+      cryptoRateBps: number | null;
+      cryptoFeeSampleCount: number;
+      cryptoTradedNotionalUsd: number;
+      cryptoFeeAsOf: string | null;
+      cryptoFeeTelemetryStatus: 'available' | 'insufficient' | 'unavailable';
+    } = {
       totalUsd: Number(row?.total_usd ?? 0),
       cryptoUsd,
       cryptoUsdRecent: recentCryptoUsd,
@@ -381,6 +411,32 @@ export class Database {
       cryptoFeeAsOf: row?.crypto_fee_as_of ? String(row.crypto_fee_as_of) : null,
       cryptoFeeTelemetryStatus: sampleCount >= 3 && cryptoRateBps !== null ? 'available' : sampleCount > 0 ? 'insufficient' : 'unavailable',
     };
+    // Persist to cache so callers (crypto strategy, dashboard) can use the
+    // cached version instead of re-running this full-table scan every cycle.
+    await this.setConfig('cached_fee_summary', JSON.stringify(result));
+    return result;
+  }
+
+  async getCachedBrokerFeeSummary(): Promise<{
+    totalUsd: number;
+    cryptoUsd: number;
+    cryptoUsdRecent: number;
+    regulatoryUsd: number;
+    unattributedUsd: number;
+    cryptoRateBps: number | null;
+    cryptoFeeSampleCount: number;
+    cryptoTradedNotionalUsd: number;
+    cryptoFeeAsOf: string | null;
+    cryptoFeeTelemetryStatus: 'available' | 'insufficient' | 'unavailable';
+  } | null> {
+    await this.ensureTradeSchema();
+    const cached = await this.getConfigValue('cached_fee_summary');
+    if (!cached) return null;
+    try {
+      return JSON.parse(cached);
+    } catch {
+      return null;
+    }
   }
 
   async acquireCycleLease(owner: string, ttlMs = CYCLE_LEASE_TTL_MS, leaseKey = 'global'): Promise<boolean> {
@@ -658,6 +714,29 @@ export class Database {
   }
 
   // ============================================================
+  // Retention pruning - D1 free-tier write/read budget optimization
+  // ============================================================
+
+  async pruneOldData(): Promise<{ pruned: Record<string, number> }> {
+    await this.ensureTradeSchema();
+    const pruned: Record<string, number> = {};
+    const stmts = [
+      this.db.prepare(`DELETE FROM run_log WHERE created_at < datetime('now', '-30 days')`),
+      this.db.prepare(`DELETE FROM performance_snapshots WHERE created_at < datetime('now', '-90 days')`),
+      this.db.prepare(`DELETE FROM category_snapshots WHERE created_at < datetime('now', '-90 days')`),
+      this.db.prepare(`DELETE FROM decisions WHERE created_at < datetime('now', '-90 days') AND executed != 1`),
+      this.db.prepare(`DELETE FROM broker_fills WHERE created_at < datetime('now', '-90 days')`),
+      this.db.prepare(`DELETE FROM broker_fees WHERE created_record_at < datetime('now', '-90 days')`),
+    ];
+    const results = await this.db.batch(stmts);
+    const tables = ['run_log', 'performance_snapshots', 'category_snapshots', 'decisions', 'broker_fills', 'broker_fees'];
+    for (let i = 0; i < tables.length; i++) {
+      pruned[tables[i]] = results[i].meta.changes ?? 0;
+    }
+    return { pruned };
+  }
+
+  // ============================================================
   // Config
   // ============================================================
 
@@ -668,6 +747,11 @@ export class Database {
       config[row.key] = row.value;
     }
     return config;
+  }
+
+  async getConfigValue(key: string): Promise<string | null> {
+    const result = await this.db.prepare('SELECT value FROM bot_config WHERE key = ?').bind(key).first();
+    return (result as any)?.value ?? null;
   }
 
   async setConfig(key: string, value: string): Promise<void> {
@@ -1640,16 +1724,21 @@ export class Database {
     ).all();
 
     // Closed positions time series for cumulative P&L chart
+    // D1 read-budget optimization: LIMIT to most recent 500 closes instead
+    // of reading every closed position ever (unbounded scan).
     const timeSeriesResult = await this.db.prepare(
       `SELECT COALESCE(strategy, 'daytrading') as strategy,
               closed_at,
               closed_pl
        FROM positions
        WHERE closed_at IS NOT NULL AND closed_pl IS NOT NULL
-       ORDER BY closed_at ASC`
+       ORDER BY closed_at DESC
+       LIMIT 500`
     ).all();
 
-    const feeSummary = await this.getBrokerFeeSummary();
+    // D1 read-budget optimization: use cached fee summary (refreshed by
+    // maintenance) instead of running a full-table scan on every dashboard load.
+    const feeSummary = await this.getCachedBrokerFeeSummary() ?? await this.getBrokerFeeSummary();
 
     // Merge all into one structure
     const strategies: Record<string, any> = {};
@@ -1746,9 +1835,11 @@ export class Database {
     }
 
     // Build cumulative P&L time series per strategy
+    // Results are DESC (most recent 500), reversed to ASC for chronological cumulative.
     const timeSeries: Record<string, { timestamp: string; cumulativePl: number }[]> = {};
     const runningTotals: Record<string, number> = {};
-    for (const r of timeSeriesResult.results as any[]) {
+    const orderedResults = (timeSeriesResult.results as any[]).slice().reverse();
+    for (const r of orderedResults) {
       const strat = r.strategy;
       if (!timeSeries[strat]) { timeSeries[strat] = []; runningTotals[strat] = 0; }
       runningTotals[strat] += r.closed_pl;

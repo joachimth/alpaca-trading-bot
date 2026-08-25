@@ -275,6 +275,21 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
     } catch (error) {
       errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
     }
+
+    // D1 free-tier optimization: prune old data once per day to keep table
+    // scans bounded. Uses a date watermark so it only runs on the first
+    // maintenance cycle after 00:00 UTC.
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const lastPrune = await db.getConfigValue('last_prune_date');
+      if (lastPrune !== today) {
+        const pruneResult = await db.pruneOldData();
+        await db.setConfig('last_prune_date', today);
+        console.log(JSON.stringify({ event: 'retention_prune_complete', trigger, ...pruneResult }));
+      }
+    } catch (pruneError) {
+      console.log(JSON.stringify({ event: 'retention_prune_failed', trigger, error: pruneError instanceof Error ? pruneError.message : String(pruneError) }));
+    }
     if (errors.length === 0) {
       if (ledger?.degraded) {
         ledgerDegraded = true;
@@ -412,12 +427,11 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     }
 
     try {
-      const ledger = await syncBrokerLedger(db, alpaca);
-      console.log(JSON.stringify({ event: 'broker_ledger_sync', trigger, ...ledger }));
-      if (ledger.degraded) {
-        ledgerDegraded = true;
-        skips.add('BROKER_LEDGER_DEGRADED', 'reconciliation', 'Broker activity import reached its explicit page budget; the next scheduled overlap will continue convergence', { pages: ledger.pages, pageBudget: ledger.pageBudget, activities: ledger.activities });
-      }
+      // D1 write-budget optimization: syncBrokerLedger runs in the 10-min
+      // maintenance cycle only. Running it here too doubled the daily upsert
+      // load (up to ~126k writes/day) against the D1 free-tier 100k limit.
+      // Maintenance already converges with a 3-day overlap window.
+      console.log(JSON.stringify({ event: 'broker_ledger_sync_skipped', trigger, reason: 'deferred_to_maintenance' }));
     } catch (error) {
       errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
     }

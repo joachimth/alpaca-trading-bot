@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS broker_fills (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_broker_fills_order ON broker_fills(order_id);
+CREATE INDEX IF NOT EXISTS idx_broker_fills_symbol_time ON broker_fills(symbol, transaction_time);
 
 CREATE TABLE IF NOT EXISTS broker_fees (
   activity_id TEXT PRIMARY KEY,
@@ -129,6 +130,8 @@ CREATE TABLE IF NOT EXISTS broker_fees (
 );
 CREATE INDEX IF NOT EXISTS idx_broker_fees_date ON broker_fees(created_date);
 CREATE INDEX IF NOT EXISTS idx_broker_fees_strategy ON broker_fees(strategy);
+CREATE INDEX IF NOT EXISTS idx_broker_fees_order ON broker_fees(order_id);
+CREATE INDEX IF NOT EXISTS idx_broker_fees_type_date ON broker_fees(fee_type, created_date);
 
 -- ============================================================
 -- Positions: current and closed positions tracked by the bot

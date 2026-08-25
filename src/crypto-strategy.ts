@@ -259,9 +259,16 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
     }
 
     // Initialize risk manager with crypto-specific config
+    // D1 read-budget optimization: use cached fee summary (refreshed by
+    // maintenance every 10 min) instead of running a full-table scan on
+    // every crypto cycle (48x/day). Fall back to live computation if cache
+    // is empty (cold start) so fail-closed semantics are preserved.
     let feeSummary: Awaited<ReturnType<Database['getBrokerFeeSummary']>> | null = null;
     try {
-      feeSummary = await db.getBrokerFeeSummary();
+      feeSummary = await db.getCachedBrokerFeeSummary();
+      if (!feeSummary) {
+        feeSummary = await db.getBrokerFeeSummary();
+      }
     } catch (error) {
       errors.push(`Broker fee summary failed: ${error instanceof Error ? error.message : String(error)}`);
     }

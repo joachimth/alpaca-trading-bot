@@ -155,7 +155,10 @@ describe('crypto persistent reservations', () => {
   });
 
   test('fails closed when the reservation table is absent', async () => {
-    const db = new Database(createFakeD1(createTestDatabase()));
+    // Create a DB with base tables but no crypto_entry_reservations table
+    const sqlite = createTestDatabase();
+    sqlite.run('DROP TABLE IF EXISTS crypto_entry_reservations');
+    const db = new Database(createFakeD1(sqlite));
     const result = await reservation(db);
     expect(result.reserved).toBe(false);
     expect(result.reason).toContain('state unavailable');
