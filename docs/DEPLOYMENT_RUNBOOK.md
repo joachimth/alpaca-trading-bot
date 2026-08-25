@@ -1,3 +1,13 @@
+## August 25, 2026 Control-91 strict read-only production control and config.version sync - LIVE VERIFIED
+
+Control-91 was a strict GET-only production control followed by a D1 metadata sync. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. The only mutation was a single D1 REST API UPDATE: `bot_config SET value='2.6.0' WHERE key='version'`, syncing the D1-seeded `config.version` from 2.4.0 to 2.6.0. No Worker redeploy, code change, order, cancellation, migration, or broker mutation occurred.
+
+Post-sync verification: `/health`=2.6.0, `/api/config` `release_version`=2.6.0, `/api/config` `config.version`=2.6.0. All three version surfaces now align. Equity $98,527.39, 21 broker-authoritative positions, caps $5,000/$3,700/$2,000 unchanged. D1 watermark and retention pruning confirmed live. 220 tests / 822 assertions pass locally; typecheck clean.
+
+Deploy path remains the direct Cloudflare API PUT (`/accounts/.../workers/scripts/alpaca-trading-bot`) with multipart metadata + module, since `bunx wrangler deploy` silently exits without uploading. Account ID `763e5b5405cdf8b307fe62dbf68c4f32`, D1 binding `2bc505a2-d744-4322-8c3b-5f5ebe35f9a1`. The D1 REST API path for metadata updates: `POST /accounts/{id}/d1/database/{db_id}/query` with `{"sql":"..."}` body and Bearer token auth.
+
+Remaining follow-ups: natural swing run at 22:00 UTC today, rawEdgeBps producer, crypto bar freshness, D1 plan upgrade decision, Sep 1 free-tier enforcement monitoring.
+
 ## August 25, 2026 Control-89 - reliability correction and live verification
 
 Control-89 ran a strict GET-only production control at 11:00 UTC, then applied three bounded reliability corrections that preserve caps and trading behavior. Live state before correction: `/health` = **2.6.0** (matches local), `/api/config` `release_version` = **2.6.0**, but D1-seeded `config.version` still **2.4.0** (unchanged by Worker deploy, needs separate sync). Dashboard equity **$98,516.34**, 21 broker-authoritative positions (all swing), status ACTIVE. Maintenance reconciliation delivering every 10 min, `status=ok`, 111 ledger activities, 2 ledger pages, no truncation or degradation. Crypto cadence confirmed at :07/:37 UTC (runs 3481, 3485), both skipped due to `CRYPTO_BARS_STALE` (latest bar Aug 24 12:00-12:30 UTC, ~22h stale) and `CRYPTO_BARS_UNAVAILABLE` (MATICUSD empty). Equity-direction fallback firing in crypto cycles (`EQUITY_DIRECTION_FALLBACK`). Swing sells 701/702/703 from Aug 24 22:01 run remain `status=accepted`, `filled_qty=0` (subrequest exhaustion unresolved; next natural swing run at 22:00 UTC today). Caps unchanged **$5,000 / $3,700 / $2,000**.

@@ -1,3 +1,13 @@
+## August 25, 2026 Control-91 strict read-only production control and config.version sync - LIVE VERIFIED
+
+Control-91 ran a strict GET-only production control at ~13:00 UTC. All six endpoints returned HTTP 200. The D1-seeded `config.version` was synced from 2.4.0 to 2.6.0 via a single D1 REST API UPDATE; all three version surfaces now align at 2.6.0. No code change or Worker redeploy needed.
+
+Live state: equity $98,527.39, change_today_pct 0.1431%, status ACTIVE, 21 broker-authoritative positions (source=alpaca, all swing), caps $5,000/$3,700/$2,000 unchanged. D1 watermark holding (ledgerActivities=0/pages=1), retention pruning active (last_prune_date=2026-08-25), fee summary cached and refreshed by maintenance.
+
+Four schedules confirmed: reconciliation ok every 10 min; crypto at :07/:37 UTC all skipped (bars stale/unavailable, no rawEdgeBps producer); daytrading first tick 3505 at 13:01 UTC correctly MARKET_CLOSED; swing last run 3409 still errored on subrequest exhaustion — tonight's 22:00 UTC run is the first live test of deployed code. Filtered observability (trigger/code/status/search) all working. Trade lifecycle and accounting_status (no_fill vs filled_lot_exact_unavailable) confirmed. Crypto edge gate fail-closed.
+
+Branch `fix/remove-premature-position-upsert-entryside`, HEAD `b318fa8` (docs), code `62ff44f`+`6876a92`, release 2.6.0. 220 tests / 822 assertions, typecheck clean. Remaining: natural swing run tonight, rawEdgeBps producer, crypto bar freshness, D1 plan upgrade, Sep 1 free-tier enforcement monitoring.
+
 ## August 25, 2026 Control-89 - reliability correction and live verification
 
 Control-89 ran a strict GET-only production control at 11:00 UTC, then applied three bounded reliability corrections that preserve caps and trading behavior. Live state before correction: `/health` = **2.6.0** (matches local), `/api/config` `release_version` = **2.6.0**, but D1-seeded `config.version` still **2.4.0** (unchanged by Worker deploy, needs separate sync). Dashboard equity **$98,516.34**, 21 broker-authoritative positions (all swing), status ACTIVE. Maintenance reconciliation delivering every 10 min, `status=ok`, 111 ledger activities, 2 ledger pages, no truncation or degradation. Crypto cadence confirmed at :07/:37 UTC (runs 3481, 3485), both skipped due to `CRYPTO_BARS_STALE` (latest bar Aug 24 12:00-12:30 UTC, ~22h stale) and `CRYPTO_BARS_UNAVAILABLE` (MATICUSD empty). Equity-direction fallback firing in crypto cycles (`EQUITY_DIRECTION_FALLBACK`). Swing sells 701/702/703 from Aug 24 22:01 run remain `status=accepted`, `filled_qty=0` (subrequest exhaustion unresolved; next natural swing run at 22:00 UTC today). Caps unchanged **$5,000 / $3,700 / $2,000**.
