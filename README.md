@@ -1,3 +1,15 @@
+## August 25, 2026 Control-94 strict read-only production control - HEALTHY/DEGRADED
+
+Control-94 ran a strict GET-only production control at ~16:00 UTC. All six endpoints returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (HEAD reference corrected to current commit `cc66ca2`).
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Local HEAD `cc66ca2` (docs), code commits `62ff44f`+`6876a92`+`22e962f`, release **2.6.0**. Live Worker matches local source.
+
+**Four schedules confirmed:** reconciliation `*/10 * * * *` ok every 10 min (run 3521 at 13:51, ledgerActivities=5; run 3518 at 13:41, ledgerActivities=8; 0 errors, not truncated, watermark holding); daytrading `*/5 13-21 * * 1-5` (runs 3519-3523 at 13:41-13:56, market_open=1, skipped on DAYTRADING_BARS_STALE ~973s vs 900s + EQUITY_DIRECTION_FALLBACK + DAYTRADING_BARS_UNAVAILABLE SQ empty); crypto `7-59/30 * * * *` at :07/:37 (run 3517 at 13:38, skipped: RECONCILIATION_DEFERRED_TO_MAINTENANCE, CRYPTO_BARS_STALE ETHUSD ~22h stale, CRYPTO_BARS_UNAVAILABLE MATICUSD empty, CRYPTO_DATA_INSUFFICIENT validTA=0); swing `0 22 * * 1-5` not yet run today (expected 22:00 UTC, first natural test on 2.6.0 with empty swing book).
+
+**Live state:** equity $98,544.19 (+0.16% via equity-direction fallback, change_today $157.57), ACTIVE, cash $90,278.93. 16 broker-authoritative positions all daytrading (MV $8,265.26 long_market_value), swing exposure zero. Caps $5,000/$3,700/$2,000 unchanged. 705 total trades, winRate 22.8%. Trades 704 (LUV sell) + 705 (RUN sell) filled 13:36 UTC today; 701/702/703 confirmed filled 13:30 UTC. Trade 703 (PLD) strategy=null gap persists; 701/702 correctly attributed to swing. Accounting conservative (filled_lot_exact_unavailable, gross/fee/net null, fee_attribution none-recorded). Fee summary internally consistent: cryptoUsd 269.11 + regulatoryUsd 3.71 = totalUsd 272.82, all unattributed. Crypto edge-gate fail-closed confirmed in source (`prepareCryptoRiskDecision`, `Number.isFinite(rawEdgeBps)`, `requireCalibratedEdge` + `minEdgeAfterCosts>0` + edgeBps undefined → rejected). 220 tests / 822 assertions, typecheck clean.
+
+**Status: HEALTHY (code/deployment), DEGRADED (external data-feed).** Remaining follow-ups: natural swing run tonight 22:00 UTC, rawEdgeBps producer, crypto/daytrading bar freshness, D1 plan upgrade, Sep 1 free-tier monitoring, trade 703 strategy attribution gap.
+
 ## August 25, 2026 Control-93 strict read-only production control - HEALTHY/DEGRADED
 
 Control-93 ran a strict GET-only production control at ~15:04 UTC. All six endpoints returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (HEAD reference corrected to current commit).

@@ -1,3 +1,11 @@
+## August 25, 2026 Control-94 strict read-only production control - HEALTHY/DEGRADED
+
+Control-94 ran a strict GET-only production control at ~16:00 UTC. All six endpoints HTTP 200. No code defect found; no deploy required. HEAD reference corrected to `cc66ca2` (docs-only change). Version identity all aligned at 2.6.0 (health, release_version, config.version). Code commits `62ff44f`+`6876a92`+`22e962f`.
+
+Live state: equity $98,544.19 (+0.16% via equity-direction fallback), ACTIVE, cash $90,278.93. 16 broker-authoritative positions all daytrading (MV $8,265.26), swing exposure zero. Caps $5,000/$3,700/$2,000 unchanged. Reconciliation ok every 10 min (ledgerActivities 5-8, 0 errors, watermark holding). Daytrading skipped on DAYTRADING_BARS_STALE (~973s vs 900s) + EQUITY_DIRECTION_FALLBACK. Crypto :07/:37 skipped (ETHUSD ~22h stale, MATICUSD empty, CRYPTO_DATA_INSUFFICIENT validTA=0, fail-closed no rawEdgeBps). Trades 704/705 filled 13:36 UTC today. Trade 703 strategy=null persists. Accounting conservative (filled_lot_exact_unavailable, gross/fee/net null). Crypto edge-gate wiring confirmed in source.
+
+**Status: HEALTHY (code/deployment), DEGRADED (external data-feed).** Remaining: natural swing run tonight, rawEdgeBps producer, crypto/daytrading bar freshness, D1 plan upgrade, Sep 1 monitoring, trade 703 strategy attribution gap.
+
 ## August 25, 2026 Control-93 strict read-only production control - HEALTHY/DEGRADED
 
 Control-93 ran a strict GET-only production control at ~15:04 UTC. All six endpoints HTTP 200. No code defect found; no deploy required. HEAD reference corrected to `f494c06` (docs-only change). Version identity all aligned at 2.6.0 (health, release_version, config.version). Code commits `62ff44f`+`6876a92`+`22e962f`.
