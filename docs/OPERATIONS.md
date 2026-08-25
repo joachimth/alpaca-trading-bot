@@ -1,3 +1,17 @@
+## August 25, 2026 Control-87 strict read-only production control - LIVE OPEN FAIL-DEGRADED
+
+Control-87 was strictly read-only. It called only GET requests to `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades`, plus same-endpoint GET-only filter and pagination probes. No trigger, submit, cancel, close, replace, retry, migration, deployment, external write, or broker-mutating endpoint was called.
+
+The exact current code-bearing checkout is branch `fix/remove-premature-position-upsert-entryside`, code commit `ce58d018585200af00032e5d624d6c989c2178fe`, release **2.6.0**; absolute HEAD `383f82350408931ac1d9eb18d0dfef9a18df13bd` is a docs-only commit. The live Worker remains unproven and reports the older `1.0.0`/`2.4.0` surfaces. Live deployment identity remains unproven: `/health` reports **1.0.0**, `/api/config.config.version` reports **2.4.0**, and Wrangler authentication is blocked by **`You are not authenticated. Please run \`wrangler login\`.`**
+
+Live positions are broker-authoritative: `/api/positions` reports `positionsAvailable=true`, `source=alpaca`, and **21** broker rows. Dashboard equity was **$98,492.42** versus `last_equity=$98,386.6243`, positive delta **$105.7957**; `change_today`/`change_today_pct` remain `0` on the live API (equity-direction fallback not deployed). Configured caps remain exactly **$5,000 / $3,700 / $2,000**. Swing market_value **$9,040.54** exceeds the swing cap; no trading mutation authorized here.
+
+Four schedules unchanged: daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, reconciliation `*/10 * * * *`. Reconciliation runs **3467-3471** through **08:51:11 UTC**; crypto run **3469** at **08:38:19 UTC** with FEE_DATA_UNAVAILABLE and CONFIDENCE_BELOW_THRESHOLD skips. Completion timestamps ~`:08/:38`; exact `:07/:37` unproven. Fresh daytrading/swing delivery unproven; swing run 3409 subrequest exhaustion persists.
+
+Live filter/pagination defects persist: run `code` filter ignored, trade `status=filled` ignored, trade `offset`/`page` repeat ID 703. Per-fill `gross`/`fee`/`net` null under `unavailable_fill_lot_exact`. Crypto edge gate fail-closed; no `rawEdgeBps` producer in `technical-analysis.ts`. Production remains **OPEN FAIL/DEGRADED**. Local validation: **217 tests / 816 assertions**, typecheck, diff-check, clean worktree. No caps, schedules, trading behavior, deployment, or broker state changed.
+
+Required follow-up: restore Wrangler auth, establish provenance, authorize deployment of `ce58d018`, GET-only post-release verification, natural swing run without exhaustion, resolve `rawEdgeBps` producer.
+
 ## August 25, 2026 Control-86 strict read-only production control - DOCS CORRECTED / LIVE OPEN FAIL-DEGRADED
 
 Control-86 was strictly read-only. It called only GET requests to `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, and `/api/trades`, plus same-endpoint GET-only filter and pagination probes. No trigger, submit, cancel, close, replace, retry, migration, deployment, external write, or broker-mutating endpoint was called.
