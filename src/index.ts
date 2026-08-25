@@ -1061,8 +1061,14 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     }
 
     // 12. Sync positions from Alpaca to DB (preserve stop/take profit from DB)
-    const finalPositions = (await alpaca.getPositions()).filter(p => !CRYPTO_SYMBOLS.has(p.symbol));
+    // Exclude swing-tagged positions: the swing strategy owns its positions and
+    // the daytrading sync must not re-attribute them. Without this exclusion the
+    // daytrading final sync would reset every swing position's strategy to
+    // 'daytrading', causing the swing cap check to see $0 exposure on the next
+    // swing run and bypass the swing_max_capital_usd cap.
     const syncDbPositions = await db.getOpenPositions();
+    const swingOwnedSymbols = new Set(syncDbPositions.filter(p => p.strategy === 'swing').map(p => p.ticker));
+    const finalPositions = (await alpaca.getPositions()).filter(p => !CRYPTO_SYMBOLS.has(p.symbol) && !swingOwnedSymbols.has(p.symbol));
     const dbPositionMap = new Map(syncDbPositions.filter(p => p.strategy === 'daytrading' || (!p.strategy && !CRYPTO_SYMBOLS.has(p.ticker))).map(p => [p.ticker, p]));
 
     for (const pos of finalPositions) {
