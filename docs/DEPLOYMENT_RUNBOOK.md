@@ -1,3 +1,11 @@
+## August 25, 2026 Control-98 strict read-only production control - HEALTHY/DEGRADED
+
+Control-98 was a strict GET-only production control at ~20:00 UTC (22:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required — documentation update only (HEAD reference corrected to current commit `c3801a2`).
+
+Version identity all aligned: `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Local HEAD `c3801a2` (docs), code commits `62ff44f`+`6876a92`+`22e962f`. Live Worker matches local source. Deploy path remains direct Cloudflare API PUT (Wrangler silently exits without uploading).
+
+No deploy performed this control. The live Worker remains at 2.6.0 (Controls 88-91). New operational findings (not code defects, no deploy warranted): run-log delivery gaps (13:56→17:36 UTC ≈ 3h40m and 18:51→19:20 UTC ≈ 29m with zero logged runs despite cron schedule — cause undetermined from GET-only data); run 3524 (17:36 UTC) daytrading subrequest exhaustion (isolated, no recurrence); CYCLE_LEASE_HELD streaks (lease TTL 10 min auto-expires, strategy-specific so swing unaffected). Status: HEALTHY (code/deployment), DEGRADED (external data-feed/resource + observability gaps). Tonight 22:00 UTC = first natural swing run on 2.6.0 with empty swing book.
+
 ## August 25, 2026 Control-97 strict read-only production control - HEALTHY/DEGRADED
 
 Control-97 was a strict GET-only production control at ~19:00 UTC (21:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required — documentation update only (HEAD reference corrected to current commit `60db928`).
