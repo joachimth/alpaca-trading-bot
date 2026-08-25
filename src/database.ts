@@ -1066,13 +1066,16 @@ export class Database {
 
         if (existing.decision_id !== null && existing.decision_id !== undefined && isNewerOrEqual) {
           const fullyFilled = status === 'filled' && order.filled_qty > 0 && order.filled_qty >= order.qty * 0.999;
+          const hasPartialFill = order.filled_qty > 0 && order.filled_qty < order.qty * 0.999;
           const terminalRejected = ['rejected', 'canceled', 'cancelled', 'expired', 'done_for_day', 'stopped'].includes(status);
-          const executed = fullyFilled ? 1 : terminalRejected ? 2 : 0;
+          const executed = fullyFilled ? 1 : hasPartialFill ? 1 : terminalRejected ? 2 : 0;
           const reason = fullyFilled
             ? `Broker confirmed fill: ${order.filled_qty}/${order.qty} @ ${order.filled_avg_price ?? 'unknown'}`
-            : terminalRejected
-              ? `Broker order terminal status: ${status}`
-              : `Broker order status: ${status}; filled ${order.filled_qty}/${order.qty}`;
+            : hasPartialFill
+              ? `Broker partial fill before terminal status ${status}: ${order.filled_qty}/${order.qty} @ ${order.filled_avg_price ?? 'unknown'}`
+              : terminalRejected
+                ? `Broker order terminal status: ${status}`
+                : `Broker order status: ${status}; filled ${order.filled_qty}/${order.qty}`;
           await this.updateDecisionStatus(existing.decision_id, executed, reason);
         }
       } else {
@@ -1260,7 +1263,9 @@ export class Database {
         estimated_value_basis: 'order_time_estimate',
         filled_notional: filledNotional,
         estimated_vs_filled_delta: estimatedVsFilledDelta,
-        accounting_status: 'unavailable_fill_lot_exact',
+        accounting_status: (filledNotional !== null || String(trade.status) === 'filled')
+          ? 'filled_lot_exact_unavailable'
+          : 'no_fill',
         fee_attribution: linkedFee?.attribution ?? 'none-recorded',
       };
     });

@@ -374,8 +374,8 @@ describe('dashboard read-only hotfix', () => {
     expect(body.trades).toHaveLength(2);
     const linked = body.trades.find((trade: any) => trade.alpaca_order_id === 'order-linked');
     const unlinked = body.trades.find((trade: any) => trade.alpaca_order_id === 'order-unlinked');
-    expect(linked).toMatchObject({ gross: null, fee: 0.25, net: null, accounting_status: 'unavailable_fill_lot_exact', fee_attribution: 'broker-attributed', time_in_force: 'gtc' });
-    expect(unlinked).toMatchObject({ gross: null, fee: null, net: null, accounting_status: 'unavailable_fill_lot_exact', fee_attribution: 'none-recorded' });
+    expect(linked).toMatchObject({ gross: null, fee: 0.25, net: null, accounting_status: 'filled_lot_exact_unavailable', fee_attribution: 'broker-attributed', time_in_force: 'gtc' });
+    expect(unlinked).toMatchObject({ gross: null, fee: null, net: null, accounting_status: 'filled_lot_exact_unavailable', fee_attribution: 'none-recorded' });
     expect(Object.prototype.hasOwnProperty.call(linked, 'gross')).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(linked, 'fee')).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(linked, 'net')).toBe(true);
@@ -434,7 +434,7 @@ describe('dashboard read-only hotfix', () => {
       gross: null,
       fee: null,
       net: null,
-      accounting_status: 'unavailable_fill_lot_exact',
+      accounting_status: 'filled_lot_exact_unavailable',
       fee_attribution: 'none-recorded',
     });
     expect(tracked.sql.some(statement => /\\b(?:ALTER|CREATE|DROP|PRAGMA|REINDEX)\\b/i.test(statement))).toBe(false);

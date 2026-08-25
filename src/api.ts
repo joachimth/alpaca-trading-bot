@@ -207,12 +207,12 @@ export class DashboardAPI {
     // Dashboard aggregates describe the broker positions in this same response.
     // D1 may provide metadata, but never substitutes for a failed broker read.
     if (account && !account.error) {
-      account = {
+      account = accountWithEquityDirection({
         ...account,
         market_value: brokerPositions
           ? brokerPositions.reduce((total, position) => total + position.market_value, 0)
           : null,
-      };
+      });
     }
     if (latestSnapshot) {
       latestSnapshot = {

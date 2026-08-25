@@ -201,7 +201,7 @@ describe('trade observability enrichment', () => {
       gross: null,
       fee: 1.25,
       net: null,
-      accounting_status: 'unavailable_fill_lot_exact',
+      accounting_status: 'filled_lot_exact_unavailable',
       fee_attribution: 'broker-attributed',
     });
     sqlite.prepare(`INSERT INTO broker_fees (activity_id, fee_type, order_id, usd_value) VALUES (?, 'FEE', ?, NULL)`)
@@ -219,9 +219,20 @@ describe('trade observability enrichment', () => {
       gross: null,
       fee: null,
       net: null,
-      accounting_status: 'unavailable_fill_lot_exact',
+      accounting_status: 'filled_lot_exact_unavailable',
       fee_attribution: 'none-recorded',
     });
+  });
+
+  test('distinguishes no_fill from filled_lot_exact_unavailable for zero-fill accepted orders', async () => {
+    const db = createDb();
+    await seedTrade(db, { alpaca_order_id: 'order-accepted-nofill', status: 'accepted', filled_qty: 0, avg_fill_price: null });
+    await seedTrade(db, { alpaca_order_id: 'order-filled', status: 'filled', filled_qty: 5, avg_fill_price: 100 });
+    const trades = await db.getRecentTrades(10);
+    const noFill = trades.find(t => t.alpaca_order_id === 'order-accepted-nofill');
+    const filled = trades.find(t => t.alpaca_order_id === 'order-filled');
+    expect(noFill).toMatchObject({ accounting_status: 'no_fill', filled_notional: null });
+    expect(filled).toMatchObject({ accounting_status: 'filled_lot_exact_unavailable', filled_notional: 500 });
   });
 
   test('persists broker time_in_force including crypto GTC', async () => {

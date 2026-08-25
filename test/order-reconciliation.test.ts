@@ -96,6 +96,34 @@ describe('scheduled order reconciliation', () => {
     expect(decision).toEqual({ executed: 1, execution_reason: 'Broker confirmed fill: 10/10 @ 101' });
   });
 
+  test('classifies a terminal done_for_day order with partial fill as executed, not rejected', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    const decisionId = await db.logDecision({
+      ticker: 'AAPL', action: 'BUY', confidence: 0.9, signal_source: 'ta', reason: 'test',
+      price_at_decision: 100, executed: 0, execution_reason: 'Order submitted: broker status pending_new',
+    });
+    await db.logOrderTrade(order({ id: 'partial-terminal', decisionId: undefined }), { decisionId, strategy: 'daytrading', estimatedValue: 1000 });
+    await db.reconcileOrders([order({ id: 'partial-terminal', filled_qty: 4, leaves_qty: 6, filled_avg_price: 101, status: 'done_for_day', updated_at: '2026-08-07T10:05:00Z' })]);
+    const decision = sqlite.query('SELECT executed, execution_reason FROM decisions WHERE id = ?').get(decisionId) as any;
+    expect(decision.executed).toBe(1);
+    expect(decision.execution_reason).toContain('partial fill before terminal status');
+  });
+
+  test('classifies a terminal done_for_day order with zero fill as rejected', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    const decisionId = await db.logDecision({
+      ticker: 'AAPL', action: 'BUY', confidence: 0.9, signal_source: 'ta', reason: 'test',
+      price_at_decision: 100, executed: 0, execution_reason: 'Order submitted: broker status pending_new',
+    });
+    await db.logOrderTrade(order({ id: 'zero-terminal', decisionId: undefined }), { decisionId, strategy: 'daytrading', estimatedValue: 1000 });
+    await db.reconcileOrders([order({ id: 'zero-terminal', filled_qty: 0, leaves_qty: 10, status: 'done_for_day', updated_at: '2026-08-07T10:05:00Z' })]);
+    const decision = sqlite.query('SELECT executed, execution_reason FROM decisions WHERE id = ?').get(decisionId) as any;
+    expect(decision.executed).toBe(2);
+    expect(decision.execution_reason).toContain('terminal status');
+  });
+
   test('is idempotent and never regresses newer fill progress, status, or lifecycle timestamps', async () => {
     const sqlite = createTestDatabase();
     const db = new Database(createFakeD1(sqlite));
