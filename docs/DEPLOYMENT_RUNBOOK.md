@@ -1,3 +1,13 @@
+## August 25, 2026 Control-93 strict read-only production control - HEALTHY/DEGRADED
+
+Control-93 was a strict GET-only production control at ~15:04 UTC. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required — documentation update only (HEAD reference corrected to current commit `f494c06`).
+
+Version identity all aligned: `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Local HEAD `f494c06` (docs), code commits `62ff44f`+`6876a92`+`22e962f`. Live Worker matches local source. Deploy path remains direct Cloudflare API PUT (Wrangler silently exits without uploading).
+
+Equity $98,523.26, ACTIVE, caps $5,000/$3,700/$2,000 unchanged. 16 broker-authoritative positions all daytrading, swing exposure zero. Reconciliation healthy (0 errors, watermark holding). Daytrading + crypto skipping on stale bars (external data-feed, fail-safe). Trades 704/705 filled 13:36 UTC. Trade lifecycle and accounting confirmed conservative. Crypto edge-gate wiring confirmed in source (`prepareCryptoRiskDecision`, `Number.isFinite(rawEdgeBps)`, fail-closed). 220 tests / 822 assertions, typecheck clean.
+
+**Status: HEALTHY (code/deployment), DEGRADED (external data-feed).** Remaining follow-ups: natural swing run tonight 22:00 UTC, rawEdgeBps producer, crypto/daytrading bar freshness, D1 plan upgrade, Sep 1 free-tier monitoring, trade 703 strategy attribution gap.
+
 ## August 25, 2026 Control-92 strict read-only production control - HEALTHY/DEGRADED
 
 Control-92 was a strict GET-only production control at ~14:00 UTC. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no correction or deploy required — documentation update only.

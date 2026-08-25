@@ -1,3 +1,19 @@
+## August 25, 2026 Control-93 strict read-only production control - HEALTHY/DEGRADED
+
+Control-93 ran a strict GET-only production control at ~15:04 UTC. All six endpoints returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (HEAD reference corrected to current commit).
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Local HEAD `f494c06` (docs), code commits `62ff44f`+`6876a92`+`22e962f`, release **2.6.0**. Live Worker matches local source.
+
+**Live state:** equity **$98,523.26**, last_equity $98,386.6243, change_today $136.64 (+0.139% via equity-direction fallback), cash $90,278.93, long_market_value $8,244.33, status ACTIVE. `positionsAvailable=true`, `freshness.current_state_source=alpaca` (broker-authoritative). 16 positions ALL `strategy=daytrading`, swing exposure **zero**. Caps unchanged **$5,000 / $3,700 / $2,000**.
+
+**Four schedules confirmed:** reconciliation `*/10 * * * *` ok every 10 min (run 3521 at 13:51, ledgerActivities=5; run 3518 at 13:41, ledgerActivities=8; 0 errors, not truncated, watermark holding); daytrading `*/5 13-21 * * 1-5` (runs 3519-3523 at 13:41-13:56, market_open=1, skipped on DAYTRADING_BARS_STALE ~973s vs 900s + EQUITY_DIRECTION_FALLBACK + DAYTRADING_BARS_UNAVAILABLE SQ empty); crypto `7-59/30 * * * *` at :07/:37 (run 3517 at 13:38, skipped: RECONCILIATION_DEFERRED_TO_MAINTENANCE, CRYPTO_BARS_STALE ETHUSD ~22h, CRYPTO_BARS_UNAVAILABLE MATICUSD empty, CRYPTO_DATA_INSUFFICIENT validTA=0); swing `0 22 * * 1-5` not yet run today (expected 22:00 UTC, first natural test on 2.6.0 with empty swing book).
+
+**Trades:** 704 (LUV sell 2.14 @ 41.10) and 705 (RUN sell 40 @ 9.05) filled 13:36 UTC today, strategy=daytrading. 701/702/703 confirmed filled at broker 13:30 UTC. Trade 703 (PLD sell) strategy=null persists — known observability gap. All trades: accounting_status=filled_lot_exact_unavailable, gross/fee/net null, fee_attribution=none-recorded (conservative). Lifecycle timestamps populated (submitted_at, filled_at, broker_updated_at, last_reconciled_at).
+
+**Crypto edge-gate wiring confirmed in source:** `prepareCryptoRiskDecision` in `src/crypto-strategy.ts` checks `Number.isFinite(rawEdgeBps)`, fails closed when absent. No rawEdgeBps producer in `src/technical-analysis.ts`. Fail-closed behavior verified.
+
+**Status: HEALTHY (code/deployment), DEGRADED (external data-feed).** No code defect, no deploy. Remaining: natural swing run tonight 22:00 UTC, rawEdgeBps producer, crypto/daytrading bar freshness, D1 plan upgrade, Sep 1 monitoring, trade 703 strategy attribution gap.
+
 ## August 25, 2026 Control-92 strict read-only production control - HEALTHY/DEGRADED
 
 Control-92 ran a strict GET-only production control at ~14:00 UTC. All six endpoints returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no correction or deploy required. This is a read-only control with documentation update only.
