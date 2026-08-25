@@ -1,3 +1,15 @@
+## August 25, 2026 Control-99 strict read-only production control - HEALTHY/DEGRADED
+
+Control-99 was a strict GET-only production control at ~21:00 UTC (23:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only.
+
+Version identity all aligned: `/health`=2.6.0, `config.version`=2.6.0. Local HEAD `48f8160` (docs), code commits `62ff44f`+`6876a92`+`22e962f`. Live Worker matches local source. Deploy path remains direct Cloudflare API PUT (Wrangler silently exits without uploading).
+
+Live state: equity $98,540.21 (+0.156%), ACTIVE, cash $90,582.30, long_market_value $7,957.91. 15 broker-authoritative positions all daytrading (`source=alpaca`, `positionsAvailable=true`), swing exposure 0. Reconciliation every 10 min (3549/3546/3542/3540/3536/3532/3529/3526 ok, err=0; 3554/3557 CYCLE_LEASE_HELD). Caps unchanged 5000/3700/2000. Daytrading skipped on DAYTRADING_BARS_STALE + EQUITY_DIRECTION_FALLBACK. Crypto :07/:37 fail-closed (3507/3517/3525/3535/3545, RECONCILIATION_DEFERRED_TO_MAINTENANCE + CRYPTO_BARS_STALE + no rawEdgeBps). Trades 701-706 filled, `filled_lot_exact_unavailable`, gross/fee/net=null; trade 703 strategy=null persistent. 220 tests / 822 assertions, typecheck clean.
+
+New finding: run-log delivery gaps in 19:00-21:00 UTC window are more extensive than Control-98 noted. Missing daytrading cron runs (unlogged) interleaved with CYCLE_LEASE_HELD streaks (3551/3555/3556 daytrading, 3554/3557 maintenance). Confirms "silent throw before lease release": a cron invocation hits Cloudflare free-tier subrequest/CPU limits, throws before logging or releasing lease, subsequent invocations log CYCLE_LEASE_HELD until 10-min TTL, then repeat. Run 3524 (17:36 UTC) caught explicit "Too many subrequests"; others threw silently. Daytrading lease is strategy-isolated so tonight's 22:00 UTC swing run unaffected. External resource constraint, not code defect. Paid-plan upgrade is the remedy.
+
+Status: HEALTHY (code/deployment), DEGRADED (external data-feed/resource + run-log delivery gaps + CYCLE_LEASE_HELD streaks).
+
 ## August 25, 2026 Control-98 strict read-only production control - HEALTHY/DEGRADED
 
 Control-98 was a strict GET-only production control at ~20:00 UTC (22:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required — documentation update only (HEAD reference corrected to current commit `c3801a2`).
