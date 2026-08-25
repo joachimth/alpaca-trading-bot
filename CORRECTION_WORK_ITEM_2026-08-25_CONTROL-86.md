@@ -2,7 +2,7 @@
 
 Date: 2026-08-25 UTC
 Verdict: OPEN FAIL/DEGRADED
-Scope: read-only control and documentation correction only
+Scope: read-only control plus reliability-only local correction and documentation update
 
 ## Safety boundary
 
@@ -20,8 +20,8 @@ Only GET requests were used against `/health`, `/api/config`, `/api/dashboard`, 
 
 ## Local source evidence
 
-- Exact checkout: branch `fix/remove-premature-position-upsert-entryside`, HEAD `9f09b145d922597d1e0b7c80bb827a768c147706`, release `2.6.0`.
-- Runtime-bearing reliability commit: `20d80ac87e08271fb0d9c1c7ea1027b72eebd48d`; subsequent commits in the current branch are documentation/status records.
+- Exact code-bearing checkout: branch `fix/remove-premature-position-upsert-entryside`, HEAD `ce58d018585200af00032e5d624d6c989c2178fe`, release `2.6.0`.
+- This commit contains the current reliability source/tests; prior runtime reliability lineage includes `20d80ac87e08271fb0d9c1c7ea1027b72eebd48d`. Any later commits are documentation/status records.
 - `wrangler.toml` defines four UTC crons: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, and `*/10 * * * *`; `src/index.ts` dispatches them to daytrading, swing, crypto, and reconciliation paths.
 - Broker-first positions are enforced in `src/api.ts` and `src/position-projection.ts`; broker failure returns unavailable/503 rather than a D1 live-state fallback.
 - Lease-held and structured skip/error persistence exists for daytrading, swing, crypto, and maintenance/reconciliation, with tests for the individual paths but no end-to-end all-four schedule delivery test.

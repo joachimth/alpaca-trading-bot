@@ -12,8 +12,8 @@ This was a strict read-only production control for `https://alpaca-trading-bot.j
 - Repository: `/workspace/alpaca-trading-bot`
 - Branch: `fix/remove-premature-position-upsert-entryside`
 - Historical runtime source recorded at Control-85 start: `786be98c5be32f1b5cdfd46dfbcb033a9f3ca44f`
-- Current Control-86 checkout: branch `fix/remove-premature-position-upsert-entryside`, HEAD `9f09b145d922597d1e0b7c80bb827a768c147706`
-- Last code-changing runtime commit identified in history: `20d80ac87e08271fb0d9c1c7ea1027b72eebd48d`
+- Current Control-86 code-bearing checkout: branch `fix/remove-premature-position-upsert-entryside`, HEAD `ce58d018585200af00032e5d624d6c989c2178fe`
+- Current code-changing runtime commit: `ce58d018585200af00032e5d624d6c989c2178fe`; prior runtime reliability lineage includes `20d80ac87e08271fb0d9c1c7ea1027b72eebd48d`
 - Release: `2.6.0`
 - Later commits are documentation/status records; live Worker identity remains unproven.
 
