@@ -7,9 +7,9 @@ Status: **OPEN FAIL/DEGRADED**
 
 - Repository: `/workspace/alpaca-trading-bot`
 - Branch: `fix/remove-premature-position-upsert-entryside`
-- HEAD: `2fd04d6b416eee03fa56987c6627b83bc180ba7f`
+- HEAD: `366df21a782678bf9c277f16b5a0d1712553c6c1`
 - Release: `2.6.0`
-- This HEAD is the current source identity. Older hashes in historical Control-82 and earlier entries are not current.
+- This HEAD is the current deployable runtime source identity. The present control commit is documentation-only and does not change runtime source, caps, schedules, or trading behavior. Older hashes in historical Control-82 and earlier entries are not current.
 
 ## Live read-only evidence
 
