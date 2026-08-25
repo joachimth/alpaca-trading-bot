@@ -1,3 +1,13 @@
+## August 26, 2026 Control-101 strict read-only control + swing cap bypass fix (DEPLOYED)
+
+Control-101 found and fixed a critical swing cap bypass defect. The daytrading final sync (step 12) was re-attributing swing-owned positions to `strategy='daytrading'`, so the next swing_cron run saw $0 swing exposure and approved entries beyond the $3,700 cap. Swing run 3574 placed 12 new BUY orders ($1,450 est) under this defect.
+
+**Fix:** Commit `a206690` — daytrading final sync now excludes swing-tagged D1 positions via `swingOwnedSymbols` set. 220 tests / 822 assertions, typecheck clean. Deployed via direct Cloudflare API PUT (HTTP 200). Post-deploy GET verification: /health=2.6.0, config.version=2.6.0, all endpoints HTTP 200.
+
+**Live risk:** 12 pending swing BUY orders (trades 708-719, day-TIF, accepted) could fill at Aug 26 09:30 ET market open, pushing swing exposure to ~$9,400 (2.5x cap). Cancel requires broker mutation — Joachim must decide before market open.
+
+Version identity aligned: /health=2.6.0, release_version=2.6.0, config.version=2.6.0. HEAD `a206690`, code `a206690`. Caps unchanged 5000/3700/2000. Status: HEALTHY (code/deployment), DEGRADED (pending orders + external resource/data-feed limits + run-log gaps).
+
 ## August 25, 2026 Control-100 strict read-only production control - HEALTHY/DEGRADED (swing milestone)
 
 Control-100 was a strict GET-only production control at ~22:00 UTC (Aug 26 00:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (HEAD reference corrected to current commit `2936167`).

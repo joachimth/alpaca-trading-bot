@@ -1,3 +1,19 @@
+## August 26, 2026 Control-101 strict read-only control + swing cap bypass fix (DEPLOYED)
+
+Control-101 was a strict GET-only production control at ~23:00 UTC (Aug 26 01:00 +02). All six endpoints returned HTTP 200. A critical code defect was found and fixed: the daytrading final sync was re-attributing swing-owned positions to `strategy='daytrading'`, causing the swing cap check to see $0 exposure on the next swing run and bypass the `swing_max_capital_usd` $3,700 cap.
+
+**Root cause:** `runTradingCycle` step 12 (index.ts ~line 1064) filtered broker positions with `!CRYPTO_SYMBOLS.has(p.symbol)` but did not exclude swing-tagged D1 positions. Every daytrading cycle reset all swing positions to `strategy='daytrading'`. When swing_cron ran at 22:00 UTC, it saw $0 swing exposure, approved 12 new BUY orders ($1,450 estimated), and re-attributed everything back to swing. This flip-flop meant the swing cap was never effectively enforced.
+
+**Evidence:** Swing run 3574 (Aug 25 22:01:33 UTC, status=skipped, errors=0, 40311ms) placed 12 new swing BUY orders (trades 708-719, all status=accepted, day-TIF). Positions flipped from "all daytrading" (Control-100) to "all swing" (MV $7,951, over the $3,700 cap). The 12 orders remain accepted and could fill at Aug 26 market open.
+
+**Fix deployed:** Commit `a206690`. The daytrading final sync now excludes swing-tagged D1 positions (`swingOwnedSymbols` set) before upserting, preserving strategy ownership across cycles. 220 tests / 822 assertions, typecheck clean. No caps changed. Deployed via direct Cloudflare API PUT (HTTP 200, success=true). Post-deploy GET verification confirmed /health=2.6.0, config.version=2.6.0, all endpoints HTTP 200.
+
+**Live risk (requires Joachim decision):** 12 pending swing BUY orders (trades 708-719, day-TIF, status=accepted) could fill at Aug 26 09:30 ET market open, pushing swing exposure to ~$9,400 (2.5x the $3,700 cap). These orders were placed by the bot under the now-fixed defect. Cancelling them requires a broker mutation (not performed during read-only control). Joachim should decide whether to cancel before market open.
+
+**Version identity:** /health=2.6.0, release_version=2.6.0, config.version=2.6.0 aligned. HEAD `a206690` (code+docs). Code commit `a206690`. 220 tests / 822 assertions, typecheck clean.
+
+**Status: HEALTHY** (code/deployment — cap bypass defect fixed and deployed). **DEGRADED** (12 pending swing BUY orders risk cap overshoot at market open; external data-feed/resource limits; run-log delivery gaps; CYCLE_LEASE_HELD streaks from free-tier subrequest/CPU exhaustion).
+
 ## August 25, 2026 Control-100 strict read-only production control - HEALTHY/DEGRADED (swing milestone)
 
 Control-100 ran a strict GET-only production control at ~22:00 UTC (Aug 26 00:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only.
