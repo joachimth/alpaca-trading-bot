@@ -1953,6 +1953,12 @@ Local source contracts and regressions pass for broker authority, all four sched
 Additional unresolved live gaps: trade 642 estimated versus filled notional differs by $0.068715; trades 597 and 568 lack strategy/decision attribution; cap-utilization decision telemetry is absent.
 
 
+## Wednesday, August 26, 2026 Control-122 strict read-only production control - HEALTHY/DEGRADED
+
+Control-122: **HEALTHY (code/deploy), DEGRADED (external).** All six GET endpoints HTTP 200, 0 errors across 50 visible runs (14:21-18:38 UTC), 1 CYCLE_LEASE_HELD (run 3740, same gap as Control-121). Version 2.6.0 aligned across /health, release_version, config.version. Code 22b3dba, docs HEAD this commit (local only, push blocked — github_pat missing). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+Live state: equity $98,392.11 (-$132.87 today, -0.135%, EQUITY_DIRECTION_FALLBACK). 28 broker-authoritative positions: 15 swing MV ~$7,804 (d1) + 13 unattributed MV ~$1,451 (none) = ~$9,255 (2.50x $3,700 cap, pre-existing fills). Control-117 fix stable (5th control): 13 swing fills strategy=unattributed (not daytrading), bypass stopped. Daytrading bars ~978s stale vs 900s, all skipped. Crypto fail-closed at :07/:37 cadence (validTA=0, no rawEdgeBps, fee asOf Aug 19). Reconcile ok every 10 min. Run-log gap 15:26-17:15 UTC (~109 min, Free-tier silent throw). Trade 703 (PLD) strategy=null persistent. All filled trades conservative null gross/fee/net. No deploy, no code change, no broker mutation.
+
 ## Monday, August 24, 2026 Control-73 strict read-only production control - OPEN FAIL/DEGRADED
 
 Control-73 remains **OPEN FAIL/DEGRADED**, not healthy. All six required GET endpoints returned HTTP 200 at approximately **19:03 UTC on August 24, 2026**. Live `/health` is **1.0.0** and `/api/config.version` is **2.4.0**, while the checked-out deployable release is **2.6.0** at HEAD `42c45142851a6cf3026363ab673fac35ccdbf3b0`; Wrangler returned **`You are not authenticated. Please run wrangler login.`**, so the active Worker cannot be mapped to the validated source.
