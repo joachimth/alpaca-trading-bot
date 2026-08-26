@@ -1,3 +1,17 @@
+## August 26, 2026 Control-102 strict read-only production control - HEALTHY/DEGRADED
+
+Control-102 at ~00:00 UTC (Aug 26 02:00 +02). All six endpoints HTTP 200. No code defect; no deploy required. Docs update only.
+
+Version identity aligned: /health=2.6.0, release_version=2.6.0, config.version=2.6.0. HEAD `58a6ce3` (docs), code `a206690`. 220 tests / 822 assertions. Control-101 fix (`a206690`) verified in source at `src/index.ts:1070-1071`. Not yet naturally tested by daytrading sync (next Aug 26 13:00 UTC).
+
+Live state: equity $98,531.26 (+0.147%), ACTIVE, cash $90,582.30. 15 broker-authoritative positions all strategy=swing (MV $7,949). Reconciliation ok every 10 min (broker_ledger_synced_until 2026-08-26T00:00:14Z). Caps unchanged 5000/3700/2000.
+
+**12 pending swing BUYs (LIVE RISK):** Trades 708-719, accepted, day-TIF, ~$1,362 est. Could fill at Aug 26 09:30 ET market open → swing ~$9,311 (2.5x cap). Cancel requires broker mutation. Joachim must decide before market open.
+
+Run-log delivery gaps persist (missing crypto 14:08-17:08 and 19:08-21:08, missing reconcile 23:10). CYCLE_LEASE_HELD streaks 20:15-21:20 (cleared 21:36). External resource constraint (Cloudflare Free tier). Paid-plan upgrade remains remedy.
+
+Status: HEALTHY (code/deployment), DEGRADED (12 pending swing BUYs + external limits + run-log gaps).
+
 ## August 26, 2026 Control-101 strict read-only control + swing cap bypass fix (DEPLOYED)
 
 Control-101 found and fixed a critical swing cap bypass defect. The daytrading final sync (step 12) was re-attributing swing-owned positions to `strategy='daytrading'`, so the next swing_cron run saw $0 swing exposure and approved entries beyond the $3,700 cap. Swing run 3574 placed 12 new BUY orders ($1,450 est) under this defect.

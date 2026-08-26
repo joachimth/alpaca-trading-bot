@@ -1,3 +1,21 @@
+## August 26, 2026 Control-102 strict read-only production control - HEALTHY/DEGRADED
+
+Control-102 at ~00:00 UTC (Aug 26 02:00 +02). All six endpoints HTTP 200. No code defect found; no deploy required. Docs update only.
+
+**Version:** /health=2.6.0, release_version=2.6.0, config.version=2.6.0 aligned. HEAD `58a6ce3` (docs), code `a206690`. 220 tests / 822 assertions. ✓
+
+**Live state:** Equity $98,531.26 (+0.147%), ACTIVE, cash $90,582.30, long_market_value $7,948.96. 15 broker-authoritative positions (`source=alpaca`), all strategy=swing (MV $7,949, over $3,700 cap — positions placed under now-fixed cap bypass defect). Reconciliation every 10 min (3589-3580 ok, err=0, broker_ledger_synced_until 2026-08-26T00:00:14Z, last_prune_date 2026-08-26). Caps unchanged 5000/3700/2000.
+
+**Control-101 fix verified in source:** `src/index.ts:1070-1071` — `swingOwnedSymbols` set excludes swing-tagged D1 positions from daytrading final sync. Deployed as `a206690`. Not yet naturally tested by daytrading sync (next Aug 26 13:00 UTC).
+
+**12 pending swing BUYs (LIVE RISK):** Trades 708-719, all accepted, day-TIF, filled_qty=0, ~$1,362 est. Could fill at Aug 26 09:30 ET market open → swing ~$9,311 (2.5x cap). Cancel requires broker mutation. Joachim must decide before market open.
+
+**Schedules:** Daytrading MARKET_CLOSED (3565-3572). Swing 3574 clean (errors=0, 40s). Crypto :07/:37 fail-closed (LINKUSD ~22h stale, MATICUSD empty, no rawEdgeBps). Reconcile every 10 min. ✓
+
+**Run-log delivery gaps:** Missing crypto runs 14:08-17:08 (7) and 19:08-21:08 (5), missing reconcile at 23:10. CYCLE_LEASE_HELD streaks 20:15-21:20 (cleared 21:36). External resource constraint (Cloudflare Free tier). Trade 703 strategy=null persistent. Paid-plan upgrade remains remedy.
+
+**Status: HEALTHY** (code/deployment). **DEGRADED** (12 pending swing BUYs + external limits + run-log gaps).
+
 ## August 26, 2026 Control-101 strict read-only control + swing cap bypass fix (DEPLOYED)
 
 Control-101 found and fixed a critical swing cap bypass defect. The daytrading final sync (step 12, index.ts ~line 1064) was re-attributing swing-owned positions to `strategy='daytrading'`, causing the swing cap check to see $0 exposure on the next swing_cron run and bypass the `swing_max_capital_usd` $3,700 cap. Swing run 3574 (Aug 25 22:01 UTC) placed 12 new BUY orders ($1,450 est) under this defect.
