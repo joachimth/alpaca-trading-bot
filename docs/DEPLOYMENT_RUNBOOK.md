@@ -1,3 +1,11 @@
+## August 26, 2026 Control-104 _trigger regression fix (DEPLOYED)
+
+Control-104 at ~02:00 UTC (Aug 26 04:00 +02). Found and fixed a typecheck regression from Control-103: `runSwingCycle` parameter renamed `trigger` → `_trigger` but body still references `trigger` (5 TS2552 errors, would throw ReferenceError at swing cron). Fix: reverted to `trigger` (commit `e89c786`). Bundled from `/workspace/alpaca-trading-bot` (315.63 KiB, verified 2.6.0 in bundle). Deployed via direct Cloudflare API PUT (deployment_id `0173e8ceb625485498b4794e098668a7`, HTTP 200, success=true). Post-deploy GET-only verification: all 6 endpoints HTTP 200, /health=2.6.0, config.version=2.6.0, release_version=2.6.0, caps 5000/3700/2000, 15 broker-authoritative positions source=alpaca. 220 tests / 822 assertions, typecheck clean.
+
+**DEPLOY LESSON REINFORCED:** Control-103's typecheck "fixes" introduced a new regression by renaming a parameter without updating all references. Always run `bun run typecheck` AND verify it exits clean (no output) after any type-related change, not just rely on tests passing.
+
+---
+
 ## August 26, 2026 Control-103 typecheck fixes + brief 1.0.0 regression + 2.6.0 restoration (DEPLOYED)
 
 Control-103 at ~01:00 UTC (Aug 26 03:00 +02). Found and fixed 12 pre-existing typecheck errors across 6 source files. Deployed via direct Cloudflare API PUT.

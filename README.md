@@ -1,3 +1,27 @@
+## August 26, 2026 Control-104 _trigger regression fix (DEPLOYED)
+
+Control-104 at ~02:00 UTC (Aug 26 04:00 +02). Strict GET-only production control found a typecheck regression introduced by Control-103 (c783650): `runSwingCycle` signature was renamed from `trigger` to `_trigger` but the function body still references `trigger`, causing 5 typecheck errors (TS2552) and a runtime ReferenceError that would have crashed tonight's 22:00 UTC swing cron. Fixed by reverting to `trigger` (commit `e89c786`). Deployed via direct Cloudflare API PUT (deployment_id `0173e8ceb625485498b4794e098668a7`, HTTP 200). Post-deploy GET verification: all six endpoints HTTP 200, /health=2.6.0, release_version=2.6.0, config.version=2.6.0, caps 5000/3700/2000 intact, 15 broker-authoritative positions (source=alpaca, MV $7,939, all strategy=swing). 220 tests / 822 assertions, typecheck genuinely clean. No caps, schedules, thresholds, sizing, fee policy, edge policy, order semantics, or trading behavior changed.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. HEAD `e89c786` (code+docs), pushed to origin. 220 tests / 822 assertions, typecheck clean. Docs identify exact current HEAD. ✓
+
+**Live state:** Equity $98,521.32 (+0.137%), ACTIVE, cash $90,582.30, long_market_value $7,939.02. 15 broker-authoritative positions (`source=alpaca`, `positionsAvailable=true`, `current_state_observed_at` 2026-08-26T02:03:17Z), all attributed `strategy=swing` (MV $7,939, over the $3,700 swing cap — positions placed under the now-fixed Control-101 cap bypass defect). Reconciliation every 10 min (runs 3605/3604/3603 `status=ok`, err=0, MAINTENANCE_ONLY, ledgerActivities=0, brokerOrders=8, broker_ledger_synced_until 2026-08-26T02:00:14Z, last_prune_date 2026-08-26). Caps unchanged 5000/3700/2000 USD. Equity direction: change_today_pct 0.139% (non-zero from broker); EQUITY_DIRECTION_FALLBACK skip in crypto runs (fallback_change_today_pct 0.138%, expected during crypto cycles when broker daily change is zero/unavailable). ✓
+
+**Four schedules verified:** Daytrading `*/5 13-21 * * 1-5` — last runs 3552-3564 CYCLE_LEASE_HELD streak (19:35-21:20 UTC, Free-tier subrequest ceiling), then 3565-3572 MARKET_CLOSED (nextOpen Aug 26 09:30 ET). Swing `0 22 * * 1-5` — run 3574 at 22:01 UTC clean (errors=0, 40311ms, 13 decisions, placed 12 BUYs under pre-fix defect). Crypto `7-59/30 * * * *` — :07/:37 cadence confirmed (3602 at 01:37, 3598 at 01:07, 3594 at 00:37), all fail-closed. Reconciliation `*/10 * * * *` — every 10 min confirmed (3580-3605). ✓
+
+**12 pending swing BUYs (LIVE RISK — Joachim decision needed):** Trades 708-719 (WMT, RTX, AVGO, GE, TXN, BA, BAC, XOM, SNOW, CVX, WFC, C), all status=accepted, day-TIF, filled_qty=0, submitted at 22:01 UTC Aug 25 (after market close). Total estimated value ~$1,362. These could fill at Aug 26 09:30 ET (13:30 UTC) market open, pushing swing exposure to ~$9,311 (2.5x the $3,700 cap). All show canceled_at=null, expired_at=null, failed_at=null. Cancel requires broker mutation — not performed during read-only control. Joachim must decide before market open.
+
+**Crypto edge-gate:** All crypto runs fail-closed — RECONCILIATION_DEFERRED_TO_MAINTENANCE + EQUITY_DIRECTION_FALLBACK + CRYPTO_BARS_STALE (ETHUSD/LINKUSD ~22h stale, ageSeconds ~79631 vs maxStaleSeconds 2700) + CRYPTO_BARS_UNAVAILABLE (MATICUSD empty, received=0) + CRYPTO_DATA_INSUFFICIENT (validTA=0, required=3). No rawEdgeBps producer exists in source (confirmed: `rawEdgeBps` defined as optional in `technical-analysis.ts:50` but never set). Crypto fee telemetry status=insufficient (asOf 2026-08-19, >60s old). ✓
+
+**Trade/fill lifecycle:** Pending BUYs (708-719): accounting_status=`no_fill`, gross/fee/net=null, fee_attribution=`none-recorded`, estimated_value_basis=`order_time_estimate`. Filled sells (704-706): accounting_status=`filled_lot_exact_unavailable`, gross/fee/net=null (conservative), filled_notional present, estimated_vs_filled_delta present. Trade 703 strategy=null persistent gap. ✓
+
+**Filtered run observability:** `/api/runs?trigger=swing_cron` returns 5 runs (3574 clean, 3409/3182/2200/1395 errored). `/api/runs?trigger=crypto_cron` returns 20 runs, all fail-closed skipped. `/api/runs?trigger=reconcile_cron` returns 20 runs, all status=ok. All return analyzed_candidates, filtered_candidates, run_details with structured skip codes. ✓
+
+**Run-log delivery gaps:** Missing crypto runs 14:07-16:37 UTC (6) + 19:07-20:37 UTC (4). Missing reconcile at 23:10 UTC (1). CYCLE_LEASE_HELD streak in daytrading lane 19:35-21:20 UTC, cleared by 21:36. All caused by Cloudflare Workers Free-tier subrequest/CPU limits causing silent throws before run_log rows are written. Paid-plan upgrade approved but not executed; it is the remedy. ✓
+
+**Status: HEALTHY (code/deployment), DEGRADED (12 pending swing BUYs + external data-feed/resource limits + run-log delivery gaps + CYCLE_LEASE_HELD streaks).**
+
+---
+
 ## August 26, 2026 Control-102 strict read-only production control - HEALTHY/DEGRADED
 
 Control-102 was a strict GET-only production control at ~00:00 UTC (Aug 26 02:00 +02). All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No new code defect found; no deploy required. Documentation update only.

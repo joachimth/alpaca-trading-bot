@@ -1,3 +1,11 @@
+## August 26, 2026 Control-104 _trigger regression fix (DEPLOYED)
+
+Control-104 at ~02:00 UTC (Aug 26 04:00 +02). Strict GET-only production control found a typecheck regression from Control-103 (c783650): `runSwingCycle` signature renamed `trigger` → `_trigger` but body still references `trigger` (5 TS2552 errors, runtime ReferenceError). Fix: reverted to `trigger` (commit `e89c786`). Deployed via direct Cloudflare API PUT (deployment_id `0173e8ceb625485498b4794e098668a7`). Post-deploy GET: all 6 endpoints HTTP 200, version 2.6.0 aligned, caps 5000/3700/2000 intact. 220 tests / 822 assertions, typecheck clean. No caps or trading behavior changed.
+
+**Current HEAD:** `e89c786` (code+docs). **Live state:** Equity $98,521, ACTIVE, 15 broker-authoritative positions all strategy=swing (MV $7,939), cash $90,582. Reconciliation ok every 10 min. **LIVE RISK:** 12 pending swing BUYs (trades 708-719, day-TIF, ~$1,362) could fill at Aug 26 09:30 ET → swing ~$9,311 (2.5x cap). Joachim must decide before market open. **Status: HEALTHY (code/deploy), DEGRADED (pending orders + external limits + run-log gaps).**
+
+---
+
 ## August 26, 2026 Control-103 typecheck fixes + brief 1.0.0 regression + 2.6.0 restoration (DEPLOYED)
 
 Control-103 at ~01:00 UTC (Aug 26 03:00 +02). Found and fixed 12 pre-existing typecheck errors across 6 source files. Prior "typecheck clean" claims in Controls 88-102 were inaccurate; `tsc --noEmit` was never actually clean.
