@@ -1,3 +1,15 @@
+## August 26, 2026 Control-112 strict read-only production control - HEALTHY/DEGRADED
+
+Control-112 at ~10:00 UTC (Aug 26 12:00 +02). Strict GET-only production control. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Source `src/version.ts` RELEASE_VERSION='2.6.0', `package.json` v2.6.0. Code `e89c786` (unchanged since Control-104). Docs HEAD: this Control-112 commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `79dbac6` (Control-111 commit). 220 tests / 822 assertions, typecheck genuinely clean. Caps 5000/3700/2000 USD unchanged.
+
+**Live state:** 15 broker-authoritative positions (source=alpaca, current_state_observed_at 2026-08-26T10:00:18Z) all strategy=swing, MV $7,974.99 (2.15x $3,700 swing cap — existing positions from pre-bypass era, metadata updated by swing run 3574 at 2026-08-25 22:01). Equity $98,557.23 (change_today +$32.25, +0.033%), ACTIVE, cash $90,582.24, long_market_value $7,974.99, buying_power $381,418.59. 60 runs (01:07-10:00 UTC): 0 errors, 0 CYCLE_LEASE_HELD. 45 reconcile_cron (ok, every 10 min, brokerOrders=8, pendingLookups=8, lookupFailures=0), 15 crypto_cron (skipped, :07/:37 cadence). No daytrading or swing runs in window (expected — daytrading starts 13:00 UTC, swing at 22:00 UTC). Crypto fail-closed (MATICUSD empty, ETHUSD stale latestBarAt Aug 25 11:30 ~22h, validTA=0 required=3, no rawEdgeBps, fee telemetry stale asOf Aug 19, EQUITY_DIRECTION_FALLBACK). Trade 703 (PLD) strategy=null persistent. All 4 trigger filters verified. Trades pagination verified.
+
+**LIVE RISK (URGENT, stable):** 13 pending swing BUYs (trades 707-719, day-TIF, ~$1,449.85 est) in D1; 8 remain at broker (brokerOrders=8, unchanged since Control-111 08:20 UTC). If 8 fill at Aug 26 13:30 UTC market open (~$984 est) → swing ~$8,959 (2.42x $3,700 cap). Cancel requires broker mutation, not performed during read-only control. Joachim must decide before 13:30 UTC (in ~3.5 hours from this control). Control-101 fix (a206690, swingOwnedSymbols at src/index.ts:1070-1071) deployed, not yet naturally tested (next daytrading sync 13:00 UTC — first natural test).
+
+**Status:** HEALTHY (code/deploy), DEGRADED (pending swing BUYs + external limits + run-log gaps + trade 703 strategy=null).
+
 ## August 26, 2026 Control-111 strict read-only production control - HEALTHY/DEGRADED
 
 Control-111 at ~09:00 UTC (Aug 26 11:00 +02). Strict GET-only production control. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only.
