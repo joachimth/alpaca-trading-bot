@@ -1445,6 +1445,23 @@ export class Database {
     ).bind(closedPl, reason, ticker).run();
   }
 
+  /**
+   * Returns the set of symbols that have recent swing BUY trades (pending or
+   * filled). This lets the daytrading sync exclude symbols owned by the swing
+   * strategy even before D1 positions are tagged — e.g. when swing BUYs fill
+   * at market open and are imported by the auto-reconcile path before the swing
+   * strategy has a chance to tag its positions.
+   */
+  async getSwingTradeSymbols(limit: number = 200): Promise<Set<string>> {
+    await this.ensureTradeSchema();
+    const result = await this.db.prepare(
+      `SELECT DISTINCT ticker FROM trades
+       WHERE strategy = 'swing' AND side = 'buy'
+       ORDER BY timestamp DESC LIMIT ?`
+    ).bind(limit).all();
+    return new Set((result.results as any[]).map(r => r.ticker));
+  }
+
   async getOpenPositions(): Promise<any[]> {
     const result = await this.db.prepare(
       'SELECT * FROM positions WHERE closed_at IS NULL ORDER BY market_value DESC'

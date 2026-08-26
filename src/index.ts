@@ -560,11 +560,20 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       } else {
         // Auto-reconcile: upsert all broker positions into DB. This is a
         // successful broker-authoritative repair, not an execution error.
+        // Exclude swing-owned and swing-trade symbols: the swing strategy owns
+        // its positions and the daytrading reconciliation must not import them
+        // as unattributed rows that the final sync would then re-tag as
+        // 'daytrading', bypassing the swing cap on the next swing_cron run.
+        const reconcileSwingSymbols = new Set([
+          ...(await db.getOpenPositions()).filter(p => p.strategy === 'swing').map(p => p.ticker),
+          ...(await db.getSwingTradeSymbols()),
+        ]);
         console.warn(`DIVERGENCE (auto-reconciling): ${details}`);
         skips.add('BROKER_ONLY_RECONCILED', 'reconciliation', 'Broker-authoritative position divergence reconciled into D1', {
           details: divergence.details,
         });
         for (const pos of positions) {
+          if (reconcileSwingSymbols.has(pos.symbol)) continue;
           const existing = dbPositions.find(p => p.ticker === pos.symbol);
           await db.upsertPosition({
             ticker: pos.symbol,
@@ -1067,7 +1076,10 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     // 'daytrading', causing the swing cap check to see $0 exposure on the next
     // swing run and bypass the swing_max_capital_usd cap.
     const syncDbPositions = await db.getOpenPositions();
-    const swingOwnedSymbols = new Set(syncDbPositions.filter(p => p.strategy === 'swing').map(p => p.ticker));
+    const swingOwnedSymbols = new Set([
+      ...syncDbPositions.filter(p => p.strategy === 'swing').map(p => p.ticker),
+      ...(await db.getSwingTradeSymbols()),
+    ]);
     const finalPositions = (await alpaca.getPositions()).filter(p => !CRYPTO_SYMBOLS.has(p.symbol) && !swingOwnedSymbols.has(p.symbol));
     const dbPositionMap = new Map(syncDbPositions.filter(p => p.strategy === 'daytrading' || (!p.strategy && !CRYPTO_SYMBOLS.has(p.ticker))).map(p => [p.ticker, p]));
 
@@ -1090,11 +1102,15 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
     // A complete successful broker snapshot is authoritative. Do not retain a
     // D1-only current position unless a known order is still live and could fill.
+    // Skip swing-owned symbols: they were excluded from finalPositions and thus
+    // from finalBrokerSymbols, but they ARE at the broker and must not be closed
+    // by the daytrading sync — the swing strategy owns their lifecycle.
     const pendingDaySymbols = new Set((await db.getTradesNeedingSync(200))
       .filter(trade => trade.strategy === 'daytrading')
       .map(trade => String(trade.ticker)));
     const finalBrokerSymbols = new Set(finalPositions.map(pos => pos.symbol));
     for (const dbPos of dbPositions) {
+      if (swingOwnedSymbols.has(dbPos.ticker)) continue;
       if (!finalBrokerSymbols.has(dbPos.ticker) && !pendingDaySymbols.has(dbPos.ticker)) {
         await db.closePosition(dbPos.ticker, null, 'broker_authoritative_sync_absent');
       }
