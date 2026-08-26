@@ -1643,6 +1643,14 @@ No code defect surfaced. The new finding is a sustained CYCLE_LEASE_HELD streak 
 
 Follow-up: 13 D1 position re-tag at 22:00 UTC swing_cron; rawEdgeBps producer; D1 Sep 1 enforcement limits; github_pat re-add; run-log gaps + lease streaks (paid upgrade); bar freshness; trade 703 null strategy.
 
+## Control-127 release gate - August 26, 2026 23:00 UTC
+
+**No deploy required.** Code 22b3dba unchanged since Control-117. All version surfaces aligned at 2.6.0. 223 tests / 841 assertions, typecheck clean. All six GET endpoints HTTP 200, 0 errors. No code defect found. Read-only control only — no mutation endpoints called.
+
+**Verified:** /health=2.6.0, release_version=2.6.0, config.version=2.6.0. 28 positions all strategy=swing. Caps 5000/3700/2000 unchanged. 4 schedules confirmed in wrangler.toml. Equity $98,484.97 ACTIVE. broker_ledger_synced_until 22:51 UTC.
+
+**Known DEGRADED:** Swing MV 2.53x cap (pre-existing bypass fills), CYCLE_LEASE_HELD streak 20:25-21:10 (self-healed), run-log gaps, trade 703 null, crypto fail-closed, github_pat missing (docs push blocked). Paid-plan upgrade approved, not executed.
+
 ## Control-126 release gate - August 26, 2026 22:00 UTC
 
 **HEALTHY (code/deploy), DEGRADED (external). No deploy required.** Strict GET-only control confirmed all six endpoints HTTP 200, version 2.6.0 aligned across /health, release_version, config.version. Code unchanged at 22b3dba (since Control-117). Docs HEAD this commit (local only, push blocked — github_pat missing). 223 tests / 841 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.

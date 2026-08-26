@@ -1386,6 +1386,18 @@ Delivery: daytrading all skipped EQUITY_DIRECTION_FALLBACK (informational, chang
 
 CANNOT VERIFY: crypto positive-edge path (no rawEdgeBps producer in source, fail-closed by design); origin sync (github_pat missing, docs commits local only). Follow-up: 13 D1 re-tag at 22:00 UTC swing_cron; rawEdgeBps producer; D1 Sep 1 limits; github_pat; run-log gaps + lease streaks (paid upgrade); bar freshness; trade 703 null strategy.
 
+## Control-127 production status - August 26, 2026 23:00 UTC
+
+**HEALTHY (code/deploy), DEGRADED (external).** All six GET endpoints HTTP 200, 0 errors. Version 2.6.0 aligned. Code 22b3dba (unchanged since Control-117). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+**Account:** ACTIVE, not blocked. Equity $98,484.97 (-$40.01, -0.041%). 28 positions ALL strategy=swing, 0 unattributed, MV $9,348.03 (2.53x swing cap, pre-existing). broker_ledger_synced_until 22:51 UTC.
+
+**Delivery:** Daytrading MARKET_CLOSED, 5-min cadence, 0 errors. CYCLE_LEASE_HELD streak 20:25-21:10 (7 runs), self-healed 21:16. Swing run 3794 22:01:28, skipped, 0 errors — submitted 3 sells (AMD, LCID, NXPI, trades 720-722). Crypto :07/:37 cadence, all RECONCILIATION_DEFERRED_TO_MAINTENANCE, 0 errors. Reconciliation MAINTENANCE_ONLY.
+
+**Trades:** 707-719 filled (swing, filled_lot_exact_unavailable, gross/fee/net=null). 720-722 accepted sells (no_fill). Trade 703 strategy=null persistent. Crypto fail-closed (no rawEdgeBps, fee telemetry stale).
+
+**DEGRADED:** Swing over-cap (pre-existing), CYCLE_LEASE_HELD streak, run-log gaps, trade 703 null, crypto fee stale, github_pat missing. Paid-plan upgrade approved, not executed.
+
 ## Control-126 production status - August 26, 2026 22:00 UTC
 
 Strict GET-only control. All six endpoints HTTP 200. Verdict: **HEALTHY (code/deploy), DEGRADED (external).** Version 2.6.0 aligned across /health, release_version, config.version. Code 22b3dba unchanged, docs HEAD this commit (local only, push blocked — github_pat missing). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged. Schedules confirmed: daytrading */5 13-21 * * 1-5, swing 0 22 * * 1-5, crypto 7-59/30 * * * *, reconcile */10 * * * *.

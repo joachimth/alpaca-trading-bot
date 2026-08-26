@@ -1,3 +1,25 @@
+## Thursday, August 27, 2026 Control-127 strict read-only production control - HEALTHY/DEGRADED
+
+Control-127 at ~23:00 UTC (Aug 27 01:00 +02). Strict GET-only. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `6ae8f63` (Control-126). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+**Account:** ACTIVE, not blocked. Equity $98,484.97, last_equity $98,524.98, change_today -$40.01 (-0.041%). Cash $89,136.78, buying_power $381,025.62, long_market_value $9,348.19. broker_ledger_synced_until 2026-08-26T22:51:10Z.
+
+**Positions:** 28 positions, ALL strategy=swing, 0 unattributed. Total MV $9,348.03 (2.53x $3,700 swing cap — pre-existing Control-101/117 bypass fills, no new entries allowed). Swing cap enforcement confirmed: CAPITAL_CAP blocks new BUY entries.
+
+**Schedules (wrangler.toml):** daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, reconciliation `*/10 * * * *`. All four confirmed.
+
+**Delivery:** Daytrading runs 3778-3792, MARKET_CLOSED skips, 5-min cadence 21:10-21:56 UTC, 0 errors. CYCLE_LEASE_HELD streak 20:25-21:10 (runs 3772-3778, 7 consecutive), self-healed by 21:16 (run 3779). Swing run 3794 at 22:01:28 UTC, skipped, 0 errors, 31.8s. Crypto runs 3706-3799, :07/:37 cadence confirmed, all RECONCILIATION_DEFERRED_TO_MAINTENANCE, 0 errors. Reconciliation MAINTENANCE_ONLY, broker_ledger_synced_until 22:51 UTC.
+
+**New swing sells:** Trades 720-722 submitted by swing_cron at 22:01 UTC — AMD sell 0.28, LCID sell 209, NXPI sell 0.53. Status=accepted, filled_qty=0, accounting_status=no_fill. Day orders, will execute at next market open (Aug 27 13:30 UTC). AMD was EXIT_PENDING_RECONCILIATION, LCID was HELD_NO_SCORE_EXIT.
+
+**Trades:** Trades 707-719 filled (strategy=swing, accounting_status=filled_lot_exact_unavailable, gross/fee/net=null — conservative). Trade 703 (PLD) strategy=null persistent. All filled trades consistent: no_fill for zero-fill accepted, filled_lot_exact_unavailable for filled.
+
+**Crypto edge-gate:** Fail-closed. No rawEdgeBps producer in source. crypto_min_edge_after_costs=8. Fee telemetry insufficient, asOf Aug 19. Crypto bars stale. No production positive-edge path evidenced.
+
+**DEGRADED reasons:** (1) Swing MV 2.53x cap from pre-existing bypass fills, (2) CYCLE_LEASE_HELD streak 20:25-21:10 (Free-tier silent-throw), (3) Run-log delivery gaps from earlier market hours, (4) Trade 703 strategy=null persistent, (5) Crypto fee telemetry stale, (6) github_pat missing blocks docs push. Paid-plan upgrade approved but not executed — remains remedy for gaps/streaks.
+
 ## Thursday, August 26, 2026 Control-126 strict read-only production control - HEALTHY/DEGRADED
 
 Control-126: **HEALTHY (code/deploy), DEGRADED (external).** All six GET endpoints HTTP 200, 0 errors across 80 visible runs (3715-3794, 14:08-22:01 UTC). Version 2.6.0 aligned across /health, release_version, config.version. Code 22b3dba (unchanged since Control-117), docs HEAD this commit (local only, push blocked — github_pat missing). Prior docs HEAD 9d27c7a (Control-125). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
