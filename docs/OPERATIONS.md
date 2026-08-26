@@ -1,3 +1,15 @@
+## August 26, 2026 Control-105 strict read-only production control - HEALTHY/DEGRADED
+
+Control-105 at ~03:00 UTC (Aug 26 05:00 +02). Strict GET-only production control. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only.
+
+**Current HEAD:** `ee86de9` (docs, pushed to origin), code `e89c786`. 220 tests / 822 assertions, typecheck genuinely clean. Version surfaces aligned: /health=2.6.0, release_version=2.6.0, config.version=2.6.0. Caps 5000/3700/2000 unchanged.
+
+**Live state:** Equity $98,525.30 (+0.14%), ACTIVE, cash $90,582.30. 15 broker-authoritative positions (source=alpaca), all strategy=swing, MV $7,943 (over $3,700 cap from Control-101 cap bypass defect). Reconciliation ok every 10 min (broker_ledger_synced_until 2026-08-26T03:00:15Z, brokerOrders=8, 0 errors). Crypto :07/:37 fail-closed (AVAXUSD ~22h stale, MATICUSD empty, no rawEdgeBps, validTA=0). Daytrading MARKET_CLOSED (next 13:30 UTC). Swing run 3574 clean (Aug 25 22:01, errors=0, 40s). Filtered run observability working. Fee accounting conservative.
+
+**LIVE RISK:** 13 pending swing BUYs (trades 707-719, day-TIF, ~$1,450 est, broker reports 8 open). Could fill at Aug 26 13:30 UTC → swing ~$9,393 (2.5x cap). Joachim must decide before market open. **Status: HEALTHY (code/deploy), DEGRADED (pending orders + external limits + run-log gaps + trade 703 strategy=null).**
+
+---
+
 ## August 26, 2026 Control-104 _trigger regression fix (DEPLOYED)
 
 Control-104 at ~02:00 UTC (Aug 26 04:00 +02). Strict GET-only production control found a typecheck regression from Control-103 (c783650): `runSwingCycle` signature renamed `trigger` → `_trigger` but body still references `trigger` (5 TS2552 errors, runtime ReferenceError). Fix: reverted to `trigger` (commit `e89c786`). Deployed via direct Cloudflare API PUT (deployment_id `0173e8ceb625485498b4794e098668a7`). Post-deploy GET: all 6 endpoints HTTP 200, version 2.6.0 aligned, caps 5000/3700/2000 intact. 220 tests / 822 assertions, typecheck clean. No caps or trading behavior changed.

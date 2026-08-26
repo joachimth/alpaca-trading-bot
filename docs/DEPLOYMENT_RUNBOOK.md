@@ -1,3 +1,9 @@
+## August 26, 2026 Control-105 strict read-only production control - NO DEPLOY
+
+Control-105 at ~03:00 UTC (Aug 26 05:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. HEAD `ee86de9` (docs), code `e89c786`. 220 tests / 822 assertions, typecheck clean. Version 2.6.0 aligned. Caps unchanged. 13 pending swing BUYs remain live risk. Status: HEALTHY (code/deploy), DEGRADED (pending orders + external limits + run-log gaps).
+
+---
+
 ## August 26, 2026 Control-104 _trigger regression fix (DEPLOYED)
 
 Control-104 at ~02:00 UTC (Aug 26 04:00 +02). Found and fixed a typecheck regression from Control-103: `runSwingCycle` parameter renamed `trigger` → `_trigger` but body still references `trigger` (5 TS2552 errors, would throw ReferenceError at swing cron). Fix: reverted to `trigger` (commit `e89c786`). Bundled from `/workspace/alpaca-trading-bot` (315.63 KiB, verified 2.6.0 in bundle). Deployed via direct Cloudflare API PUT (deployment_id `0173e8ceb625485498b4794e098668a7`, HTTP 200, success=true). Post-deploy GET-only verification: all 6 endpoints HTTP 200, /health=2.6.0, config.version=2.6.0, release_version=2.6.0, caps 5000/3700/2000, 15 broker-authoritative positions source=alpaca. 220 tests / 822 assertions, typecheck clean.
