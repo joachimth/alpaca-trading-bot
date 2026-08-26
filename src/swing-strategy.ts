@@ -73,7 +73,7 @@ export function getSwingRiskHaltSkipContext(riskManager: Pick<SwingRiskManager, 
   return { reason: riskManager.getKillState().reason };
 }
 
-export async function runSwingCycle(env: Env, _trigger: string): Promise<void> {
+export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
   const leaseStart = Date.now();
   const owner = `swing:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const leaseDb = new Database(env.DB);
