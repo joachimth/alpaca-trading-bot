@@ -1,3 +1,13 @@
+## August 26, 2026 Control-103 typecheck fixes + brief 1.0.0 regression + 2.6.0 restoration (DEPLOYED)
+
+Control-103 at ~01:00 UTC (Aug 26 03:00 +02). Found and fixed 12 pre-existing typecheck errors across 6 source files. Deployed via direct Cloudflare API PUT.
+
+**1.0.0 regression incident:** Initial deploy bundled from `/workspace` (old wrangler.toml + package.json v1.0.0) instead of `/workspace/alpaca-trading-bot`. Wrangler picked up the wrong source tree. The 1.0.0 worker was live ~3 minutes (01:22-01:25 UTC). Detected via post-deploy GET verification. Re-bundled from correct directory and re-deployed. 2.6.0 restored.
+
+**Deploy lesson:** Always run `bunx wrangler deploy --dry-run` from `/workspace/alpaca-trading-bot`, not `/workspace`. Verify bundle size (315.93 KiB for 2.6.0 vs 140.32 KiB for stale 1.0.0) and grep for `RELEASE_VERSION` before PUT.
+
+**Post-deploy GET verification:** All six endpoints HTTP 200. /health=2.6.0, release_version=2.6.0, config.version=2.6.0. Caps 5000/3700/2000. 15 broker-authoritative positions, all strategy=swing, MV $7,940.74. Equity $98,523.04, ACTIVE. 220 tests / 822 assertions, typecheck clean. HEAD `1c0dc00`.
+
 ## August 26, 2026 Control-102 strict read-only production control - HEALTHY/DEGRADED
 
 Control-102 at ~00:00 UTC (Aug 26 02:00 +02). All six endpoints HTTP 200. No code defect; no deploy required. Docs update only.

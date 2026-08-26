@@ -1,3 +1,30 @@
+## August 26, 2026 Control-103 typecheck fixes + brief 1.0.0 regression + 2.6.0 restoration (DEPLOYED)
+
+Control-103 at ~01:00 UTC (Aug 26 03:00 +02). Found and fixed 12 pre-existing typecheck errors across 6 source files. Prior "typecheck clean" claims in Controls 88-102 were inaccurate; `tsc --noEmit` was never actually clean.
+
+**Typecheck fixes (reliability-only, no caps or trading behavior changes):**
+- Removed duplicate `isTradingHalted()` in `swing-risk.ts` (dead code since v2.2.0)
+- Removed unused imports: `TAIndicators` (ai-decision.ts, crypto-strategy.ts), `SwingConfig` (swing-strategy.ts)
+- Prefixed unused params: `_trigger` (swing-strategy.ts, crypto-strategy.ts), `_allScores` (swing-risk.ts)
+- Added `marketRegime?: string` to `AIRefinementConfig` interface (was passed but untyped)
+- Fixed bare `reasoning` ReferenceError in `parseLLMResponse` (would throw, silently fall through)
+- Added `Position` type annotation to `livePositions` in `api.ts`
+- Added `TASignal` import to `index.ts`
+- Fixed `undefined`-to-`null` type mismatch with `?? null` (crypto-strategy.ts stop/take profit)
+- Restored `docs/OPERATIONS.md` and `docs/DEPLOYMENT_RUNBOOK.md` (missing from disk, only .tmp files remained)
+
+**1.0.0 regression incident:** The initial deploy bundled from `/workspace` (which has an old `wrangler.toml` + `package.json` at version 1.0.0) instead of `/workspace/alpaca-trading-bot`. Wrangler picked up the wrong source tree. The 1.0.0 worker was live for ~3 minutes (01:22-01:25 UTC). Detected immediately via post-deploy GET verification. Re-bundled from the correct directory (315.93 KiB vs 140.32 KiB) and re-deployed. 2.6.0 restored and verified.
+
+**Deploy:** Two direct Cloudflare API PUTs. First (bad): HTTP 200 but version 1.0.0. Second (correct): HTTP 200, version 2.6.0. Bundle verified to contain `RELEASE_VERSION="2.6.0"`, `swingOwnedSymbols` fix, `release_version` in config response, `freshness` in positions/dashboard.
+
+**Post-deploy GET verification (01:25 UTC):** All six endpoints HTTP 200. /health=2.6.0, release_version=2.6.0, config.version=2.6.0 aligned. Caps 5000/3700/2000 intact. 15 broker-authoritative positions (source=alpaca, observed 2026-08-26T01:24:19Z), all strategy=swing, MV $7,940.74. Equity $98,523.04, ACTIVE, cash $90,582.30. Reconciliation ok every 10 min (run 3600, err=0). Crypto :07/:37 fail-closed (LINKUSD stale, MATICUSD empty, no rawEdgeBps). Swing run 3574 clean (errors=0, 40s). Daytrading MARKET_CLOSED. Filtered run observability working.
+
+**Validation:** 220 tests / 822 assertions pass. Typecheck clean (first time genuinely). HEAD `1c0dc00` (code+docs), deployed bundle verified.
+
+**12 pending swing BUYs (LIVE RISK unchanged):** Trades 708-719, all accepted, day-TIF, ~$1,362 est. Could fill at Aug 26 09:30 ET (13:30 UTC). Cancel requires broker mutation. Joachim must decide before market open.
+
+**Status: HEALTHY** (code/deployment, 2.6.0 restored). **DEGRADED** (12 pending swing BUYs + external limits + run-log gaps + 1.0.0 regression incident).
+
 ## August 26, 2026 Control-102 strict read-only production control - HEALTHY/DEGRADED
 
 Control-102 at ~00:00 UTC (Aug 26 02:00 +02). All six endpoints HTTP 200. No code defect found; no deploy required. Docs update only.
