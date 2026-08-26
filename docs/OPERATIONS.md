@@ -1,5 +1,15 @@
-## August 26, 2026 Control-119 strict read-only production control - HEALTHY/DEGRADED
 ## August 26, 2026 Control-120 strict read-only production control - HEALTHY/DEGRADED
+## August 26, 2026 Control-121 strict read-only production control - HEALTHY/DEGRADED
+
+Control-121 at ~18:00 UTC (Aug 26 20:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this Control-121 commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `8a47087` (Control-120). 223 tests / 841 assertions, typecheck clean. Version 2.6.0 aligned. Caps 5000/3700/2000 USD unchanged.
+
+**Live state:** 28 broker-authoritative positions (source=alpaca, freshness 2026-08-26T18:00:21Z, 0 broker_error): 15 swing (MV $7,817.97) + 13 unattributed (MV $1,450.82) = $9,268.79 (2.50x $3,700 cap, pre-existing fills). Equity $98,405.59 (change_today -$119.39, -0.12%). last_equity $98,524.98. ACTIVE. cash $89,136.78. buying_power $380,811.18. 30 runs (14:41-17:56 UTC): 0 errors, 1 CYCLE_LEASE_HELD (run 3740). Run-log delivery gap: 109-min gap (15:26-17:15 UTC) with ~37 runs missing (Free-tier silent-throw pattern; run 3740 CYCLE_LEASE_HELD confirms prior invocation held lease unreleased). Triggers: 19 daytrading cron (all skipped DAYTRADING_BARS_STALE ~978s vs 900s + EQUITY_DIRECTION_FALLBACK), 9 reconcile_cron (ok every 10 min, MAINTENANCE_ONLY), 2 crypto_cron (15:08/17:38, :07/:37 cadence, all fail-closed: RECONCILIATION_DEFERRED_TO_MAINTENANCE + CRYPTO_BARS_STALE/UNAVAILABLE + CRYPTO_DATA_INSUFFICIENT, validTA=0, rawEdgeBps=None, fee telemetry stale asOf Aug 19). BROKER_ONLY_RECONCILED each cycle (13 unattributed, harmless until swing_cron 22:00 UTC re-tags).
+
+**Control-117 fix stable (4th consecutive control):** 13 swing fills (trades 707-719) strategy=unattributed in /api/positions (NOT daytrading). Trades table retains strategy=swing. Bypass stopped. swing_cron 22:00 UTC re-creates D1 position rows with strategy=swing, ending BROKER_ONLY_RECONCILED noise.
+
+**Trades:** 50 trades (670-719). Trades 707-719 filled at 13:30-13:31 UTC with lifecycle timestamps (submitted_at, filled_at, broker_updated_at, last_reconciled_at). All filled accounting_status=filled_lot_exact_unavailable, gross/fee/net=null (conservative). Trade 703 (PLD) strategy=null persistent.
+
+**Status:** HEALTHY (code/deploy), DEGRADED (13 unattributed fills pending 22:00 swing_cron re-tag + run-log delivery gap with 1 CYCLE_LEASE_HELD + external limits + trade 703 strategy=null + bar staleness + crypto fail-closed).
 
 Control-120 at ~17:00 UTC (Aug 26 19:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this Control-120 commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `bc58886` (Control-119). 223 tests / 841 assertions, typecheck clean. Version 2.6.0 aligned. Caps 5000/3700/2000 USD unchanged.
 
