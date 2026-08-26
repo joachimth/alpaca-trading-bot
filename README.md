@@ -1,3 +1,15 @@
+## August 26, 2026 Control-118 strict read-only control
+
+Control-118 at ~15:00 UTC (Aug 26 17:00 +02). Strict GET-only production control. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, or broker-mutating endpoint was called.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Code `22b3dba`. Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). 223 tests / 841 assertions, typecheck genuinely clean. Caps 5000/3700/2000 USD unchanged.
+
+**Verdict: HEALTHY (code/deploy), DEGRADED (external).** 0 errors, 0 lease holds across all recent runs. Equity $98,356 vs last_equity $98,525 (-$169 today, EQUITY_DIRECTION_FALLBACK active). 28 broker-authoritative positions: 15 swing (MV ~$7,770, metadata_source=d1) + 13 unattributed (MV ~$1,448, metadata_source=none). Total swing exposure ~$9,219 (2.49x $3,700 cap) from pre-fix fills.
+
+**Control-117 fix confirmed live:** the 13 swing fills (trades 707-719) show strategy=unattributed in /api/positions, NOT daytrading. The auto-reconcile bypass is stopped. BROKER_ONLY_RECONCILED fires each cycle (harmless noise) until swing_cron at 22:00 UTC re-tags them as strategy=swing in D1.
+
+**Schedule delivery:** daytrading `*/5 13-21 * * 1-5` (all runs skipped DAYTRADING_BARS_STALE ~977s vs 900s); swing `0 22 * * 1-5` (next 22:00 UTC); crypto `7-59/30 * * * *` (cadence confirmed at :38 UTC, all fail-closed: CRYPTO_BARS_STALE ~22h, MATICUSD unavailable, CRYPTO_DATA_INSUFFICIENT, no rawEdgeBps producer, fee telemetry asOf Aug 19); reconciliation `*/10 * * * *` (ok, MAINTENANCE_ONLY, 0 broker orders). Trade 703 (PLD) strategy=null persistent gap. All filled trades accounting_status=filled_lot_exact_unavailable, gross/fee/net=null (conservative). No deploy, no code change, no broker mutation. Status unchanged from Control-117.
+
 ## August 26, 2026 Control-117 read-only control + swing cap bypass fix (auto-reconcile path) + deploy
 
 Control-117 at ~14:00 UTC (Aug 26 16:00 +02). Strict GET-only production control, then code fix and deploy. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, or broker-mutating endpoint was called during the control phase.
