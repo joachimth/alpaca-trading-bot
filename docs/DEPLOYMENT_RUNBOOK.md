@@ -1634,3 +1634,11 @@ Local validation for Control-73 passed focused **54 tests / 319 assertions**, fu
 No code defect surfaced. The only new finding is a second run-log delivery gap (18:38-20:00 UTC, ~82 min, ~25 runs missing during market hours), confirmed by run 3768 CYCLE_LEASE_HELD at 20:00:56 — the same Free-tier silent-throw pattern as the 15:26-17:15 gap. The approved paid-plan upgrade remains the remedy. No deployment, migration, trigger, order, cancel, close, replace, retry, or broker mutation was performed.
 
 Follow-up: 13 D1 position re-tag at 22:00 UTC swing_cron; rawEdgeBps producer; D1 Sep 1 enforcement limits; github_pat re-add; run-log gaps (paid upgrade); bar freshness; trade 703 null strategy.
+
+## Control-125 release gate - August 26, 2026 21:00 UTC
+
+**HEALTHY (code/deploy), DEGRADED (external). No deploy required.** Strict GET-only control confirmed all six endpoints HTTP 200, version 2.6.0 aligned across /health, release_version, config.version. Code unchanged at 22b3dba (since Control-117). Docs HEAD this commit (local only, push blocked — github_pat missing). 223 tests / 841 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.
+
+No code defect surfaced. The new finding is a sustained CYCLE_LEASE_HELD streak 20:00-20:55 UTC (9 consecutive runs 3768-3776) on both daytrading and maintenance leases, continuing the 18:38-20:00 delivery gap. Same Free-tier silent-throw root cause (subrequest/CPU limit throws before lease release). The approved paid-plan upgrade remains the remedy; the streak should self-heal as leases expire (600s TTL) and the daytrading window closes at 21:00 UTC. No deployment, migration, trigger, order, cancel, close, replace, retry, or broker mutation was performed.
+
+Follow-up: 13 D1 position re-tag at 22:00 UTC swing_cron; rawEdgeBps producer; D1 Sep 1 enforcement limits; github_pat re-add; run-log gaps + lease streaks (paid upgrade); bar freshness; trade 703 null strategy.
