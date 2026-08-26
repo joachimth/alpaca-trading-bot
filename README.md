@@ -1,3 +1,15 @@
+## August 26, 2026 Control-119 strict read-only production control - NO DEPLOY
+
+Control-119 at ~15:30 UTC (Aug 26 17:30 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this Control-119 commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `945277e` (Control-118). 223 tests / 841 assertions, typecheck clean. Version 2.6.0 aligned. Caps 5000/3700/2000 USD unchanged.
+
+**Live state:** 28 broker-authoritative positions: 15 swing (MV $7,756.39, source=d1 metadata) + 13 unattributed (MV $1,451.94, source=none — broker-projected). Total MV $9,208.32 (2.49x $3,700 cap, pre-existing fills). Equity $98,354.69 (change_today -$170.29, -0.17%), last_equity $98,524.98, ACTIVE, cash $89,136.78, buying_power $380,698.15. broker_ledger_synced_until 2026-08-26T15:21:07Z (fresh). last_prune_date 2026-08-26. 40 runs (13:20-15:26 UTC): 0 errors, 0 CYCLE_LEASE_HELD. 24 daytrading cron (all skipped DAYTRADING_BARS_STALE ~977s vs 900s + EQUITY_DIRECTION_FALLBACK), 12 reconcile_cron (ok every 10 min, MAINTENANCE_ONLY), 4 crypto_cron (:07/:37 cadence — 13:37/14:08/14:38/15:08, all fail-closed: CRYPTO_BARS_STALE, CRYPTO_BARS_UNAVAILABLE, CRYPTO_DATA_INSUFFICIENT, validTA=0, rawEdgeBps=None, fee telemetry stale asOf Aug 19). BROKER_ONLY_RECONCILED fires each cycle (13 unattributed, harmless until swing_cron 22:00 UTC re-tags them as strategy=swing).
+
+**Control-117 fix confirmed live (stable):** 13 swing fills (trades 707-719) show strategy=unattributed in /api/positions (NOT daytrading). Trades table retains strategy=swing (source for getSwingTradeSymbols). Bypass stopped. swing_cron 22:00 UTC will re-create D1 position rows with strategy=swing.
+
+**Trades:** 100 trades (ids 620-719). All 100 filled trades accounting_status=filled_lot_exact_unavailable, gross/fee/net=null (conservative). Trades 707-719 swing BUYs filled at 13:30-13:31 UTC, lifecycle timestamps present (submitted_at, filled_at, broker_updated_at, last_reconciled_at). Trade 703 (PLD) strategy=null persistent (also 648, 645).
+
+**Status:** HEALTHY (code/deploy), DEGRADED (13 unattributed fills pending 22:00 swing_cron re-tag + external limits [daytrading bars stale, crypto bars stale/unavailable, fee telemetry stale, no rawEdgeBps] + run-log gaps + trade 703/648/645 strategy=null + bar freshness).
+
 ## August 26, 2026 Control-118 strict read-only control
 
 Control-118 at ~15:00 UTC (Aug 26 17:00 +02). Strict GET-only production control. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, or broker-mutating endpoint was called.
