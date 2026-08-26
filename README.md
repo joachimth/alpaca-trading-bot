@@ -1,3 +1,15 @@
+## Thursday, August 26, 2026 Control-126 strict read-only production control - HEALTHY/DEGRADED
+
+Control-126: **HEALTHY (code/deploy), DEGRADED (external).** All six GET endpoints HTTP 200, 0 errors across 80 visible runs (3715-3794, 14:08-22:01 UTC). Version 2.6.0 aligned across /health, release_version, config.version. Code 22b3dba (unchanged since Control-117), docs HEAD this commit (local only, push blocked — github_pat missing). Prior docs HEAD 9d27c7a (Control-125). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+**KEY FINDING: swing_cron 22:01:28 UTC successfully re-tagged ALL 13 previously unattributed fills (trades 707-719) as strategy='swing' in D1.** Run 3794 (swing_cron, 31.8s, 0 errors, status=skipped). All 28 positions now strategy=swing (was 15 swing + 13 unattributed, now 0 unattributed). BROKER_ONLY_RECONCILED cycle noise resolved. Swing cap enforcement confirmed: CAPITAL_CAP skip blocked LLY entry ("$9,337.83 allocated against $3,700.00"). During swing evaluation, unattributedExposureUsd=$1,455.09 was included conservatively (UNATTRIBUTED_BROKER_EXPOSURE skip), confirming Control-117 getSwingTradeSymbols() fix correctly identified the 13 fills via the trades table even before D1 re-tagging. This resolves the re-tagging thread from Controls 117-125 and corrects the prior heartbeat (which reported the 22:00 swing_cron did not log a run).
+
+Live state: equity $98,474.19 vs last_equity $98,524.98 (-$50.79 today, -0.052%, ACTIVE, not blocked). 28 broker-authoritative positions: all strategy=swing, MV $9,335.76 (2.52x $3,700 cap, pre-existing fills from Control-101 bypass, no new entries). AMD EXIT_PENDING_RECONCILIATION (accepted swing sell, filledQty=0). LCID HELD_NO_SCORE_EXIT (protective data-integrity exit).
+
+Run-log: 2 pre-existing gaps (15:26-17:15 109.6 min, 18:38-20:00 82.8 min). No new gaps in 21:00-22:01 window. 12 CYCLE_LEASE_HELD (runs 3740, 3768-3778) — streak 20:00-21:10 self-healed by 21:16 (run 3779 MARKET_CLOSED, 600s TTL expired). Crypto :07/:37 fail-closed (6 runs, bars stale, no rawEdgeBps, fee asOf Aug 19). Daytrading MARKET_CLOSED. Reconcile MAINTENANCE_ONLY ok every 10 min. Trade 703 strategy=null persistent. All filled trades conservative null gross/fee/net, filled_lot_exact_unavailable.
+
+CANNOT VERIFY: crypto positive-edge path (no rawEdgeBps producer, fail-closed by design); origin sync (github_pat missing, docs local only). Follow-up: rawEdgeBps producer; D1 Sep 1 limits; github_pat; run-log gaps + lease streaks (paid upgrade); bar freshness; trade 703 null strategy.
+
 ## Wednesday, August 26, 2026 Control-123 strict read-only production control - HEALTHY/DEGRADED
 
 Control-123: **HEALTHY (code/deploy), DEGRADED (external).** All six GET endpoints HTTP 200, 0 errors in 20 visible runs (3749-3768, 17:41-20:00 UTC). Version 2.6.0 aligned across /health, release_version, config.version. Code 22b3dba (unchanged since Control-117), docs HEAD this commit (local only, push blocked — github_pat missing). Prior docs HEAD 328994c (Control-122). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.

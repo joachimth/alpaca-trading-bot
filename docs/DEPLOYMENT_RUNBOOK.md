@@ -1642,3 +1642,11 @@ Follow-up: 13 D1 position re-tag at 22:00 UTC swing_cron; rawEdgeBps producer; D
 No code defect surfaced. The new finding is a sustained CYCLE_LEASE_HELD streak 20:00-20:55 UTC (9 consecutive runs 3768-3776) on both daytrading and maintenance leases, continuing the 18:38-20:00 delivery gap. Same Free-tier silent-throw root cause (subrequest/CPU limit throws before lease release). The approved paid-plan upgrade remains the remedy; the streak should self-heal as leases expire (600s TTL) and the daytrading window closes at 21:00 UTC. No deployment, migration, trigger, order, cancel, close, replace, retry, or broker mutation was performed.
 
 Follow-up: 13 D1 position re-tag at 22:00 UTC swing_cron; rawEdgeBps producer; D1 Sep 1 enforcement limits; github_pat re-add; run-log gaps + lease streaks (paid upgrade); bar freshness; trade 703 null strategy.
+
+## Control-126 release gate - August 26, 2026 22:00 UTC
+
+**HEALTHY (code/deploy), DEGRADED (external). No deploy required.** Strict GET-only control confirmed all six endpoints HTTP 200, version 2.6.0 aligned across /health, release_version, config.version. Code unchanged at 22b3dba (since Control-117). Docs HEAD this commit (local only, push blocked — github_pat missing). 223 tests / 841 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.
+
+**Key finding: swing_cron 22:01:28 UTC re-tagged all 13 unattributed fills (trades 707-719) as strategy='swing' in D1.** Run 3794 (31.8s, 0 errors). All 28 positions now strategy=swing (0 unattributed). This resolves the Control-117 re-tagging thread from Controls 117-125. Swing cap enforcement confirmed working (CAPITAL_CAP blocked LLY: "$9,337.83 allocated against $3,700.00"). CYCLE_LEASE_HELD streak 20:00-21:10 self-healed by 21:16. No deployment, migration, trigger, order, cancel, close, replace, retry, or broker mutation was performed.
+
+Follow-up: rawEdgeBps producer; D1 Sep 1 enforcement limits; github_pat re-add; run-log gaps + lease streaks (paid upgrade); bar freshness; trade 703 null strategy.
