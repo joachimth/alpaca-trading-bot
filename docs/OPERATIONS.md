@@ -1,3 +1,15 @@
+## August 26, 2026 Control-110 strict read-only production control - HEALTHY/DEGRADED
+
+Control-110 at ~08:00 UTC (Aug 26 10:00 +02). Strict GET-only production control. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only.
+
+**Current HEAD:** this Control-110 commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `f65ef7a` (Control-109 commit). Code `e89c786` (unchanged since Control-104). 220 tests / 822 assertions, typecheck genuinely clean. Version surfaces aligned: /health=2.6.0, release_version=2.6.0, config.version=2.6.0. Caps 5000/3700/2000 unchanged.
+
+**Live state:** 15 broker-authoritative positions (source=alpaca, observed 2026-08-26T08:00:26Z) all strategy=swing (MV $7,946.07, 2.15x cap). Equity $98,528.31 (intraday +$3.33 vs last_equity $98,524.98), ACTIVE, cash $90,582.24, buying_power $381,346.34. 60 runs (00:37-08:00 UTC): 0 errors, 0 CYCLE_LEASE_HELD. 45 reconcile_cron, 15 crypto_cron (no daytrading — market closed; no swing — next 22:00 UTC). Reconciliation ok every 10 min. At 08:00 UTC, brokerOrders rose from 8 to 12 — 4 pending_new orders (INTC, WMT, BAC, WFC) re-acknowledged by broker with submitted_at updated to 08:00 UTC (queued for today's session). pendingLookups=8, lookupFailures=0. Crypto :07/:37 fail-closed (MATICUSD empty, AVAXUSD/BTCUSD ~22h stale latestBarAt Aug 25 09:00-09:30, validTA=0, no rawEdgeBps, fee telemetry stale asOf Aug 19). Swing run 3574 clean (Aug 25 22:01, errors=0, 13 decisions, 0 trades). Daytrading last run Aug 25 21:56 UTC (historical CYCLE_LEASE_HELD streaks 20:40-21:20 UTC Aug 25 persist in history; all Aug 26 clean). Trade 703 (PLD) strategy=null persistent. All 4 trigger filters verified (reconcile_cron, crypto_cron, daytrading_cron, swing_cron).
+
+**LIVE RISK (URGENT):** 13 pending swing BUYs (trades 707-719, day-TIF, ~$1,449.85 est) remain at broker. 4 pending_new orders (INTC, WMT, BAC, WFC) re-acknowledged at 08:00 UTC today — brokerOrders now 12 (up from 8). Could fill at Aug 26 13:30 UTC market open → swing ~$9,396 (2.54x $3,700 cap). Cancel requires broker mutation, not performed during read-only control. Joachim must decide before 13:30 UTC. Control-101 fix (a206690, swingOwnedSymbols at src/index.ts:1070-1071) deployed, not yet naturally tested (next daytrading sync Aug 26 13:00 UTC).
+
+**Status:** HEALTHY (code/deploy), DEGRADED (13 pending swing BUYs + external limits + run-log gaps + trade 703 strategy=null).
+
 ## August 26, 2026 Control-109 strict read-only production control - HEALTHY/DEGRADED
 
 Control-109 at ~07:00 UTC (Aug 26 09:00 +02). Strict GET-only production control. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only (corrected HEAD off-by-one from Control-108 fixup commit `deda553`).
