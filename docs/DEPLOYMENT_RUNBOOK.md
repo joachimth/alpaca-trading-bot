@@ -1,3 +1,7 @@
+## August 26, 2026 Control-108 strict read-only production control - NO DEPLOY
+
+Control-108 at ~06:00 UTC (Aug 26 08:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. Code `e89c786` (unchanged since Control-104). Docs HEAD `1785cb4` (local only, push blocked). 220 tests / 822 assertions, typecheck clean. Version 2.6.0 aligned. Caps unchanged. 15 broker-authoritative positions all strategy=swing (MV $7,948.98). Equity $98,531.28 (+0.147%). 60 runs: 0 errors, 0 CYCLE_LEASE_HELD. Reconciliation ok every 10 min. Crypto fail-closed. 13 pending swing BUYs remain URGENT live risk (8 open at broker, could fill at 13:30 UTC). Trade 703 strategy=null persistent. github_pat still missing, push blocked. Status: HEALTHY (code/deploy), DEGRADED (pending orders + external limits + run-log gaps + trade 703 strategy=null).
+
 ## August 26, 2026 Control-107 strict read-only production control - NO DEPLOY
 
 Control-107 at ~05:00 UTC (Aug 26 07:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. HEAD `837259e` (docs, local only — push BLOCKED: github_pat not in vault), code `e89c786`. 220 tests / 822 assertions, typecheck clean. Version 2.6.0 aligned. Caps unchanged. 13 pending swing BUYs remain live risk (8 open at broker). Status: HEALTHY (code/deploy), DEGRADED (pending orders + external limits + run-log gaps + trade 703 strategy=null).

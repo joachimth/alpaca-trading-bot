@@ -1,3 +1,13 @@
+## August 26, 2026 Control-108 strict read-only production control - HEALTHY/DEGRADED
+
+Control-108 at ~06:00 UTC (Aug 26 08:00 +02). Strict GET-only production control. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only.
+
+**Current HEAD:** `1785cb4` (docs, this commit, local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `3b6eb4f` (Control-107's actual commit — Control-107 entry referenced `837259e`, off-by-one corrected here). Code `e89c786` (unchanged since Control-104). 220 tests / 822 assertions, typecheck genuinely clean. Version surfaces aligned: /health=2.6.0, release_version=2.6.0, config.version=2.6.0. Caps 5000/3700/2000 unchanged.
+
+**Live state:** 15 broker-authoritative positions (source=alpaca, observed 2026-08-26T06:00:24Z), all strategy=swing, MV $7,948.98. Equity $98,531.28 (+0.147%), ACTIVE, cash $90,582.30, buying_power $381,361.99. Reconciliation ok every 10 min (runs 3629-3637, brokerOrders=8, pendingLookups=8, 0 errors, watermark holding, broker_ledger_synced_until 2026-08-26T06:00:14Z, last_prune_date 2026-08-26). Crypto :07/:37 fail-closed (ETHUSD/LINKUSD ~22h stale, MATICUSD empty, no rawEdgeBps, validTA=0, fee telemetry stale Aug 19). Daytrading MARKET_CLOSED (last Aug 25 21:56, next 13:00 UTC). Swing run 3574 clean (Aug 25 22:01, errors=0). 60 runs in window: 0 errors, 0 CYCLE_LEASE_HELD. Filtered run observability confirmed (all four trigger filters correct).
+
+**URGENT:** 13 pending swing BUYs (trades 707-719, day-TIF, ~$1,449.85, broker reports 8 open). Could fill at Aug 26 13:30 UTC → swing ~$8,841 (2.39x $3,700 cap). Joachim notified. Cancel requires broker mutation, not performed during read-only control. Control-101 fix (a206690, swingOwnedSymbols at src/index.ts:1070-1071) deployed, not yet naturally tested (next daytrading sync Aug 26 13:00 UTC). Trade 703 (PLD) strategy=null persistent (also 648 NOW, 645 DUK). Run-log gaps: historical Aug 25 only, all Aug 26 clean. github_pat still missing, push blocked.
+
 ## August 26, 2026 Control-107 strict read-only production control - HEALTHY/DEGRADED
 
 Control-107 at ~05:00 UTC (Aug 26 07:00 +02). Strict GET-only production control. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only.

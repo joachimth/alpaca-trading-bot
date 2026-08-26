@@ -1,3 +1,23 @@
+## August 26, 2026 Control-108 strict read-only production control - HEALTHY/DEGRADED
+
+Control-108 at ~06:00 UTC (Aug 26 08:00 +02). Strict GET-only production control. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Code `e89c786` (unchanged since Control-104). Docs HEAD `1785cb4` (this commit, local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `3b6eb4f` (Control-107's actual commit — Control-107 entry referenced `837259e`, off-by-one corrected here). 220 tests / 822 assertions, typecheck genuinely clean.
+
+**Live state:** Equity $98,531.28 (+0.147%), ACTIVE, cash $90,582.30, long_market_value $7,948.98, buying_power $381,361.99. 15 broker-authoritative positions (source=alpaca, current_state_observed_at 2026-08-26T06:00:24Z), all strategy=swing, MV $7,948.98 (2.15x $3,700 swing cap — existing positions from pre-bypass era, metadata updated by swing run 3574). Equity-direction fallback firing (broker change_today_pct=0, fallback using equity delta +0.147%). Fee telemetry stale (cryptoFeeAsOf 2026-08-19, status=insufficient). Control-101 fix (a206690, swingOwnedSymbols set at src/index.ts:1070-1071) deployed but NOT yet naturally tested by daytrading sync cycle (next at Aug 26 13:00 UTC). Crypto edge gate fail-closed (no rawEdgeBps producer in technical-analysis.ts; rawEdgeBps only passed through from signal, never inferred from confidence).
+
+**Schedules (wrangler.toml):** daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, reconcile `*/10 * * * *`. All four verified.
+
+**Run delivery:** 60 runs in window (Aug 25 22:31 — Aug 26 06:00 UTC): 0 errors, 0 CYCLE_LEASE_HELD. Reconciliation delivering every 10 min (45 reconcile runs, runs 3629-3637, brokerOrders=8, pendingLookups=8, lookupFailures=0, 0 errors, watermark holding, broker_ledger_synced_until 2026-08-26T06:00:14Z, last_prune_date 2026-08-26). Crypto :07/:37 cadence confirmed (15 crypto runs, all fail-closed: ETHUSD/LINKUSD ~22h stale, MATICUSD empty, CRYPTO_DATA_INSUFFICIENT validTA=0). Daytrading MARKET_CLOSED (last runs Aug 25 21:46-21:56, next 13:00 UTC). Swing run 3574 clean (Aug 25 22:01, errors=0, 40s). Filtered run observability confirmed: crypto_cron, reconcile_cron, swing_cron, daytrading_cron filters all return correct sets. Daytrading trigger alias = "cron" (expected).
+
+**Trade/fill lifecycle:** 13 pending swing BUYs (trades 707-719: INTC, WMT, RTX, AVGO, GE, TXN, BA, BAC, XOM, SNOW, CVX, WFC, C), all status=accepted, filled_qty=0, day-TIF, ~$1,449.85 est, strategy=swing, accounting_status=no_fill, gross/fee/net=null. Broker reports 8 open orders (5 appear expired but D1 still shows accepted). Filled trades 704-706 (LUV, RUN, NCLH) accounting_status=filled_lot_exact_unavailable, gross/fee/net=null (conservative). Trade 703 (PLD) strategy=null persistent gap (also 648 NOW, 645 DUK).
+
+**URGENT LIVE RISK:** 8 of 13 pending swing BUYs remain open at broker. Could fill at Aug 26 13:30 UTC (09:30 ET) market open, pushing swing exposure to ~$8,841 (2.39x $3,700 cap). Cancel requires broker mutation, not performed during read-only control. Joachim notified (Control-101/107 + todo email 26/8 07:15 +02). Joachim must decide before market open.
+
+**Run-log delivery gaps (historical):** Daytrading ~12 missing (19:35-21:35 UTC Aug 25), crypto 13 missing (14:07-21:07 UTC Aug 25). All Aug 26 runs clean. Root cause: Cloudflare Workers Free tier subrequest/CPU limits cause silent throws before run_log rows are written. Paid-plan upgrade approved but not executed.
+
+**Caps:** 5000/3700/2000 USD unchanged. **Status:** HEALTHY (code/deployment), DEGRADED (pending orders + external data-feed/resource limits + run-log delivery gaps + trade 703 strategy=null). github_pat still missing from vault — docs push to origin blocked.
+
 ## August 26, 2026 Control-107 strict read-only production control - HEALTHY/DEGRADED
 
 Control-107 at ~05:00 UTC (Aug 26 07:00 +02). Strict GET-only production control. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only.
