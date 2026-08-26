@@ -1,3 +1,15 @@
+## August 26, 2026 Control-113 strict read-only production control - HEALTHY/DEGRADED
+
+Control-113 at ~11:00 UTC (Aug 26 13:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only.
+
+**Current HEAD:** this Control-113 commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `30ce8a5` (Control-112). Code `e89c786` (unchanged since Control-104). 220 tests / 822 assertions, typecheck genuinely clean. Version surfaces aligned: /health=2.6.0, release_version=2.6.0, config.version=2.6.0, src/version.ts=2.6.0, package.json=2.6.0. Caps 5000/3700/2000 unchanged.
+
+**Live state:** 15 broker-authoritative positions (source=alpaca, observed 2026-08-26T11:00:22Z) all strategy=swing (MV $7,962.49, 2.15x cap). Equity $98,544.73 (change_today +$19.75, +0.02%), ACTIVE, cash $90,582.24, buying_power $381,392.62. 60 runs (03:37-11:00 UTC): 0 errors, 0 CYCLE_LEASE_HELD. 45 reconcile_cron, 15 crypto_cron. Reconciliation ok every 10 min (brokerOrders=8, pendingLookups=8, lookupFailures=0 — stable since Control-111). Crypto :07/:37 fail-closed (MATICUSD empty, LINKUSD/SOLUSD ~22h stale latestBarAt Aug 25 12:00-12:30, validTA=0, no rawEdgeBps, fee telemetry stale asOf Aug 19, EQUITY_DIRECTION_FALLBACK). Swing run 3574 clean (Aug 25 22:01). Trade 703 (PLD) strategy=null persistent. All 4 trigger filters verified. Trades pagination verified. broker_ledger_synced_until 2026-08-26T11:00:14Z. last_prune_date 2026-08-26.
+
+**LIVE RISK (URGENT, stable):** 13 pending swing BUYs (trades 707-719, day-TIF, ~$1,449.85 est) in D1; 8 remain at broker (unchanged since 08:20 UTC). If 8 fill at Aug 26 13:30 UTC market open (~$984 est) → swing ~$8,946 (2.42x $3,700 cap). Cancel requires broker mutation, not performed. Joachim must decide before 13:30 UTC (~2.5 hours from this control). Control-101 fix (a206690, swingOwnedSymbols at src/index.ts:1070-1071) deployed, not yet naturally tested (next daytrading sync 13:00 UTC — first natural test, ~2 hours away).
+
+**Status:** HEALTHY (code/deploy), DEGRADED (pending swing BUYs + external limits + run-log gaps + trade 703 strategy=null).
+
 ## August 26, 2026 Control-112 strict read-only production control - HEALTHY/DEGRADED
 
 Control-112 at ~10:00 UTC (Aug 26 12:00 +02). Strict GET-only production control. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only.
