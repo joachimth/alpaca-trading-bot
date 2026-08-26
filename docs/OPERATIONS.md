@@ -1,3 +1,11 @@
+## August 26, 2026 Control-109 strict read-only production control - HEALTHY/DEGRADED
+
+Control-109 at ~07:00 UTC (Aug 26 09:00 +02). Strict GET-only production control. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only (corrected HEAD off-by-one from Control-108 fixup commit `deda553`).
+
+**Current HEAD:** this Control-109 commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `deda553` (Control-108 fixup — docs in `412052b` referenced `412052b`, but `deda553` was actual HEAD; off-by-one corrected). Code `e89c786` (unchanged since Control-104). 220 tests / 822 assertions, typecheck genuinely clean. Version surfaces aligned: /health=2.6.0, release_version=2.6.0, config.version=2.6.0. Caps 5000/3700/2000 unchanged.
+
+**Live state:** 15 broker-authoritative positions all strategy=swing (MV $7,949.04, 2.15x cap). Equity $98,531.34 (+0.147%), ACTIVE. 60 runs: 0 errors, 0 CYCLE_LEASE_HELD. Reconciliation ok every 10 min (8 broker orders, 0 failures). Crypto :07/:37 fail-closed (MATICUSD empty, SOLUSD ~22h stale, no rawEdgeBps, fee telemetry stale). All 4 trigger filters verified. Trade 703 strategy=null persistent. 13 pending swing BUYs URGENT (8 open at broker, could fill 13:30 UTC). Control-101 fix not yet naturally tested (next daytrading sync 13:00 UTC). Status: HEALTHY (code/deploy), DEGRADED (pending orders + external limits + run-log gaps + trade 703 strategy=null).
+
 ## August 26, 2026 Control-108 strict read-only production control - HEALTHY/DEGRADED
 
 Control-108 at ~06:00 UTC (Aug 26 08:00 +02). Strict GET-only production control. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only.

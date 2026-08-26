@@ -1,3 +1,21 @@
+## August 26, 2026 Control-109 strict read-only production control - HEALTHY/DEGRADED
+
+Control-109 at ~07:00 UTC (Aug 26 09:00 +02). Strict GET-only production control. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (corrected docs HEAD off-by-one from Control-108 fixup commit).
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Code `e89c786` (unchanged since Control-104). Docs HEAD: this Control-109 commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `deda553` (Control-108 fixup commit — docs in `412052b` referenced `412052b` as HEAD, but `deda553` was the actual HEAD; off-by-one corrected here). 220 tests / 822 assertions, typecheck genuinely clean.
+
+**Live state:** 15 broker-authoritative positions, all strategy=swing, MV $7,949.04 (2.15x $3,700 cap). Equity $98,531.34 (+0.147%), ACTIVE, cash $90,582.30, buying_power $381,363. Reconciliation ok every 10 min (run 3645: 8 broker orders, 0 errors, 0 lookup failures, watermark holding). 60 runs in window: 0 errors, 0 CYCLE_LEASE_HELD. All Aug 26 runs clean. Daytrading last seen 21:56 Aug 25 (MARKET_CLOSED, next 13:00 UTC). Swing run 3574 clean (Aug 25 22:01). Crypto :07/:37 cadence confirmed, all fail-closed (MATICUSD empty, SOLUSD stale ~22h latestBarAt Aug 25 08:30, CRYPTO_DATA_INSUFFICIENT validTA=0, EQUITY_DIRECTION_FALLBACK, no rawEdgeBps producer, fee telemetry stale).
+
+**Filtered run observability:** All 4 trigger filters verified (daytrading_cron, swing_cron, crypto_cron, reconcile_cron return correct lane runs). Daytrading `trigger` field displays "cron" (known alias display, filter works correctly).
+
+**Trade/fill lifecycle:** 37 filled trades in page. Last 5 filled (702-706): avg_fill_price, filled_qty, filled_at present, accounting_status=filled_lot_exact_unavailable, gross/fee/net=null (conservative). Trade 703 (PLD) strategy=null persistent (only null in latest 50).
+
+**LIVE RISK (URGENT):** 13 pending swing BUYs (trades 707-719, day-TIF, ~$1,449.85 est, broker reports 8 open) could fill at Aug 26 13:30 UTC market open → swing ~$9,399 (2.54x cap). Joachim must decide on cancel before market open. Cancel requires broker mutation (not authorized in this control).
+
+**Control-101 fix:** swingOwnedSymbols exclusion (a206690) deployed but not yet naturally tested by daytrading sync (next Aug 26 13:00 UTC).
+
+**Status: HEALTHY (code/deploy), DEGRADED (pending orders + external limits + run-log gaps + trade 703 strategy=null).** Caps 5000/3700/2000 unchanged.
+
 ## August 26, 2026 Control-108 strict read-only production control - HEALTHY/DEGRADED
 
 Control-108 at ~06:00 UTC (Aug 26 08:00 +02). Strict GET-only production control. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only.
