@@ -1,3 +1,19 @@
+## August 26, 2026 Control-107 strict read-only production control - HEALTHY/DEGRADED
+
+Control-107 at ~05:00 UTC (Aug 26 07:00 +02). Strict GET-only production control. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only.
+
+**Current HEAD:** `837259e` (docs, local only — push BLOCKED: github_pat not in vault), code `e89c786`. 220 tests / 822 assertions, typecheck genuinely clean. Version surfaces aligned: /health=2.6.0, release_version=2.6.0, config.version=2.6.0. Caps 5000/3700/2000 unchanged.
+
+**Live state:** 15 broker-authoritative positions (source=alpaca, observed 2026-08-26T05:00:21Z), all strategy=swing, MV $7,948.83. Equity $98,531.13 (+0.147%), ACTIVE, cash $90,582.30. Reconciliation ok every 10 min (43 runs, 0 errors, watermark holding, broker_ledger_synced_until 2026-08-26T05:00:14Z). Crypto :07/:37 fail-closed (SOLUSD/AVAXUSD ~22h stale, MATICUSD empty, no rawEdgeBps, validTA=0). Daytrading market closed (next 13:30 UTC). Swing run 3574 clean (Aug 25 22:01, errors=0). Control-101 fix deployed, not yet naturally tested (next daytrading sync Aug 26 13:00 UTC).
+
+**LIVE RISK (URGENT):** 13 pending swing BUYs (trades 707-719, day-TIF, ~$1,449.85, broker reports 8 open — 5 appear expired but D1 still shows accepted). 8 open could fill at Aug 26 13:30 UTC → swing ~$8,841 (2.39x cap). Joachim must decide before market open.
+
+**Run-log gaps:** Daytrading ~12 missing (19:35-21:35 UTC Aug 25), crypto 13 missing (14:07-21:07 UTC Aug 25). All Aug 26 runs clean. No CYCLE_LEASE_HELD streaks in latest 60. Trade 703 strategy=null persistent.
+
+**Status: HEALTHY (code/deployment), DEGRADED (13 pending swing BUYs + external limits + run-log gaps + trade 703 strategy=null).** Remaining: pending BUYs decision (URGENT), rawEdgeBps producer, bar freshness, D1 Sep 1 limits, paid-plan upgrade, trade 703, run-log gaps, github_pat restoration.
+
+---
+
 ## August 26, 2026 Control-106 strict read-only production control - HEALTHY/DEGRADED
 
 Control-106 at ~04:00 UTC (Aug 26 06:00 +02). Strict GET-only production control. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only (HEAD reference corrected from `ee86de9` to actual `4c9df61`; prior Control-105 entry self-referenced the previous HEAD).

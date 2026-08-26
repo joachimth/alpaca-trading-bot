@@ -1,3 +1,9 @@
+## August 26, 2026 Control-107 strict read-only production control - NO DEPLOY
+
+Control-107 at ~05:00 UTC (Aug 26 07:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. HEAD `837259e` (docs, local only — push BLOCKED: github_pat not in vault), code `e89c786`. 220 tests / 822 assertions, typecheck clean. Version 2.6.0 aligned. Caps unchanged. 13 pending swing BUYs remain live risk (8 open at broker). Status: HEALTHY (code/deploy), DEGRADED (pending orders + external limits + run-log gaps + trade 703 strategy=null).
+
+---
+
 ## August 26, 2026 Control-106 strict read-only production control - NO DEPLOY
 
 Control-106 at ~04:00 UTC (Aug 26 06:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. HEAD `4c9df61` (docs, corrected from prior `ee86de9` reference), code `e89c786`. 220 tests / 822 assertions, typecheck clean. Version 2.6.0 aligned. Caps unchanged. 13 pending swing BUYs remain live risk. Status: HEALTHY (code/deploy), DEGRADED (pending orders + external limits + run-log gaps + trade 703 strategy=null).
