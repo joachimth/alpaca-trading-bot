@@ -1625,3 +1625,12 @@ The authorized deployment attempt was stopped without a usable receipt. Wrangler
 Before the next release, restore a reproducible authenticated Wrangler path and tie the deployment receipt to the exact source commit and four schedules. Then run a separate GET-only check of all six endpoints and the filtered run/trade probes. Require broker-authoritative positions/source, equity direction, caps **5000/3700/2000**, fresh natural delivery for daytrading/swing/crypto/reconciliation, explicit skip/error/lease observability, crypto `:07/:37` cadence, lifecycle fields, conservative gross/fee/net semantics, live candidate counters, and crypto edge-gate evidence before changing the status.
 
 Local validation for Control-73 passed focused **54 tests / 319 assertions**, full **204 tests / 775 assertions**, `bunx tsc --noEmit`, and `git diff --check`. The correction work item is `CORRECTION_WORK_ITEM_2026-08-24_CONTROL-73.md`.
+
+
+## Control-123 release gate - August 26, 2026 20:00 UTC
+
+**HEALTHY (code/deploy), DEGRADED (external). No deploy required.** Strict GET-only control confirmed all six endpoints HTTP 200, version 2.6.0 aligned across /health, release_version, config.version. Code unchanged at 22b3dba (since Control-117). Docs HEAD this commit (local only, push blocked — github_pat missing). 223 tests / 841 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.
+
+No code defect surfaced. The only new finding is a second run-log delivery gap (18:38-20:00 UTC, ~82 min, ~25 runs missing during market hours), confirmed by run 3768 CYCLE_LEASE_HELD at 20:00:56 — the same Free-tier silent-throw pattern as the 15:26-17:15 gap. The approved paid-plan upgrade remains the remedy. No deployment, migration, trigger, order, cancel, close, replace, retry, or broker mutation was performed.
+
+Follow-up: 13 D1 position re-tag at 22:00 UTC swing_cron; rawEdgeBps producer; D1 Sep 1 enforcement limits; github_pat re-add; run-log gaps (paid upgrade); bar freshness; trade 703 null strategy.

@@ -1352,6 +1352,16 @@ Live state: equity $98,392.11 vs last_equity $98,524.98 (-$132.87 today, -0.135%
 
 Delivery: daytrading all skipped DAYTRADING_BARS_STALE (~978s vs 900s); crypto fail-closed at :07/:37 UTC cadence (bars 22h stale, MATICUSD empty, no rawEdgeBps, fee asOf Aug 19); reconcile ok every 10 min. Run-log gap 15:26-17:15 UTC (~109 min, ~22 runs missing, Free-tier silent throw). Trade 703 (PLD) strategy=null persistent. All filled trades conservative null gross/fee/net, filled_lot_exact_unavailable. No deploy, no code change, no broker mutation. Follow-up: 13 D1 re-tag at 22:00 UTC swing_cron; rawEdgeBps producer; D1 Sep 1 limits; github_pat; run-log gaps (paid upgrade); bar freshness.
 
+## Control-123 production status - August 26, 2026 20:00 UTC
+
+Strict GET-only control. All six endpoints HTTP 200, 0 errors in 20 visible runs (3749-3768, 17:41-20:00 UTC). Verdict: **HEALTHY (code/deploy), DEGRADED (external).** Version 2.6.0 aligned across all surfaces. Code 22b3dba, docs HEAD this commit (local only, push blocked — github_pat missing). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 unchanged.
+
+Live state: equity $98,420.95 vs last_equity $98,524.98 (-$104.03 today, -0.1056%, ACTIVE, not blocked). 28 broker-authoritative positions: 15 swing (MV ~$7,826, d1 metadata) + 13 unattributed (MV ~$1,452, none metadata). Total swing ~$9,277 (2.51x $3,700 cap) from pre-fix fills. **Control-117 fix stable (6th consecutive control):** the 13 swing fills (trades 707-719) show strategy=unattributed (not daytrading) — auto-reconcile bypass stopped. BROKER_ONLY_RECONCILED fires each cycle (harmless) until swing_cron 22:00 UTC re-tags them.
+
+NEW finding: second run-log delivery gap 18:38-20:00 UTC (~82 min, ~25 runs missing during market hours). Run 3768 CYCLE_LEASE_HELD at 20:00:56 confirms Free-tier silent-throw pattern (same root cause as the 15:26-17:15 gap from Controls 121-122). No code defect; approved paid-plan upgrade remains the remedy.
+
+Delivery: daytrading all skipped DAYTRADING_BARS_STALE (978s vs 900s) + EQUITY_DIRECTION_FALLBACK (informational); crypto fail-closed at :07/:37 UTC cadence (CRYPTO_BARS_STALE AVAXUSD 22h stale, MATICUSD empty, no rawEdgeBps, fee asOf Aug 19); reconcile ok every 10 min. Trade 703 (PLD) strategy=null persistent. All filled trades conservative null gross/fee/net, filled_lot_exact_unavailable. No deploy, no code change, no broker mutation. Follow-up: 13 D1 re-tag at 22:00 UTC swing_cron; rawEdgeBps producer; D1 Sep 1 limits; github_pat; run-log gaps (paid upgrade); bar freshness.
+
 ## Control-73 production status - August 24, 2026
 
 Keep production **OPEN FAIL/DEGRADED**. The strict control used only GET requests and read-only filter/pagination probes. The six endpoint responses were HTTP 200, but live release identity remains **1.0.0/2.4.0** versus local **2.6.0** and Wrangler remains blocked by `You are not authenticated. Please run wrangler login.`

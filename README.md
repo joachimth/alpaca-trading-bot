@@ -1,3 +1,11 @@
+## Wednesday, August 26, 2026 Control-123 strict read-only production control - HEALTHY/DEGRADED
+
+Control-123: **HEALTHY (code/deploy), DEGRADED (external).** All six GET endpoints HTTP 200, 0 errors in 20 visible runs (3749-3768, 17:41-20:00 UTC). Version 2.6.0 aligned across /health, release_version, config.version. Code 22b3dba (unchanged since Control-117), docs HEAD this commit (local only, push blocked — github_pat missing). Prior docs HEAD 328994c (Control-122). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+Live state: equity $98,420.95 vs last_equity $98,524.98 (-$104.03 today, -0.1056%, ACTIVE, not blocked). 28 broker-authoritative positions: 15 swing (MV ~$7,826, d1 metadata) + 13 unattributed (MV ~$1,452, none metadata). Total swing ~$9,277 (2.51x $3,700 cap, pre-existing fills). **Control-117 fix stable (6th consecutive control):** 13 swing fills (trades 707-719) show strategy=unattributed (not daytrading). Bypass stopped. BROKER_ONLY_RECONCILED fires each cycle (harmless) until swing_cron 22:00 UTC re-tags them.
+
+NEW finding: second run-log delivery gap 18:38-20:00 UTC (~82 min, ~25 runs missing during market hours). Run 3768 CYCLE_LEASE_HELD at 20:00:56 confirms Free-tier silent-throw pattern (same root cause as 15:26-17:15 gap). No code defect; approved paid-plan upgrade remains the remedy. Delivery: daytrading all skipped DAYTRADING_BARS_STALE (978s vs 900s) + EQUITY_DIRECTION_FALLBACK (informational); crypto fail-closed at :07/:37 cadence (CRYPTO_BARS_STALE AVAXUSD 22h, MATICUSD empty, no rawEdgeBps, fee asOf Aug 19); reconcile ok every 10 min. Trade 703 strategy=null persistent. All filled trades conservative null gross/fee/net. No deploy, no code change, no broker mutation. Follow-up: 13 D1 re-tag at 22:00 UTC swing_cron; rawEdgeBps producer; D1 Sep 1 limits; github_pat; run-log gaps (paid upgrade); bar freshness.
+
 ## August 26, 2026 Control-120 strict read-only production control - HEALTHY/DEGRADED
 ## August 26, 2026 Control-121 strict read-only production control - HEALTHY/DEGRADED
 
