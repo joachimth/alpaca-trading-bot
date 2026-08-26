@@ -1,3 +1,23 @@
+## August 26, 2026 Control-106 strict read-only production control - HEALTHY/DEGRADED
+
+Control-106 at ~04:00 UTC (Aug 26 06:00 +02). Strict GET-only production control. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (Control-106 entry + HEAD reference corrected from `ee86de9` to actual `4c9df61`; prior Control-105 entry had self-referenced the previous HEAD instead of its own commit).
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. HEAD `4c9df61` (docs, pushed to origin), code `e89c786`. 220 tests / 822 assertions, typecheck genuinely clean. Docs identify exact current HEAD. ✓
+
+**Four schedules confirmed:** reconciliation `*/10 * * * *` ok every 10 min (runs 3613-3621, all MAINTENANCE_ONLY, brokerOrders=8, pendingLookups=8, lookupFailures=0, ledgerActivities=0, 0 errors, not truncated, watermark holding, broker_ledger_synced_until 2026-08-26T04:00:14Z, last_prune_date 2026-08-26). Daytrading `*/5 13-21 * * 1-5` — market closed (last runs Aug 25 21:36-21:56 UTC, all MARKET_CLOSED, nextOpen Aug 26 09:30 ET / 13:30 UTC). Crypto `7-59/30 * * * *` at :07/:37 (runs 3614 at 03:07, 3618 at 03:37 UTC, all skipped: RECONCILIATION_DEFERRED_TO_MAINTENANCE, EQUITY_DIRECTION_FALLBACK, CRYPTO_BARS_STALE SOLUSD/ETHUSD ~22h stale, CRYPTO_BARS_UNAVAILABLE MATICUSD empty, CRYPTO_DATA_INSUFFICIENT validTA=0). Swing `0 22 * * 1-5` — only run 3574 (Aug 25 22:01 UTC, clean, errors=0, 40311ms, 13 decisions, placed 13 BUYs under pre-fix cap bypass defect). Next swing cron Aug 26 22:00 UTC.
+
+**Live state:** Equity $98,535.53 (+0.15%), ACTIVE, cash $90,582.30, long_market_value $7,953.23, buying_power $381,371.48. 15 broker-authoritative positions (source=alpaca, current_state_observed_at 2026-08-26T04:00:16Z), all strategy=swing, MV $7,953.23 (over $3,700 swing cap — positions placed under now-fixed Control-101 cap bypass defect). Fee telemetry stale (cryptoFeeAsOf 2026-08-19, status=insufficient). Control-101 fix (a206690, swingOwnedSymbols set at src/index.ts:1070-1071) deployed but not yet naturally tested by daytrading sync cycle (next at Aug 26 13:00 UTC). Crypto edge gate fail-closed (no rawEdgeBps producer).
+
+**LIVE RISK (URGENT):** 13 pending swing BUYs (trades 707-719: INTC, WMT, RTX, AVGO, GE, TXN, BA, BAC, XOM, SNOW, CVX, WFC, C, all day-TIF, ~$1,449.85 estimated, broker reports 8 open orders — 5 may have expired at broker). Could fill at Aug 26 13:30 UTC (09:30 ET market open) → swing exposure ~$9,400 (2.5x $3,700 cap). Cancel requires broker mutation, not performed during read-only control. **Joachim must decide before market open.**
+
+**Trade/fill lifecycle:** Filled trades 704-706 accounting_status=filled_lot_exact_unavailable, gross/fee/net=null (conservative). Pending BUYs 707-719 accounting_status=no_fill. Trade 703 (PLD) strategy=null persistent gap. Filtered run observability confirmed (crypto_cron and reconcile_cron filters return correct sets).
+
+**Run-log delivery gaps:** Daytrading ~12 missing (19:35-21:35 UTC Aug 25), crypto 13 missing (14:07-21:07 UTC Aug 25). All Aug 26 runs clean. Root cause: Cloudflare Workers Free tier subrequest/CPU limits cause silent throws before run_log rows are written. Paid-plan upgrade approved but not executed.
+
+**Status: HEALTHY (code/deployment), DEGRADED (13 pending swing BUYs + external data-feed/resource limits + run-log delivery gaps + trade 703 strategy=null).** No deploy required. Remaining follow-ups: 13 pending swing BUYs decision (URGENT, before 13:30 UTC), rawEdgeBps producer, crypto/daytrading bar freshness, D1 Sep 1 enforcement monitoring, paid-plan upgrade, trade 703 strategy=null, run-log delivery gaps.
+
+---
+
 ## August 26, 2026 Control-105 strict read-only production control - HEALTHY/DEGRADED
 
 Control-105 at ~03:00 UTC (Aug 26 05:00 +02). Strict GET-only production control. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required. Documentation update only (Control-105 entry + HEAD reference corrected to `ee86de9`).

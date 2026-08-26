@@ -1,3 +1,9 @@
+## August 26, 2026 Control-106 strict read-only production control - NO DEPLOY
+
+Control-106 at ~04:00 UTC (Aug 26 06:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. HEAD `4c9df61` (docs, corrected from prior `ee86de9` reference), code `e89c786`. 220 tests / 822 assertions, typecheck clean. Version 2.6.0 aligned. Caps unchanged. 13 pending swing BUYs remain live risk. Status: HEALTHY (code/deploy), DEGRADED (pending orders + external limits + run-log gaps + trade 703 strategy=null).
+
+---
+
 ## August 26, 2026 Control-105 strict read-only production control - NO DEPLOY
 
 Control-105 at ~03:00 UTC (Aug 26 05:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. HEAD `ee86de9` (docs), code `e89c786`. 220 tests / 822 assertions, typecheck clean. Version 2.6.0 aligned. Caps unchanged. 13 pending swing BUYs remain live risk. Status: HEALTHY (code/deploy), DEGRADED (pending orders + external limits + run-log gaps).

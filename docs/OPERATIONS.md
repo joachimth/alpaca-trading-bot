@@ -1,3 +1,15 @@
+## August 26, 2026 Control-106 strict read-only production control - HEALTHY/DEGRADED
+
+Control-106 at ~04:00 UTC (Aug 26 06:00 +02). Strict GET-only production control. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only (HEAD reference corrected from `ee86de9` to actual `4c9df61`; prior Control-105 entry self-referenced the previous HEAD).
+
+**Current HEAD:** `4c9df61` (docs, pushed to origin), code `e89c786`. 220 tests / 822 assertions, typecheck genuinely clean. Version surfaces aligned: /health=2.6.0, release_version=2.6.0, config.version=2.6.0. Caps 5000/3700/2000 unchanged.
+
+**Live state:** Equity $98,535.53 (+0.15%), ACTIVE, cash $90,582.30, buying_power $381,371.48. 15 broker-authoritative positions (source=alpaca, observed 2026-08-26T04:00:16Z), all strategy=swing, MV $7,953.23 (over $3,700 cap from Control-101 cap bypass defect). Reconciliation ok every 10 min (runs 3613-3621, broker_ledger_synced_until 2026-08-26T04:00:14Z, brokerOrders=8, pendingLookups=8, 0 errors, last_prune_date 2026-08-26). Crypto :07/:37 fail-closed (SOLUSD/ETHUSD ~22h stale, MATICUSD empty, no rawEdgeBps, validTA=0, fee telemetry stale Aug 19). Daytrading MARKET_CLOSED (next 13:30 UTC). Swing run 3574 clean (Aug 25 22:01, errors=0, 40s, placed 13 BUYs under pre-fix defect). Filtered run observability confirmed (crypto_cron, reconcile_cron filters correct). Fee accounting conservative (filled trades 704-706 filled_lot_exact_unavailable, gross/fee/net=null). Control-101 fix (a206690, swingOwnedSymbols at src/index.ts:1070-1071) deployed but not yet naturally tested by daytrading sync (next Aug 26 13:00 UTC).
+
+**LIVE RISK (URGENT):** 13 pending swing BUYs (trades 707-719: INTC, WMT, RTX, AVGO, GE, TXN, BA, BAC, XOM, SNOW, CVX, WFC, C, day-TIF, ~$1,449.85 est, broker reports 8 open — 5 may have expired). Could fill at Aug 26 13:30 UTC → swing ~$9,400 (2.5x cap). Joachim must decide before market open. **Status: HEALTHY (code/deploy), DEGRADED (pending orders + external limits + run-log gaps + trade 703 strategy=null).**
+
+---
+
 ## August 26, 2026 Control-105 strict read-only production control - HEALTHY/DEGRADED
 
 Control-105 at ~03:00 UTC (Aug 26 05:00 +02). Strict GET-only production control. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only.
