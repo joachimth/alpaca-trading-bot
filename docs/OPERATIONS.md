@@ -1,3 +1,7 @@
+## August 26, 2026 Control-117 read-only control + swing cap bypass fix (auto-reconcile) + deploy
+
+Control-117 at ~14:00 UTC (Aug 26 16:00 +02). GET-only control found a second swing cap bypass path: the BROKER_ONLY_RECONCILED auto-reconcile imports swing fills without strategy, then the final sync re-tags them as daytrading. Fix deployed (commit 22b3dba): added getSwingTradeSymbols() and swing-trade exclusion in auto-reconcile upsert, final sync upsert, and close logic. 223 tests / 841 assertions, typecheck clean. Code 22b3dba (new). Prior code e89c786. Version 2.6.0 aligned. Caps 5000/3700/2000 unchanged. Two deploys (14:05 and 14:15 UTC). Post-deploy verified: 13 swing fills now unattributed (not daytrading), swing cap bypass stopped. 0 errors, 0 lease holds. The 13 fills (~$1,449) push swing to ~$9,392 (2.54x cap) — pre-existing, swing_cron at 22:00 UTC will see correct exposure. Follow-up: 13 D1 rows need swing_cron re-tag at 22:00 UTC. Status: HEALTHY (code/deploy, fix verified), DEGRADED (mis-tagged fills pending 22:00 + external limits + run-log gaps + trade 703 + bar staleness).
+
 ## August 26, 2026 Control-115 strict read-only production control - HEALTHY/DEGRADED
 
 Control-115 at ~13:00 UTC (Aug 26 15:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. Docs update only.
