@@ -1,3 +1,21 @@
+## Thursday, August 27, 2026 Control-135 strict read-only production control - HEALTHY/DEGRADED
+
+Control-135 at ~07:00 UTC (Aug 27 09:00 +02). Strict GET-only. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0, `package.json`=2.6.0. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `772f6ea` (Control-134). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+**Live state:** 28 broker-authoritative positions (all strategy=swing, 0 unattributed, 0 null, 0 daytrading, MV $9,310.44 = 2.52x $3,700 cap, pre-existing fills from Control-101/117 bypass). Equity $98,447.21 (change_today -$77.77, -0.079%), ACTIVE, not blocked. Cash $89,136.78, buying_power $380,919.86, last_equity $98,524.98. EQUITY_DIRECTION_FALLBACK noted (broker change_today_pct=0, equity_delta_fallback -0.0799%, observability-only). broker_ledger_synced_until 2026-08-27T06:51:12Z (fresh). last_prune_date 2026-08-27. 100 visible runs (3766-3866, Aug 26 18:36 - Aug 27 07:01 UTC): 0 errors, 11 CYCLE_LEASE_HELD (all historical Aug 26 20:00-21:10 UTC, self-healed), 2 reconcile gaps >15min (40.0 + 40.2 min, Aug 26 20:00-21:21 UTC, historical Free-tier). No new gaps or lease holds since Aug 26 21:21 UTC (9+ hours clean). Triggers: 60 reconcile_cron (ok every 10 min, MAINTENANCE_ONLY, 3 broker orders, 3 pending lookups, 0 failures), 20 crypto_cron (:08/:38 cadence, all fail-closed: CRYPTO_BARS_STALE AVAXUSD ~22h stale latestBarAt 2026-08-26T08:30Z, MATICUSD empty, validTA=0, fee telemetry unavailable asOf Aug 19, no rawEdgeBps producer), 18 daytrading cron (all MARKET_CLOSED), 1 swing_cron (3794, 22:01 UTC Aug 26, re-tagged all 13 fills strategy=swing).
+
+**Trades:** 722 total, 719 executed. 3 pending sells (720-722: AMD 0.28, LCID 209, NXPI 0.53) accepted, no_fill, strategy=swing, day orders for Aug 27 13:30 UTC market open. Last reconciled 06:51 UTC (fresh). Fills (713-719) strategy=swing, accounting_status=filled_lot_exact_unavailable, gross/fee/net=null (conservative). Trade 703 (PLD) strategy=null persistent (observability gap).
+
+**Swing cap enforcement confirmed:** No active bypass. Over-cap exposure is pre-existing fills. CAPITAL_CAP blocks new entries. swing_cron re-tag stable since Control-126 (all 28 positions strategy=swing, 0 unattributed, BROKER_ONLY_RECONCILED noise ended).
+
+**Four schedules verified:** wrangler.toml crons: `*/5 13-21 * * 1-5` (daytrading), `0 22 * * 1-5` (swing), `7-59/30 * * * *` (crypto), `*/10 * * * *` (reconcile/maintenance). All trigger filters verified (crypto_cron, reconcile_cron, swing_cron return correctly filtered results).
+
+**Crypto edge-gate wiring confirmed:** Source has no rawEdgeBps producer in technical-analysis.ts (optional property only). crypto-strategy.ts prepareCryptoRiskDecision sets rawEdgeBps=undefined when unavailable, rawEdgeAvailable=false, edge gate fails closed. crypto_min_edge_after_costs=8 meaningful only with calibrated rawEdgeBps (nonexistent). Confirmed fail-closed.
+
+**Status:** HEALTHY (code/deploy), DEGRADED (external: swing 2.52x cap from pre-existing fills + crypto fail-closed + historical run-log gaps + trade 703 null + EQUITY_DIRECTION_FALLBACK). Paid-plan upgrade approved, not executed. No deploy needed.
+
 ## Thursday, August 27, 2026 Control-134 strict read-only production control - HEALTHY/DEGRADED
 
 Control-134 at ~06:00 UTC (Aug 27 08:00 +02). Strict GET-only. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
