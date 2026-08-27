@@ -1,4 +1,16 @@
 
+## Thursday, August 27, 2026 Control-151 strict read-only control
+
+Control-151 at ~21:00 UTC (Aug 27 23:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No new defects, no deploy needed, no correction needed. Code `cc9e813` (Control-150, unchanged). Docs HEAD `a5cdb81` (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+**Live state:** Equity $98,421.74, +$4.03 today, ACTIVE, not PDT. 25 positions all swing, 0 unattributed, MV $11,660 (3.15x $3,700 cap, inflated by pre-fix daytrading buys of swing-held RIVN/AVGO before cc9e813 deployed ~20:00 UTC). Cash $86,762 (88% idle). broker_ledger fresh 20:51Z.
+
+**Run-log gaps (100 runs 3899-3998):** 1 error (run 3975 subrequest at 19:46 UTC post-Workers-Paid-upgrade, recovered immediately). 2 historical gaps (80 min pre-market + 178 min market-hours, both pre-17:36 UTC recovery). No new gaps since 17:36 UTC (~3h20m clean). 0 CYCLE_LEASE_HELD.
+
+**Crypto:** Fail-closed (ETHUSD stale 22h, MATICUSD empty, validTA=0, no rawEdgeBps producer, fee telemetry asOf Aug 19). 3 null-strategy trades persistent (703 PLD, 648 NOW, 645 DUK). All filled trades gross/fee/net=null, accounting_status=filled_lot_exact_unavailable (conservative).
+
+**Follow-ups:** (1) Verify SWING_OWNED_EXCLUDE skips on Aug 28 13:30 UTC open. (2) Watch subrequest errors under Workers Paid. (3) Monitor run-log gap elimination. (4) 3 null-strategy trades. (5) Crypto fail-closed. (6) Sep 1 D1 enforcement.
+
 ## Thursday, August 27, 2026 Control-150 daytrading cap bypass fix - DEPLOY
 
 **Change:** Exclude swing-owned symbols from daytrading BUYs (`src/index.ts`). `swingOwnedSymbols` computed early and reused in final sync. New skip code `SWING_OWNED_EXCLUDE`. SELLs never blocked. Caps 5000/3700/2000 USD unchanged. 224 tests / 845 assertions pass, typecheck clean. Deploy via direct Cloudflare API PUT. Monitor next daytrading runs for SWING_OWNED_EXCLUDE skips on swing-held symbols.

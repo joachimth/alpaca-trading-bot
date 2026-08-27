@@ -1,4 +1,22 @@
 
+## Thursday, August 27, 2026 Control-151 strict read-only control
+
+Control-151 at ~21:00 UTC (Aug 27 23:00 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/config`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
+
+**Verdict:** HEALTHY code/deploy (2.6.0), DEGRADED external. No new defects. No deploy needed. No code/docs/config correction needed (docs already identify current HEAD).
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0, `package.json`=2.6.0, `src/version.ts` RELEASE_VERSION='2.6.0'. Code `cc9e813` (Control-150, unchanged). Docs HEAD `a5cdb81` (local only — push BLOCKED: github_pat not in vault). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,421.74, ACTIVE, not PDT, not blocked, +$4.03 today (+0.004%). Cash $86,761.76 (88% idle), long MV $11,659.98, buying power $370,724.99. 25 positions ALL swing, 0 unattributed, source=alpaca (broker-authoritative), MV $11,660 (3.15x $3,700 cap). MV inflated by today's pre-fix daytrading buys of RIVN/AVGO (swing-held symbols) that occurred 19:11-19:46 UTC before the cc9e813 fix deployed ~20:00 UTC. The fix prevents future daytrading BUYs on swing-owned symbols but has not yet been tested with market open (next: Aug 28 13:30 UTC). broker_ledger_synced_until 2026-08-27T20:51:07Z (fresh, ~9 min old).
+
+**Run-log gap analysis (100-run window 3899-3998):** 1 error (run 3975 "Fatal: Too many subrequests by single Worker invocation" at 19:46:41 UTC, post-Workers-Paid-upgrade ~18:54 UTC, recovered immediately). 0 CYCLE_LEASE_HELD. 2 historical gaps: 80 min pre-market (3908→3909, 12:11→13:31 UTC, 10 missing runs) + 178 min market-hours (3932→3933, 14:38→17:36 UTC, ~57 missing runs), both pre-17:36 UTC recovery. No new gaps since 17:36 UTC (~3h20m clean through 20:56 UTC). Crypto cadence :07/:37 confirmed (timestamps :08/:38). Daytrading cron confirmed */5 (MARKET_CLOSED after 20:00 UTC).
+
+**Crypto:** Fail-closed. ETHUSD stale 79684s (~22h, latest bar 2026-08-26T22:30Z), MATICUSD empty (0 bars), validTA=0 < required 3, CRYPTO_DATA_INSUFFICIENT. No rawEdgeBps producer in source (technical-analysis.ts:50 type-only, crypto-strategy.ts:29/66 pass-through, risk-manager.ts:192/195 config-sourced). crypto_min_edge_after_costs=8, fee telemetry asOf Aug 19 (cryptoFeeTelemetryStatus=unavailable). RECONCILIATION_DEFERRED_TO_MAINTENANCE + EQUITY_DIRECTION_FALLBACK present.
+
+**Trades:** 738 total, 738 executed. Trades 724-738 all daytrading, all filled during 19:11-19:46 UTC market window. All accounting_status=filled_lot_exact_unavailable, gross/fee/net=null (conservative). 3 null-strategy trades persistent (703 PLD, 648 NOW, 645 DUK — all sells, strategy=null, accounting_status=filled_lot_exact_unavailable).
+
+**Follow-ups:** (1) Verify SWING_OWNED_EXCLUDE skips on Aug 28 13:30 UTC market open — cc9e813 deployed but untested with live market. (2) Watch subrequest errors under Workers Paid — run 3975 hit one at 19:46 UTC (~52 min post-upgrade); if it recurs on Aug 28 open, Paid plan may not be fully active/propagated. (3) Monitor run-log gap elimination under Workers Paid (no new gaps since 17:36 UTC, ~3h20m clean). (4) 3 null-strategy trades remain (fixable by targeted D1 update, pending Joachim's prioritization). (5) Crypto fail-closed (requires code change + deploy for rawEdgeBps producer). (6) Sep 1 D1 enforcement monitoring.
+
 ## Thursday, August 27, 2026 Control-150 daytrading cap bypass fix - DEPLOY
 
 **Change:** Added a BUY exclusion gate in the daytrading cycle (`src/index.ts`) that prevents daytrading from buying swing-owned symbols. The `swingOwnedSymbols` set (D1 swing positions + swing trade tickers via `getSwingTradeSymbols()`) is now computed early in the cycle and reused in the final sync (saving one DB call). When a daytrading BUY decision targets a swing-owned symbol, it is skipped with structured code `SWING_OWNED_EXCLUDE`. SELL decisions are never blocked. No capital cap changed (5000/3700/2000 USD preserved). No trading behavior changed beyond preventing the cap bypass.
