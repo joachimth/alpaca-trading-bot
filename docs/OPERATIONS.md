@@ -1410,6 +1410,22 @@ Run-log: 80 visible runs (3715-3794, 14:08-22:01 UTC), 0 errors. 2 pre-existing 
 
 CANNOT VERIFY: crypto positive-edge path (no rawEdgeBps producer in source, fail-closed by design); origin sync (github_pat missing, docs commits local only). Follow-up: rawEdgeBps producer; D1 Sep 1 enforcement limits; github_pat re-add; run-log gaps + lease streaks (paid upgrade); bar freshness; trade 703 null strategy.
 
+## Control-129 production status - August 27, 2026 01:00 UTC
+
+**HEALTHY (code/deploy), DEGRADED (external). No deploy required.** Strict GET-only. All six endpoints HTTP 200, 0 errors. Version 2.6.0 aligned. Code 22b3dba (unchanged since Control-117). Docs HEAD this commit (local only, push blocked — github_pat missing). Prior docs HEAD 2d827e7 (Control-128). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+**Account:** ACTIVE, not blocked. Equity $98,486.19, last_equity $98,524.98, change_today -$38.79 (-0.039%). Cash $89,136.78, buying_power $381,018.63, long_market_value $9,349.41. broker_ledger_synced_until 2026-08-27T00:51:11Z.
+
+**Positions:** 28 broker-authoritative, ALL strategy=swing, 0 unattributed. MV $9,349.41 (2.53x $3,700 cap, pre-existing Control-101/117 bypass fills). metadata_updated_at 2026-08-26 22:01:xx (swing_cron re-tag stable). 3 pending sells (720-722: AMD 0.28, LCID 209, NXPI 0.53) accepted, no_fill, day orders for Aug 27 13:30 UTC market open.
+
+**Delivery (60 visible runs, 3758-3817, 18:11-00:51 UTC):** 0 errors. 11 CYCLE_LEASE_HELD (3768-3778, Aug 26 ~20:00-21:10 streak, self-healed — historical). 89.6 min cron/daytrading gap (3766-3769, historical Free-tier). No new gaps, no lease holds in 00:xx window. Daytrading MARKET_CLOSED. Swing 1 run (3794) 22:01:28, skipped, 3 sells submitted. Crypto 8 runs at :08/:38 cadence, all RECONCILIATION_DEFERRED + CRYPTO_BARS_STALE/UNAVAILABLE + CRYPTO_DATA_INSUFFICIENT (validTA=0, fail-closed). Reconciliation 27 runs MAINTENANCE_ONLY every 10 min, brokerOrders=3, 0 lookup failures.
+
+**Crypto edge-gate:** Fail-closed. No rawEdgeBps producer. Fee telemetry stale (asOf 2026-08-19, status=unavailable). EQUITY_DIRECTION_FALLBACK each cycle (observability only).
+
+**Trades:** 720-722 sells no_fill (conservative null gross/fee/net). 707-719 filled BUYs filled_lot_exact_unavailable (conservative null). Trade 703 (PLD) strategy=null persistent.
+
+**Status:** HEALTHY (code/deploy), DEGRADED (swing 2.53x cap pre-existing + historical run-log gap + 11 CYCLE_LEASE_HELD self-healed + crypto fail-closed + trade 703 null + github_pat missing).
+
 ## Control-128 production status - August 27, 2026 00:00 UTC
 
 **HEALTHY (code/deploy), DEGRADED (external). No deploy required.** Strict GET-only. All six endpoints HTTP 200, 0 errors. Version 2.6.0 aligned. Code 22b3dba (unchanged since Control-117). Docs HEAD this commit (local only, push blocked — github_pat missing). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.

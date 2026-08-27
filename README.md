@@ -1,4 +1,26 @@
-## Thursday, August 27, 2026 Control-128 strict read-only production control - HEALTHY/DEGRADED
+## Thursday, August 27, 2026 Control-129 strict read-only production control - HEALTHY/DEGRADED
+
+Control-129 at ~01:00 UTC (Aug 27 03:00 +02). Strict GET-only. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `2d827e7` (Control-128). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+**Account:** ACTIVE, not blocked. Equity $98,486.19, last_equity $98,524.98, change_today -$38.79 (-0.039%). Cash $89,136.78, buying_power $381,018.63, long_market_value $9,349.41. broker_ledger_synced_until 2026-08-27T00:51:11Z.
+
+**Positions:** 28 broker-authoritative positions, ALL strategy=swing, 0 unattributed. Total MV $9,349.41 (2.53x $3,700 swing cap — pre-existing Control-101/117 bypass fills, no new entries allowed). Swing cap enforcement confirmed. metadata_updated_at 2026-08-26 22:01:xx for all 28 (swing_cron re-tag stable). 3 pending sells (trades 720-722: AMD 0.28, LCID 209, NXPI 0.53) remain accepted, no_fill, day orders for next market open Aug 27 13:30 UTC.
+
+**Schedules (wrangler.toml):** daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, reconciliation `*/10 * * * *`. All four confirmed.
+
+**Delivery (60 visible runs, 3758-3817, 18:11 UTC Aug 26 to 00:51 UTC Aug 27):** 0 errors. 11 CYCLE_LEASE_HELD (runs 3768-3778, Aug 26 ~20:00-21:10 UTC streak, self-healed by 21:16 — historical). 89.6 min cron/daytrading delivery gap between runs 3766 and 3769 (historical, Free-tier silent-throw pattern). NO new gaps and NO lease holds in the 00:xx UTC window. Daytrading: cron runs MARKET_CLOSED. Swing: 1 run (3794) at 22:01:28 UTC, skipped, 31.8s, 0 errors, 3 sells submitted (720-722). Crypto: 8 runs at :08/:38 cadence (18:38-00:38 UTC), all RECONCILIATION_DEFERRED_TO_MAINTENANCE + CRYPTO_BARS_STALE/UNAVAILABLE + CRYPTO_DATA_INSUFFICIENT (validTA=0, fail-closed), 0 errors. Reconciliation: 27 runs MAINTENANCE_ONLY every 10 min, brokerOrders=3 (the pending sells), 0 lookup failures.
+
+**Crypto edge-gate:** Fail-closed. No rawEdgeBps producer in source; `prepareCryptoRiskDecision` (crypto-strategy.ts:29) gates on calibrated rawEdgeBps which is always undefined, so BUYs are blocked. Fee telemetry stale (cached_fee_summary asOf 2026-08-19, cryptoFeeTelemetryStatus=unavailable). EQUITY_DIRECTION_FALLBACK each cycle (observability only, no risk weakening).
+
+**Trades:** 720-722 sells accepted, no_fill, conservative null gross/fee/net. 707-719 filled swing BUYs (Aug 25 22:01) filled_lot_exact_unavailable, conservative null. Trade 703 (PLD) strategy=null persistent. 722 total trades, 719 executed.
+
+**Status:** HEALTHY (code/deploy), DEGRADED (swing 2.53x cap from pre-existing bypass fills + historical run-log delivery gap + 11 CYCLE_LEASE_HELD streak self-healed + crypto fail-closed with stale bars/fees + trade 703 strategy=null + github_pat missing).
+
+Follow-up: rawEdgeBps producer; D1 Sep 1 enforcement monitoring; paid-plan upgrade (approved, not executed — remedy for run-log gaps/lease streaks); bar freshness; trade 703 null strategy; swing cap will only normalize as pre-existing positions are sold (3 pending sells at Aug 27 open).
+
+# Thursday, August 27, 2026 Control-128 strict read-only production control - HEALTHY/DEGRADED
 
 Control-128 at ~00:00 UTC (Aug 27 02:00 +02). Strict GET-only. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
 
