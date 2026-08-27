@@ -1473,3 +1473,21 @@ CANNOT VERIFY: crypto positive-edge path (fail-closed by design); origin sync (g
 **Status:** HEALTHY (code/deploy), DEGRADED (swing 2.52x cap pre-existing + historical run-log gaps + 11 CYCLE_LEASE_HELD self-healed + crypto fail-closed + trade 703 null + github_pat missing).
 
 CANNOT VERIFY: crypto positive-edge path (fail-closed by design); origin sync (github_pat missing). Follow-up: rawEdgeBps producer; D1 Sep 1 enforcement; github_pat; paid-plan upgrade; bar freshness; trade 703 null strategy; swing normalizes as 3 pending sells fill at Aug 27 13:30 UTC open.
+
+## Control-133 production status - August 27, 2026 05:00 UTC
+
+**HEALTHY (code/deploy), DEGRADED (external). No deploy required.** Strict GET-only. All six endpoints HTTP 200, 0 errors. Version 2.6.0 aligned. Code 22b3dba (unchanged since Control-117). Docs HEAD this commit (local only, push blocked — github_pat missing). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+**Account:** ACTIVE, not blocked. Equity $98,452.70, last_equity $98,524.98, change_today -$72.28 (-0.073%). Cash $89,136.78, buying_power $380,933.24, long_market_value $9,315.92. EQUITY_DIRECTION_FALLBACK (broker change_today_pct=0, equity_delta_fallback; observability-only). current_state_source=alpaca, observed 2026-08-27T05:00:24Z.
+
+**Positions:** 28 broker-authoritative, ALL strategy=swing, 0 unattributed. MV $9,315.92 (2.52x $3,700 cap, pre-existing Control-101/117 bypass fills, no active bypass). Swing cap enforcement confirmed. metadata_updated_at 2026-08-26 22:01:27 (swing_cron re-tag stable since Control-126). 3 pending sells (720-722: AMD 0.28, LCID 209, NXPI 0.53) accepted, no_fill, day orders for Aug 27 13:30 UTC market open.
+
+**Delivery (30 visible runs, 3820-3849, 01:11-04:51 UTC):** 0 errors, 0 CYCLE_LEASE_HELD, 0 gaps in this window. Daytrading MARKET_CLOSED. Crypto 7 runs at :08/:38 cadence, all RECONCILIATION_DEFERRED + CRYPTO_BARS_STALE (AVAXUSD ~22h stale) + CRYPTO_BARS_UNAVAILABLE (MATICUSD empty) + CRYPTO_DATA_INSUFFICIENT (validTA=0, fail-closed). Reconciliation 23 runs MAINTENANCE_ONLY every 10 min, brokerOrders=3, 0 lookup failures.
+
+**Crypto edge-gate:** Fail-closed. No rawEdgeBps producer in source. Fee telemetry stale (asOf 2026-08-19, status=unavailable). EQUITY_DIRECTION_FALLBACK each cycle (observability only).
+
+**Trades:** 720-722 sells no_fill (conservative null gross/fee/net). 707-719 filled BUYs filled_lot_exact_unavailable (conservative null). Trade 703 (PLD) strategy=null persistent.
+
+**DEGRADED:** Swing over-cap (pre-existing, no bypass), crypto fail-closed, trade 703 null, historical run-log gaps, paid-plan upgrade approved not executed, github_pat missing.
+
+CANNOT VERIFY: crypto positive-edge path (fail-closed by design); origin sync (github_pat missing). Follow-up: rawEdgeBps producer; D1 Sep 1 enforcement; github_pat; paid-plan upgrade; bar freshness; trade 703 null strategy; swing normalizes as 3 pending sells fill at Aug 27 13:30 UTC open.
