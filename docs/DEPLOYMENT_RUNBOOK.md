@@ -1,3 +1,11 @@
+## Thursday, August 27, 2026 Control-143 strict read-only production control - NO DEPLOY
+
+Control-143 at ~14:00 UTC (Aug 27 16:00 +02). Strict GET-only. All eight endpoints returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `1482559` (Control-142). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,451.23, ACTIVE, not blocked, not PDT. 25 positions all strategy=swing, MV $8,026.91 (2.17x $3,700 cap, pre-existing; REDUCED from 2.53x as 3 pending sells filled at 13:30 UTC open). 3 sells (720-722: AMD 0.28 @ $481.16, LCID 209 @ $4.958, NXPI 0.53 @ $225.57) FILLED, strategy=swing; AMD/LCID/NXPI exited. 100 runs (3819-3918, Aug 27 01:08-13:56 UTC): 0 errors, 0 CYCLE_LEASE_HELD, 0 gaps. 16+ hours clean since Aug 26 21:21 UTC. 70 reconcile_cron ok, 24 crypto_cron fail-closed (AVAXUSD stale ~22h, MATICUSD empty, validTA=0, fee telemetry asOf Aug 19, no rawEdgeBps), 6 daytrading cron (13:31-13:56, skipped on stale bars right after open, fail-safe). 3 null-strategy trades persistent (703 PLD, 648 NOW, 645 DUK). broker_ledger_synced_until 2026-08-27T13:51:07Z (fresh). Status: HEALTHY (code/deploy), DEGRADED (external). No deploy needed.
+
 ## Thursday, August 27, 2026 Control-140 strict read-only production control - NO DEPLOY
 
 Control-140 at ~11:00 UTC (Aug 27 13:00 +02). Strict GET-only. All eight endpoints returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
