@@ -1740,3 +1740,15 @@ Follow-up: rawEdgeBps producer; D1 Sep 1 enforcement; github_pat; paid-plan upgr
 **Known DEGRADED:** Swing MV 2.52x cap (pre-existing bypass fills, no active bypass), crypto fail-closed (no rawEdgeBps producer, stale bars/fees asOf Aug 19), trade 703 null, historical run-log gaps, github_pat missing (docs push blocked). Paid-plan upgrade approved, not executed.
 
 Follow-up: rawEdgeBps producer; D1 Sep 1 enforcement; github_pat; paid-plan upgrade; bar freshness; trade 703 null strategy; swing normalizes as 3 pending sells fill at Aug 27 13:30 UTC open.
+
+## Control-138 release gate - August 27, 2026 09:00 UTC
+
+**No deploy required.** Code 22b3dba unchanged since Control-117. All version surfaces aligned at 2.6.0. 223 tests / 841 assertions, typecheck clean. All eight GET endpoints HTTP 200, 0 errors across 30 visible runs. No code defect found. Read-only control only — no mutation endpoints called.
+
+**Verified:** /health=2.6.0, release_version=2.6.0, config.version=2.6.0. 28 positions all strategy=swing, 0 unattributed. Caps 5000/3700/2000 unchanged (capital-caps.ts:6-8). 4 schedules confirmed in wrangler.toml. Equity $98,514.19 ACTIVE. broker_ledger_synced_until 08:51 UTC.
+
+**Delivery:** 30 visible runs (3852-3881, 05:11-08:51 UTC), 0 errors, 0 CYCLE_LEASE_HELD, no gaps in this window. No new gaps/lease holds since Aug 26 21:21 UTC (14+ hours clean). Daytrading MARKET_CLOSED. Swing 3 pending sells (720-722) accepted/new no_fill for Aug 27 13:30 UTC open. Crypto :08/:38 fail-closed (CRYPTO_BARS_STALE, validTA=0). Reconciliation every 10 min, fresh.
+
+**Known DEGRADED:** Swing MV 2.53x cap (pre-existing bypass fills, no active bypass), crypto fail-closed (no rawEdgeBps producer, stale bars/fees asOf Aug 19), trade 703 null, historical run-log gaps, github_pat missing (docs push blocked). Paid-plan upgrade approved, not executed.
+
+Follow-up: rawEdgeBps producer; D1 Sep 1 enforcement; github_pat; paid-plan upgrade; bar freshness; trade 703 null strategy; swing normalizes as 3 pending sells fill at Aug 27 13:30 UTC open.
