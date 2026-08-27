@@ -115,4 +115,37 @@ describe('swing cap bypass via auto-reconcile (Control-117)', () => {
     expect(upserted).toContain('INTC');
     expect(upserted).toContain('AVGO');
   });
+
+  test('daytrading BUY on swing-owned symbol is excluded (Control-150 cap bypass fix)', () => {
+    // Simulate the BUY exclusion gate added in Control-150.
+    // When daytrading buys a swing-held symbol, the broker combines them into
+    // one position tagged 'swing' in D1. The daytrading cap check filters by
+    // strategy='daytrading' and cannot see the daytrading portion — a cap bypass.
+    // The fix excludes swing-owned symbols from daytrading BUYs entirely.
+    const swingOwnedSymbols = new Set(['RIVN', 'AVGO', 'F', 'FCEL', 'AAL']);
+    const decisions = [
+      { action: 'BUY', symbol: 'RIVN' },   // swing-owned → skip
+      { action: 'BUY', symbol: 'TSLA' },   // not swing-owned → proceed
+      { action: 'SELL', symbol: 'RIVN' },  // swing-owned but SELL → proceed (exits allowed)
+      { action: 'BUY', symbol: 'PLUG' },   // not swing-owned → proceed
+    ];
+
+    const skipped: string[] = [];
+    const proceeded: string[] = [];
+    for (const d of decisions) {
+      if (d.action === 'BUY' && swingOwnedSymbols.has(d.symbol)) {
+        skipped.push(d.symbol);
+        continue;
+      }
+      proceeded.push(`${d.action}:${d.symbol}`);
+    }
+
+    // BUY on swing-owned is skipped
+    expect(skipped).toEqual(['RIVN']);
+    // SELL on swing-owned is NOT skipped (exits are always allowed)
+    expect(proceeded).toContain('SELL:RIVN');
+    // BUY on non-swing symbols proceeds
+    expect(proceeded).toContain('BUY:TSLA');
+    expect(proceeded).toContain('BUY:PLUG');
+  });
 });

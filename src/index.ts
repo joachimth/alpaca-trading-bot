@@ -460,6 +460,18 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       !CRYPTO_SYMBOLS.has(p.symbol) && (daySymbols.has(p.symbol) || !taggedSymbols.has(p.symbol))
     );
 
+    // Compute swing-owned symbols early: used both for the BUY exclusion gate
+    // below and the final position sync. Daytrading must not BUY swing-held
+    // symbols because the broker combines them into one position tagged 'swing'
+    // in D1, so the daytrading cap check (which filters by strategy='daytrading')
+    // cannot see the daytrading portion — a cap bypass. Excluding swing-owned
+    // symbols from daytrading BUYs is consistent with the existing design: the
+    // final sync already excludes them to prevent swing re-attribution.
+    const swingOwnedSymbols = new Set([
+      ...allDbPositions.filter(p => p.strategy === 'swing').map(p => p.ticker),
+      ...(await db.getSwingTradeSymbols()),
+    ]);
+
     // Restore the durable rolling equity window before appending this cycle's
     // snapshot. RiskManager instances are recreated on every Worker run.
     const recentEquityHistory = await db.getRecentEquityHistory();
@@ -916,6 +928,11 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       // never pass through BUY-oriented sizing/cost checks.
       let riskCheck: RiskCheckResult | null = null;
       if (decision.action === 'BUY') {
+        if (swingOwnedSymbols.has(signal.indicators.symbol)) {
+          await db.updateDecisionStatus(decisionId, 2, 'Daytrading BUY skipped: symbol is swing-owned, cap tracking cannot separate combined broker positions');
+          skips.add('SWING_OWNED_EXCLUDE', 'decision', 'Daytrading BUY skipped because the symbol is swing-owned and the daytrading cap cannot track exposure on combined broker positions', { strategy: 'daytrading', symbol: signal.indicators.symbol, decision_id: decisionId, action: 'BUY' });
+          continue;
+        }
         riskCheck = riskManager.checkTrade(decision, accountForRisk, positions, signal.indicators, cycleEntryNotionalUsd);
         if (!riskCheck.approved) {
           await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
@@ -1076,10 +1093,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     // 'daytrading', causing the swing cap check to see $0 exposure on the next
     // swing run and bypass the swing_max_capital_usd cap.
     const syncDbPositions = await db.getOpenPositions();
-    const swingOwnedSymbols = new Set([
-      ...syncDbPositions.filter(p => p.strategy === 'swing').map(p => p.ticker),
-      ...(await db.getSwingTradeSymbols()),
-    ]);
+    // swingOwnedSymbols was computed at the start of the cycle (line ~467) and
+    // is reused here. Swing positions do not change during a daytrading cycle.
     const finalPositions = (await alpaca.getPositions()).filter(p => !CRYPTO_SYMBOLS.has(p.symbol) && !swingOwnedSymbols.has(p.symbol));
     const dbPositionMap = new Map(syncDbPositions.filter(p => p.strategy === 'daytrading' || (!p.strategy && !CRYPTO_SYMBOLS.has(p.ticker))).map(p => [p.ticker, p]));
 
