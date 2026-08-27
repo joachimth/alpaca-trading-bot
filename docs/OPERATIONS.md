@@ -1,3 +1,17 @@
+## Thursday, August 27, 2026 Control-144 strict read-only production control - HEALTHY/DEGRADED
+
+Control-144 at ~15:00 UTC (Aug 27 17:00 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200, 0 errors. `/api/equity`, `/api/fees`, `/api/snapshot` return 404 (expected). No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0, `package.json`=2.6.0, `src/version.ts` RELEASE_VERSION='2.6.0'. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `1715640` (Control-143). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Account ACTIVE, not PDT, not blocked. Equity $98,500.29, cash $90,427.32, long MV $8,072.97, change_today +$82.58 (+0.084%). 25 positions, ALL strategy=swing, 0 unattributed. Swing MV $8,073 (2.18x $3,700 cap, pre-existing bypass fills, reduced from 2.53x). Re-tag stable since Control-126.
+
+**Runs window:** 100 runs (3833-3932, Aug 27 02:51-14:38 UTC): 0 errors, 0 CYCLE_LEASE_HELD, 0 gaps >15min. 64 reconcile_cron (ok), 22 crypto_cron (skipped, fail-closed), 14 daytrading cron (skipped, stale bars). 17+ hours clean since Aug 26 21:21 UTC. Crypto cadence :08/:38 matches `7-59/30` schedule.
+
+**DEGRADED external:** Swing MV 2.18x cap (pre-existing). 3 null-strategy trades (703 PLD, 648 NOW, 645 DUK). Crypto fail-closed (SOLUSD stale ~22h, MATICUSD empty, fee telemetry asOf Aug 19, no rawEdgeBps producer). All trades gross/fee/net=null, accounting_status=filled_lot_exact_unavailable. Historical run-log gaps Aug 26.
+
+**Follow-ups:** Paid-plan upgrade (approved not executed). Sep 1 D1 enforcement monitoring. GitHub PAT re-add. 3 null-strategy trades root cause. Crypto rawEdgeBps producer. No caps changed. No deploy needed.
+
 ## Thursday, August 27, 2026 Control-143 strict read-only production control - HEALTHY/DEGRADED
 
 Control-143 at ~14:00 UTC (Aug 27 16:00 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200, 0 errors. `/api/equity`, `/api/fees`, `/api/snapshot` return 404 (expected). No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.

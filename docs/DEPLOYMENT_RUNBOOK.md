@@ -1,3 +1,11 @@
+## Thursday, August 27, 2026 Control-144 strict read-only production control - NO DEPLOY
+
+Control-144 at ~15:00 UTC (Aug 27 17:00 +02). Strict GET-only. All eight endpoints returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `1715640` (Control-143). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,500.29, ACTIVE, not PDT, not blocked. 25 positions all swing, MV $8,073 (2.18x cap). 100 runs (3833-3932): 0 errors, 0 lease holds, 0 gaps. 17+ hours clean. No deploy needed. Code 22b3dba unchanged.
+
 ## Thursday, August 27, 2026 Control-143 strict read-only production control - NO DEPLOY
 
 Control-143 at ~14:00 UTC (Aug 27 16:00 +02). Strict GET-only. All eight endpoints returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
