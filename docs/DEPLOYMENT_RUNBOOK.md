@@ -1,3 +1,17 @@
+## Thursday, August 27, 2026 Control-147 strict read-only production control - HEALTHY/DEGRADED
+
+Control-147 at ~18:00 UTC (Aug 27 20:00 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200, 0 errors. `/api/equity`, `/api/fees`, `/api/snapshot` return 404 (expected). No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**CORRECTION to Control-146: the market-hours run-log gap was 178 min, not ~142 min.** Control-146 queried at ~17:00 UTC while the gap was still ongoing (run 3932 frozen at 14:38:05 UTC). Control-147's full timeline shows runs resumed at 17:36:19 UTC (run 3933), making the total gap 178.2 min (14:38→17:36 UTC), the largest observed. ~57 scheduled runs missing (~35 daytrading cron, ~17 reconcile_cron, ~5 crypto_cron). After 17:36 UTC, cadence fully recovered (runs 3933-3942 logged with normal */5, */10, :07/:37 timing). broker_ledger_synced_until recovered to 2026-08-27T17:51:07Z (fresh at query time). No trades missed (daytrading was skipping on stale bars). Silent-throw Free-tier pattern; approved paid-plan upgrade remains the remedy and is increasingly urgent as gaps now reach 3 hours during market hours.
+
+**Second gap (unchanged from Control-145): 80 min pre-market** (runs 3908→3909, 12:11→13:31 UTC). ~10 missing runs (8 reconcile_cron, 2 crypto_cron).
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0, `package.json`=2.6.0, `src/version.ts` RELEASE_VERSION='2.6.0'. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `dee8e3c` (Control-146). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,452.26, ACTIVE, not PDT, not blocked, +$34.55 today (+0.035%). 25 positions all swing, 0 unattributed, MV $8,024.21 (2.17x $3,700 cap, pre-existing fills, no active bypass). 100 runs (3841-3940): 0 errors, 0 CYCLE_LEASE_HELD, 2 run-log gaps (80 min pre-market 3908→3909, 178 min market-hours 3932→3933). Crypto fail-closed: no rawEdgeBps producer in source (technical-analysis.ts:50 type-only, crypto-strategy.ts:29/66 pass-through, risk-manager.ts:192/195 config-sourced — never computed from market data or confidence), crypto_min_edge_after_costs=8, fee telemetry asOf Aug 19 (cryptoFeeTelemetryStatus=unavailable). MATICUSD empty, AVAXUSD stale 79684s (~22h), validTA=0. 3 null-strategy trades persistent (703 PLD, 648 NOW, 645 DUK). 100 filled trades: gross/fee/net=null, accounting_status=filled_lot_exact_unavailable (conservative). Daytrading cron */5 from 13:31 UTC, skipped on DAYTRADING_BARS_STALE (age ~976s vs 900s max) + EQUITY_DIRECTION_FALLBACK. Crypto cadence :07/:37 confirmed (timestamps :08/:38). No deploy needed. Code 22b3dba unchanged.
+
+---
+
 ## Thursday, August 27, 2026 Control-146 strict read-only production control - NO DEPLOY
 
 Control-146 at ~17:00 UTC (Aug 27 19:00 +02). Strict GET-only. All eight endpoints returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
