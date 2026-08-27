@@ -1,3 +1,11 @@
+## Thursday, August 27, 2026 Control-140 strict read-only production control - HEALTHY/DEGRADED
+
+Control-140 at ~11:00 UTC (Aug 27 13:00 +02). Strict GET-only. All eight endpoints returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**Version identity (all aligned):** Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `aac4770` (Control-139). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged. Four schedules confirmed: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,519.70, ACTIVE, not blocked. 28 positions all strategy=swing, MV $9,383.32 (2.54x $3,700 cap, pre-existing). 3 pending sells (720-722: AMD/LCID/NXPI) day orders for Aug 27 13:30 UTC open. 100 runs (3798-3897): 0 errors, 0 CYCLE_LEASE_HELD, 0 gaps. 13+ hours clean since Aug 26 21:21 UTC. Crypto fail-closed (bars stale 22h+, validTA=0, fee telemetry unavailable asOf Aug 19). 3 null-strategy trades persistent (703 PLD, 648 NOW, 645 DUK). broker_ledger_synced_until 2026-08-27T10:51:11Z (fresh). Status: HEALTHY (code/deploy), DEGRADED (external). No deploy needed.
+
 ## Thursday, August 27, 2026 Control-139 strict read-only production control - HEALTHY/DEGRADED
 
 Control-139 at ~10:03 UTC (Aug 27 12:03 +02). Strict GET-only. Six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.

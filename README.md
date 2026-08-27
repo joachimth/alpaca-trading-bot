@@ -1,3 +1,23 @@
+## Thursday, August 27, 2026 Control-140 strict read-only production control - HEALTHY/DEGRADED
+
+Control-140 at ~11:00 UTC (Aug 27 13:00 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0, `package.json`=2.6.0. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `aac4770` (Control-139). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,519.70 (/api/account), last_equity $98,417.71, change_today +$101.99 (+0.104%), ACTIVE, not blocked, not PDT. Cash $89,136.77, buying_power $381,117.65, long_market_value $9,382.93. EQUITY_DIRECTION_FALLBACK (broker change_today_pct=0, equity_delta_fallback; observability-only, does not weaken risk controls). broker_ledger_synced_until 2026-08-27T10:51:11Z (fresh). last_prune_date 2026-08-27. Snapshot 1011 at 10:37:59 UTC: equity $98,518.08.
+
+**Positions:** 28 broker-authoritative positions (source=alpaca, D1 is metadata only). ALL strategy=swing, 0 unattributed, 0 daytrading. MV $9,383.32 (2.54x $3,700 cap, pre-existing Control-101/117 bypass fills, no active bypass). Swing cap enforcement confirmed (CAPITAL_CAP blocks new entries). Re-tag stable since Control-126.
+
+**Delivery (100 runs, 3798-3897, Aug 26 22:31 - Aug 27 10:51 UTC):** 0 errors, 0 CYCLE_LEASE_HELD, 0 gaps. No new gaps/lease holds since Aug 26 21:21 UTC (13+ hours clean). 75 reconcile_cron (MAINTENANCE_ONLY every 10 min, no gaps >15min), 25 crypto_cron (:08/:38 cadence, all fail-closed). Daytrading absent (market closed, opens 13:30 UTC). Swing absent (next 22:00 UTC).
+
+**Crypto edge-gate:** Fail-closed. No rawEdgeBps producer in source (crypto-strategy.ts). CRYPTO_BARS_STALE (SOLUSD ageSeconds ~79685 vs maxStale 2700, latestBarAt 2026-08-26T12:30Z), CRYPTO_BARS_UNAVAILABLE (MATICUSD empty, received=0), CRYPTO_DATA_INSUFFICIENT (validTA=0, required=3). RECONCILIATION_DEFERRED_TO_MAINTENANCE. EQUITY_DIRECTION_FALLBACK each cycle (observability only). Fee telemetry stale (asOf 2026-08-19, status=unavailable, cryptoFeeSampleCount=0).
+
+**Trades:** 100 most-recent reviewed. 3 pending sells (720-722: AMD 0.28, LCID 209, NXPI 0.53) accepted/new, filled_qty=0, strategy=swing, day orders for Aug 27 13:30 UTC market open (2.5h away). Lifecycle fields present: client_order_id, filled_qty, leaves_qty, broker_updated_at, last_reconciled_at (fresh: 2026-08-27 10:50-10:51 UTC). Filled trades: gross/fee/net=null, accounting_status=filled_lot_exact_unavailable, fee_attribution=none-recorded (conservative). 3 null-strategy trades persistent (703 PLD, 648 NOW, 645 DUK — all filled sells, known observability gap; wider limit=100 window reveals all 3, Control-139 limit=50 only showed 703).
+
+**Filtered run observability:** Runs include analyzed_candidates, filtered_candidates, run_details with structured skip codes (MAINTENANCE_ONLY, RECONCILIATION_DEFERRED_TO_MAINTENANCE, EQUITY_DIRECTION_FALLBACK, CRYPTO_BARS_UNAVAILABLE, CRYPTO_BARS_STALE, CRYPTO_DATA_INSUFFICIENT), each with type, scope, message, context, and count. Crypto skips are data-quality fail-closed, not lease holds or errors.
+
+**Status: HEALTHY (code/deploy), DEGRADED (external: pre-existing swing over-cap + crypto bars stale 22h+ + historical run-log gaps + 3 null-strategy trades + push blocked).** No deploy needed. Paid-plan upgrade approved but not executed. Follow-up: rawEdgeBps producer; github_pat; paid-plan upgrade; crypto bar freshness; null-strategy trades 703/648/645; swing normalizes as 3 pending sells fill at Aug 27 13:30 UTC open.
+
 ## Thursday, August 27, 2026 Control-139 strict read-only production control - HEALTHY/DEGRADED
 
 Control-139 at ~10:03 UTC (Aug 27 12:03 +02). Strict GET-only. Six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
