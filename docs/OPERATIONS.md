@@ -1,3 +1,9 @@
+## Thursday, August 27, 2026 Control-130 strict read-only production control - HEALTHY/DEGRADED
+
+Control-130 at ~02:00 UTC (Aug 27 04:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `f5d9965` (Control-129, in README). 223 tests / 841 assertions, typecheck clean. Version 2.6.0 aligned. Caps 5000/3700/2000 USD unchanged. (Note: Controls 122-129 were documented in README.md only; this entry resumes OPERATIONS.md coverage.)
+
+**Live state:** 28 broker-authoritative positions (all strategy=swing, 0 unattributed, MV $9,321.63 = 2.52x $3,700 cap, pre-existing). Equity $98,458.42 (-$66.56, -0.068%), ACTIVE, not blocked. 60 runs (3766-3825, 18:36-01:51 UTC): 0 errors, 11 CYCLE_LEASE_HELD (historical, self-healed), 1 historical gap (82.8 min). No new gaps/lease holds in 00:xx-01:xx. Reconcile ok every 10 min (3 broker orders, 0 failures). Crypto :08/:38 fail-closed (validTA=0, bars stale, no rawEdgeBps). 3 pending sells (720-722) for Aug 27 13:30 UTC open. Trade 703 strategy=null persistent. Swing cap enforcement confirmed (CAPITAL_CAP blocks new entries). swing_cron re-tag stable since Control-126. Status: HEALTHY (code/deploy), DEGRADED (external). Paid-plan upgrade approved, not executed.
+
 ## August 26, 2026 Control-120 strict read-only production control - HEALTHY/DEGRADED
 ## August 26, 2026 Control-121 strict read-only production control - HEALTHY/DEGRADED
 

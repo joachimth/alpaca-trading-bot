@@ -1,3 +1,9 @@
+## Thursday, August 27, 2026 Control-130 strict read-only production control - NO DEPLOY
+
+Control-130 at ~02:00 UTC (Aug 27 04:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `f5d9965` (Control-129, in README). 223 tests / 841 assertions, typecheck clean. Version 2.6.0 aligned. Caps 5000/3700/2000 USD unchanged. (Note: Controls 122-129 were documented in README.md only; this entry resumes RUNBOOK coverage.)
+
+**Live state:** 28 broker-authoritative positions (all strategy=swing, 0 unattributed, MV $9,321.63 = 2.52x $3,700 cap, pre-existing). Equity $98,458.42 (-$66.56, -0.068%), ACTIVE. 60 runs: 0 errors, 11 historical CYCLE_LEASE_HELD (self-healed), 1 historical gap (82.8 min). No new gaps/lease holds. Reconcile ok every 10 min. Crypto fail-closed. 3 pending sells (720-722) for Aug 27 13:30 UTC open. Trade 703 strategy=null persistent. Status: HEALTHY (code/deploy), DEGRADED (external). No deploy needed.
+
 ## August 26, 2026 Control-120 strict read-only production control - HEALTHY/DEGRADED
 ## August 26, 2026 Control-121 strict read-only production control - HEALTHY/DEGRADED
 

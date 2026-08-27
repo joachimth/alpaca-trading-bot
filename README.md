@@ -1,3 +1,17 @@
+## Thursday, August 27, 2026 Control-130 strict read-only production control - HEALTHY/DEGRADED
+
+Control-130 at ~02:00 UTC (Aug 27 04:00 +02). Strict GET-only. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `f5d9965` (Control-129). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+**Live state:** 28 broker-authoritative positions (all strategy=swing, 0 unattributed, MV $9,321.63 = 2.52x $3,700 cap, pre-existing fills from Control-101/117 bypass). Equity $98,458.42 (change_today -$66.56, -0.068%), ACTIVE, not blocked. cash $89,136.78, buying_power $380,944.53, last_equity $98,524.98. EQUITY_DIRECTION_FALLBACK noted (broker change_today_pct=0, using equity_delta_fallback; observability-only, does not weaken risk controls). 60 visible runs (3766-3825, 18:36-01:51 UTC): 0 errors, 11 CYCLE_LEASE_HELD (historical, Aug 26 20:00-21:10 UTC, self-healed by 21:16), 1 gap >15min (82.8 min, 18:38-20:00 UTC, historical Free-tier silent-throw). No new gaps or lease holds in 00:xx-01:xx window. Triggers: 30 reconcile_cron (ok every 10 min, MAINTENANCE_ONLY, 3 broker orders, 3 pending lookups, 0 failures), 10 crypto_cron (:08/:38 cadence, all fail-closed: RECONCILIATION_DEFERRED_TO_MAINTENANCE + CRYPTO_BARS_STALE/UNAVAILABLE + CRYPTO_DATA_INSUFFICIENT, validTA=0, AVAXUSD ~22h stale, MATICUSD empty, fee telemetry unavailable asOf Aug 19, no rawEdgeBps producer), 1 swing_cron (22:01 UTC, submitted 3 sells), 19 daytrading cron (all MARKET_CLOSED).
+
+**Trades:** 3 pending sells (720-722: AMD 0.28, LCID 209, NXPI 0.53) accepted, no_fill, day orders for Aug 27 13:30 UTC market open. Trades 707-719 filled swing BUYs, accounting_status=filled_lot_exact_unavailable, gross/fee/net=null (conservative). Trade 703 (PLD) strategy=null persistent.
+
+**Swing cap enforcement confirmed:** CAPITAL_CAP skip blocks new entries. Over-cap exposure is pre-existing fills, no active bypass. swing_cron re-tag stable since Control-126 (all 28 positions strategy=swing, 0 unattributed, BROKER_ONLY_RECONCILED noise ended).
+
+**Status: HEALTHY (code/deploy), DEGRADED (external: pre-existing swing over-cap + historical run-log gaps + crypto fail-closed + trade 703 null).** No deploy needed. Paid-plan upgrade approved but not executed (remedy for Free-tier run-log gaps).
+
 ## Thursday, August 27, 2026 Control-129 strict read-only production control - HEALTHY/DEGRADED
 
 Control-129 at ~01:00 UTC (Aug 27 03:00 +02). Strict GET-only. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
