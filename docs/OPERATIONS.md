@@ -1,4 +1,16 @@
 
+## Thursday, August 27, 2026 Control-149 daytrading stale-bar threshold fix - DEPLOY
+
+**Change:** Raised `DAYTRADING_MAX_BAR_STALE_INTERVALS` from 3 to 4 in `src/market-data-quality.ts:64`. This changes the daytrading bar freshness threshold from 15 min (3 x 5-min intervals) to 20 min (4 x 5-min intervals). The Alpaca paper data feed has a consistent ~16-min lag, so bars were ~977s old vs the 900s threshold, causing every daytrading run to skip with `DAYTRADING_BARS_STALE`. The extra interval gives ~4 min of headroom. Crypto threshold unchanged (CRYPTO_MAX_BAR_STALE_INTERVALS=3, 45 min for 15-min candles). No capital cap changed (5000/3700/2000 USD preserved).
+
+**Rationale:** Daytrading has been 100% blocked since the threshold was introduced. 91.8% of capital sits in cash earning nothing. The 16-min paper data feed lag is a persistent external constraint, not a transient issue. One extra interval of staleness on 5-min candles is a modest data-quality relaxation that unblocks the strategy while preserving the fail-closed gate for genuinely stale data.
+
+**Validation:** 223 tests / 841 assertions pass, 0 fail. Typecheck clean. No code defect. Commit pending (push blocked by github_pat).
+
+**Deploy:** Direct Cloudflare API PUT from `/workspace/alpaca-trading-bot`. Post-deploy GET verification pending.
+
+**Follow-up:** Monitor first daytrading runs after next 13:30 UTC market open to confirm bars pass the new 1200s threshold and trades execute. If Alpaca paper feed lag grows beyond 20 min, consider 5 intervals. Workers Paid plan now active (should eliminate run-log gaps).
+
 ## Thursday, August 27, 2026 Control-148 strict read-only production control - HEALTHY/DEGRADED
 
 Control-148 at ~19:00 UTC (Aug 27 21:00 +02). Strict GET-only. All seven probed endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.

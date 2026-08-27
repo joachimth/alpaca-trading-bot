@@ -62,6 +62,6 @@ export function assessIntradayBars(
 }
 
 export const DAYTRADING_BAR_INTERVAL_SECONDS = 5 * 60;
-export const DAYTRADING_MAX_BAR_STALE_INTERVALS = 3;
+export const DAYTRADING_MAX_BAR_STALE_INTERVALS = 4;
 export const CRYPTO_BAR_INTERVAL_SECONDS = 15 * 60;
 export const CRYPTO_MAX_BAR_STALE_INTERVALS = 3;

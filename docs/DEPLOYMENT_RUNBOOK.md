@@ -1,4 +1,8 @@
 
+## Thursday, August 27, 2026 Control-149 daytrading stale-bar threshold fix - DEPLOY
+
+**Change:** `DAYTRADING_MAX_BAR_STALE_INTERVALS` 3→4 (15→20 min) in `src/market-data-quality.ts:64`. Unblocks daytrading blocked by ~16-min Alpaca paper data feed lag. Crypto threshold unchanged. Caps 5000/3700/2000 USD unchanged. 223 tests / 841 assertions pass, typecheck clean. Deploy via direct Cloudflare API PUT. Monitor first daytrading runs after next market open.
+
 ## Thursday, August 27, 2026 Control-148 strict read-only production control - HEALTHY/DEGRADED
 
 Control-148 at ~19:00 UTC (Aug 27 21:00 +02). Strict GET-only. All seven probed endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
