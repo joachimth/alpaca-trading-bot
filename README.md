@@ -1,4 +1,21 @@
 
+## Thursday, August 27, 2026 Control-150 daytrading cap bypass fix - DEPLOY + read-only control
+
+Control-150 at ~20:00 UTC (Aug 27 22:00 +02). Strict GET-only control followed by a targeted cap-enforcement fix.
+
+**Control findings (read-only):** All 8 endpoints 200 (/health, /api/config, /api/dashboard, /api/positions, /api/runs, /api/trades, /api/account, /). Version 2.6.0 aligned across all surfaces. Equity $98,466.46, ACTIVE, not PDT, +$48.75 today (+0.05%). 25 positions ALL swing, 0 unattributed, source=alpaca (broker-authoritative). broker_ledger_synced_until 2026-08-27T19:51:14Z (fresh). Caps 5000/3700/2000 USD unchanged. Four schedules confirmed. Code bc6255d (Control-149 stale-bar fix deployed and working).
+
+**Daytrading is now ACTIVE and trading.** Control-149's stale-bar threshold fix (3→4 intervals, 15→20 min) successfully unblocked daytrading. Trades 724-738 (all strategy="daytrading") executed during the 19:11-19:46 UTC market window. Daytrading bars now pass the 1200s freshness threshold. This is the first active daytrading since the threshold was introduced.
+
+**NEW finding: daytrading cap bypass on swing-held symbols.** The daytrading risk check builds a `positions` array filtered by `strategy === 'daytrading' || (!strategy && !crypto)`. When daytrading buys a swing-held symbol (e.g. RIVN, AVGO), the broker combines them into one position tagged strategy='swing' in D1. The daytrading cap check excludes it, so the daytrading gross exposure is undercounted. Today's session: ~$3,672 in uncounted daytrading exposure on RIVN (3 buys, 175 shares, ~$2,933) and AVGO (1 buy, 2 shares, ~$739). Actual daytrading gross was ~$8,637 vs the $5,000 cap (1.73x). All positions were round-tripped (bought and sold intraday). The bypass is transient but real.
+
+**Run-log gap analysis (Control-144 lesson applied):** 100-run window 3881-3980. Two known historical gaps: 80 min pre-market (3908→3909, 12:11→13:31 UTC) and 178 min market-hours (3932→3933, 14:38→17:36 UTC). One minor 9.6 min gap (3960→3961, 18:56→19:06 UTC, one missed cron run during Workers Paid plan transition). **No new gaps since 19:06 UTC** — cadence continuous for ~55 min through the 20:01 UTC query. Run 3975 (19:46:41 UTC) hit "Fatal: Too many subrequests by single Worker invocation" — AFTER the Workers Paid upgrade (~18:54 UTC). The error was caught and logged (status=error, errors=1), no gap resulted, cadence recovered immediately (run 3976 at 19:51). This single subrequest error post-upgrade needs monitoring — if the Paid plan is active, the 1000-subrequest limit should not be hit by a single daytrading run.
+
+**Fix deployed (cc9e813):** Exclude swing-owned symbols from daytrading BUY decisions. The `swingOwnedSymbols` set (already computed for the final sync) is now computed early in the cycle and used as a BUY exclusion gate. SELL decisions are never blocked (exits are always allowed). The final sync reuses the early-computed set, saving one DB call. New skip code: `SWING_OWNED_EXCLUDE`. 224 tests / 845 assertions pass, typecheck clean, diff-check clean. Caps 5000/3700/2000 unchanged.
+
+**Known DEGRADED conditions (unchanged):** 3 null-strategy trades persistent (703 PLD, 648 NOW, 645 DUK, all strategy=None). Crypto fail-closed: no rawEdgeBps producer in source (type-only at technical-analysis.ts:50, pass-through at crypto-strategy.ts:29/66, config-sourced at risk-manager.ts:192/195 — never computed from market data or confidence). MATICUSD empty, AVAXUSD stale 79684s (~22h). Fee telemetry asOf Aug 19 (cryptoFeeTelemetryStatus=unavailable). All 100 filled trades: gross/fee/net=null, accounting_status=filled_lot_exact_unavailable (conservative). GitHub PAT (github_pat) not in vault — docs push blocked, docs HEAD local only.
+
+---
 ## Thursday, August 27, 2026 Control-148 strict read-only production control - HEALTHY/DEGRADED
 
 Control-148 at ~19:00 UTC (Aug 27 21:00 +02). Strict GET-only. All seven probed endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.

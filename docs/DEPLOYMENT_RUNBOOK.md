@@ -1,4 +1,8 @@
 
+## Thursday, August 27, 2026 Control-150 daytrading cap bypass fix - DEPLOY
+
+**Change:** Exclude swing-owned symbols from daytrading BUYs (`src/index.ts`). `swingOwnedSymbols` computed early and reused in final sync. New skip code `SWING_OWNED_EXCLUDE`. SELLs never blocked. Caps 5000/3700/2000 USD unchanged. 224 tests / 845 assertions pass, typecheck clean. Deploy via direct Cloudflare API PUT. Monitor next daytrading runs for SWING_OWNED_EXCLUDE skips on swing-held symbols.
+
 ## Thursday, August 27, 2026 Control-149 daytrading stale-bar threshold fix - DEPLOY
 
 **Change:** `DAYTRADING_MAX_BAR_STALE_INTERVALS` 3→4 (15→20 min) in `src/market-data-quality.ts:64`. Unblocks daytrading blocked by ~16-min Alpaca paper data feed lag. Crypto threshold unchanged. Caps 5000/3700/2000 USD unchanged. 223 tests / 841 assertions pass, typecheck clean. Deploy via direct Cloudflare API PUT. Monitor first daytrading runs after next market open.

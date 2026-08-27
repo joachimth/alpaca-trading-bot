@@ -1,4 +1,16 @@
 
+## Thursday, August 27, 2026 Control-150 daytrading cap bypass fix - DEPLOY
+
+**Change:** Added a BUY exclusion gate in the daytrading cycle (`src/index.ts`) that prevents daytrading from buying swing-owned symbols. The `swingOwnedSymbols` set (D1 swing positions + swing trade tickers via `getSwingTradeSymbols()`) is now computed early in the cycle and reused in the final sync (saving one DB call). When a daytrading BUY decision targets a swing-owned symbol, it is skipped with structured code `SWING_OWNED_EXCLUDE`. SELL decisions are never blocked. No capital cap changed (5000/3700/2000 USD preserved). No trading behavior changed beyond preventing the cap bypass.
+
+**Rationale:** Control-150's read-only audit found that daytrading (newly unblocked by Control-149's stale-bar fix) was buying swing-held symbols (RIVN, AVGO). The broker combines swing and daytrading positions into one line item tagged strategy='swing' in D1. The daytrading cap check filters by strategy='daytrading' and cannot see the daytrading portion, undercounting gross exposure. Today's session: ~$3,672 uncounted, actual gross ~$8,637 vs $5,000 cap (1.73x). The fix is consistent with the existing design: the final sync already excludes swing-owned symbols from daytrading attribution (Control-117 fix).
+
+**Validation:** 224 tests / 845 assertions pass (was 223/841, +1 test +4 assertions for the new SWING_OWNED_EXCLUDE regression test). Typecheck clean. diff-check clean. Commit cc9e813.
+
+**Deploy:** Direct Cloudflare API PUT from `/workspace/alpaca-trading-bot`. Post-deploy GET verification pending.
+
+**Follow-up:** Monitor next daytrading runs to confirm SWING_OWNED_EXCLUDE skips appear for swing-held symbols and no daytrading BUYs execute on swing-owned symbols. Watch for run-log gaps under Workers Paid plan. Monitor the single subrequest error at run 3975 (19:46 UTC, post-upgrade) — if it recurs, the Paid plan may not be fully active.
+
 ## Thursday, August 27, 2026 Control-149 daytrading stale-bar threshold fix - DEPLOY
 
 **Change:** Raised `DAYTRADING_MAX_BAR_STALE_INTERVALS` from 3 to 4 in `src/market-data-quality.ts:64`. This changes the daytrading bar freshness threshold from 15 min (3 x 5-min intervals) to 20 min (4 x 5-min intervals). The Alpaca paper data feed has a consistent ~16-min lag, so bars were ~977s old vs the 900s threshold, causing every daytrading run to skip with `DAYTRADING_BARS_STALE`. The extra interval gives ~4 min of headroom. Crypto threshold unchanged (CRYPTO_MAX_BAR_STALE_INTERVALS=3, 45 min for 15-min candles). No capital cap changed (5000/3700/2000 USD preserved).
