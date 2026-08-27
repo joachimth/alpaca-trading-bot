@@ -1,3 +1,15 @@
+## Thursday, August 27, 2026 Control-137 strict read-only production control - HEALTHY/DEGRADED
+
+Control-137 at ~10:10 UTC (Aug 27 12:10 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/dashboard`, `/api/positions`, `/api/trades`, `/api/runs`, `/api/config`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**Version identity (all aligned):** `/health`=2.6.0. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `41315bf` (Control-136). Caps 5000/3700/2000 USD unchanged (capital-caps.ts).
+
+**Live state:** 28 broker-authoritative positions (all strategy=swing, 0 unattributed, 0 null, 0 daytrading, MV $9,347.28 = 2.52x $3,700 cap, pre-existing fills from Control-101/117 bypass). Equity $98,484.06 (change_today +$66.35, +0.067%), ACTIVE, not blocked. Cash $89,136.77, buying_power $381,020.14, long_market_value $9,347.29, last_equity $98,417.71. Trades window: 30 visible runs (Aug 27 08:11 UTC - heartbeats): 0 errors, 0 CYCLE_LEASE_HELD. No new gaps or lease holds since Aug 26 21:21 UTC. Swing cap enforcement confirmed, re-tag stable since Control-126.
+
+**Trades:** 50 most-recent reviewed. 3 pending sells (720-722: AMD 0.28, LCID 209, NXPI 0.53) open, filled_qty=0, strategy=swing, market day orders awaiting Aug 27 13:30 UTC market open. 1 null-strategy trade persistent (703 PLD) — known observability gap. Swing trades 715-722 all strategy=swing in this window.
+
+**Status:** HEALTHY (code/deploy), DEGRADED (external: swing 2.52x cap from pre-existing fills + crypto fail-closed + historical run-log gaps/lease holds + trade 703 null). Paid-plan upgrade approved, not executed. No deploy needed.
+
 ## Thursday, August 27, 2026 Control-136 strict read-only production control - HEALTHY/DEGRADED
 
 Control-136 at ~08:00 UTC (Aug 27 10:00 +02). Strict GET-only. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.

@@ -1,3 +1,9 @@
+## Thursday, August 27, 2026 Control-137 strict read-only production control - NO DEPLOY
+
+Control-137 at ~10:10 UTC (Aug 27 12:10 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/dashboard`, `/api/positions`, `/api/trades`, `/api/runs`, `/api/config`, `/api/account`) returned HTTP 200. No code defect; no deploy required. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `41315bf` (Control-136). 223 tests / 841 assertions, typecheck clean. Version 2.6.0 aligned. Caps 5000/3700/2000 USD unchanged.
+
+**Live state:** 28 broker-authoritative positions (all strategy=swing, 0 unattributed, MV $9,347.28 = 2.52x $3,700 cap, pre-existing). Equity $98,484.06 (+$66.35, +0.067%), ACTIVE. 30 visible runs (from Aug 27 08:11 UTC): 0 errors, 0 CYCLE_LEASE_HELD, no new gaps or lease holds since Aug 26 21:21 UTC. 3 pending sells (720-722: AMD/LCID/NXPI) open, filled_qty=0, strategy=swing, day orders for Aug 27 13:30 UTC open. 1 null-strategy trade persistent (703 PLD). Swing cap enforcement confirmed (no active bypass). Status: HEALTHY (code/deploy), DEGRADED (external). Paid-plan upgrade approved, not executed. No deploy needed.
+
 ## Thursday, August 27, 2026 Control-136 strict read-only production control - NO DEPLOY
 
 Control-136 at ~08:00 UTC (Aug 27 10:00 +02). Strict GET-only. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No code defect; no deploy required. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `8f25ef4` (Control-135). 223 tests / 841 assertions, typecheck clean. Version 2.6.0 aligned. Caps 5000/3700/2000 USD unchanged.
