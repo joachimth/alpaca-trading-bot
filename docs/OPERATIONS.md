@@ -1,4 +1,14 @@
 
+## Friday, August 28, 2026 Control-153 strict read-only control
+
+Control-153 at ~23:00 UTC Aug 27 (Aug 28 01:00 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
+
+**Verdict:** HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect. No deploy needed. Docs correction applied: README.md and docs/DEPLOYMENT_RUNBOOK.md had stale HEAD references from Control-152 (which edited Control-151 numbers without adding a new entry). Fixed to identify current HEAD.
+
+**New finding — swing_cron run 4020 POSITION_QTY_MISMATCH:** Swing_cron at 22:01 UTC detected broker/D1 quantity mismatches on AVGO (internal 0.35 vs broker 2.35) and RIVN (internal 11.29 vs broker 186.29), caused by pre-fix daytrading buys of swing-held symbols before cc9e813 deployed ~20:00 UTC. Broker-authoritative quantity persisted to D1 (correction). New swing BUY entries blocked (safety). Swing sells submitted for RIVN (186.29) and AEP (1), both accepted, pending fill at market open. LCID/AMD/NXPI stale D1 rows soft-closed. Safety mechanism worked as designed. Should self-resolve at Aug 28 13:30 UTC open when RIVN sell fills.
+
+---
+
 ## Thursday, August 27, 2026 Control-152 strict read-only control
 
 Control-152 at ~22:00 UTC (Aug 28 00:00 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.

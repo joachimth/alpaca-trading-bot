@@ -1,4 +1,28 @@
 
+## Friday, August 28, 2026 Control-153 strict read-only control
+
+Control-153 at ~23:00 UTC Aug 27 (Aug 28 01:00 +02). Strict GET-only. All 8 endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
+
+**Verdict:** HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect. No deploy needed. Docs correction applied: README.md and docs/DEPLOYMENT_RUNBOOK.md had stale HEAD references from Control-152 (which edited Control-151 numbers without adding a new entry). Fixed to identify current HEAD.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0, `package.json`=2.6.0, `src/version.ts` RELEASE_VERSION='2.6.0'. Code `cc9e813` (Control-150, unchanged). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `943dbfd` (Control-152, docs-only). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,427.38, ACTIVE, not PDT, not blocked, +$9.67 today (+0.0098%). Cash $86,761.76 (88% idle), long MV $11,665.38, buying power $370,709. 25 positions ALL swing, 0 unattributed, source=alpaca (broker-authoritative), MV $11,665 (3.15x $3,700 cap). MV inflated by pre-fix daytrading buys of swing-held RIVN/AVGO (19:11-19:46 UTC, before cc9e813 deployed ~20:00 UTC). Fix prevents future occurrences but untested with market open (next: Aug 28 13:30 UTC). broker_ledger_synced_until 2026-08-27T22:51:10Z (fresh).
+
+**New finding — swing_cron run 4020 (22:01 UTC Aug 27):** status=error, 2 errors. POSITION_QTY_MISMATCH detected: AVGO (internal 0.35 vs broker 2.35), RIVN (internal 11.29 vs broker 186.29). Also LCID/AMD/NXPI stale in D1 but absent at broker (soft-closed via BROKER_AUTHORITATIVE_SYNC_ABSENT). New swing BUY entries blocked for this cycle (safety mechanism). Swing sells submitted for RIVN (186.29, trade 740) and AEP (1, trade 739), both accepted, not filled (market closed). Root cause: pre-fix daytrading buys of swing-held AVGO/RIVN before cc9e813 deployed ~20:00 UTC. Broker-authoritative quantity persisted to D1 (correction applied). Safety mechanism worked as designed. Should self-resolve: RIVN sell fills at market open (Aug 28 13:30 UTC) → broker RIVN=0 → mismatch cleared. AVGO D1 already updated to 2.35 (broker-authoritative) → next swing_cron should see matching qty.
+
+**Run-log gap analysis (100-run window 3928-4027):** 2 errors (run 3975 "Too many subrequests" at 19:46 UTC post-Workers-Paid-upgrade, recovered immediately; run 4020 swing_cron POSITION_QTY_MISMATCH, safety block). 2 CYCLE_LEASE_HELD (runs 3961, 3963, self-healed). 2 historical gaps (80 min pre-market 3908→3909, 178 min market-hours 3932→3933, both pre-17:36 UTC recovery). No new gaps since 17:36 UTC (~5h clean). Crypto cadence :08/:38 confirmed (30-min interval, 1-min Cloudflare jitter). Daytrading cron confirmed */5 (MARKET_CLOSED after 20:00 UTC).
+
+**SWING_OWNED_EXCLUDE status:** 0 occurrences across 200 runs. Expected — cc9e813 deployed ~20:00 UTC, market closed at 20:00 UTC. No daytrading market-hours run occurred after deploy. First real test: Aug 28 13:30 UTC open. Source verified: swingOwnedSymbols computed early (src/index.ts:470), BUY exclusion gate (line 931-933), final sync filter (line 1098), D1 sync filter (line 1128).
+
+**Crypto edge-gate:** Fail-closed confirmed. CRYPTO_BARS_STALE (ETHUSD ~22h stale, latestBarAt 2026-08-27T00:30Z), CRYPTO_BARS_UNAVAILABLE (MATICUSD empty), CRYPTO_DATA_INSUFFICIENT (validTA=0, required=3). No rawEdgeBps producer in source (src/technical-analysis.ts:50 defines optional property only). Fee telemetry asOf 2026-08-19, status=unavailable. No crypto BUYs possible.
+
+**Trade/fill lifecycle:** 740 total trades, 738 executed. 3 persistent null-strategy trades (703 PLD, 648 NOW, 645 DUK). Accounting status correct: 2 no_fill (trades 739-740, accepted not filled), 98 filled_lot_exact_unavailable. All gross/fee/net=null (conservative). filled_notional populated for filled trades. estimated_value_basis=order_time_estimate. Last 2 swing sells (739 AEP, 740 RIVN) accepted, pending fill at market open.
+
+**Docs correction applied:** Control-152 commit (943dbfd) edited Control-151 README entry numbers without adding a new Control-152 entry or updating the version identity HEAD reference (still said a5cdb81). DEPLOYMENT_RUNBOOK.md heading said Control-151 but body said Control-152, and docs HEAD said c7ae1f7. Both fixed in this commit.
+
+---
+
 ## Thursday, August 27, 2026 Control-151 strict read-only control
 
 Control-151 at ~21:00 UTC (Aug 27 23:00 +02). Strict GET-only. All 8 endpoints (`/`, `/health`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/config`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
