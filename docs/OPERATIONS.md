@@ -1,4 +1,22 @@
 
+## Thursday, August 27, 2026 Control-152 strict read-only control
+
+Control-152 at ~22:00 UTC (Aug 28 00:00 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
+
+**Verdict:** HEALTHY code/deploy (2.6.0), DEGRADED external. No new defects. No deploy needed. No code/docs/config correction needed.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0, `package.json`=2.6.0, `src/version.ts` RELEASE_VERSION='2.6.0'. Code `cc9e813` (Control-150, unchanged). Docs HEAD `c7ae1f7` (local only — push BLOCKED: github_pat not in vault). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,423.81, ACTIVE, not PDT, not blocked, +$6.10 today (+0.006%). Cash $86,761.76 (88% idle), long MV $11,662.05, buying power $370,736. 25 positions ALL swing, 0 unattributed, source=alpaca (broker-authoritative), MV $11,662 (3.15x $3,700 cap, inflated by pre-fix daytrading buys of swing-held RIVN/AVGO before cc9e813 deployed ~20:00 UTC). broker_ledger_synced_until 2026-08-27T21:51:07Z (fresh, ~9 min old).
+
+**Run analysis (100-run window 3919-4018):** 0 time gaps >12min — continuous cadence. Triggers: cron 60, reconcile_cron 29, crypto_cron 11. 1 error run: 3975 (cron, 19:46 UTC, "Fatal: Too many subrequests by single Worker invocation" — post-Workers-Paid-upgrade ~18:54 UTC, historical, recovered immediately). 2 CYCLE_LEASE_HELD: runs 3961 (daytrading) and 3963 (maintenance) — self-healed. Crypto cadence confirmed at :08/:38 UTC (11 runs across window, all skipped with RECONCILIATION_DEFERRED_TO_MAINTENANCE or REQUIRED_SCHEMA_MISSING). Latest run 4018 at 21:56 UTC — continuous to present.
+
+**Trade analysis (limit=100):** 738 total trades. Strategy breakdown: daytrading 77, swing 20, null 3. 3 persistent null-strategy trades (703, 648, 645). accounting_status: all filled_lot_exact_unavailable (conservative — exact per-fill gross/fee/net unavailable). Recent 15 trades (724-738) all daytrading from Aug 27 19:11-19:46 UTC market window.
+
+**Crypto edge gate:** rawEdgeBps field exists in types (technical-analysis.ts:50, crypto-strategy.ts:29-32) but no producer populates it; prepareCryptoRiskDecision defaults to signal.rawEdgeBps ?? signal.taSignal.rawEdgeBps which is always undefined. Crypto BUYs fail-closed. Fee telemetry stale (asOf 2026-08-19). ETHUSD stale ~22h, MATICUSD empty.
+
+**Follow-ups:** (1) Verify SWING_OWNED_EXCLUDE skips on Aug 28 13:30 UTC market open — cc9e813 deployed but untested with live market. (2) Watch subrequest errors under Workers Paid — run 3975 hit one at 19:46 UTC (~52 min post-upgrade); if it recurs on Aug 28 open, Paid plan may not be fully active/propagated. (3) Monitor run-log gap elimination under Workers Paid (0 new gaps in this window, ~4h20m clean since 17:36 UTC recovery). (4) 3 null-strategy trades remain (fixable by targeted D1 update, pending Joachim's prioritization). (5) Crypto fail-closed (requires code change + deploy for rawEdgeBps producer). (6) Sep 1 D1 enforcement monitoring.
+
 ## Thursday, August 27, 2026 Control-151 strict read-only control
 
 Control-151 at ~21:00 UTC (Aug 27 23:00 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/config`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.

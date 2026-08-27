@@ -3,11 +3,11 @@
 
 Control-151 at ~21:00 UTC (Aug 27 23:00 +02). Strict GET-only. All 8 endpoints (`/`, `/health`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/config`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
 
-**Verdict:** HEALTHY code/deploy (2.6.0), DEGRADED external. No new defects. No deploy needed. No code/docs/config correction needed (docs already identify current HEAD cc9e813, docs HEAD a5cdb81).
+**Verdict:** HEALTHY code/deploy (2.6.0), DEGRADED external. No new defects. No deploy needed. No code/docs/config correction needed (docs identify current HEAD cc9e813, docs HEAD c7ae1f7).
 
 **Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0, `package.json`=2.6.0, `src/version.ts` RELEASE_VERSION='2.6.0'. Code `cc9e813` (Control-150, unchanged). Docs HEAD `a5cdb81` (local only — push BLOCKED: github_pat not in vault). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
 
-**Live state:** Equity $98,421.74, ACTIVE, not PDT, not blocked, +$4.03 today (+0.004%). Cash $86,761.76 (88% idle), long MV $11,659.98, buying power $370,724.99. 25 positions ALL swing, 0 unattributed, source=alpaca (broker-authoritative), MV $11,660 (3.15x $3,700 cap). MV inflated by today's pre-fix daytrading buys of swing-held RIVN/AVGO (19:11-19:46 UTC, before cc9e813 deployed ~20:00 UTC). Fix prevents future occurrences but untested with market open (next: Aug 28 13:30 UTC). broker_ledger_synced_until 2026-08-27T20:51:07Z (fresh).
+**Live state:** Equity $98,423.81, ACTIVE, not PDT, not blocked, +$6.10 today (+0.006%). Cash $86,761.76 (88% idle), long MV $11,662.05, buying power $370,736. 25 positions ALL swing, 0 unattributed, source=alpaca (broker-authoritative), MV $11,662 (3.15x $3,700 cap). MV inflated by pre-fix daytrading buys of swing-held RIVN/AVGO (19:11-19:46 UTC, before cc9e813 deployed ~20:00 UTC). Fix prevents future occurrences but untested with market open (next: Aug 28 13:30 UTC). broker_ledger_synced_until 2026-08-27T21:51:07Z (fresh).
 
 **Run-log gap analysis (100-run window 3899-3998):** 1 error (run 3975 "Too many subrequests" at 19:46 UTC, post-Workers-Paid-upgrade ~18:54 UTC, recovered immediately). 0 CYCLE_LEASE_HELD. 2 historical gaps (80 min pre-market 3908→3909, 178 min market-hours 3932→3933, both pre-17:36 UTC recovery). No new gaps since 17:36 UTC (~3h20m clean). Crypto cadence :07/:37 confirmed. Daytrading cron confirmed */5 (MARKET_CLOSED after 20:00 UTC).
 

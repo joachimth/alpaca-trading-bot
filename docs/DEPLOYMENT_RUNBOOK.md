@@ -1,7 +1,8 @@
 
 ## Thursday, August 27, 2026 Control-151 strict read-only control
 
-Control-151 at ~21:00 UTC (Aug 27 23:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No new defects, no deploy needed, no correction needed. Code `cc9e813` (Control-150, unchanged). Docs HEAD `a5cdb81` (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+Control-152 at ~22:00 UTC (Aug 28 00:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No new defects, no deploy needed, no correction needed. Code `cc9e813` (Control-150, unchanged). Docs HEAD `c7ae1f7` (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+**Live state:** Equity $98,423.81, +$6.10 today, ACTIVE, not PDT. 25 positions all swing, 0 unattributed, MV $11,662 (3.15x $3,700 cap, inflated by pre-fix daytrading buys of swing-held RIVN/AVGO before cc9e813 deployed ~20:00 UTC). Cash $86,762 (88% idle). broker_ledger fresh 21:51Z. 100-run window 3919-4018: 0 time gaps, 1 error (run 3975 subrequest, historical), 2 CYCLE_LEASE_HELD (self-healed). Crypto cadence :08/:38 confirmed, all skipped.
 
 **Live state:** Equity $98,421.74, +$4.03 today, ACTIVE, not PDT. 25 positions all swing, 0 unattributed, MV $11,660 (3.15x $3,700 cap, inflated by pre-fix daytrading buys of swing-held RIVN/AVGO before cc9e813 deployed ~20:00 UTC). Cash $86,762 (88% idle). broker_ledger fresh 20:51Z.
 
