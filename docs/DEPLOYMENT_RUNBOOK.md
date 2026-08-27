@@ -1,3 +1,15 @@
+## Thursday, August 27, 2026 Control-145 strict read-only production control - NO DEPLOY
+
+Control-145 at ~16:00 UTC (Aug 27 18:00 +02). Strict GET-only. All eight endpoints returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**NEW FINDING: 80-min run-log delivery gap (runs 3908 to 3909).** Time-gap analysis across all trigger types revealed 10 scheduled runs missing from the log between 12:11:13 and 13:31:12 UTC (Aug 27): 8 reconcile_cron and 2 crypto_cron. Silent-throw Free-tier pattern. Pre-market, no trading impact. Control-144 missed this because it did not perform time-gap analysis across all trigger types. Approved paid-plan upgrade remains the remedy.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `a7165ca` (Control-144). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,492.77, ACTIVE, not PDT, not blocked. 25 positions all swing, MV $8,062.58 (2.18x cap). 100 runs (3833-3932): 0 errors, 0 lease holds, 1 run-log gap (80 min, 10 missing runs, pre-market). No deploy needed. Code 22b3dba unchanged.
+
+---
+
 ## Thursday, August 27, 2026 Control-144 strict read-only production control - NO DEPLOY
 
 Control-144 at ~15:00 UTC (Aug 27 17:00 +02). Strict GET-only. All eight endpoints returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
