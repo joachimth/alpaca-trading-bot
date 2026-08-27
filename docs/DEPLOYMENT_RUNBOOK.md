@@ -1,3 +1,7 @@
+## Thursday, August 27, 2026 Control-131 strict read-only production control - NO DEPLOY
+
+Control-131 at ~03:00 UTC (Aug 27 05:00 +02). Strict GET-only. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No code defect; no deploy required. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `cb51307` (Control-130, in README). 223 tests / 841 assertions, typecheck clean. Version 2.6.0 aligned. Caps 5000/3700/2000 USD unchanged.
+
 ## Thursday, August 27, 2026 Control-130 strict read-only production control - NO DEPLOY
 
 Control-130 at ~02:00 UTC (Aug 27 04:00 +02). Strict GET-only. All six endpoints HTTP 200. No code defect; no deploy required. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `f5d9965` (Control-129, in README). 223 tests / 841 assertions, typecheck clean. Version 2.6.0 aligned. Caps 5000/3700/2000 USD unchanged. (Note: Controls 122-129 were documented in README.md only; this entry resumes RUNBOOK coverage.)
