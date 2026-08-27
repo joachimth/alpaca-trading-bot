@@ -1658,3 +1658,15 @@ Follow-up: 13 D1 position re-tag at 22:00 UTC swing_cron; rawEdgeBps producer; D
 **Key finding: swing_cron 22:01:28 UTC re-tagged all 13 unattributed fills (trades 707-719) as strategy='swing' in D1.** Run 3794 (31.8s, 0 errors). All 28 positions now strategy=swing (0 unattributed). This resolves the Control-117 re-tagging thread from Controls 117-125. Swing cap enforcement confirmed working (CAPITAL_CAP blocked LLY: "$9,337.83 allocated against $3,700.00"). CYCLE_LEASE_HELD streak 20:00-21:10 self-healed by 21:16. No deployment, migration, trigger, order, cancel, close, replace, retry, or broker mutation was performed.
 
 Follow-up: rawEdgeBps producer; D1 Sep 1 enforcement limits; github_pat re-add; run-log gaps + lease streaks (paid upgrade); bar freshness; trade 703 null strategy.
+
+## Control-128 release gate - August 27, 2026 00:00 UTC
+
+**No deploy required.** Code 22b3dba unchanged since Control-117. All version surfaces aligned at 2.6.0. 223 tests / 841 assertions, typecheck clean. All six GET endpoints HTTP 200, 0 errors. No code defect found. Read-only control only — no mutation endpoints called.
+
+**Verified:** /health=2.6.0, release_version=2.6.0, config.version=2.6.0. 28 positions all strategy=swing, 0 unattributed. Caps 5000/3700/2000 unchanged. 4 schedules confirmed in wrangler.toml. Equity $98,490.24 ACTIVE. broker_ledger_synced_until 23:51 UTC.
+
+**Delivery:** 30 visible runs (3781-3810, 21:21-00:01 UTC), 0 errors, 0 CYCLE_LEASE_HELD, no gaps in this window. Daytrading MARKET_CLOSED. Swing 22:01:28, 3 sells submitted. Crypto :07/:37 fail-closed. Reconciliation every 10 min.
+
+**Known DEGRADED:** Swing MV 2.53x cap (pre-existing bypass fills), crypto fail-closed (no rawEdgeBps, stale data/fees), trade 703 null, historical run-log gaps, github_pat missing (docs push blocked). Paid-plan upgrade approved, not executed.
+
+Follow-up: rawEdgeBps producer; D1 Sep 1 enforcement; github_pat; paid-plan upgrade; bar freshness; trade 703 null strategy.

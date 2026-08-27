@@ -1,3 +1,27 @@
+## Thursday, August 27, 2026 Control-128 strict read-only production control - HEALTHY/DEGRADED
+
+Control-128 at ~00:00 UTC (Aug 27 02:00 +02). Strict GET-only. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `25361c1` (Control-127). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+**Account:** ACTIVE, not blocked. Equity $98,490.24, last_equity $98,524.98, change_today -$34.74 (-0.035%). Cash $89,136.78, buying_power $381,031.76, long_market_value $9,353.46. broker_ledger_synced_until 2026-08-26T23:51:10Z.
+
+**Positions:** 28 broker-authoritative positions, ALL strategy=swing, 0 unattributed. Total MV $9,353.46 (2.53x $3,700 swing cap — pre-existing Control-101/117 bypass fills, no new entries allowed). Swing cap enforcement confirmed. metadata_updated_at 2026-08-26 22:01:xx for all 28 (swing_cron re-tag stable). 3 pending sells (trades 720-722: AMD 0.28, LCID 209, NXPI 0.53) remain accepted, no_fill, day orders for next market open Aug 27 13:30 UTC.
+
+**Schedules (wrangler.toml):** daytrading `*/5 13-21 * * 1-5`, swing `0 22 * * 1-5`, crypto `7-59/30 * * * *`, reconciliation `*/10 * * * *`. All four confirmed.
+
+**Delivery (30 visible runs, 3781-3810, 21:21 UTC Aug 26 to 00:01 UTC Aug 27):** 0 errors, 0 CYCLE_LEASE_HELD, NO delivery gaps in this window. Daytrading: 8 runs (3781-3792) MARKET_CLOSED, 5-min cadence 21:21-21:56 UTC. Swing: 1 run (3794) at 22:01:28 UTC, skipped, 31.8s, 0 errors — re-tag stable, 3 sells submitted. Crypto: 5 runs (3786, 3795, 3799, 3803, 3807) at :07/:37 cadence, all RECONCILIATION_DEFERRED_TO_MAINTENANCE, CRYPTO_BARS_UNAVAILABLE (MATICUSD empty), CRYPTO_BARS_STALE (AVAXUSD ~22h), CRYPTO_DATA_INSUFFICIENT (validTA=0, required=3), 0 errors. Reconciliation: 16 runs MAINTENANCE_ONLY every 10 min, brokerOrders=3 (the 3 pending sells), 0 lookup failures, no gaps. Historical run-log gaps from earlier Aug 26 market hours (109.6/82.8/12.9 min) remain outside this window.
+
+**Crypto edge-gate:** Fail-closed confirmed. No rawEdgeBps producer in technical-analysis.ts; crypto BUYs always blocked at the calibrated-edge gate. Fee telemetry stale (cryptoFeeAsOf 2026-08-19, status=insufficient). EQUITY_DIRECTION_FALLBACK fires each crypto cycle (broker change_today_pct=0, equity delta used for observability only).
+
+**Trade/fill lifecycle:** Trades 720-722 (sells) show accounting_status=no_fill, gross/fee/net=null, fee_attribution=none-recorded — conservative. Trades 707-719 (filled swing BUYs) show filled_lot_exact_unavailable, gross/fee/net=null — conservative, exact per-fill economics unavailable. Trade 703 (PLD) strategy=null persistent (observability gap, outside current trades page).
+
+**Fee accounting:** Conservative. Aggregate fees $272.82 total ($269.11 crypto, $3.71 regulatory), all unattributed. No per-trade lot-exact attribution forced.
+
+**Status: HEALTHY (code/deploy), DEGRADED (external).** Degraded reasons: swing 2.53x cap (pre-existing, no bypass), crypto fail-closed (no edge producer, stale data/fees), trade 703 strategy=null, historical run-log gaps, paid-plan upgrade approved but not executed. No code defect, no deploy needed.
+
+---
+
 ## Thursday, August 27, 2026 Control-127 strict read-only production control - HEALTHY/DEGRADED
 
 Control-127 at ~23:00 UTC (Aug 27 01:00 +02). Strict GET-only. All six endpoints (`/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
