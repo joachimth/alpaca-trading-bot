@@ -1,3 +1,15 @@
+## Thursday, August 27, 2026 Control-146 strict read-only production control - NO DEPLOY
+
+Control-146 at ~17:00 UTC (Aug 27 19:00 +02). Strict GET-only. All eight endpoints returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
+
+**NEW FINDING: ~142-min run-log delivery gap during market hours (run 3932 newest at 14:38:05 UTC, query at ~17:00 UTC).** ~46 scheduled runs missing (~28 daytrading, ~14 reconcile, ~4 crypto). Silent-throw Free-tier pattern, now during market hours, much larger than the 80-min pre-market gap Control-145 found. broker_ledger_synced_until frozen at 14:41:07Z. No trades missed, but observability and reconciliation severely degraded. Paid-plan upgrade increasingly urgent.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0. Code `22b3dba` (unchanged since Control-117). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `658240f` (Control-145). 223 tests / 841 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,484.25, ACTIVE, not PDT, not blocked. 25 positions all swing, MV $8,056.93 (2.18x cap). 100 runs (3833-3932): 0 errors, 0 lease holds, 2 gaps (80 min pre-market, ~142 min market-hours). No deploy needed. Code 22b3dba unchanged.
+
+---
+
 ## Thursday, August 27, 2026 Control-145 strict read-only production control - NO DEPLOY
 
 Control-145 at ~16:00 UTC (Aug 27 18:00 +02). Strict GET-only. All eight endpoints returned HTTP 200, 0 errors. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called. No code defect found; no deploy required.
