@@ -214,7 +214,7 @@ export default {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'swing_cron', runSwingCycle));
     } else if (event.cron === '7-59/30 * * * *') {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'crypto_cron', runCryptoCycle));
-    } else if (event.cron === '*/5 13-21 * * 1-5') {
+    } else if (event.cron === '*/5 13-21 * * 1-5' || event.cron === '*/5 13,14,15,16,17,18,19,20,21 * * 1-5' || (cron.includes('13') && cron.includes('21') && cron.includes('*/5'))) {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'cron', runTradingCycleWithLease));
     } else if (event.cron === '*/10 * * * *') {
       ctx.waitUntil(runScheduledMaintenance(env, 'reconcile_cron'));
