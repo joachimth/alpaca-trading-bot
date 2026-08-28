@@ -212,10 +212,10 @@ export default {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'swing_cron', runSwingCycle));
     } else if (event.cron === '7-59/30 * * * *') {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'crypto_cron', runCryptoCycle));
-    } else if (event.cron === '*/5 13-21 * * 1-5' || event.cron === '*/5 13,14,15,16,17,18,19,20,21 * * 1-5' || (cron.includes('*/5') && cron.includes('13') && cron.includes('21')) || (cron.includes('*/5') && cron.includes('1-5') && !cron.includes('22') && !cron.includes('7-59') && !cron.includes('*/10'))) {
-      // Daytrading cron. The internal MARKET_CLOSED check gates execution
-      // to market hours (13:30-20:00 UTC). Flexible matching handles
-      // Cloudflare cron normalization variants.
+    } else if (event.cron === '1-59/5 * * * *' || event.cron === '*/5 13-21 * * 1-5' || event.cron === '*/5 13,14,15,16,17,18,19,20,21 * * 1-5' || (cron.includes('*/5') && cron.includes('13') && cron.includes('21')) || (cron.includes('1-59/5') && !cron.includes('22'))) {
+      // Daytrading cron: 1-59/5 * * * * (every 5 min, offset to avoid */10 overlap).
+      // The internal MARKET_CLOSED check gates execution to market hours (13:30-20:00 UTC).
+      // Flexible matching handles Cloudflare cron normalization variants.
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'cron', runTradingCycleWithLease));
     } else if (event.cron === '*/10 * * * *') {
       ctx.waitUntil(runScheduledMaintenance(env, 'reconcile_cron'));
