@@ -1,4 +1,14 @@
 
+## Friday, August 28, 2026 Control-163 strict read-only control
+
+Control-163 at ~08:00 UTC Aug 28. Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed, no correction needed. Code `b58e7ea` (Control-162 crypto edge producer, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+**NEW finding: ~2h10m run-log delivery gap (05:01-07:11 UTC Aug 28).** Run 4076 (05:01:11Z) → 4077 (07:11:11Z): IDs consecutive, ~17 scheduled runs missing (13 reconcile + 4 crypto). First significant gap since Workers Paid upgrade. Before gap: reconcile_cron durations ~19-20s (slow for maintenance-only). After Control-162 deploy at ~07:10Z: durations dropped to ~2s. Deploy appears to have reset accumulated D1/Worker state pressure causing silent throws. Runs 4077-4083 (07:11-08:00Z) clean and fast. Follow-up: monitor whether ~20s durations build up again over hours. Possible D1 free-tier pressure preview before Sep 1 enforcement.
+
+**Version identity:** /health=2.6.0, release_version=2.6.0, config.version=2.6.0, package.json=2.6.0, src/version.ts=2.6.0. Code b58e7ea. Four schedules: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,409.41, ACTIVE. 25 positions all swing, MV $11,648 (3.15x $3,700 cap), broker-authoritative. RIVN sell 186.29 + AEP sell 1 unfilled (status "new"), pending 13:30 UTC open. SWING_OWNED_EXCLUDE 0 occurrences (first test 13:30 UTC open). Crypto edge producer deployed but bars stale. 3 null trades persistent. 98 filled trades gross/fee/net=null (conservative).
+
 ## Friday, August 28, 2026 Control-162 crypto edge producer deploy
 
 **Change:** Added `computeCalibratedEdgeBps()` in `src/technical-analysis.ts` — computes raw edge from price dislocation (short-term reversal, VWAP reversion, Bollinger dislocation), not confidence. Wired into `generateSignal()` return. Unblocks crypto BUYs that were 100% fail-closed (no rawEdgeBps producer existed). 224 tests / 845 assertions pass, typecheck clean. Caps 5000/3700/2000 USD unchanged. Deploy via direct Cloudflare API PUT. Monitor first crypto BUYs and fee telemetry freshness.

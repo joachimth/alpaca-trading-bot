@@ -1,4 +1,12 @@
 
+## Friday, August 28, 2026 Control-163 strict read-only control
+
+Control-163 at ~08:00 UTC Aug 28 (Aug 28 10:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed. Code `b58e7ea` (Control-162, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+**NEW: ~2h10m run-log gap (05:01-07:11 UTC Aug 28).** Run 4076 (05:01:11Z) → 4077 (07:11:11Z), IDs consecutive, ~17 missing scheduled runs. First significant gap since Workers Paid upgrade. Before gap: reconcile durations ~19-20s. After Control-162 deploy ~07:10Z: durations dropped to ~2s. Deploy appears to have cleared accumulated D1/Worker state pressure. Runs 4077-4083 clean and fast. Follow-up: monitor for ~20s duration buildup recurrence. Possible D1 free-tier pressure preview before Sep 1 enforcement.
+
+**Live state:** Equity $98,409.41 (-$64.86 today), ACTIVE. 25 positions all swing, MV $11,648 (3.15x cap), source=alpaca (broker-authoritative, 08:00:15Z). Cash $86,761 (88%). RIVN sell 186.29 (trade 740) + AEP sell 1 (trade 739) status "new", unfilled — pending Aug 28 13:30 UTC open. SWING_OWNED_EXCLUDE 0 occurrences (first test 13:30 UTC open). Crypto edge producer deployed (b58e7ea) but all runs skip at CRYPTO_BARS_STALE/UNAVAILABLE before edge gate. 3 null trades persistent (703/648/645). 98 filled trades gross/fee/net=null (conservative). broker_ledger synced until 07:50:47Z.
+
 ## Friday, August 28, 2026 Control-162 crypto edge producer deploy
 
 **Change:** Added `computeCalibratedEdgeBps()` function to `src/technical-analysis.ts` that computes a calibrated gross edge in basis points from actual price dislocation metrics. The function uses three signals: short-term reversal (Jegadeesh/Lehmann), VWAP reversion, and Bollinger Band dislocation. It takes the max of the three (conservative, avoids double-counting correlated signals) with a 0.3 reversion factor (captures 30% of observed dislocation). The edge is wired into `generateSignal()` return as `rawEdgeBps`, making it available to both crypto and daytrading paths. Crypto was previously 100% fail-closed because no code ever populated `rawEdgeBps` — the field existed in the `TASignal` interface but `generateSignal()` never set it. With `requireCalibratedEdge: true` and `minEdgeAfterCosts: 8`, every crypto BUY was blocked with `EDGE_CALIBRATION_UNAVAILABLE`.
