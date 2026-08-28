@@ -1,4 +1,20 @@
 
+## Friday, August 28, 2026 Control-166 strict read-only control
+
+Control-166 at ~11:00 UTC Aug 28 (Aug 28 13:00 +02). Strict GET-only. All 8 endpoints 200 (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`; `/api/equity`, `/api/fees`, `/api/snapshot` 404 as expected). HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed, no correction needed. Code `b58e7ea` (Control-162 crypto edge producer, unchanged). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged. Four schedules confirmed: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Run-log:** 130-min gap (4076→4077, 05:01-07:11 UTC) unchanged from Control-163 — sole historical gap. Post-gap CLEAN: runs 4077-4107 (07:11-11:00 UTC, ~3h49m, 31 runs, 0 new gaps). Reconcile durations holding ~2s (range 1667-2203ms) since Control-162 deploy cleared the ~20s pressure — now ~3h40m stable (up from ~3h at Control-165), pre-gap ~20s pressure has NOT returned. Crypto cadence :07/:37 confirmed (7 runs, all skip at CRYPTO_BARS_STALE/UNAVAILABLE/DATA_INSUFFICIENT). 0 CYCLE_LEASE_HELD, 0 errors across all 50 runs. 2 known historical errors (4020 safety block, 3975 subrequest) not in window.
+
+**Live state:** Equity $98,429.10, -$45.17 today (-0.046%), ACTIVE, not PDT, not blocked. Cash $86,761.47 (88% idle), long MV $11,667.63, buying power $370,687.66. 25 positions ALL swing, 0 unattributed, metadata_source=d1, metadata_updated_at 2026-08-27 22:01:xx. Swing MV $11,667.63 (3.15x $3,700 cap) — still inflated by pre-fix daytrading buys RIVN 186.29 (MV ~$3,095) + AVGO 2.35 (MV ~$876). broker_ledger synced until 10:50:47Z (fresh).
+
+**SWING_OWNED_EXCLUDE (cc9e813):** 0 occurrences. No daytrading_cron runs in window (daytrading schedule `*/5 13-21 * * 1-5` hasn't fired today — 11:00 UTC is before 13:00 UTC). First real test remains Aug 28 13:30 UTC open. Must confirm daytrading does NOT buy swing-held symbols and daytrading gross stays under $5,000 cap.
+
+**Crypto (b58e7ea):** Edge producer deployed and wired (`computeCalibratedEdgeBps` in `technical-analysis.ts:414`, wired into `generateSignal` at line 604). All crypto runs still skip at `CRYPTO_BARS_STALE` (SOLUSD, count 10, latest bar 2026-08-27T12:30Z, ~22h stale) and `CRYPTO_BARS_UNAVAILABLE` (MATICUSD, empty) before reaching the edge gate. Fee telemetry stale (asOf Aug 19, status unavailable). Edge producer cannot be exercised until bar freshness resolves.
+
+**Trades:** 740 total (738 executed). Last 100: 75 daytrading, 22 swing, 3 null-strategy (703 PLD, 648 NOW, 645 DUK) — persistent, known. RIVN sell 186.29 (trade 740) + AEP sell 1 (trade 739) status="new", filled_qty=0, pending Aug 28 13:30 UTC open. All filled trades accounting_status=filled_lot_exact_unavailable, gross/fee/net=null (conservative).
+
+**Follow-ups:** SWING_OWNED_EXCLUDE + RIVN/AEP fills at 13:30 UTC open, reconcile duration ~20s buildup recurrence monitoring, D1 Sep 1 enforcement, crypto bar/fee freshness, github_pat blocker.
+
 ## Friday, August 28, 2026 Control-165 strict read-only control
 
 Control-165 at ~10:00 UTC Aug 28 (Aug 28 12:00 +02). Strict GET-only. All 8 endpoints 200 (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`; `/api/equity`, `/api/fees`, `/api/snapshot` 404 as expected). HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed, no correction needed. Code `b58e7ea` (Control-162 crypto edge producer, unchanged). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged. Four schedules confirmed: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.

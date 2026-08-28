@@ -1,4 +1,12 @@
 
+## Friday, August 28, 2026 Control-166 strict read-only control
+
+Control-166 at ~11:00 UTC Aug 28. Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed, no correction needed. Code `b58e7ea` (Control-162, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.
+
+**Run-log:** 130-min gap (4076→4077, 05:01-07:11 UTC) unchanged from Control-163. Post-gap CLEAN: runs 4077-4107 (~3h49m, 0 new gaps). Reconcile durations holding ~2s (range 1667-2203ms) ~3h40m stable — pre-gap ~20s pressure has NOT returned. Crypto cadence :07/:37 confirmed. 0 CYCLE_LEASE_HELD, 0 errors. 2 known historical errors (4020, 3975).
+
+**Live state:** Equity $98,429.10 (-$45.17 today), ACTIVE. 25 positions all swing, MV $11,667.63 (3.15x cap), metadata_source=d1, updated 22:01 UTC Aug 27. Cash $86,761 (88%). RIVN sell 186.29 (trade 740) + AEP sell 1 (trade 739) status "new", unfilled — pending Aug 28 13:30 UTC open. SWING_OWNED_EXCLUDE 0 occurrences (first test 13:30 UTC open). Crypto edge producer deployed (b58e7ea) but all runs skip at CRYPTO_BARS_STALE (SOLUSD ~22h stale) / UNAVAILABLE (MATICUSD empty) before edge gate. Fee telemetry stale (Aug 19). 3 null trades persistent (703/648/645). 98 filled trades gross/fee/net=null (conservative). broker_ledger synced until 10:50:47Z.
+
 ## Friday, August 28, 2026 Control-165 strict read-only control
 
 Control-165 at ~10:00 UTC Aug 28. Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed, no correction needed. Code `b58e7ea` (Control-162, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.
