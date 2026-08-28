@@ -1,4 +1,24 @@
 
+## Friday, August 28, 2026 Control-158 strict read-only control
+
+Control-158 at ~04:00 UTC Aug 28 (Aug 28 06:00 +02). Strict GET-only. All 8 endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
+
+**Verdict:** HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect. No deploy needed. No correction needed. Steady state, unchanged from Control-157.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0, `package.json`=2.6.0, `src/version.ts` RELEASE_VERSION='2.6.0'. Code `cc9e813` (Control-150, unchanged). No source changes since cc9e813 (only docs commits). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `54995f1` (Control-157). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Account ACTIVE, not PDT, not blocked. Equity $98,434.56, cash $86,761.76 (88% idle), long MV $11,672.80, change_today +$16.85 (+0.017%). Latest snapshot (run 1079, 03:37 UTC): equity $98,446.90, 25 positions. Equity direction positive. 25 positions ALL swing, 0 unattributed, source=alpaca (broker-authoritative). RIVN qty 186.29, AVGO qty 2.35, AEP qty 1 (all swing, updated 2026-08-27 22:01 UTC). Swing MV $11,673 (3.15x $3,700 cap, pre-existing bypass fills, no active bypass).
+
+**100-run window 3968-4067 (Aug 27 19:26 - Aug 28 03:51 UTC):** 0 gaps >15 min (~11h clean since 17:36 UTC recovery). Triggers: reconcile_cron 51, crypto_cron 17, cron (daytrading) 31, swing_cron 1. 2 known errors: run 3975 subrequest (historical, 19:46 UTC Aug 27), run 4020 swing_cron POSITION_QTY_MISMATCH (22:01 UTC, safety block worked, pre-fix daytrading buys). 0 CYCLE_LEASE_HELD in window. SWING_OWNED_EXCLUDE 0 occurrences (deployed ~20:00 UTC Aug 27, market closed — first real test Aug 28 13:30 UTC open).
+
+**Crypto cadence:** 17 crypto_cron runs, every ~30 min at :08/:38 (1-min Cloudflare jitter from :07/:37). 0 gaps >40 min. All skipped (RECONCILIATION_DEFERRED_TO_MAINTENANCE or crypto edge-gate fail-closed). No rawEdgeBps producer in technical-analysis.ts; crypto BUYs remain fail-closed.
+
+**Trade/fill lifecycle:** 100 trades (newest 740 RIVN sell 186.29 swing accepted, oldest 640 daytrading buy Aug 20). RIVN sell 186.29 (trade 740) + AEP sell 1 (trade 739) accepted, pending fill at Aug 28 13:30 UTC open. 3 null-strategy trades persistent (703 PLD, 648 NOW, 645 DUK). All trades gross/fee/net=null, accounting_status=filled_lot_exact_unavailable (conservative — broker fee data aggregate-only).
+
+**DEGRADED external:** (1) Swing MV 3.15x cap from pre-existing bypass fills, no active bypass. (2) 3 null-strategy trades persistent (703/648/645). (3) Crypto fail-closed: no rawEdgeBps producer, bar staleness, fee telemetry stale Aug 19. (4) All trades gross/fee/net=null (conservative). (5) 2 known errors (3975 subrequest historical, 4020 swing qty mismatch safety block). (6) SWING_OWNED_EXCLUDE not yet exercised (first test Aug 28 13:30 UTC open). (7) RIVN/AEP sells pending fill.
+
+**Follow-ups:** Verify SWING_OWNED_EXCLUDE skips + RIVN/AEP sell fills + qty mismatch resolution at Aug 28 13:30 UTC open. Watch subrequest errors under Workers Paid. Sep 1 D1 enforcement monitoring. Crypto rawEdgeBps producer (code change + deploy). 3 null trades (D1 update, pending Joachim).
+
 ## Friday, August 28, 2026 Control-157 strict read-only control
 
 Control-157 at ~03:00 UTC Aug 28 (Aug 28 05:00 +02). Strict GET-only. All 8 endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200. `/api/snapshot`, `/api/equity`, `/api/fees` returned 404 (known, not implemented). No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
