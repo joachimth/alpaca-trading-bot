@@ -1,4 +1,8 @@
 
+## Friday, August 28, 2026 Control-156 strict read-only control
+
+Control-156 at ~02:00 UTC Aug 28 (Aug 28 04:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed, no correction needed. Steady state, unchanged from Control-155. Code `cc9e813` (Control-150, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). Prior docs HEAD `5491090` (Control-155). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged. Equity $98,442.52, 25 positions all swing MV $11,681 (3.16x cap), 0 unattributed, broker-authoritative. 100-run window 3952-4051: 0 gaps >15 min, 2 known errors (3975 subrequest historical, 4020 swing qty mismatch safety block), 2 CYCLE_LEASE_HELD self-healed. SWING_OWNED_EXCLUDE 0 occurrences (first test Aug 28 13:30 UTC open). RIVN sell 186.29 (trade 740) + AEP sell 1 (trade 739) accepted not filled. Crypto fail-closed. 3 null trades persistent.
+
 ## Friday, August 28, 2026 Control-155 strict read-only control
 
 Control-155 at ~01:00 UTC Aug 28 (Aug 28 03:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed, no correction needed. Steady state, unchanged from Control-154. Code `cc9e813` (Control-150, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). Prior docs HEAD `38647a3` (Control-154). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.

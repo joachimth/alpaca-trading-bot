@@ -1,4 +1,16 @@
 
+## Friday, August 28, 2026 Control-156 strict read-only control
+
+Control-156 at ~02:00 UTC Aug 28 (Aug 28 04:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed, no correction needed. Steady state, unchanged from Control-155. Code `cc9e813` (Control-150, unchanged). No source changes since cc9e813. Docs HEAD: this commit (local only, push blocked github_pat). Prior docs HEAD `5491090` (Control-155). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged. Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,442.52, ACTIVE, not PDT, not blocked, +$24.81 today (+0.025%). Cash $86,761.76 (88% idle), long MV $11,680.76, buying power $370,744.25. 25 positions ALL swing, 0 unattributed, source=alpaca (broker-authoritative), MV $11,681 (3.16x $3,700 cap, inflated by pre-fix daytrading buys of swing-held RIVN/AVGO before cc9e813 deployed ~20:00 UTC Aug 27). broker_ledger_synced_until 2026-08-28T01:51:09Z (fresh). Fee summary: cryptoFeeTelemetryStatus=unavailable, cryptoFeeAsOf 2026-08-19, unattributedUsd $272.82 (conservative).
+
+**100-run window 3952-4051 (18:31 UTC Aug 27 - 01:51 UTC Aug 28):** 0 gaps >15 min (~7h20m clean since 17:36 UTC recovery). 2 errors (both known): run 3975 subrequest (historical pre-Workers-Paid), run 4020 swing_cron POSITION_QTY_MISMATCH (safety block, pre-fix daytrading buys). 2 CYCLE_LEASE_HELD (self-healed). Triggers: reconcile_cron 43, crypto_cron 15, swing_cron 1, cron 41. Crypto cadence :08/:38, all skipped (LINKUSD stale 79684s, MATICUSD empty, validTA=0). SWING_OWNED_EXCLUDE 0 occurrences (first test Aug 28 13:30 UTC open).
+
+**Pending fills:** RIVN sell 186.29 (trade 740), AEP sell 1 (trade 739), both accepted not filled. First fill: Aug 28 13:30 UTC open. RIVN fill should clear POSITION_QTY_MISMATCH.
+
+**Persistent (unchanged):** 3 null-strategy trades (703/648/645). Crypto fail-closed (no rawEdgeBps producer, fee telemetry stale Aug 19, bars stale). Follow-ups: SWING_OWNED_EXCLUDE + sell fills at open, subrequest watch, Sep 1 D1 enforcement, crypto rawEdgeBps producer, null trades D1 update.
+
 ## Friday, August 28, 2026 Control-155 strict read-only control
 
 Control-155 at ~01:00 UTC Aug 28 (Aug 28 03:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed, no correction needed. Steady state, unchanged from Control-154. Code `cc9e813` (Control-150, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). Prior docs HEAD `38647a3` (Control-154). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged. Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.

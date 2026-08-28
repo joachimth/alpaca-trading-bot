@@ -1,4 +1,22 @@
 
+## Friday, August 28, 2026 Control-156 strict read-only control
+
+Control-156 at ~02:00 UTC Aug 28 (Aug 28 04:00 +02). Strict GET-only. All 8 endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
+
+**Verdict:** HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect. No deploy needed. No correction needed. Steady state, unchanged from Control-155.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0, `package.json`=2.6.0, `src/version.ts` RELEASE_VERSION='2.6.0'. Code `cc9e813` (Control-150, unchanged). No source changes since cc9e813 (only docs commits). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `5491090` (Control-155). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,442.52, ACTIVE, not PDT, not blocked, +$24.81 today (+0.025%). Cash $86,761.76 (88% idle), long MV $11,680.76, buying power $370,744.25. 25 positions ALL swing, 0 unattributed, source=alpaca (broker-authoritative), MV $11,681 (3.16x $3,700 cap). MV still inflated by pre-fix daytrading buys of swing-held RIVN/AVGO (19:11-19:46 UTC, before cc9e813 deployed ~20:00 UTC Aug 27). broker_ledger_synced_until 2026-08-28T01:51:09Z (fresh, ~seconds old at fetch). Fee summary: cryptoFeeTelemetryStatus=unavailable, cryptoFeeAsOf 2026-08-19, unattributedUsd $272.82 (conservative, unattributed stays unattributed).
+
+**100-run window 3952-4051 (18:31 UTC Aug 27 - 01:51 UTC Aug 28):** 0 gaps >15 min (~7h20m clean since 17:36 UTC recovery). 2 errors (both known): run 3975 subrequest (historical, 19:46 UTC, pre-Workers-Paid), run 4020 swing_cron POSITION_QTY_MISMATCH (22:01 UTC, safety block worked, pre-fix daytrading buys AVGO/RIVN qty mismatch, broker-authoritative correction applied). 2 CYCLE_LEASE_HELD (self-healed). Triggers: reconcile_cron 43, crypto_cron 15, swing_cron 1, cron (daytrading) 41. Crypto cadence :08/:38 (1-min Cloudflare jitter from :07/:37), all skipped (CRYPTO_BARS_STALE LINKUSD 79684s vs 2700s threshold, CRYPTO_BARS_UNAVAILABLE MATICUSD empty, CRYPTO_DATA_INSUFFICIENT validTA=0). SWING_OWNED_EXCLUDE 0 occurrences (deployed ~20:00 UTC, market closed — first real test Aug 28 13:30 UTC open).
+
+**Pending fills:** RIVN sell 186.29 (trade 740, strategy=swing, accepted not filled), AEP sell 1 (trade 739, strategy=swing, accepted not filled). Both submitted by swing_cron run 4020 to clear pre-fix qty mismatches. First fill opportunity: Aug 28 13:30 UTC market open. RIVN sell fill should clear POSITION_QTY_MISMATCH (broker RIVN→0, mismatch resolved).
+
+**Persistent items (unchanged):** 3 null-strategy trades (703 PLD, 648 NOW, 645 DUK) — D1 update pending Joachim. Crypto fail-closed: no rawEdgeBps producer in source, fee telemetry stale Aug 19, ETHUSD/LINKUSD bars stale ~22h, MATICUSD empty. Crypto edge-gate wiring confirmed: crypto_min_edge_after_costs=8, but calibrated rawEdgeBps never produced, so BUYs always fail-closed.
+
+**Follow-ups (unchanged):** (1) Verify SWING_OWNED_EXCLUDE skips + RIVN/AEP sell fills + qty mismatch resolution at Aug 28 13:30 UTC open. (2) Watch subrequest errors under Workers Paid (run 3975 was pre-upgrade historical; no new subrequest errors since). (3) Sep 1 D1 enforcement monitoring. (4) Crypto rawEdgeBps producer (code change + deploy, not yet started). (5) 3 null-strategy trades D1 update (pending Joachim).
+
 ## Friday, August 28, 2026 Control-155 strict read-only control
 
 Control-155 at ~01:00 UTC Aug 28 (Aug 28 03:00 +02). Strict GET-only. All 8 endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
