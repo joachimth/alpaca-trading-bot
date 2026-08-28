@@ -357,7 +357,22 @@ async function runTradingCycleWithLease(env: Env, trigger: string): Promise<void
   const owner = `daytrading:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const db = new Database(env.DB);
   const leaseKey = 'daytrading';
-  if (!await db.acquireCycleLease(owner, undefined, leaseKey)) {
+  let leaseAcquired = false;
+  try {
+    leaseAcquired = await db.acquireCycleLease(owner, undefined, leaseKey);
+  } catch (leaseError) {
+    // If D1 is transiently unavailable during schema init or lease acquisition,
+    // log a degraded run rather than silently throwing inside ctx.waitUntil.
+    const errMsg = leaseError instanceof Error ? leaseError.message : String(leaseError);
+    console.error('Daytrading lease acquisition failed:', leaseError);
+    try {
+      await db.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 1, error_details: serializeRunDetails([`Lease acquisition failed: ${errMsg}`], new SkipReasonCollector()), status: 'error' });
+    } catch (logErr) {
+      console.error('Failed to log lease acquisition error:', logErr);
+    }
+    return;
+  }
+  if (!leaseAcquired) {
     const skips = new SkipReasonCollector();
     skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another daytrading cycle holds the daytrading lease', { strategy: 'daytrading', trigger });
     console.log(`Skipping ${trigger}: another daytrading cycle holds the daytrading lease`);
