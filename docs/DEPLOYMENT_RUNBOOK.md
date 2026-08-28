@@ -1,4 +1,10 @@
 
+## Friday, August 28, 2026 Control-169 strict read-only control
+
+Control-169 at ~14:01 UTC Aug 28 (market OPEN). Strict GET-only. 8 endpoints 200, 3 404 (expected). HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed, no correction needed. Code `b58e7ea` (Control-162 crypto edge producer, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.
+
+NEW: Run-log gap EXTENDED to ~2h11m+ (11:50-14:01 UTC), third since Workers Paid, spanning market open (13:30 UTC). ~25+ missing runs. Worker responsive to GETs. D1/Worker state pressure silent-throw pattern. Blocks SWING_OWNED_EXCLUDE first test (0 daytrading runs logged since open). RIVN/AEP sells appear filled at broker (positions 25->23, cash +$3,207), D1 trade status pending reconciliation. Swing MV ~$8,440 (2.28x cap, normalizing). Equity $98,407.37, -$66.90 today. Crypto fail-closed at CRYPTO_BARS_STALE. 3 null trades persistent. Follow-up: monitor run resumption, verify SWING_OWNED_EXCLUDE once daytrading runs resume, D1 read limit investigation (Sep 1 enforcement risk).
+
 ## Friday, August 28, 2026 Control-168 strict read-only control
 
 Control-168 at ~13:01 UTC Aug 28. Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed, no correction needed. Code `b58e7ea` (Control-162 crypto edge producer, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.

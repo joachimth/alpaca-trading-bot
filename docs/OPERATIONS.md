@@ -1,4 +1,22 @@
 
+## Friday, August 28, 2026 Control-169 strict read-only control
+
+Control-169 at ~14:01 UTC Aug 28 (Aug 28 16:01 +02). Market OPEN (opened 13:30 UTC). Strict GET-only. All 8 endpoints 200 (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`; `/api/equity`, `/api/fees`, `/api/snapshot` 404 as expected). HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed, no correction needed. Code `b58e7ea` (Control-162 crypto edge producer, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.
+
+NEW findings:
+1. Run-log gap EXTENDED to ~2h11m+ (11:50:48 - 14:01 UTC), spanning market open (13:30 UTC). Third gap since Workers Paid upgrade. Last run 4114 at 11:50:48 UTC. ~25+ missing runs (~13 reconcile + ~4 crypto + ~7 daytrading). Worker responsive to all GET endpoints (health 200, dashboard/positions/runs/trades return data). Same silent-throw D1/Worker state pressure pattern as Control-163/168 gaps. MOST concerning: spans active market hours and blocks SWING_OWNED_EXCLUDE first test verification. Follow-up: monitor resumption, investigate D1 read volume.
+2. RIVN/AEP sells appear FILLED at broker level. Positions dropped 25->23, RIVN and AEP absent from broker-authoritative positions, cash jumped $86,761 -> $89,968 (+$3,207, consistent with RIVN ~$3,086 + AEP ~$87). D1 trade status still "new"/filled_qty 0 because no reconcile_cron has run since 11:50 UTC to update them. POSITION_QTY_MISMATCH self-resolving at broker level, pending D1 reconciliation when runs resume.
+3. Swing MV normalized to ~$8,440 (2.28x $3,700 cap), down from $11,717 (3.17x). Still over cap but improving as RIVN/AEP sold off. Pre-existing inflation from pre-fix daytrading buys now clearing.
+4. SWING_OWNED_EXCLUDE (cc9e813): 0 occurrences. First real test BLOCKED by run-log gap - 0 daytrading_cron runs logged since market opened. Cannot verify fix is working. Critical follow-up once runs resume.
+
+Live state: Equity $98,407.37, change_today -$66.90 (-0.068%), ACTIVE, not PDT, not blocked. Cash $89,967.71 (91.4%), long MV $8,439.66, buying power $383,144. 23 positions ALL swing, 0 unattributed, broker-authoritative (metadata_source=d1, updated 22:01 UTC Aug 27). broker_ledger synced until 11:50:47Z (stale due to gap). Source: alpaca, observed 14:00:46 UTC.
+
+Crypto (b58e7ea): Edge producer deployed and wired but all runs skip at CRYPTO_BARS_STALE (AVAXUSD ~22h stale, latestBarAt 2026-08-27T13:30Z) / UNAVAILABLE (MATICUSD empty) / DATA_INSUFFICIENT (validTA=0). Fee telemetry stale (asOf Aug 19, status unavailable). Edge gate cannot be exercised.
+
+3 null-strategy trades persistent (703 PLD, 648 NOW, 645 DUK). 98 filled trades gross/fee/net=null (conservative, accounting_status=filled_lot_exact_unavailable). EQUITY_DIRECTION_FALLBACK active (observability only, risk controls intact). 0 CYCLE_LEASE_HELD. 1 known error (4020 swing safety block, historical).
+
+Four schedules confirmed: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`. Daytrading stale-bar threshold DAYTRADING_MAX_BAR_STALE_INTERVALS=4 (20 min). Crypto edge gate rawEdgeBps producer wired via computeCalibratedEdgeBps().
+
 ## Friday, August 28, 2026 Control-168 strict read-only control
 
 Control-168 at ~13:01 UTC Aug 28. Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed, no correction needed. Code `b58e7ea` (Control-162, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.
