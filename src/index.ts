@@ -207,9 +207,9 @@ async function runStrategyWithSchemaGate(env: Env, trigger: string, cycle: (env:
 
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    // Schema changes are explicit migrations, not per-cron side effects. Strategy
-    // cycles are gated by a read-only readiness check and fail closed if legacy
-    // D1 has not yet received positions-strategy-column-migration.sql.
+    const cron = event.cron;
+    // Cloudflare may normalize cron expressions differently from the configured
+    // string. Keep exact match first, then fall back to distinctive patterns.
     if (event.cron === '0 22 * * 1-5') {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'swing_cron', runSwingCycle));
     } else if (event.cron === '7-59/30 * * * *') {
@@ -218,8 +218,20 @@ export default {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'cron', runTradingCycleWithLease));
     } else if (event.cron === '*/10 * * * *') {
       ctx.waitUntil(runScheduledMaintenance(env, 'reconcile_cron'));
+    } else if (cron.includes('13-21') && (cron.includes('*/5') || cron.includes('/5 '))) {
+      // Flexible fallback for normalized daytrading cron
+      ctx.waitUntil(runStrategyWithSchemaGate(env, 'cron', runTradingCycleWithLease));
     } else {
-      console.warn(`Ignoring unknown cron expression: ${event.cron}`);
+      // Log unknown cron to D1 for diagnosis
+      console.warn(`Ignoring unknown cron expression: ${cron}`);
+      try {
+        await env.DB.prepare(
+          `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
+           VALUES (?, 0, 0, 0, 0, 0, ?, 'skipped')`
+        ).bind('unknown_cron', JSON.stringify([{ type: 'skip', code: 'UNKNOWN_CRON', scope: 'system', message: `Unknown cron expression received: ${cron}`, context: { cron }, count: 1 }])).run();
+      } catch (e) {
+        console.error('Failed to log unknown cron:', e);
+      }
     }
   },
 
