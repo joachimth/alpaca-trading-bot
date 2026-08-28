@@ -375,10 +375,15 @@ async function runTradingCycleWithLease(env: Env, trigger: string): Promise<void
   } catch (leaseError) {
     // If D1 is transiently unavailable during schema init or lease acquisition,
     // log a degraded run rather than silently throwing inside ctx.waitUntil.
+    // Use env.DB directly (not the Database class) because db.logRun also
+    // calls ensureTradeSchema which will re-throw the same rejected Promise.
     const errMsg = leaseError instanceof Error ? leaseError.message : String(leaseError);
     console.error('Daytrading lease acquisition failed:', leaseError);
     try {
-      await db.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 1, error_details: serializeRunDetails([`Lease acquisition failed: ${errMsg}`], new SkipReasonCollector()), status: 'error' });
+      await env.DB.prepare(
+        `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
+         VALUES (?, 0, ?, 0, 0, 1, ?, 'error')`
+      ).bind(trigger, Date.now() - leaseStart, JSON.stringify([{ type: 'error', code: 'LEASE_ACQUISITION_FAILED', scope: 'system', message: `Lease acquisition failed: ${errMsg}`, count: 1 }])).run();
     } catch (logErr) {
       console.error('Failed to log lease acquisition error:', logErr);
     }
