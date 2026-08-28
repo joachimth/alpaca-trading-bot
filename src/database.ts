@@ -76,7 +76,7 @@ const TRADE_OBSERVABILITY_FIELDS = [
   'fee_attribution',
 ] as const;
 
-export const CYCLE_LEASE_TTL_MS = 10 * 60 * 1000;
+export const CYCLE_LEASE_TTL_MS = 5 * 60 * 1000;
 const CRYPTO_COMMITTED_RESERVATION_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
 export interface DatabaseOptions {
