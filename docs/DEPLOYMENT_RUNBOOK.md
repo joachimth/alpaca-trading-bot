@@ -1,4 +1,10 @@
 
+## Friday, August 28, 2026 Control-170 strict read-only control + daytrading reconciliation deferral fix
+
+Control-170 at ~15:01 UTC Aug 28 (market OPEN). Strict GET-only. 8 endpoints 200, 3 404 (expected). HEALTHY code/deploy (2.6.0), DEGRADED external. **Critical fix deployed:** daytrading was the only strategy still running `reconcileBrokerOrders` inline, making it the heaviest invocation and first to silently throw under D1 pressure — zero daytrading_cron runs logged on Aug 28 despite market open. Fix defers daytrading reconciliation to maintenance using the proven `RECONCILIATION_DEFERRED_TO_MAINTENANCE` pattern (matching crypto/swing). Reliability-only: no caps, trading behavior, or risk logic changed. 224 tests / 845 assertions, typecheck clean, diff clean. Deployed via direct CF API PUT (HTTP 200). Post-deploy GET verified. First post-deploy daytrading_cron run pending next `*/5` tick.
+
+**Version identity:** /health=2.6.0, release_version=2.6.0, config.version=2.6.0, package.json=2.6.0, src/version.ts=2.6.0. Code: new commit (daytrading reconciliation deferral). Four schedules: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
 ## Friday, August 28, 2026 Control-169 strict read-only control
 
 Control-169 at ~14:01 UTC Aug 28 (market OPEN). Strict GET-only. 8 endpoints 200, 3 404 (expected). HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed, no correction needed. Code `b58e7ea` (Control-162 crypto edge producer, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.

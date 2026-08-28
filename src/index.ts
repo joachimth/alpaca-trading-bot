@@ -406,14 +406,16 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
     });
 
-    // Reconcile broker order lifecycle before any strategy reads state. This
-    // is read-only against Alpaca: no submit, cancel, retry, or replace.
-    try {
-      const reconciliation = await reconcileBrokerOrders(db, alpaca);
-      console.log(JSON.stringify({ event: 'order_reconciliation', trigger, ...reconciliation }));
-    } catch (error) {
-      errors.push(`Order reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    // Scheduled maintenance owns broker ledger/order reconciliation. Keeping
+    // this strategy read path out of the daytrading invocation avoids
+    // duplicating paginated broker work and reduces the subrequest/D1 budget
+    // that caused daytrading cron runs to silently throw under D1 pressure
+    // (zero daytrading runs logged on Aug 28 despite market open).
+    skips.add('RECONCILIATION_DEFERRED_TO_MAINTENANCE', 'reconciliation', 'Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path', {
+      strategy: 'daytrading',
+      maintenanceTrigger: 'reconcile_cron',
+      maintenanceSchedule: '*/10 * * * *',
+    });
 
     // 2. Load config
     const dbConfig = await db.getConfig();
