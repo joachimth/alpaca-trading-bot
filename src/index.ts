@@ -208,6 +208,17 @@ async function runStrategyWithSchemaGate(env: Env, trigger: string, cycle: (env:
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     const cron = event.cron;
+    // Top-level diagnostic: log every cron event before any branching, using
+    // a raw D1 INSERT that bypasses Database schema init. This proves whether
+    // Cloudflare is sending the event and what cron string it uses.
+    try {
+      await env.DB.prepare(
+        `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
+         VALUES (?, 0, 0, 0, 0, 0, ?, 'pending')`
+      ).bind('_diag', JSON.stringify([{ type: 'info', code: 'CRON_RECEIVED', scope: 'system', message: `Cron event received: ${cron}`, context: { cron }, count: 1 }])).run();
+    } catch (e) {
+      console.error('Top-level CRON_RECEIVED diagnostic failed:', e);
+    }
     // Cloudflare may normalize cron expressions differently from the configured
     // string. Keep exact match first, then fall back to distinctive patterns.
     if (event.cron === '0 22 * * 1-5') {
