@@ -1,4 +1,10 @@
 
+## Friday, August 28, 2026 Control-154 strict read-only control
+
+Control-154 at ~00:00 UTC Aug 28 (Aug 28 02:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed, no correction needed. Steady state, unchanged from Control-153. Code `cc9e813` (Control-150, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). Prior docs HEAD `362ef17` (Control-153). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.
+
+**Live state:** Equity $98,445.84, +$28.13 today, ACTIVE, not PDT. 25 positions all swing, 0 unattributed, MV $11,684 (3.16x $3,700 cap, inflated by pre-fix daytrading buys of swing-held RIVN/AVGO before cc9e813 deployed ~20:00 UTC Aug 27). Cash $86,762 (88% idle). broker_ledger fresh 23:51Z. 100-run window 3936-4035 (17:41-23:51 UTC Aug 27): 0 gaps >15 min (~6h20m clean since 17:36 UTC recovery), 2 errors (run 3975 subrequest historical, run 4020 swing POSITION_QTY_MISMATCH safety block — both known from Control-153), 0 CYCLE_LEASE_HELD. Crypto cadence :08/:38, all skipped. SWING_OWNED_EXCLUDE 0 occurrences (first test Aug 28 13:30 UTC open). Crypto fail-closed (ETHUSD stale 22h, MATICUSD empty, no rawEdgeBps, fee telemetry Aug 19). 3 null trades persistent (703/648/645). Swing sells pending: RIVN 186.29 (trade 740), AEP 1 (trade 739), accepted not filled — should self-resolve mismatch at Aug 28 open.
+
 ## Friday, August 28, 2026 Control-153 strict read-only control
 
 Control-153 at ~23:00 UTC Aug 27 (Aug 28 01:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed. Docs correction applied (README.md + DEPLOYMENT_RUNBOOK.md stale HEAD refs from Control-152). Code `cc9e813` (Control-150, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). Prior docs HEAD `943dbfd` (Control-152). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged.

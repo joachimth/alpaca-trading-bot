@@ -1,4 +1,20 @@
 
+## Friday, August 28, 2026 Control-154 strict read-only control
+
+Control-154 at ~00:00 UTC Aug 28 (Aug 28 02:00 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
+
+**Verdict:** HEALTHY code/deploy (2.6.0), DEGRADED external. No new defects. No deploy needed. No correction needed. Steady state, unchanged from Control-153.
+
+**Version identity (all aligned):** `/health`=2.6.0, `release_version`=2.6.0, `config.version`=2.6.0, `package.json`=2.6.0, `src/version.ts` RELEASE_VERSION='2.6.0'. Code `cc9e813` (Control-150, unchanged). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). Prior docs HEAD `362ef17` (Control-153). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8). Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,445.84, ACTIVE, not PDT, not blocked, +$28.13 today (+0.029%). Cash $86,761.76 (88% idle), long MV $11,684.08, buying power $370,729.16. 25 positions ALL swing, 0 unattributed, source=alpaca (broker-authoritative), MV $11,684 (3.16x $3,700 cap, inflated by pre-fix daytrading buys of swing-held RIVN/AVGO before cc9e813 deployed ~20:00 UTC Aug 27). broker_ledger_synced_until 2026-08-27T23:51:09Z (fresh, ~9 min old).
+
+**100-run window 3936-4035 (17:41-23:51 UTC Aug 27):** 0 gaps >15 min (~6h20m clean since 17:36 UTC recovery). 2 errors (both known): run 3975 subrequest (historical 19:46 UTC), run 4020 swing_cron POSITION_QTY_MISMATCH (22:01 UTC, safety block, pre-fix daytrading buys). 0 CYCLE_LEASE_HELD. Crypto cadence :08/:38, all skipped (ETHUSD stale 79684s, MATICUSD empty, validTA=0). SWING_OWNED_EXCLUDE 0 occurrences (first test Aug 28 13:30 UTC open).
+
+**Pending fills at Aug 28 13:30 UTC open:** RIVN sell 186.29 (trade 740), AEP sell 1 (trade 739), both accepted. Should self-resolve POSITION_QTY_MISMATCH when RIVN sell fills.
+
+**Follow-ups (unchanged):** (1) Verify SWING_OWNED_EXCLUDE skips at Aug 28 13:30 UTC open. (2) Confirm RIVN/AEP sell fills + mismatch resolution. (3) Watch subrequest errors under Workers Paid. (4) Monitor run-log gap elimination. (5) Sep 1 D1 enforcement. (6) Crypto rawEdgeBps producer. (7) 3 null-strategy trades (703/648/645, D1 update pending Joachim's prioritization).
+
 ## Friday, August 28, 2026 Control-153 strict read-only control
 
 Control-153 at ~23:00 UTC Aug 27 (Aug 28 01:00 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
