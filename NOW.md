@@ -1,21 +1,9 @@
-# Alpaca Trading Bot - Status
-
-**Current control:** Control-175 (Aug 28, 2026 ~20:01 UTC / 22:01 +02)
-**Verdict:** HEALTHY (code/deploy 2.6.0), DEGRADED (external)
-**Code:** 79583d8 (Control-172, unchanged)
-**Docs HEAD:** a99e2d0 (Control-174 docs-only commit; this Control-175 commit pending)
-**Tests:** 224 pass / 845 assertions, typecheck clean
-
-## Live state
-- Market CLOSED (closed 20:00 UTC). EOD flatten active: 5 daytrading positions flattened to 0.
-- 23 positions all swing, MV $8,273 (2.24x $3,700 cap, normalizing). Daytrading MV $0, crypto MV $0.
-- Equity $98,236.62, -$237.65 today (-0.24%), ACTIVE, not PDT. Cash $89,963.62 (91.5%).
-- 768 total trades, 768 executed. All 50 visible filled trades gross/fee/net=null (conservative).
-- Run 4182 ERROR at 19:47: Cloudflare subrequest ceiling exceeded despite Workers Paid; self-recovered.
-- New cron dispatch gaps 19:01-19:31: 4 missed daytrading, 2 missed reconcile. Clean window ended at 18:57.
-- Crypto :07/:37 cadence confirmed across 17 runs (08:37-19:38), all fail-closed at CRYPTO_BARS_STALE/UNAVAILABLE.
-- Edge producer wired (technical-analysis.ts:604) but gate not reached. Fee telemetry stale (Aug 19).
-- EQUITY_DIRECTION_FALLBACK active (broker change_today_pct=0 during runs).
-- Four schedules: 1-59/5 * * * *, 0 22 * * 1-5, 7-59/30 * * * *, */10 * * * *
-- Caps 5000/3700/2000 USD unchanged. Push BLOCKED: github_pat not in vault.
-- Follow-ups: subrequest ceiling recurrence, cron dispatch stability, crypto bar/fee freshness, D1 read limit (Sep 1), github_pat blocker.
+# NOW
+- Control-176 Aug 28 ~23:00 local (21:00 UTC), market CLOSED (Fri): HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed. Code 79583d8, docs HEAD this commit (Control-176, local only, github_pat blocked).
+- Heartbeat 23:43 local (21:43 UTC): LIVE-verified. Equity $98,227.96 (-$246.31, -0.25% today), NOT PDT. Long MV $8,264.34 (23 swing positions only; daytrading/crypto MV $0). Broker-authoritative, 0 unattributed. All 6 GET endpoints 200.
+- Latest run 4221 (21:41 UTC). Post-Control-176 window runs 4202-4221 (20:51-21:41) clean: 0 errors, no run-log gaps. Reconcile ~11s stable. Recovered from run 4182 subrequest ceiling (25033ms, 19:47).
+- Daily strategy update (e52e7690) fired 20:05 UTC (22:05 local) status ok — delivered per-strategy win/loss. Confirmed live-active, next run Mon 2026-08-31 20:00 UTC.
+- SWING_OWNED_EXCLUDE exercised (RIVN x4, run 4182) — cap bypass fix proven. Daytrading EOD flatten clean (trades 765-768 filled, MV $0, no overnight exposure).
+- Crypto still fail-closed: CRYPTO_BARS_STALE/UNAVAILABLE, edge gate not reached. Fee telemetry stale (Aug 19). Next crypto test at Monday open.
+- Caps 5000/3700/2000 unchanged. Push BLOCKED: github_pat. Next heavy check: Monday 10:00 UTC deferred-risk review (56199d0b) + 13:30 open.
+- Follow-ups: subrequest ceiling (Workers Paid), cron dispatch stability, crypto bar/fee freshness, D1 read limit (Sep 1), github_pat. Market reopened Monday 13:30 UTC — verify SWING_OWNED_EXCLUDE + daytrading freshness first morning.
