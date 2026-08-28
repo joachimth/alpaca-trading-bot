@@ -1,4 +1,12 @@
 
+## Friday, August 28, 2026 Control-174 strict read-only control (HEALTHY code/deploy, DEGRADED external)
+
+Control-174 at ~19:00 UTC Aug 28 (market OPEN). Strict GET-only. 8 endpoints 200, 3 404 (expected). HEALTHY code/deploy (2.6.0), DEGRADED external. No code change or deploy. Code 79583d8, docs HEAD a01af70 (Control-173 docs-only commit; code unchanged from Control-172). Daytrading cron stable: 30+ consecutive runs every 5 min (4139-4172), no dispatch failures since Control-172 fix. Daytrading actively trading: 5 positions (ENPH, MSTR, PLUG, SLB, SOFI), MV $4,898.47 (0.98x $5,000 cap). SWING_OWNED_EXCLUDE exercised (INTC at run 4172). POSITION_QTY_MISMATCH on SOFI at run 4148 - safety worked, self-resolved by 4149. No new run-log gaps since Control-172 deploy (~3h20m clean window 15:38-18:57 UTC). Reconcile durations 13-18s (elevated, stable, approaching but below ~20s pre-gap threshold). Crypto fail-closed at CRYPTO_BARS_STALE/UNAVAILABLE. 28 positions (23 swing + 5 daytrading), 0 unattributed. Swing MV $8,252.52 (2.23x cap). Equity $98,218.14, -$270.34 (-0.27%). Caps 5000/3700/2000 unchanged.
+
+**Version identity:** /health=2.6.0, release_version=2.6.0, config.version=2.6.0, package.json=2.6.0, src/version.ts=2.6.0. Code 79583d8 (Control-172). Four schedules: `1-59/5 * * * *`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`. Docs HEAD: a01af70 (local only, push blocked github_pat).
+
+---
+
 ## Friday, August 28, 2026 Control-173 strict read-only control (HEALTHY code/deploy, DEGRADED external)
 
 Control-173 at ~18:01 UTC Aug 28 (market OPEN). Strict GET-only. 8 endpoints 200, 3 404 (expected). HEALTHY code/deploy (2.6.0), DEGRADED external. No code change or deploy. Code 79583d8, docs HEAD d6b9121 (unchanged). Daytrading cron stable: 9+ consecutive runs every 5 min, no dispatch failures since Control-172 fix. Daytrading actively trading: 4 positions (MSTR, SOFI, NOW, CRM), MV $5,005.82 (1.00x $5,000 cap). SWING_OWNED_EXCLUDE exercised 5+ times (RIVN, AFRM, BAC, COF). POSITION_QTY_MISMATCH on SOFI at run 4148 (internal:107, broker:108) - safety worked, self-resolved by 4149. No new run-log gaps since Control-172 deploy (~1h clean). Reconcile durations 13-16s (elevated, stable). Crypto fail-closed at CRYPTO_BARS_STALE/UNAVAILABLE. 27 positions (23 swing + 4 daytrading), 0 unattributed. Swing MV $8,258.61 (2.23x cap). Equity $98,229.74, -$244.53 (-0.25%). Caps 5000/3700/2000 unchanged.

@@ -1,4 +1,10 @@
 
+## Friday, August 28, 2026 Control-174 strict read-only control (no deploy needed)
+
+Control-174 at ~19:00 UTC Aug 28 (market OPEN). Strict GET-only. 8 endpoints 200, 3 404 (expected). HEALTHY code/deploy (2.6.0), DEGRADED external. No code change, no deploy required. Code 79583d8, docs HEAD a01af70 (Control-173 docs-only commit; code unchanged from Control-172). Daytrading cron dispatch stable (30+ consecutive runs every 5 min, 4139-4172). Daytrading MV $4,898.47 (0.98x $5,000 cap, 5 positions). SWING_OWNED_EXCLUDE exercised (INTC at run 4172). POSITION_QTY_MISMATCH on SOFI at run 4148 self-resolved by 4149 (safety worked). No new run-log gaps since Control-172 deploy (~3h20m clean window). Reconcile durations 13-18s (elevated, stable, below ~20s pre-gap threshold). Crypto fail-closed. 28 positions, 0 unattributed. Equity $98,218.14. Caps 5000/3700/2000 unchanged. 224 tests / 845 assertions, typecheck clean.
+
+**Version identity:** /health=2.6.0, release_version=2.6.0, config.version=2.6.0, package.json=2.6.0, src/version.ts=2.6.0. Code 79583d8 (Control-172). Four schedules: `1-59/5 * * * *`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`. Docs HEAD: a01af70 (local only, push BLOCKED: github_pat not in vault).
+
 ## Friday, August 28, 2026 Control-173 strict read-only control (no deploy needed)
 
 Control-173 at ~18:01 UTC Aug 28 (market OPEN). Strict GET-only. 8 endpoints 200, 3 404 (expected). HEALTHY code/deploy (2.6.0), DEGRADED external. No code change, no deploy required. Code 79583d8, docs HEAD d6b9121 (unchanged from Control-172). Daytrading cron dispatch stable (9+ consecutive runs). Daytrading MV $5,005.82 (1.00x $5,000 cap, 4 positions). SWING_OWNED_EXCLUDE exercised 5+ times. POSITION_QTY_MISMATCH on SOFI at run 4148 self-resolved by 4149 (safety worked). No new run-log gaps since Control-172. Reconcile durations 13-16s. Crypto fail-closed. 27 positions, 0 unattributed. Equity $98,229.74. Caps 5000/3700/2000 unchanged. 224 tests / 845 assertions, typecheck clean.
