@@ -1,4 +1,12 @@
 
+## Friday, August 28, 2026 Control-161 strict read-only control
+
+Control-161 at ~07:00 UTC Aug 28 (Aug 28 09:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed, no correction needed. Steady state, unchanged from Control-160. Code `cc9e813` (Control-150, unchanged). No source changes since cc9e813. Docs HEAD: this commit (local only, push blocked github_pat). Prior docs HEAD `8c484f4` (Control-160). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged. Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,415.96, -$1.75 today, cash $86,761.76 (88% idle), long MV $11,654.20. 25 positions ALL swing, 0 unattributed, broker-authoritative. Swing MV $11,654 (3.15x $3,700 cap, pre-existing fills). RIVN 186.29, AVGO 2.35, AEP 1 (all swing). 100-run window 3977-4076 (Aug 27 19:51 - Aug 28 05:01 UTC): 0 gaps >15 min (~14h+ clean since 17:36 UTC recovery). Triggers: reconcile_cron 55, crypto_cron 18, cron 26, swing_cron 1. 1 known error (4020 swing qty mismatch safety block). 0 CYCLE_LEASE_HELD. SWING_OWNED_EXCLUDE 0 occurrences (first test Aug 28 13:30 UTC open). Crypto cadence :08/:38, 0 gaps >40 min, all fail-closed. RIVN sell 186.29 (trade 740) + AEP sell 1 (trade 739) accepted not filled. 75 daytrading trades confirm stale-bar fix active. 3 null trades persistent (703/648/645). All trades gross/fee/net=null (conservative).
+
+**Follow-ups:** Verify SWING_OWNED_EXCLUDE + RIVN/AEP sell fills + qty mismatch at Aug 28 13:30 UTC open. Watch subrequest errors under Workers Paid. Sep 1 D1 enforcement. Crypto rawEdgeBps producer. 3 null trades (pending Joachim).
+
 ## Friday, August 28, 2026 Control-160 strict read-only control
 Control-160 at ~06:00 UTC Aug 28 (Aug 28 08:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed, no correction needed. Steady state, unchanged from Control-159. Code `cc9e813` (Control-150, unchanged). No source changes since cc9e813. Docs HEAD: this commit (local only, push blocked github_pat). Prior docs HEAD `274e0d9` (Control-159). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged. Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
 ## Friday, August 28, 2026 Control-159 strict read-only control
