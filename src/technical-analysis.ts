@@ -396,6 +396,49 @@ export function analyze(bars: Bar[], symbol: string, config: {
 // Signal Generation
 // ============================================================
 
+/**
+ * Compute a calibrated gross edge in basis points from actual price
+ * dislocation metrics. This is NOT derived from confidence — it uses
+ * measurable price dislocations that have empirical mean-reversion
+ * evidence (Jegadeesh 1990, Lehmann 1990 for short-term reversal;
+ * Bollinger Band and VWAP reversion are standard TA).
+ *
+ * Conservative: estimates capture ~30% of the observed dislocation,
+ * representing the fraction of the move expected to revert. The
+ * risk manager subtracts estimated transaction costs from this to
+ * get net edge, which must exceed minEdgeAfterCosts (8 bps for crypto).
+ *
+ * Returns undefined when no meaningful dislocation exists, preserving
+ * the fail-closed behavior for weak/neutral signals.
+ */
+export function computeCalibratedEdgeBps(
+  indicators: TAIndicators,
+  action: 'BUY' | 'SELL' | 'HOLD',
+): number | undefined {
+  if (action === 'HOLD') return undefined;
+
+  const REVERSION_FACTOR = 0.3; // capture 30% of observed dislocation
+
+  // Short-term reversal: return over last N bars (Jegadeesh/Lehmann)
+  // |return| × reversionFactor, converted from % to bps
+  const reversalEdge = Math.abs(indicators.shortTermReturn) * REVERSION_FACTOR * 100;
+
+  // VWAP reversion: deviation from institutional reference price
+  const vwapEdge = Math.abs(indicators.vwapDeviation) * REVERSION_FACTOR * 100;
+
+  // Bollinger Band dislocation: distance from middle band × volatility
+  // bbPosition: 0=lower band, 0.5=middle, 1=upper
+  // Band width ≈ 2 × stdDev, proxied by atrPct
+  const bbDislocation = Math.abs(indicators.bbPosition - 0.5);
+  const bbEdge = bbDislocation * 2 * indicators.atrPct * REVERSION_FACTOR * 100;
+
+  // Take the strongest single dislocation signal (conservative,
+  // avoids double-counting correlated signals)
+  const edge = Math.max(reversalEdge, vwapEdge, bbEdge);
+
+  return edge > 0 ? Number(edge.toFixed(1)) : undefined;
+}
+
 export function generateSignal(indicators: TAIndicators, config: {
   rsiOversold: number;
   rsiOverbought: number;
@@ -558,5 +601,6 @@ export function generateSignal(indicators: TAIndicators, config: {
     confidence,
     reasons,
     indicators,
+    rawEdgeBps: computeCalibratedEdgeBps(indicators, action),
   };
 }

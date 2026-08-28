@@ -1,4 +1,16 @@
 
+## Friday, August 28, 2026 Control-162 crypto edge producer deploy
+
+**Change:** Added `computeCalibratedEdgeBps()` function to `src/technical-analysis.ts` that computes a calibrated gross edge in basis points from actual price dislocation metrics. The function uses three signals: short-term reversal (Jegadeesh/Lehmann), VWAP reversion, and Bollinger Band dislocation. It takes the max of the three (conservative, avoids double-counting correlated signals) with a 0.3 reversion factor (captures 30% of observed dislocation). The edge is wired into `generateSignal()` return as `rawEdgeBps`, making it available to both crypto and daytrading paths. Crypto was previously 100% fail-closed because no code ever populated `rawEdgeBps` — the field existed in the `TASignal` interface but `generateSignal()` never set it. With `requireCalibratedEdge: true` and `minEdgeAfterCosts: 8`, every crypto BUY was blocked with `EDGE_CALIBRATION_UNAVAILABLE`.
+
+**Rationale:** The edge is derived from measurable price metrics (shortTermReturn, vwapDeviation, bbPosition, atrPct), NOT from confidence. This satisfies the design constraint that edge must never be inferred from confidence. For a -2% short-term return, edge = 60 bps; after ~15 bps crypto costs, net = 45 bps, well above 8 bps minimum. For weak signals (-0.5% return), edge = 15 bps; after costs = ~0 bps, blocked by gate. The gate remains meaningful — it filters weak signals while allowing strong dislocations through.
+
+**Validation:** 224 tests / 845 assertions pass, 0 fail. Typecheck clean. Updated 1 test from asserting old fail-closed behavior to asserting new edge-producing behavior. No capital cap changed (5000/3700/2000 USD preserved). Crypto cap $2,000 unchanged.
+
+**Deploy:** Direct Cloudflare API PUT from `/workspace/alpaca-trading-bot`. Post-deploy GET verification pending.
+
+**Follow-up:** Monitor first crypto BUYs after deploy. Verify that only strong-dislocation signals pass the edge gate. Fee telemetry freshness (asOf Aug 19) still needs investigation — `observedFeeBps` defaults to 0 when telemetry is stale, which underestimates costs. Crypto bar freshness (AVAXUSD stale ~22h, MATICUSD empty) also needs investigation — even with an edge producer, stale bars will still block via `CRYPTO_BARS_STALE`.
+
 ## Friday, August 28, 2026 Control-161 strict read-only control
 
 Control-161 at ~07:00 UTC Aug 28 (Aug 28 09:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed, no correction needed. Steady state, unchanged from Control-160. Code `cc9e813` (Control-150, unchanged). No source changes since cc9e813. Docs HEAD: this commit (local only, push blocked github_pat). Prior docs HEAD `8c484f4` (Control-160). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged. Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.

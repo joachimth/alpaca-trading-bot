@@ -170,7 +170,7 @@ describe('crypto runtime correctness helpers', () => {
     expect(ranked.map(x => x.symbol)).toEqual(['BTCUSD', 'ETHUSD', 'AAVEUSD']);
   });
 
-  test('crypto signal-to-risk path remains fail-closed when generateSignal has no calibrated edge', () => {
+  test('crypto signal-to-risk path produces calibrated edge from price dislocation in generateSignal', () => {
     const generated = generateSignal({
       ...indicators,
       rsi: 20,
@@ -180,7 +180,7 @@ describe('crypto runtime correctness helpers', () => {
       bbPosition: 0.05,
     }, { rsiOversold: 30, rsiOverbought: 70 });
     expect(generated.action).toBe('BUY');
-    expect(generated).not.toHaveProperty('rawEdgeBps');
+    expect(generated.rawEdgeBps).toBe(27); // Bollinger dislocation: |0.05-0.5| × 2 × atrPct(1) × 0.3 × 100
 
     const decision: AIDecision = {
       action: generated.action,
@@ -199,9 +199,9 @@ describe('crypto runtime correctness helpers', () => {
       generated.indicators,
     );
 
-    expect(prepared.rawEdgeBps).toBeUndefined();
-    expect(result.approved).toBe(false);
-    expect(result.reason).toBe('Calibrated raw edge unavailable for configured minimum edge after costs (8bps)');
+    expect(prepared.rawEdgeBps).toBe(27);
+    expect(result.approved).toBe(true);
+    expect(result.edgeAfterCosts).toBeGreaterThan(8);
   });
 
   test('strategy-level positive calibrated raw edge reaches crypto risk admission', () => {
