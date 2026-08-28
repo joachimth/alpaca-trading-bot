@@ -1,4 +1,22 @@
 
+## Friday, August 28, 2026 Control-165 strict read-only control
+
+Control-165 at ~10:00 UTC Aug 28 (Aug 28 12:00 +02). Strict GET-only. All 8 endpoints 200 (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`; `/api/equity`, `/api/fees`, `/api/snapshot` 404 as expected). HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed, no correction needed. Code `b58e7ea` (Control-162 crypto edge producer, unchanged). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged. Four schedules confirmed: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Run-log delivery:** One gap (unchanged from Control-163/164): run 4076 (05:01:11 UTC) → 4077 (07:11:11 UTC) = 130 min, IDs consecutive, ~17 missing runs (13 reconcile + 4 crypto). First significant gap since Workers Paid upgrade. **Post-gap clean: 22 runs from 4077 (07:11) to 4098 (09:50:48 UTC), ~2h40m, 0 new gaps.** Reconcile durations holding ~2s (4098: 2001ms, 4097: 1956ms, 4095: 2012ms — NOT creeping back toward ~20s pre-gap levels). Crypto cadence confirmed (:08/:38 every 30 min). 0 CYCLE_LEASE_HELD. 2 known errors: run 4020 (swing_cron POSITION_QTY_MISMATCH safety block), run 3975 (subrequest historical). No new errors.
+
+**Live state:** Equity $98,431.22 (live broker), -$43.05 today (-0.044%), ACTIVE, not PDT, not blocked. Cash $86,761.47 (88% idle), long MV $11,669.75, buying power $370,713.93. 25 positions ALL swing, 0 unattributed, broker-authoritative (metadata_source=d1, updated_at 22:01 UTC Aug 27 swing_cron sync). Swing MV $11,669.75 (3.15x $3,700 cap) — still inflated by pre-fix daytrading buys of RIVN (186.29, MV $3,089) and AVGO (2.35, MV $872). broker_ledger fresh (synced until 09:50:47 UTC).
+
+**RIVN/AEP sells:** Trade 740 (RIVN sell 186.29) and 739 (AEP sell 1) status "new", unfilled (filled_qty 0). Market closed, expected to fill at Aug 28 13:30 UTC open. Should self-resolve POSITION_QTY_MISMATCH on AVGO/RIVN.
+
+**SWING_OWNED_EXCLUDE (cc9e813):** 0 occurrences. Verified 20 post-deploy daytrading runs (Aug 27 20:21-21:56 UTC) all skipped (market closed after deploy ~20:00 UTC). First real test Aug 28 13:30 UTC open. Must confirm daytrading does NOT buy swing-held symbols and daytrading gross stays under $5,000 cap.
+
+**Crypto (b58e7ea):** Edge producer deployed and wired (`computeCalibratedEdgeBps` in `technical-analysis.ts:414`, wired into `generateSignal` at line 604). All crypto runs still skip at `CRYPTO_BARS_STALE` (LINKUSD, count 10, latest bar 2026-08-27T11:30Z, ~22h stale) and `CRYPTO_BARS_UNAVAILABLE` (MATICUSD, empty) before reaching the edge gate. Fee telemetry stale (asOf Aug 19, status unavailable). Edge producer cannot be exercised until bar freshness resolves.
+
+**Known DEGRADED (unchanged):** 3 null-strategy trades persistent (703 PLD, 648 NOW, 645 DUK). All 98 filled trades gross/fee/net=null, accounting_status=filled_lot_exact_unavailable (conservative). GitHub PAT not in vault — docs push blocked, docs HEAD local only.
+
+**Follow-ups:** Verify SWING_OWNED_EXCLUDE + RIVN/AEP sell fills + qty mismatch resolution at Aug 28 13:30 UTC open. Watch reconcile duration buildup recurrence (gap risk). Sep 1 D1 enforcement. Crypto bar/fee freshness. 3 null trades. github_pat blocker for docs push.
+
 ## Friday, August 28, 2026 Control-164 strict read-only control
 
 Control-164 at ~09:00 UTC Aug 28 (Aug 28 11:00 +02). Strict GET-only. All 8 endpoints 200 (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`; `/api/equity`, `/api/fees`, `/api/snapshot` 404 as expected). HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed, no correction needed. Code `b58e7ea` (Control-162 crypto edge producer, unchanged). Docs HEAD: this commit (local only — push BLOCKED: github_pat not in vault). 224 tests / 845 assertions, typecheck clean (last verified Control-162/163, no source change since). Caps 5000/3700/2000 USD unchanged (`capital-caps.ts:6-8`, live config confirms). Four schedules confirmed in `wrangler.toml` and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
