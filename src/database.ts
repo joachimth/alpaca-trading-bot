@@ -84,6 +84,14 @@ export interface DatabaseOptions {
   readOnly?: boolean;
 }
 
+// Isolate-level schema cache: Cloudflare Workers reuse isolates across
+// invocations, and the same env.DB binding persists. Once schema initialization
+// succeeds for a given D1Database instance, subsequent Database constructions
+// with the same instance skip the ~20 D1 pragma/DDL queries. This is critical
+// under D1 pressure where schema init alone can take 15+ seconds. Test fixtures
+// use fresh D1 instances, so they always run full schema init.
+let isolateSchemaVerifiedDb: D1Database | null = null;
+
 export class Database {
   private db: D1Database;
   private schemaReady: Promise<void>;
@@ -92,13 +100,15 @@ export class Database {
     this.db = db;
     this.schemaReady = options.readOnly
       ? Promise.resolve()
-      : Promise.all([
+      : isolateSchemaVerifiedDb === db
+        ? Promise.resolve()
+        : Promise.all([
           this.ensureTradeLifecycleColumns(),
           this.ensureCycleLeaseSchema(),
           this.ensureRunLogSchema(),
           this.ensureCategorySnapshotSchema(),
           this.ensureBrokerLedgerSchema(),
-        ]).then(() => undefined);
+        ]).then(() => { isolateSchemaVerifiedDb = this.db; });
   }
 
   private async ensureTradeLifecycleColumns(): Promise<void> {

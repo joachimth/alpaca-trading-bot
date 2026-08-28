@@ -82,7 +82,11 @@ export async function runSwingCycle(env: Env, trigger: string): Promise<void> {
     const skips = new SkipReasonCollector();
     skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another swing cycle holds the swing lease', { strategy: 'swing', trigger });
     console.log(`Skipping ${trigger}: another swing cycle holds the swing lease`);
-    await leaseDb.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 0, error_details: serializeRunDetails([], skips), status: 'skipped' });
+    try {
+      await leaseDb.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 0, error_details: serializeRunDetails([], skips), status: 'skipped' });
+    } catch (logErr) {
+      console.error('Failed to log swing CYCLE_LEASE_HELD skip:', logErr);
+    }
     return;
   }
   try {
