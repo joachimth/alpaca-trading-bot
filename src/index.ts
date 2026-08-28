@@ -208,45 +208,19 @@ async function runStrategyWithSchemaGate(env: Env, trigger: string, cycle: (env:
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     const cron = event.cron;
-    // Top-level diagnostic: log every cron event before any branching, using
-    // a raw D1 INSERT that bypasses Database schema init. This proves whether
-    // Cloudflare is sending the event and what cron string it uses.
-    try {
-      await env.DB.prepare(
-        `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
-         VALUES (?, 0, 0, 0, 0, 0, ?, 'pending')`
-      ).bind('_diag', JSON.stringify([{ type: 'info', code: 'CRON_RECEIVED', scope: 'system', message: `Cron event received: ${cron}`, context: { cron }, count: 1 }])).run();
-    } catch (e) {
-      console.error('Top-level CRON_RECEIVED diagnostic failed:', e);
-    }
-    // Cloudflare may normalize cron expressions differently from the configured
-    // string. Keep exact match first, then fall back to distinctive patterns.
     if (event.cron === '0 22 * * 1-5') {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'swing_cron', runSwingCycle));
     } else if (event.cron === '7-59/30 * * * *') {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'crypto_cron', runCryptoCycle));
-    } else if (event.cron === '*/5 * * * 1-5' || event.cron === '*/5 13-21 * * 1-5' || event.cron === '*/5 13,14,15,16,17,18,19,20,21 * * 1-5' || (cron.includes('13') && cron.includes('21') && cron.includes('*/5')) || (cron.includes('*/5') && cron.includes('1-5') && !cron.includes('22'))) {
-      // Widened to */5 * * * 1-5 because Cloudflare's dispatch system
-      // stopped sending the */5 13-21 * * 1-5 cron on Aug 28 despite it
-      // being registered. The code's internal MARKET_CLOSED check gates
-      // execution to market hours, so the broader cron only adds skip runs.
+    } else if (event.cron === '*/5 13-21 * * 1-5' || event.cron === '*/5 13,14,15,16,17,18,19,20,21 * * 1-5' || (cron.includes('*/5') && cron.includes('13') && cron.includes('21')) || (cron.includes('*/5') && cron.includes('1-5') && !cron.includes('22') && !cron.includes('7-59') && !cron.includes('*/10'))) {
+      // Daytrading cron. The internal MARKET_CLOSED check gates execution
+      // to market hours (13:30-20:00 UTC). Flexible matching handles
+      // Cloudflare cron normalization variants.
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'cron', runTradingCycleWithLease));
     } else if (event.cron === '*/10 * * * *') {
       ctx.waitUntil(runScheduledMaintenance(env, 'reconcile_cron'));
-    } else if (cron.includes('13-21') && (cron.includes('*/5') || cron.includes('/5 '))) {
-      // Flexible fallback for normalized daytrading cron
-      ctx.waitUntil(runStrategyWithSchemaGate(env, 'cron', runTradingCycleWithLease));
     } else {
-      // Log unknown cron to D1 for diagnosis
       console.warn(`Ignoring unknown cron expression: ${cron}`);
-      try {
-        await env.DB.prepare(
-          `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
-           VALUES (?, 0, 0, 0, 0, 0, ?, 'skipped')`
-        ).bind('unknown_cron', JSON.stringify([{ type: 'skip', code: 'UNKNOWN_CRON', scope: 'system', message: `Unknown cron expression received: ${cron}`, context: { cron }, count: 1 }])).run();
-      } catch (e) {
-        console.error('Failed to log unknown cron:', e);
-      }
     }
   },
 
@@ -381,18 +355,6 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
 
 async function runTradingCycleWithLease(env: Env, trigger: string): Promise<void> {
   const leaseStart = Date.now();
-  // Emergency visibility: raw D1 INSERT before any Database construction or
-  // schema init. If this appears in run_log but the final cycle log doesn't,
-  // the invocation is being killed mid-cycle. If neither appears, the cron
-  // isn't firing at all.
-  try {
-    await env.DB.prepare(
-      `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
-       VALUES (?, 0, 0, 0, 0, 0, ?, 'pending')`
-    ).bind(trigger, `[{"type":"info","code":"CRON_FIRED","scope":"cycle","message":"Daytrading cron invocation started","count":1}]`).run();
-  } catch (e) {
-    console.error('Emergency CRON_FIRED log failed:', e);
-  }
   const owner = `daytrading:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const db = new Database(env.DB);
   const leaseKey = 'daytrading';
