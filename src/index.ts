@@ -225,7 +225,11 @@ export default {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'swing_cron', runSwingCycle));
     } else if (event.cron === '7-59/30 * * * *') {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'crypto_cron', runCryptoCycle));
-    } else if (event.cron === '*/5 13-21 * * 1-5' || event.cron === '*/5 13,14,15,16,17,18,19,20,21 * * 1-5' || (cron.includes('13') && cron.includes('21') && cron.includes('*/5'))) {
+    } else if (event.cron === '*/5 * * * 1-5' || event.cron === '*/5 13-21 * * 1-5' || event.cron === '*/5 13,14,15,16,17,18,19,20,21 * * 1-5' || (cron.includes('13') && cron.includes('21') && cron.includes('*/5')) || (cron.includes('*/5') && cron.includes('1-5') && !cron.includes('22'))) {
+      // Widened to */5 * * * 1-5 because Cloudflare's dispatch system
+      // stopped sending the */5 13-21 * * 1-5 cron on Aug 28 despite it
+      // being registered. The code's internal MARKET_CLOSED check gates
+      // execution to market hours, so the broader cron only adds skip runs.
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'cron', runTradingCycleWithLease));
     } else if (event.cron === '*/10 * * * *') {
       ctx.waitUntil(runScheduledMaintenance(env, 'reconcile_cron'));
