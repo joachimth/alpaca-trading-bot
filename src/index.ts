@@ -381,6 +381,16 @@ async function runTradingCycleWithLease(env: Env, trigger: string): Promise<void
   }
   try {
     await runTradingCycle(env, trigger);
+  } catch (cycleError) {
+    // Catch uncaught errors from the trading cycle so they are logged as a
+    // degraded run instead of being silently swallowed by ctx.waitUntil.
+    const errMsg = cycleError instanceof Error ? cycleError.message : String(cycleError);
+    console.error('Daytrading cycle uncaught error:', cycleError);
+    try {
+      await db.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 1, error_details: serializeRunDetails([`Cycle uncaught error: ${errMsg}`], new SkipReasonCollector()), status: 'error' });
+    } catch (logErr) {
+      console.error('Failed to log cycle uncaught error:', logErr);
+    }
   } finally {
     await db.releaseCycleLease(owner, leaseKey);
   }

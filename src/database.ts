@@ -236,14 +236,26 @@ export class Database {
     await this.schemaReady;
   }
 
-  /** Read-only prerequisite check for strategy ownership metadata. */
+  /** Read-only prerequisite check for strategy ownership metadata.
+   *  Fail-open on transient D1 errors: the positions.strategy migration was
+   *  applied days ago and verified across hundreds of runs. A transient D1
+   *  error is not evidence of a missing migration, and throwing here silently
+   *  drops the entire strategy cycle because the caller's ctx.waitUntil
+   *  swallows uncaught errors without logging. */
   async assertPositionsStrategySchema(): Promise<void> {
-    await this.ensureTradeSchema();
-    const column = await this.db.prepare(
-      `SELECT 1 FROM pragma_table_info('positions') WHERE name = ? LIMIT 1`
-    ).bind('strategy').first();
-    if (!column) {
-      throw new Error('Required schema missing: positions.strategy; apply positions-strategy-column-migration.sql before enabling strategy cycles');
+    try {
+      await this.ensureTradeSchema();
+      const column = await this.db.prepare(
+        `SELECT 1 FROM pragma_table_info('positions') WHERE name = ? LIMIT 1`
+      ).bind('strategy').first();
+      if (!column) {
+        throw new Error('Required schema missing: positions.strategy; apply positions-strategy-column-migration.sql before enabling strategy cycles');
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('Required schema missing:')) {
+        throw error; // re-throw genuine schema-missing errors
+      }
+      console.error('positionsStrategySchemaReady transient D1 error (fail-open):', error);
     }
   }
 
