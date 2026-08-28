@@ -366,6 +366,18 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
 
 async function runTradingCycleWithLease(env: Env, trigger: string): Promise<void> {
   const leaseStart = Date.now();
+  // Emergency visibility: raw D1 INSERT before any Database construction or
+  // schema init. If this appears in run_log but the final cycle log doesn't,
+  // the invocation is being killed mid-cycle. If neither appears, the cron
+  // isn't firing at all.
+  try {
+    await env.DB.prepare(
+      `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
+       VALUES (?, 0, 0, 0, 0, 0, ?, 'pending')`
+    ).bind(trigger, `[{"type":"info","code":"CRON_FIRED","scope":"cycle","message":"Daytrading cron invocation started","count":1}]`).run();
+  } catch (e) {
+    console.error('Emergency CRON_FIRED log failed:', e);
+  }
   const owner = `daytrading:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const db = new Database(env.DB);
   const leaseKey = 'daytrading';
