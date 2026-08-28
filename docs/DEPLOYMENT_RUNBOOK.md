@@ -1,4 +1,14 @@
 
+## Friday, August 28, 2026 Control-168 strict read-only control
+
+Control-168 at ~13:01 UTC Aug 28. Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed, no correction needed. Code `b58e7ea` (Control-162 crypto edge producer, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.
+
+**Version identity:** /health=2.6.0, release_version=2.6.0, config.version=2.6.0, package.json=2.6.0, src/version.ts=2.6.0. Code b58e7ea. Four schedules: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**NEW finding: ~71-min run-log gap (11:50-13:01 UTC).** Second gap since Workers Paid upgrade. Worker responsive, all endpoints 200. Root cause: accumulating D1/Worker state pressure causing silent throws. Not fully resolved by Workers Paid upgrade. Follow-up: monitor; investigate D1 free-tier read limits (Sep 1 enforcement risk).
+
+---
+
 ## Friday, August 28, 2026 Control-167 strict read-only control
 
 Control-167 at ~12:00 UTC Aug 28. Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed, no correction needed. Code `b58e7ea` (Control-162 crypto edge producer, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.

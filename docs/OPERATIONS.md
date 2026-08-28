@@ -1,4 +1,14 @@
 
+## Friday, August 28, 2026 Control-168 strict read-only control
+
+Control-168 at ~13:01 UTC Aug 28. Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed, no correction needed. Code `b58e7ea` (Control-162, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.
+
+**NEW finding: ~71-min run-log gap (11:50-13:01 UTC).** Last run 4114 at 11:50:48Z. ~8 missing runs (6 reconcile + 2 crypto). Worker responsive (health 200, all endpoints return data). Second gap since Workers Paid upgrade — same pattern as 05:01-07:11 gap. Post-Control-162 clean window ~4h40m then sudden gap. Root cause: accumulating D1/Worker state pressure, silent throws. Not fully resolved by Workers Paid or Control-162 deploy. D1 free-tier daily read limits may be factor (Sep 1 enforcement risk). Follow-up: monitor resumption; investigate D1 read volume in reconcile path if recurring.
+
+**Live state:** Equity $98,478.07 (+$3.80 today, +0.004%, first positive day), ACTIVE. 25 positions all swing, MV $11,717 (3.17x cap), metadata_source=d1, updated 22:01 UTC Aug 27. Cash $86,761 (88%). RIVN sell 186.29 (trade 740) + AEP sell 1 (trade 739) status "new", unfilled — pending 13:30 UTC open. SWING_OWNED_EXCLUDE 0 occurrences (0 daytrading runs today, first test 13:30 UTC open). Crypto edge producer deployed but all runs skip at CRYPTO_BARS_STALE (AVAXUSD ~22h stale) / UNAVAILABLE (MATICUSD empty) before edge gate. Fee telemetry stale (Aug 19). EQUITY_DIRECTION_FALLBACK active (observability, risk controls intact). 3 null trades persistent (703/648/645). 98 filled trades gross/fee/net=null (conservative). broker_ledger synced until 11:50:47Z. Post-gap clean was ~4h40m (4077-4114) before new gap. 0 CYCLE_LEASE_HELD, 1 known error (4020).
+
+---
+
 ## Friday, August 28, 2026 Control-167 strict read-only control
 
 Control-167 at ~12:00 UTC Aug 28. Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No deploy needed, no correction needed. Code `b58e7ea` (Control-162, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). 224 tests / 845 assertions, typecheck clean, git diff --check clean. Caps 5000/3700/2000 USD unchanged.

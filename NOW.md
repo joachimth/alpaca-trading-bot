@@ -1,24 +1,20 @@
 # Alpaca Trading Bot - Status
 
-**Current control:** Control-143 (Aug 27, 2026 ~14:00 UTC / 16:00 +02)
+**Current control:** Control-168 (Aug 28, 2026 ~13:01 UTC / 15:01 +02)
 **Verdict:** HEALTHY (code/deploy 2.6.0), DEGRADED (external)
-**Code:** 22b3dba (unchanged since Control-117)
+**Code:** b58e7ea (Control-162 crypto edge producer, unchanged)
 **Docs HEAD:** this commit (local only, push blocked github_pat)
-**Tests:** 223 pass / 841 assertions, typecheck clean
+**Tests:** 224 pass / 845 assertions, typecheck clean
 
 ## Live state
-- Equity $98,451.23, ACTIVE, not blocked, not PDT, +$33.52 today (+0.034%)
-- 25 positions all strategy=swing, MV $8,026.91 (2.17x $3,700 cap, pre-existing; REDUCED from 2.53x)
-- 3 sells (720-722: AMD 0.28 @ $481.16, LCID 209 @ $4.958, NXPI 0.53 @ $225.57) FILLED at 13:30 UTC open; AMD/LCID/NXPI exited
-- 100 runs (3819-3918, Aug 27 01:08-13:56 UTC): 0 errors, 0 lease holds, 0 gaps. 16+ hours clean since Aug 26 21:21 UTC
-- 70 reconcile_cron ok, 24 crypto_cron fail-closed, 6 daytrading cron (13:31-13:56, skipped on stale bars right after open, fail-safe)
-- Crypto fail-closed: AVAXUSD stale ~22h, MATICUSD empty, validTA=0, fee telemetry asOf Aug 19, no rawEdgeBps
+- Equity $98,478.07 (+$3.80 today, +0.004%, first positive day), ACTIVE, not blocked, not PDT
+- 25 positions all strategy=swing, MV $11,717 (3.17x $3,700 cap, pre-existing from pre-fix daytrading buys)
+- RIVN sell 186.29 (trade 740) + AEP sell 1 (trade 739) status "new", unfilled — pending 13:30 UTC open
+- NEW: ~71-min run-log gap (11:50-13:01 UTC), ~8 missing runs, second gap since Workers Paid
+- Post-Control-162 clean window was ~4h40m (07:11-11:50) then sudden gap. Reconcile ~2s before gap
+- SWING_OWNED_EXCLUDE 0 occurrences (0 daytrading runs today, first test 13:30 UTC open)
+- Crypto edge producer deployed but all runs skip at CRYPTO_BARS_STALE (AVAXUSD ~22h) / UNAVAILABLE (MATICUSD)
 - 3 null-strategy trades persistent (703 PLD, 648 NOW, 645 DUK)
-- 97 filled trades all accounting_status=filled_lot_exact_unavailable, gross/fee/net=null (conservative)
+- 98 filled trades gross/fee/net=null (conservative)
 - Caps 5000/3700/2000 USD unchanged (capital-caps.ts:6-8)
 - Four schedules verified (wrangler.toml crons: */5 13-21, 0 22, 7-59/30, */10)
-
-## Open follow-ups
-- Paid-plan upgrade (approved, not executed) - remedy for Free-tier run-log gaps
-- rawEdgeBps producer - crypto BUYs always fail-closed without it
-- 3 null-strategy trades (703/648/645) - metadata gap, not a trading defect
