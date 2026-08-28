@@ -112,7 +112,7 @@ export class Database {
   }
 
   private async ensureTradeLifecycleColumns(): Promise<void> {
-    const columns = [
+    const required = [
       ['strategy', 'TEXT'],
       ['client_order_id', 'TEXT'],
       ['filled_qty', 'REAL'],
@@ -128,11 +128,14 @@ export class Database {
       ['intent_stop_loss_price', 'REAL'],
       ['intent_take_profit_price', 'REAL'],
     ] as const;
-    for (const [name, type] of columns) {
-      const column = await this.db.prepare(
-        `SELECT 1 FROM pragma_table_info('trades') WHERE name = ? LIMIT 1`
-      ).bind(name).first();
-      if (column) continue;
+    // Single query to fetch all existing column names, then check in JS.
+    // This replaces 14 individual pragma_table_info round-trips with 1.
+    const rows = await this.db.prepare(
+      `SELECT name FROM pragma_table_info('trades')`
+    ).all();
+    const existing = new Set((rows.results ?? []).map(r => String(r.name)));
+    for (const [name, type] of required) {
+      if (existing.has(name)) continue;
       try {
         await this.db.prepare(`ALTER TABLE trades ADD COLUMN ${name} ${type}`).run();
       } catch (error) {
@@ -163,15 +166,17 @@ export class Database {
     // production schema always has run_log, but absent fixtures must remain
     // valid and must not receive a create-table side effect here.
     if (!table) return;
-    const columns = [
+    const required = [
       ['analyzed_candidates', 'INTEGER NOT NULL DEFAULT 0'],
       ['filtered_candidates', 'INTEGER NOT NULL DEFAULT 0'],
     ] as const;
-    for (const [name, definition] of columns) {
-      const column = await this.db.prepare(
-        `SELECT 1 FROM pragma_table_info('run_log') WHERE name = ? LIMIT 1`
-      ).bind(name).first();
-      if (column) continue;
+    // Single query to fetch all existing column names, then check in JS.
+    const rows = await this.db.prepare(
+      `SELECT name FROM pragma_table_info('run_log')`
+    ).all();
+    const existing = new Set((rows.results ?? []).map(r => String(r.name)));
+    for (const [name, definition] of required) {
+      if (existing.has(name)) continue;
       try {
         await this.db.prepare(`ALTER TABLE run_log ADD COLUMN ${name} ${definition}`).run();
       } catch (error) {
