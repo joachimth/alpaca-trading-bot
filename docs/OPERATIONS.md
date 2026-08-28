@@ -1,4 +1,18 @@
 
+## Friday, August 28, 2026 Control-155 strict read-only control
+
+Control-155 at ~01:00 UTC Aug 28 (Aug 28 03:00 +02). Strict GET-only. All 8 endpoints 200. HEALTHY code/deploy (2.6.0), DEGRADED external. No new code defect, no deploy needed, no correction needed. Steady state, unchanged from Control-154. Code `cc9e813` (Control-150, unchanged). Docs HEAD: this commit (local only, push blocked github_pat). Prior docs HEAD `38647a3` (Control-154). 224 tests / 845 assertions, typecheck clean. Caps 5000/3700/2000 USD unchanged. Four schedules confirmed in wrangler.toml and live runs: `*/5 13-21 * * 1-5`, `0 22 * * 1-5`, `7-59/30 * * * *`, `*/10 * * * *`.
+
+**Live state:** Equity $98,433.57, ACTIVE, not PDT, not blocked, +$15.86 today (+0.016%). Cash $86,761.76 (88% idle), long MV $11,671.81, buying power $370,720.90. 25 positions ALL swing, 0 unattributed, source=alpaca (broker-authoritative), MV $11,672 (3.15x $3,700 cap, inflated by pre-fix daytrading buys of swing-held RIVN/AVGO before cc9e813 deployed ~20:00 UTC Aug 27). broker_ledger_synced_until 2026-08-28T00:51:09Z (fresh, ~9 min old).
+
+**100-run window 3944-4043 (18:11 UTC Aug 27 - 00:51 UTC Aug 28):** 0 gaps >15 min (~6h40m clean since 17:36 UTC recovery). 2 errors (both known): run 3975 subrequest (historical, 19:46 UTC Aug 27), run 4020 swing_cron POSITION_QTY_MISMATCH (22:01 UTC, safety block worked, pre-fix daytrading buys). 0 CYCLE_LEASE_HELD. Triggers: reconcile_cron 40, crypto_cron 14, swing_cron 1, cron (daytrading) 45. Crypto cadence :08/:38 (1-min Cloudflare jitter), all skipped (CRYPTO_BARS_STALE ETHUSD 79684s, CRYPTO_BARS_UNAVAILABLE MATICUSD empty, CRYPTO_DATA_INSUFFICIENT validTA=0). SWING_OWNED_EXCLUDE 0 occurrences (deployed ~20:00 UTC, market closed — first real test Aug 28 13:30 UTC open).
+
+**Pending fills at Aug 28 13:30 UTC open:** RIVN sell 186.29 (trade 740, accepted), AEP sell 1 (trade 739, accepted). Both should fill at open → RIVN position clears → POSITION_QTY_MISMATCH self-resolves.
+
+**Known DEGRADED (unchanged):** 3 null-strategy trades persistent (703 PLD, 648 NOW, 645 DUK). Crypto fail-closed: no rawEdgeBps producer in source, fee telemetry asOf Aug 19 (unavailable). All filled trades gross/fee/net=null, accounting_status=filled_lot_exact_unavailable (conservative). GitHub PAT not in vault — docs push blocked, docs HEAD local only.
+
+**Follow-ups (unchanged):** (1) Verify SWING_OWNED_EXCLUDE skips on Aug 28 13:30 UTC open. (2) Confirm RIVN/AEP sell fills + POSITION_QTY_MISMATCH resolution at open. (3) Watch subrequest errors under Workers Paid. (4) Monitor run-log gap elimination. (5) Sep 1 D1 enforcement monitoring. (6) Crypto rawEdgeBps producer (code change + deploy). (7) 3 null-strategy trades (D1 update, pending Joachim's prioritization).
+
 ## Friday, August 28, 2026 Control-154 strict read-only control
 
 Control-154 at ~00:00 UTC Aug 28 (Aug 28 02:00 +02). Strict GET-only. All eight endpoints (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`) returned HTTP 200. No trigger, submit, cancel, close, replace, retry, migration, deployment, or broker-mutating endpoint was called.
