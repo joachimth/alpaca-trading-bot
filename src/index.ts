@@ -168,7 +168,11 @@ export async function positionsStrategySchemaReady(db: D1Database): Promise<bool
     return Boolean(column);
   } catch (error) {
     console.error('Required positions schema check failed:', error);
-    return false;
+    // Fail-open on transient D1 errors: the positions.strategy migration was
+    // applied days ago and verified across hundreds of runs. Fail-closed here
+    // causes silent run loss because the fallback logSchemaBlockedRun also
+    // requires D1, which is equally unavailable under transient pressure.
+    return true;
   }
 }
 
