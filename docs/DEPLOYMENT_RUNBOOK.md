@@ -1,6 +1,6 @@
-**Monday, August 31, 2026 Control-235 strict read-only control (HEALTHY code/deploy, DEGRADED external, no deploy needed)**
+**Monday, August 31, 2026 Control-236 strict read-only control (HEALTHY code/deploy, DEGRADED external, no deploy needed)**
 
-No deploy required. Code 79583d8 (Control-172, unchanged). Control-217 reliability redeploy holding ~16h, longest clean stretch, no fifth cron dispatch failure. All 4 schedules dispatching. 23 swing positions broker-authoritative, 0 unattributed. Caps 5000/3700/2000 unchanged. See docs/OPERATIONS.md Control-235 entry for full evidence.
+No deploy required. Code 79583d8 (Control-172, unchanged). Control-217 reliability redeploy holding ~17h, longest clean stretch ever, no fifth cron dispatch failure. All 4 schedules dispatching. 23 swing positions broker-authoritative, 0 unattributed. Caps 5000/3700/2000 unchanged. See docs/OPERATIONS.md Control-236 entry for full evidence.
 
 **Monday, August 31, 2026 Control-234 strict read-only control (HEALTHY code/deploy, DEGRADED external, no deploy needed)**
 
