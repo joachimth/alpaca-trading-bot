@@ -1,3 +1,7 @@
+**Monday, August 31, 2026 Control-240 weekly read-only review (HEALTHY code/deploy, DEGRADED external, no defect found, no deploy needed)**
+
+No deploy or code change required. Weekly review: 8-check verification matrix all PASS (broker-D1 quantity sync, no rejected/duplicate orders, crypto fail-closed on minimum notional, conservative fee accounting, structured skip reasons, complete lifecycle timestamps, clean reservation cleanup, caps unchanged). Code 79583d8 (Control-172, unchanged). Control-217 reliability redeploy holding ~21h, longest clean stretch ever, no fifth cron dispatch failure. 23 swing positions broker-authoritative, 0 unattributed. 3 pending sells 769-771 await Mon open. Crypto fail-closed (bar staleness). Caps 5000/3700/2000 unchanged. See docs/OPERATIONS.md Control-240 entry for full verification evidence.
+
 **Monday, August 31, 2026 Control-239 strict read-only control (HEALTHY code/deploy, DEGRADED external, no deploy needed)**
 
 No deploy required. Code 79583d8 (Control-172, unchanged). Control-217 reliability redeploy holding ~20h, longest clean stretch ever, no fifth cron dispatch failure. All 4 schedules dispatching. 23 swing positions broker-authoritative, 0 unattributed. Caps 5000/3700/2000 unchanged. See docs/OPERATIONS.md Control-239 entry for full evidence.
