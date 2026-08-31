@@ -1,3 +1,7 @@
+**Monday, August 31, 2026 Control-241: swing cron DOW fix deployed and live-verified (HEALTHY code/deploy, DEGRADED external)**
+
+Defect found and fixed: swing cron `0 22 * * 1-5` fired Sun-Thu (Cloudflare DOW 1=Sunday) instead of Mon-Fri. Changed to `0 22 * * 2-6`. Deployed via direct CF API PUT (HTTP 200). 224 tests/845 assertions, typecheck clean. Caps 5000/3700/2000 unchanged. Code bd6205e. See docs/OPERATIONS.md Control-241 for full evidence. Follow-up: verify swing_cron fires Mon Aug 31 22:00 UTC and does NOT fire Sunday Sep 6.
+
 **Monday, August 31, 2026 Control-240 weekly read-only review (HEALTHY code/deploy, DEGRADED external, no defect found, no deploy needed)**
 
 No deploy or code change required. Weekly review: 8-check verification matrix all PASS (broker-D1 quantity sync, no rejected/duplicate orders, crypto fail-closed on minimum notional, conservative fee accounting, structured skip reasons, complete lifecycle timestamps, clean reservation cleanup, caps unchanged). Code 79583d8 (Control-172, unchanged). Control-217 reliability redeploy holding ~21h, longest clean stretch ever, no fifth cron dispatch failure. 23 swing positions broker-authoritative, 0 unattributed. 3 pending sells 769-771 await Mon open. Crypto fail-closed (bar staleness). Caps 5000/3700/2000 unchanged. See docs/OPERATIONS.md Control-240 entry for full verification evidence.
