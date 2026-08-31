@@ -714,9 +714,18 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       }
     }
 
-    // 8. Scan universe for candidates
-    const scanner = new UniverseScanner(alpaca, config.scanUniverseSize);
-    const candidates = await scanner.scan();
+    // 8. Scan universe for candidates.
+    // During the EOD no-entry window, candidate bar analysis is skipped
+    // (see section 9 below), so scanning the universe wastes 2 broker
+    // subrequests whose results are never used. Skip the scan in that
+    // window to further reduce subrequest pressure during EOD flatten.
+    let candidates: string[] = [];
+    if (!noNewEntries) {
+      const scanner = new UniverseScanner(alpaca, config.scanUniverseSize);
+      candidates = await scanner.scan();
+    } else {
+      console.log('EOD no-entry window: skipping universe scan to preserve subrequest budget');
+    }
     console.log(`Scanned universe: ${candidates.length} candidates`);
 
     // 8b. Detect market regime using SPY (S&P 500 ETF)
@@ -788,9 +797,37 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       }
     }
 
-    // Analyze new candidates (skip already analyzed) - parallel, limited per cycle
+    // Analyze new candidates (skip already analyzed) - parallel, limited per cycle.
+    // When EOD noNewEntries is active, all new BUY entries are blocked by
+    // EOD_NO_ENTRY anyway. Fetching 200 bars per candidate under EOD flatten
+    // load (which already submits closePosition orders for every held
+    // position) doubles the subrequest pressure and can exceed the Worker
+    // hard subrequest limit ("Fatal: Too many subrequests"). Skip the
+    // candidate bar fetches entirely in that window; held-position exits
+    // still get their signals from the loop above.
     const newCandidates = candidates.filter(s => !analyzedSymbols.has(s));
-    const scanLimit = Math.min(newCandidates.length, 20); // Reduced from 30 to avoid timeout
+    const eodEntryBlocked = noNewEntries;
+    const SUBREQUEST_BUDGET = 400; // conservative ceiling below the Worker hard limit
+    const subrequestsUsed = alpaca.getSubrequestCount();
+    let scanLimit = 0;
+    if (eodEntryBlocked) {
+      scanLimit = 0;
+      skips.add('EOD_NO_ENTRY', 'cycle', 'New candidate analysis skipped during EOD no-entry window to preserve subrequest budget; held-position exit signals are unaffected', {
+        strategy: 'daytrading',
+        candidatesAvailable: newCandidates.length,
+        minutesToClose: minutesToClose.toFixed(1),
+      });
+    } else if (subrequestsUsed >= SUBREQUEST_BUDGET) {
+      scanLimit = 0;
+      skips.add('SUBREQUEST_BUDGET_EXHAUSTED', 'cycle', 'New candidate analysis skipped because the broker subrequest budget was reached; held-position exit signals are unaffected', {
+        strategy: 'daytrading',
+        subrequestsUsed,
+        budget: SUBREQUEST_BUDGET,
+        candidatesAvailable: newCandidates.length,
+      });
+    } else {
+      scanLimit = Math.min(newCandidates.length, 20); // Reduced from 30 to avoid timeout
+    }
 
     const candidateBarPromises = newCandidates.slice(0, scanLimit).map(async symbol => {
       try {

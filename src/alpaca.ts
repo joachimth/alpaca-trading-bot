@@ -142,9 +142,29 @@ export interface Quote {
 
 export class AlpacaClient {
   private config: AlpacaConfig;
+  /**
+   * Running count of outbound fetch() subrequests made by this client.
+   * Cloudflare Workers enforces a hard subrequest limit per invocation
+   * (1000 on the paid plan). Exceeding it kills the Worker mid-cycle with
+   * "Fatal: Too many subrequests", which can leave stuck leases and missing
+   * cron dispatches. This counter lets the calling cycle proactively limit
+   * candidate analysis before hitting the hard limit.
+   */
+  subrequestCount = 0;
 
   constructor(config: AlpacaConfig) {
     this.config = config;
+  }
+
+  /** Increment the subrequest counter and delegate to fetch(). */
+  private async trackedFetch(url: string, init?: RequestInit): Promise<Response> {
+    this.subrequestCount++;
+    return fetch(url, init);
+  }
+
+  /** Current subrequest count for budget-aware cycle logic. */
+  getSubrequestCount(): number {
+    return this.subrequestCount;
   }
 
   private getHeaders(): Record<string, string> {
@@ -175,7 +195,7 @@ export class AlpacaClient {
       else upstreamSignal.addEventListener('abort', () => controller.abort(upstreamSignal.reason), { once: true });
     }
     try {
-      return await fetch(url, {
+      return await this.trackedFetch(url, {
         ...options,
         signal: controller.signal,
         headers: {
@@ -538,7 +558,7 @@ export class AlpacaClient {
       if (pageToken) params.set('page_token', pageToken);
       const url = `${dataUrl}/v2/stocks/${symbol}/bars?${params.toString()}`;
 
-      const resp = await fetch(url, {
+      const resp = await this.trackedFetch(url, {
         headers: this.getHeaders(),
       });
 
@@ -600,7 +620,7 @@ export class AlpacaClient {
       if (pageToken) params.set('page_token', pageToken);
       const url = `${dataUrl}/v2/stocks/bars?${params.toString()}`;
 
-      const resp = await fetch(url, {
+      const resp = await this.trackedFetch(url, {
         headers: this.getHeaders(),
       });
 
@@ -649,7 +669,7 @@ export class AlpacaClient {
     const dataUrl = this.getDataBaseUrl();
     const url = `${dataUrl}/v2/stocks/${symbol}/quotes/latest`;
 
-    const resp = await fetch(url, {
+    const resp = await this.trackedFetch(url, {
       headers: this.getHeaders(),
     });
 
@@ -673,7 +693,7 @@ export class AlpacaClient {
     const dataUrl = this.getDataBaseUrl();
     const url = `${dataUrl}/v2/stocks/${symbol}/trades/latest`;
 
-    const resp = await fetch(url, {
+    const resp = await this.trackedFetch(url, {
       headers: this.getHeaders(),
     });
 
@@ -708,7 +728,7 @@ export class AlpacaClient {
     const dataUrl = this.getDataBaseUrl();
     const url = `${dataUrl}/v2/screener/markets/stocks/movers`;
 
-    const resp = await fetch(url, {
+    const resp = await this.trackedFetch(url, {
       headers: this.getHeaders(),
     });
 
@@ -739,7 +759,7 @@ export class AlpacaClient {
     const symbolsStr = symbols.join(',');
     const url = `${dataUrl}/v2/stocks/snapshots?symbols=${symbolsStr}`;
 
-    const resp = await fetch(url, {
+    const resp = await this.trackedFetch(url, {
       headers: this.getHeaders(),
     });
 
@@ -775,7 +795,7 @@ export class AlpacaClient {
     const start = new Date(end.getTime() - 3 * 24 * 60 * 60 * 1000);
     const url = `${dataUrl}/v1beta3/crypto/us/bars?symbols=${encodeURIComponent(apiSymbol)}&timeframe=${encodeURIComponent(timeframe)}&start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}&limit=${limit}`;
 
-    const resp = await fetch(url, { headers: this.getHeaders() });
+    const resp = await this.trackedFetch(url, { headers: this.getHeaders() });
     if (!resp.ok) {
       const text = await resp.text();
       throw new Error(`Alpaca getCryptoBars failed for ${symbol}: ${resp.status} ${text}`);
@@ -806,7 +826,7 @@ export class AlpacaClient {
     const apiSymbols = symbols.map(s => s.includes('/') ? s : s.replace(/USD$/, '/USD'));
     const url = `${dataUrl}/v1beta3/crypto/us/snapshots?symbols=${apiSymbols.join(',')}`;
 
-    const resp = await fetch(url, { headers: this.getHeaders() });
+    const resp = await this.trackedFetch(url, { headers: this.getHeaders() });
     if (!resp.ok) {
       console.error(`Crypto snapshots failed: ${resp.status}`);
       return {};
