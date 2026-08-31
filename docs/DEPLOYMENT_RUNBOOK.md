@@ -1,3 +1,7 @@
+**Monday, August 31, 2026 Control-254 strict read-only control (HEALTHY code/deploy 2.6.0, DEGRADED external, no deploy needed; ~1h post-Control-253, all 4 schedules dispatching clean)**
+
+Control-254 at ~19:00 UTC Aug 31. No deploy needed. Control-253 redeploy (9a1fd4bf, 18:05 UTC) holding ~55 min: all 4 cron schedules dispatching clean. Run-log 5328-5527 contiguous (0 gaps). All pre-redeploy failures (POSITION_QTY_MISMATCH, CYCLE_LEASE_HELD) self-resolved, no post-redeploy defects. 224 tests/845 assertions pass, typecheck clean. Repo HEAD acc35fd. Follow-up: 22:00 UTC swing_cron DOW 2-6 first fire, D1 Sep 1 enforcement 00:00 UTC, reconcile WATCH (11-14s elevated), cron recurrence WATCH.
+
 **Monday, August 31, 2026 Control-253 authorized reliability redeploy for sixth cron dispatch failure (deploy executed, live-verified)**
 
 Deploy at ~18:05 UTC Aug 31. Same code bd6205e (Control-241, unchanged). Direct Cloudflare API PUT /content endpoint (multipart metadata + module). Deployment_id 9a1fd4bf, modified_on 2026-08-31T18:05:22Z. Bundle 307KB ESM from bun build src/index.ts. All 4 cron triggers re-registered: daytrading 1-59/5 * * * *, swing 0 22 * * 2-6, crypto 7-59/30 * * * *, reconcile */10 * * * *. D1 binding DB (2bc505a2). Post-deploy live-verified: /health 200 version=2.6.0, run 5510 cron ok 15871ms, run 5511 crypto_cron skipped, run 5512 reconcile_cron ok 12943ms. All 4 schedules dispatching. 224 tests/845 assertions pass, typecheck clean. No code change, no cap change.
