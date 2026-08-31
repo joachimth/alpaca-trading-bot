@@ -208,7 +208,7 @@ async function runStrategyWithSchemaGate(env: Env, trigger: string, cycle: (env:
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     const cron = event.cron;
-    if (event.cron === '0 22 * * 1-5') {
+    if (event.cron === '0 22 * * 2-6') {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'swing_cron', runSwingCycle));
     } else if (event.cron === '7-59/30 * * * *') {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'crypto_cron', runCryptoCycle));

@@ -125,7 +125,7 @@ const riskConfig: RiskConfig = {
 describe('audit schedule and dispatch regressions', () => {
   test('keeps the four configured cron expressions exact', () => {
     expect(wranglerToml).toContain(
-      'crons = ["1-59/5 * * * *", "0 22 * * 1-5", "7-59/30 * * * *", "*/10 * * * *"]',
+      'crons = ["1-59/5 * * * *", "0 22 * * 2-6", "7-59/30 * * * *", "*/10 * * * *"]',
     );
   });
 
@@ -184,7 +184,7 @@ describe('audit schedule and dispatch regressions', () => {
   });
 
   test('keeps each cron expression mapped to its current dispatch path', () => {
-    expect(workerSource).toMatch(/event\.cron === '0 22 \* \* 1-5'[\s\S]*?runStrategyWithSchemaGate\(env, 'swing_cron', runSwingCycle\)/);
+    expect(workerSource).toMatch(/event\.cron === '0 22 \* \* 2-6'[\s\S]*?runStrategyWithSchemaGate\(env, 'swing_cron', runSwingCycle\)/);
     expect(workerSource).toMatch(/event\.cron === '7-59\/30 \* \* \* \*'[\s\S]*?runStrategyWithSchemaGate\(env, 'crypto_cron', runCryptoCycle\)/);
     expect(workerSource).toMatch(/1-59\/5 \* \* \* \*'[\s\S]*?runStrategyWithSchemaGate\(env, 'cron', runTradingCycleWithLease\)/);
     expect(workerSource).toMatch(/event\.cron === '\*\/10 \* \* \* \*'[\s\S]*?runScheduledMaintenance\(env, 'reconcile_cron'\)/);

@@ -70,7 +70,7 @@ describe('scheduled schema readiness', () => {
     const env = { DB: { prepare(statement: string) { sql.push(statement); return base.prepare(statement); } } } as any;
     let pending: Promise<void> | undefined;
     await worker.scheduled(
-      { cron: '0 22 * * 1-5' } as ScheduledEvent,
+      { cron: '0 22 * * 2-6' } as ScheduledEvent,
       env,
       { waitUntil(value: Promise<void>) { pending = value; } } as ExecutionContext,
     );
