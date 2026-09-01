@@ -5,7 +5,7 @@ import { AlpacaClient } from './alpaca';
 import { analyze, generateSignal, ema, atr, type TASignal } from './technical-analysis';
 import { refineWithLLM, detectMarketRegime, type AIMarketContext } from './ai-decision';
 import { RiskManager, type RiskConfig, type RiskCheckResult } from './risk-manager';
-import { Database } from './database';
+import { Database, isFeeSummaryCacheFresh, markFeeSummaryRefreshed } from './database';
 import { UniverseScanner } from './scanner';
 import { DashboardAPI } from './api';
 import { runSwingCycle } from './swing-strategy';
@@ -296,12 +296,15 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
       console.log(JSON.stringify({ event: 'retention_prune_failed', trigger, error: pruneError instanceof Error ? pruneError.message : String(pruneError) }));
     }
 
-    // D1 read-budget optimization: refresh the cached broker fee summary once
-    // per maintenance cycle (every 10 min). Crypto strategy and dashboard read
-    // the cache instead of running a full-table scan on every cycle/load.
-    // This must run AFTER syncBrokerLedger so the cache reflects fresh fees.
+    // D1 read-budget optimization: refresh the cached broker fee summary at
+    // most once per hour. Crypto strategy and dashboard read the cache instead
+    // of running a full-table scan on every cycle/load. This must run AFTER
+    // syncBrokerLedger so the cache reflects fresh fees.
     try {
-      await db.getBrokerFeeSummary();
+      if (!isFeeSummaryCacheFresh()) {
+        await db.getBrokerFeeSummary();
+        markFeeSummaryRefreshed();
+      }
     } catch (feeError) {
       console.log(JSON.stringify({ event: 'fee_summary_cache_refresh_failed', trigger, error: feeError instanceof Error ? feeError.message : String(feeError) }));
     }

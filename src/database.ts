@@ -92,6 +92,24 @@ export interface DatabaseOptions {
 // use fresh D1 instances, so they always run full schema init.
 let isolateSchemaVerifiedDb: D1Database | null = null;
 
+// Module-level config cache to avoid re-reading bot_config on every cycle.
+// Workers isolates are reused across requests, so this persists until the
+// isolate is evicted. TTL of 120s balances freshness against D1 read savings.
+let cachedConfig: { data: Record<string, string>; ts: number } | null = null;
+const CONFIG_CACHE_TTL_MS = 120_000;
+
+// Module-level cached fee summary timestamp to skip expensive refresh queries
+// when the cached version is still fresh enough.
+let cachedFeeSummaryTs: number | null = null;
+export const FEE_SUMMARY_REFRESH_INTERVAL_MS = 3600_000; // 1 hour
+export function isFeeSummaryCacheFresh(): boolean {
+  if (cachedFeeSummaryTs === null) return false;
+  return (Date.now() - cachedFeeSummaryTs) < FEE_SUMMARY_REFRESH_INTERVAL_MS;
+}
+export function markFeeSummaryRefreshed(): void {
+  cachedFeeSummaryTs = Date.now();
+}
+
 export class Database {
   private db: D1Database;
   private schemaReady: Promise<void>;
@@ -145,6 +163,10 @@ export class Database {
     }
     await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_trades_client_order_id ON trades(client_order_id)').run();
     await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)').run();
+    // Additional indexes to reduce full-table scans on hot query paths
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_trades_strategy_side_ts ON trades(strategy, side, timestamp)').run();
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_trades_order_id ON trades(alpaca_order_id)').run();
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_positions_open ON positions(closed_at)').run();
   }
 
   private async ensureCycleLeaseSchema(): Promise<void> {
@@ -768,11 +790,16 @@ export class Database {
   // ============================================================
 
   async getConfig(): Promise<Record<string, string>> {
+    const now = Date.now();
+    if (cachedConfig && (now - cachedConfig.ts) < CONFIG_CACHE_TTL_MS) {
+      return cachedConfig.data;
+    }
     const result = await this.db.prepare('SELECT key, value FROM bot_config').all();
     const config: Record<string, string> = {};
     for (const row of result.results as any[]) {
       config[row.key] = row.value;
     }
+    cachedConfig = { data: config, ts: now };
     return config;
   }
 
@@ -785,6 +812,8 @@ export class Database {
     await this.db.prepare(
       'INSERT INTO bot_config (key, value, updated_at) VALUES (?, ?, datetime(\'now\')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime(\'now\')'
     ).bind(key, value).run();
+    // Invalidate the module-level config cache so the next getConfig() re-reads.
+    cachedConfig = null;
   }
 
   // ============================================================
@@ -1231,7 +1260,7 @@ export class Database {
     return updated;
   }
 
-  async getTradesNeedingSync(limit: number = 200, includeLifecycleBackfill = false): Promise<any[]> {
+  async getTradesNeedingSync(limit: number = 50, includeLifecycleBackfill = false): Promise<any[]> {
     await this.ensureTradeSchema();
     const terminalStatuses = "'filled', 'canceled', 'cancelled', 'rejected', 'expired', 'replaced', 'done_for_day', 'stopped'";
     const predicate = includeLifecycleBackfill
@@ -1479,7 +1508,7 @@ export class Database {
    * at market open and are imported by the auto-reconcile path before the swing
    * strategy has a chance to tag its positions.
    */
-  async getSwingTradeSymbols(limit: number = 200): Promise<Set<string>> {
+  async getSwingTradeSymbols(limit: number = 50): Promise<Set<string>> {
     await this.ensureTradeSchema();
     const result = await this.db.prepare(
       `SELECT DISTINCT ticker FROM trades

@@ -5,3 +5,4 @@ dist/
 secrets.json
 *.log
 .DS_Store
+index.js
