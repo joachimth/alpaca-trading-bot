@@ -1,3 +1,12 @@
+**Tuesday, September 1, 2026 Control-262 strict read-only control (HEALTHY code/deploy 2.6.0, DEGRADED external, no deploy needed; D1 Sep 1 enforcement first 3h clean, ~5h post-Control-257 all 3 active schedules dispatching, 4 CF schedules verified live)**
+
+Control-262 at ~03:00 UTC Sep 1 (Tuesday 05:00 +02). Market CLOSED. Strict GET-only on 6 endpoints (all 200: /health, /api/config, /api/dashboard, /api/positions, /api/runs, /api/trades). HEALTHY code/deploy (2.6.0), DEGRADED external. No new defect found, no deploy needed. Code unchanged from Control-255 (bd6205e). Repo HEAD be9e193 (Control-261).
+
+D1 Sep 1 enforcement: first 3 hours (00:00-03:00 UTC) clean. All runs 0 errors. Reconcile durations 8308-10495ms (30 reconcile runs observed), under 12s, stable. last_prune_date=2026-09-01. broker_ledger_synced_until=2026-09-01T02:50:49Z. RECONCILIATION_DEFERRED_TO_MAINTENANCE D1 optimization confirmed working (daytrading + crypto defer broker reconciliation to reconcile_cron every 10 min).
+
+Run-log: contiguous 5588-5687 (100 runs, 0 gaps, 0 errors). ~5h post-Control-257: all 3 active schedules dispatching clean (daytrading MARKET_CLOSED skip, reconcile ok 8308-10495ms, crypto :07/:37 skip). swing_cron ABSENT (expected; next fire tonight 22:00 UTC DOW=3, second 2-6 verification). 4 CF schedules verified live via API (all modified 22:06:50Z Control-257, swing DOW 2-6 confirmed).
+
+Positions: 20 swing MV $7,825.17, all strategy=swing, source=alpaca (broker-authoritative), 0 daytrading/crypto/null. Equity $98,158.10, cash $90,332.93 (92.0%), down $60.96 today (-0.062%). 821 trades, win 11.11%. Account ACTIVE, not PDT. All trades accounting_status=filled_lot_exact_unavailable, gross/fee/net=null (conservative). Crypto edge gate still blocked (CRYPTO_BARS_STALE AVAXUSD 21.6h stale, CRYPTO_BARS_UNAVAILABLE MATICUSD). Fee telemetry stale (Aug 19). EQUITY_DIRECTION_FALLBACK in crypto runs (broker change_today_pct=0). Caps 5000/3700/2000 unchanged.
 **Tuesday, September 1, 2026 Control-261 strict read-only control (HEALTHY code/deploy 2.6.0, DEGRADED external, no deploy needed; D1 Sep 1 enforcement first 2h clean, ~4h post-Control-257 all 3 active schedules dispatching, 4 CF schedules verified live)**
 
 Control-261 at ~02:00 UTC Sep 1 (Tuesday 04:00 +02). Market CLOSED. Strict GET-only on 6 endpoints (all 200: /health, /api/config, /api/dashboard, /api/positions, /api/runs, /api/trades). HEALTHY code/deploy (2.6.0), DEGRADED external. No new defect found, no deploy needed. Code unchanged from Control-255 (bd6205e). Repo HEAD 29cc460 (Control-260).
@@ -3113,4 +3122,3 @@ Control-138 at ~09:00 UTC (Aug 27 11:00 +02). Strict GET-only. All eight endpoin
 **Trades:** 720-722 sells no_fill (conservative null gross/fee/net). 707-719 filled BUYs filled_lot_exact_unavailable (conservative null). Trade 703 (PLD) strategy=null persistent. All filled trades accounting_status=filled_lot_exact_unavailable, gross/fee/net=null (conservative).
 
 **Status: HEALTHY (code/deploy), DEGRADED (external: pre-existing swing over-cap + historical run-log gaps + crypto fail-closed + trade 703 null).** No deploy needed. Paid-plan upgrade approved but not executed (remedy for Free-tier run-log gaps). Follow-up: rawEdgeBps producer; D1 Sep 1 enforcement; github_pat; paid-plan upgrade; bar freshness; trade 703 null strategy; swing normalizes as 3 pending sells fill at Aug 27 13:30 UTC open.
-
