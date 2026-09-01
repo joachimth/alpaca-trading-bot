@@ -1,3 +1,15 @@
+**Tuesday, September 1, 2026 Control-260 strict read-only control (HEALTHY code/deploy 2.6.0, DEGRADED external, no deploy needed; D1 Sep 1 enforcement first hour clean, all 3 active schedules dispatching, 4 CF schedules verified live)**
+
+Control-260 at ~01:00 UTC Sep 1 (Tuesday 03:00 +02). Market CLOSED. Strict GET-only on 6 endpoints (all 200: /health, /api/config, /api/dashboard, /api/positions, /api/runs, /api/trades). HEALTHY code/deploy (2.6.0), DEGRADED external. No new defect found, no deploy needed. Code unchanged from Control-255 (bd6205e). Repo HEAD 729321b (Control-259).
+
+D1 Sep 1 ENFORCEMENT UPDATE: ~1h into enforcement. All runs from 00:00 through 01:00 UTC Sep 1 survived with 0 errors. Reconcile durations 8345-11544ms (avg 9277ms), stable under 12s. Run-log contiguous 5549-5648, 0 gaps. Key test remains: 13:30 UTC weekday market open today.
+
+CRON DISPATCH: ~3h post-Control-257 redeploy. All 3 active schedules (daytrading, crypto, reconcile) dispatching clean. swing_cron absent (expected; next fire tonight 22:00 UTC, DOW=3 in 2-6 range). 4 CF schedules verified live via API (all modified 22:06:50Z Control-257, swing DOW 2-6 confirmed).
+
+D1 OPTIMIZATION CONFIRMED: RECONCILIATION_DEFERRED_TO_MAINTENANCE skip code working correctly — daytrading and crypto crons defer broker reconciliation to reconcile_cron (every 10 min), conserving D1 budget. All skips include MARKET_CLOSED during overnight hours.
+
+METRICS: 20 swing positions MV $7,830.17, 0 daytrading/crypto/null. Equity $98,163.10 (down $55.96 from $98,219.06, -0.057% overnight drift). Cash $90,332.93 (92.0%). 821 trades, win 11.11%. Account ACTIVE, not PDT, not blocked. Broker-authoritative positions (source=alpaca, all metadata_source=d1). Fee telemetry stale (asOf Aug 19), gross/fee/net=null conservative. Caps 5000/3700/2000 unchanged. 224 tests/845 assertions pass, typecheck clean.
+
 **Tuesday, September 1, 2026 Control-259 strict read-only control (HEALTHY code/deploy 2.6.0, DEGRADED external, no deploy needed; D1 Sep 1 enforcement STARTED — first run survived, 4 CF schedules verified live)**
 
 Control-259 at ~00:00 UTC Sep 1 (Tuesday 02:00 +02). Market CLOSED. Strict GET-only on 6 endpoints (all 200: /health, /api/config, /api/dashboard, /api/positions, /api/runs, /api/trades). HEALTHY code/deploy (2.6.0), DEGRADED external. No new defect found, no deploy needed. Code unchanged from Control-255 (fd2309c). Repo HEAD bf626d3.
