@@ -1,3 +1,23 @@
+**Tuesday, September 1, 2026 Control-259 strict read-only control (HEALTHY code/deploy 2.6.0, DEGRADED external, no deploy needed; D1 Sep 1 enforcement STARTED — first run survived, 4 CF schedules verified live)**
+
+Control-259 at ~00:00 UTC Sep 1 (Tuesday 02:00 +02). Market CLOSED. Strict GET-only on 6 endpoints (all 200: /health, /api/config, /api/dashboard, /api/positions, /api/runs, /api/trades). HEALTHY code/deploy (2.6.0), DEGRADED external. No new defect found, no deploy needed. Code unchanged from Control-255 (fd2309c). Repo HEAD bf626d3.
+
+D1 Sep 1 ENFORCEMENT MILESTONE: Run 5628 at 2026-09-01 00:00:55 UTC = first reconcile_cron run past midnight = ok, 8855ms, 0 errors. D1 enforcement did not kill the first run. Full test: weekday trading hours (13:30 UTC open today). Continue WATCH.
+
+RUN-LOG: contiguous 5589-5628 (40 runs, 0 ID gaps, 0 errors). Triggers: cron (daytrading) 24/reconcile_cron 12/crypto_cron 4. Reconcile every 10 min all ok, durations 8345-9692ms (under 12s, stable). Crypto :07/:37 cadence confirmed (5591 22:07, 5601 22:37, 5611 23:07, 5621 23:37 — all skipped, bars stale). Daytrading cron every 5 min, all MARKET_CLOSED skip (nextOpen 2026-09-01T09:30-04:00). swing_cron next fire: Tue Sep 1 22:00 UTC (DOW=3, second DOW 2-6 verification). No new cron dispatch failure since Control-257 redeploy (~2h ago).
+
+SCHEDULES: 4 confirmed live via CF GET /schedules API, all modified 2026-08-31T22:06:50Z (Control-257). swing `0 22 * * 2-6` ✓, daytrading `1-59/5 * * * *` ✓, crypto `7-59/30 * * * *` ✓, reconcile `*/10 * * * *` ✓.
+
+POSITIONS: 20 swing, MV $7,824.15, all metadata_source=d1, 0 daytrading/crypto/null. Broker-authoritative, 0 unattributed.
+
+EQUITY: $98,157.12 (dashboard account), snapshot 1357 at 23:37:43 UTC equity $98,161.64. Change today -$61.94 (-0.063%). Cash $90,332.93 (92.0%). ACTIVE, not PDT. 821 trades, win 11.11%.
+
+TRADES: Latest 10 all daytrading sells/buys filled Aug 31 19:46-19:47 UTC. accounting_status=filled_lot_exact_unavailable, fee_attribution=none-recorded. Conservative gross/fee/net=null. Fee telemetry stale (cryptoFeeAsOf Aug 19, status unavailable).
+
+CAPS: daytrading 5000 / swing 3700 / crypto 2000 USD unchanged. 224 tests / 845 assertions pass, typecheck clean.
+
+---
+
 **Tuesday, September 1, 2026 Control-258 strict read-only control (HEALTHY code/deploy 2.6.0, DEGRADED external, no deploy needed; ~54 min post-Control-257 redeploy, all 3 active schedules dispatching clean, 4 CF schedules verified live)**
 
 Control-258 at ~23:00 UTC Aug 31 (Tuesday 01:00 +02). Market CLOSED. Strict GET-only on 6 endpoints (all 200: /health, /api/config, /api/dashboard, /api/positions, /api/runs, /api/trades). HEALTHY code/deploy (2.6.0), DEGRADED external. No new defect found, no deploy needed. Code unchanged from Control-255 (fd2309c). Docs ordering defect found and fixed: Control-257 entry was appended at end of all 3 docs instead of prepended at top — corrected this control.
