@@ -1,3 +1,19 @@
+**Tuesday, September 1, 2026 Control-263 strict read-only control (HEALTHY code/deploy 2.6.0, DEGRADED external, no deploy needed; D1 Sep 1 enforcement first 4h clean, ~6h post-Control-257 all 3 active schedules dispatching, 4 CF schedules verified live swing DOW 2-6)**
+
+Control-263 at ~04:00 UTC Sep 1 (Tuesday 06:00 +02). Market CLOSED. Strict GET-only on 6 endpoints (all 200: /health, /api/config, /api/dashboard, /api/positions, /api/runs, /api/trades). HEALTHY code/deploy (2.6.0), DEGRADED external. No new defect found, no deploy needed. Code unchanged from Control-255 (bd6205e). Repo HEAD 2dfd5a8 (Control-262).
+
+D1 Sep 1 enforcement: first 4 hours (00:00-04:00 UTC) clean. All runs 0 errors. Reconcile durations 8308-10495ms (avg 8631ms, 15 reconcile runs observed), under 12s, stable. last_prune_date=2026-09-01. broker_ledger_synced_until=2026-09-01T03:50:49Z. RECONCILIATION_DEFERRED_TO_MAINTENANCE D1 optimization confirmed working (daytrading + crypto defer broker reconciliation to reconcile_cron every 10 min).
+
+Run-log: contiguous 5658-5707 (50 runs, 0 gaps, 0 errors). ~6h post-Control-257: all 3 active schedules dispatching clean (daytrading MARKET_CLOSED skip, reconcile ok 8360-8379ms, crypto :07/:37 skip). swing_cron ABSENT (expected; next fire tonight 22:00 UTC DOW=3, second 2-6 verification). 4 CF schedules verified live via API (all modified 22:06:50Z Control-257): swing `0 22 * * 2-6` (Mon-Fri) ✓, daytrading `1-59/5 * * * *` ✓, crypto `7-59/30 * * * *` ✓, reconcile `*/10 * * * *` ✓.
+
+Positions: 20 swing MV $7,832, all strategy=swing, source=alpaca (broker-authoritative), 0 daytrading/crypto/null. Equity $98,165, cash $90,333 (92.0%), down $54 (-0.056%). 821 trades, win 11.11%, 7567 decisions. Snapshot 1365 (03:37 UTC). SWING_OWNED_EXCLUDE working (decision 7567 COIN BUY skipped as swing-owned). POSITION_QTY_MISMATCH (SLB, PFE from Aug 31) corrected via broker-authoritative persistence. Crypto edge gate still blocked (AVAXUSD 21.6h stale, MATICUSD unavailable, CRYPTO_DATA_INSUFFICIENT validTA=0). Fee telemetry stale (Aug 19), gross/fee/net=null conservative. EQUITY_DIRECTION_FALLBACK in crypto runs.
+
+Historical error runs (outside current window, all well-understood): 5544 (Aug 31 19:47, subrequest ceiling, non-fatal), 5448/5445 (Aug 31 14:xx, POSITION_QTY_MISMATCH SLB/PFE, broker-authoritative correction working). No new errors since.
+
+Caps 5000/3700/2000 USD unchanged. No deploy, no notification (no material delta from Control-262). Cron dispatch failure count remains SEVEN (Control-172, 186, 203, 217, 251, 253, 257). Key upcoming: D1 enforcement first weekday test at 13:30 UTC open today (Tue Sep 1); swing_cron next fire tonight 22:00 UTC (DOW=3, second 2-6 verification).
+
+---
+
 **Tuesday, September 1, 2026 Control-262 strict read-only control (HEALTHY code/deploy 2.6.0, DEGRADED external, no deploy needed; D1 Sep 1 enforcement first 3h clean, ~5h post-Control-257 all 3 active schedules dispatching, 4 CF schedules verified live)**
 
 Control-262 at ~03:00 UTC Sep 1 (Tuesday 05:00 +02). Market CLOSED. Strict GET-only on 6 endpoints (all 200: /health, /api/config, /api/dashboard, /api/positions, /api/runs, /api/trades). HEALTHY code/deploy (2.6.0), DEGRADED external. No new defect found, no deploy needed. Code unchanged from Control-255 (bd6205e). Repo HEAD be9e193 (Control-261).
