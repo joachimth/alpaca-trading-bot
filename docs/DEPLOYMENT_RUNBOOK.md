@@ -1,3 +1,5 @@
+## Control-332 (Sep 3 16:00 UTC): No deploy required. Deployed source remains 0b3b2a3 (Control-283). Repo HEAD 60fef9d (Control-331, docs-only). All 6 endpoints 200. D1 stress test PASSED third consecutive trading day, ~16h clean. 224 tests/845 assertions, typecheck clean. Caps 5000/3700/2000 unchanged.
+
 ## Control-321 (Sep 3 07:00 UTC): No deploy required. Deployed source remains 0b3b2a3 (Control-283). Repo HEAD 8738c1b (Control-320, docs-only). All 6 endpoints 200. D1 post-reset ~7h clean. 224 tests/845 assertions, typecheck clean. Caps 5000/3700/2000 unchanged.
 
 ## Control-318 (Sep 3 04:00 UTC): No deploy required. Deployed source remains 0b3b2a3 (Control-283). Repo HEAD 2b9ab82 (Control-316, docs-only). All 6 endpoints 200. D1 post-reset ~4h clean. 224 tests/845 assertions, typecheck clean. Caps 5000/3700/2000 unchanged.
