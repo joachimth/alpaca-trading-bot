@@ -1,13 +1,12 @@
 # NOW
-- Alpaca Control-350 (Sep 4 ~08:04 UTC): HEALTHY 2.6.0, DEGRADED external. No defect, no deploy.
-- D1 Sep 4 quota day ~8.5h clean post-reset. Fourth consecutive clean day.
-- swing_cron DOW=5 fired cleanly run 6919 Sep 3 22:00:59 (SECOND validated DOW 2-6 fire).
-- 16 positions broker-authoritative: 16 swing (cost $5,651.31, MV $5,623.06, CAPITAL_CAP active) + 0 daytrading + 0 crypto. 0 null strategy.
-- 1020 trades, 1019 executed, 1 accepted (CCL swing sell pending fill at Sep 4 13:30 UTC open). Run-log 7021-7120 contiguous, 0 gaps/0 errors/0 LEASE_HELD.
-- Equity $97,702.34 (+$15.41/+0.016% POSITIVE today). Cash $92,079.33. Long MV $5,623.01. Snapshot eq $97,697.75.
-- 4 schedules dispatching: daytrading 1-59/5 (MARKET_CLOSED), reconcile */10 latest 7119 13.1s, crypto 7-59/30 at :07/:37, swing 0 22 * * 2-6.
-- Crypto fail-closed (edge gate wired not reached). Fee stale Aug 19 conservative. Reconcile 13.1-14.1s WATCH ELEVATED stable.
-- Repo HEAD a171577 (C-349), deployed 0b3b2a3 (C-283), no source diff. 224 tests/845 assertions, typecheck clean. MAIN 259 ahead.
+- Alpaca Control-361 (Sep 4 ~15:00 UTC): HEALTHY 2.6.0, DEGRADED external. No defect, no deploy.
+- D1 Sep 4 quota day ~15h clean post-reset. Fourth consecutive clean day. No ninth cron failure (~73h post-C-305).
+- MARKET OPEN. Daytrading active and rotating: PLUG/NIO sold, new buys HOOD/PLUG/MSTR/NOW/NVDA/TSM filled. 1 pending (NVDA trade 1041).
+- 20 positions broker-authoritative: 15 swing (cost ~$5,451.72, MV ~$5,457.28, CAPITAL_CAP) + 5 daytrading (cost ~$5,017.73, at cap, CAPITAL_CAP) + 0 crypto. 0 null strategy.
+- 1041 trades, 1040 executed. Run-log 7210-7259 contiguous, 0 gaps/0 errors/0 LEASE_HELD.
+- Equity $97,671.46 (-$15.47 -0.0158% slightly negative). Cash $87,212.16. Long MV $10,459.30.
+- 4 schedules dispatching: daytrading 1-59/5 (market_open=1), reconcile */10 (latest 7259 15:00 15920ms, 15.9-23.5s WATCH), crypto 7-59/30 fail-closed, swing 0 22 * * 2-6.
+- Crypto fail-closed (edge gate not reached). Reconcile 15.9-23.5s WATCH ELEVATED during market hours, 0 errors, not redeploying.
+- Repo HEAD db88b2d (C-360), deployed 0b3b2a3 (C-283), no source diff. 224 tests/845 assertions, typecheck clean. MAIN 269 ahead.
 - swing_cron Fri Sep 4 22:00 UTC DOW=6 must fire TONIGHT, Sat Sep 5 DOW=7 must NOT, Sun Sep 6 DOW=1 must NOT. Caps 5000/3700/2000 unchanged.
-- FOLLOW-UP: 259-commit docs push, D1 paid-tier decision, fee+crypto freshness, reconcile WATCH, monitor ninth cron failure.
-- Outlook 4/9 09:45: 1 archived (CodeTwo), 1 moved (Todo). Kent asks "Klare du den?" re pressemøde 11/9. 15 unread, 10 drafts.
+- FOLLOW-UP: docs push, D1 paid-tier decision, fee+crypto freshness, reconcile WATCH, monitor ninth cron failure.
