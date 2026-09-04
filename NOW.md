@@ -1,16 +1,12 @@
-# Control-225 — intentional holding (no findings)
-
-Continuation of the read-only daytime monitoring pass dated 2026-08-30, after Control-224.
-
-- HEALTHY code/deploy (2.6.0), DEGRADED external, no deploy needed.
-- Control-217 reliability redeploy holding ~6.5h: all 4 schedules dispatching.
-  - daytrading_cron every 5 min (15:41-17:06 all present, MARKET_CLOSED skips)
-  - reconcile_cron every 10 min (9 ok runs, durations 2650-3797ms, avg 3124ms, NO creep)
-  - crypto_cron :07/:37 (fail-closed: MATICUSD empty + LINKUSD/ETHUSD stale ~22h age 79635s, edge gate not reached, symbol rotation ongoing)
-  - swing_cron (weekend, none)
-- Run-log contiguous 4993-5022 (30 runs, 0 gaps, 0 errors).
-- Equity $98,219.06, cash $89,963.32 (91.5%), ACTIVE, not PDT, change_today -$0.0026, snapshot 1222 @ 17:07.
-- 23 swing positions broker-authoritative MV $8,255.74; 768 trades win 15%, 0 new null-strategy in window.
-- Caps 5000/3700/2000 unchanged. Code 79583d8.
-- No new findings vs Control-224 → no release claim, tracking only.
-- Key next test: Monday Aug 31 13:30 UTC open. Cron dispatch recurrence WATCH (~6.5h into post-Control-217 window).
+# NOW
+- Alpaca Control-344 (Sep 4 ~03:00 UTC): HEALTHY 2.6.0, DEGRADED external. No defect, no deploy.
+- D1 Sep 4 quota day ~3h clean post-reset. Sep 3 = third consecutive FULL trading day clean.
+- swing_cron DOW=5 fired cleanly run 6919 Sep 3 22:00:59 (26 dec, 0 err, 28s). SECOND consecutive validated DOW 2-6 fire.
+- 16 positions broker-authoritative: 16 swing (cost $5,651.30, MV $5,609.71, CAPITAL_CAP active) + 0 daytrading + 0 crypto. 0 null strategy.
+- 1020 trades, 1019 executed, 1 accepted (CCL swing sell pending fill). Run-log 6920-7019 contiguous, 0 gaps/0 errors/0 LEASE_HELD.
+- Equity $97,689.94 (+$55.42/+0.057% POSITIVE). Cash $92,080.23. Long MV $5,609.71.
+- 4 schedules dispatching: daytrading 1-59/5 (MARKET_CLOSED), reconcile */10, crypto 7-59/30 at :07/:37, swing 0 22 * * 2-6.
+- Crypto fail-closed (edge gate wired not reached). Fee stale Aug 19 conservative. Reconcile 13.4-14.4s avg 13.7s WATCH ELEVATED stable.
+- Repo HEAD 0b79d78 (C-343), deployed 0b3b2a3 (C-283), no source diff. 224 tests/845 assertions, typecheck clean. MAIN 253 ahead.
+- swing_cron Fri Sep 4 22:00 UTC DOW=6 must fire TONIGHT, Sat Sep 5 DOW=7 must NOT, Sun Sep 6 DOW=1 must NOT. Caps 5000/3700/2000 unchanged.
+- FOLLOW-UP: 253-commit docs push, D1 paid-tier decision, fee+crypto freshness, reconcile WATCH, monitor ninth cron failure.
