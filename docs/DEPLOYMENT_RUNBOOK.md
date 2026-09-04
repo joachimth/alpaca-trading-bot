@@ -1,3 +1,5 @@
+## Control-346 (Sep 4 05:00 UTC): No deploy required. Deployed source remains 0b3b2a3 (Control-283). Repo HEAD 411cc33 (Control-345, docs-only). All 6 endpoints 200. D1 Sep 4 quota day ~5h clean post-reset. 224 tests/845 assertions, typecheck clean. Caps 5000/3700/2000 unchanged.
+
 ## Control-345 (Sep 4 04:00 UTC): No deploy required. Deployed source remains 0b3b2a3 (Control-283). Repo HEAD 73d92e9 (Control-344, docs-only). All 6 endpoints 200. D1 Sep 4 quota day ~4h clean post-reset. 224 tests/845 assertions, typecheck clean. Caps 5000/3700/2000 unchanged.
 
 ## Control-344 (Sep 4 03:00 UTC): No deploy required. Deployed source remains 0b3b2a3 (Control-283). Repo HEAD 0b79d78 (Control-343, docs-only). All 6 endpoints 200. D1 Sep 4 quota day ~3h clean post-reset. 224 tests/845 assertions, typecheck clean. Caps 5000/3700/2000 unchanged.
