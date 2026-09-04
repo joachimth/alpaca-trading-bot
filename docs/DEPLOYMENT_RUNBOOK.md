@@ -2819,3 +2819,23 @@ Strict read-only control. No deploy. No code change. HEALTHY code/deploy 2.6.0, 
 
 ## Control-341 (Sep 4 ~00:00 UTC / 02:00 +02 Fri): No deploy required. Deployed source remains 0b3b2a3 (Control-283). Repo HEAD 2e462a3 (Control-340, docs-only). All 6 endpoints 200. D1 Sep 4 quota day started at 00:00 UTC, first post-reset reconcile run 6959 at 00:00:44 UTC succeeded (14011ms, ok). Sep 3 was third consecutive FULL trading day clean. Run-log 6770-6959 contiguous (190 runs, 2 pages), 0 gaps, 0 errors, 0 LEASE_HELD. 16 positions broker-authoritative (source=alpaca): 16 swing (cost $5,651.31, MV $5,606.46, CAPITAL_CAP active) + 0 daytrading + 0 crypto, 0 null strategy. Equity $97,686.69 (+$52.17/+0.053% POSITIVE), cash $92,080.23. 1020 trades, 1019 executed, 1 accepted (CCL swing sell pending fill). Reconcile ~13.5-14.2s WATCH ELEVATED stable. Crypto fail-closed (edge gate wired not reached). Fee stale Aug 19. 224 tests/845 assertions, typecheck clean. MAIN 250 commits ahead. Caps 5000/3700/2000 unchanged.
 - Control-355 (Sep 4 11:01 UTC): steady-state pass, no deploy. Deployed source remains 0b3b2a3 (Control-283). All 6 endpoints 200, HEALTHY 2.6.0. D1 Sep 4 ~11h clean (fourth consecutive). Run-log 7079-7178 contiguous. Equity $97,699.19 POSITIVE. 16 swing, 0 daytrading, 0 crypto. CCL sell pending fill. Repo HEAD 0edfeb5, MAIN 264 ahead. Caps 5000/3700/2000 unchanged.
+
+## Control-364 (Sep 4 17:03 UTC): Reliability redeploy to clear stuck daytrading lease (ninth cron dispatch failure)
+
+**Trigger:** Daytrading CYCLE_LEASE_HELD streak (runs 7275-7281, ~80 min blocked during market hours). A silently-thrown cron invocation acquired the daytrading lease and threw before releasing it. Every-other 5-min cron invocation missing from run log (silent throw).
+
+**Deploy method:** Direct Cloudflare API PUT /content (same 0b3b2a3 source, no code change) + PUT /schedules (array format, all 4 cron triggers re-registered).
+
+**Deploy tag:** 6d3ee0ab3cf644db9768f331e61a56e8, deployment_id 2e306791cbd74009ac9d99389ec867d8
+
+**Post-deploy verification (read-only GET):**
+- /health 200 (2.6.0), /api/config 200 (caps 5000/3700/2000), /api/dashboard 200, /api/positions 200, /api/runs 200, /api/trades 200
+- Run 7282 (17:06:49): normal daytrading cron, mo=1, 16.2s, 10 decisions, RECONCILIATION_DEFERRED (lease cleared)
+- Run 7283 (17:07:37): crypto fail-closed (normal)
+- Run 7284 (17:10:43): reconcile ok 13.1s (normal)
+- Positions unchanged: 15 swing + 4 daytrading + 0 crypto = 19, 0 null strategy
+- Equity $97,717.92 (+$30.99 today)
+
+**Schedules API note:** Array format `[{"cron":"..."},...]` returns 200. Object format `{"schedules":[...]}` returns 400 (code 10026).
+
+**Authorization:** Standing self-directed deploy authorization (Aug 25, 2026). No caps or trading behavior changed.
