@@ -1,12 +1,6 @@
 # NOW
-- Alpaca Control-361 (Sep 4 ~15:00 UTC): HEALTHY 2.6.0, DEGRADED external. No defect, no deploy.
-- D1 Sep 4 quota day ~15h clean post-reset. Fourth consecutive clean day. No ninth cron failure (~73h post-C-305).
-- MARKET OPEN. Daytrading active and rotating: PLUG/NIO sold, new buys HOOD/PLUG/MSTR/NOW/NVDA/TSM filled. 1 pending (NVDA trade 1041).
-- 20 positions broker-authoritative: 15 swing (cost ~$5,451.72, MV ~$5,457.28, CAPITAL_CAP) + 5 daytrading (cost ~$5,017.73, at cap, CAPITAL_CAP) + 0 crypto. 0 null strategy.
-- 1041 trades, 1040 executed. Run-log 7210-7259 contiguous, 0 gaps/0 errors/0 LEASE_HELD.
-- Equity $97,671.46 (-$15.47 -0.0158% slightly negative). Cash $87,212.16. Long MV $10,459.30.
-- 4 schedules dispatching: daytrading 1-59/5 (market_open=1), reconcile */10 (latest 7259 15:00 15920ms, 15.9-23.5s WATCH), crypto 7-59/30 fail-closed, swing 0 22 * * 2-6.
-- Crypto fail-closed (edge gate not reached). Reconcile 15.9-23.5s WATCH ELEVATED during market hours, 0 errors, not redeploying.
-- Repo HEAD db88b2d (C-360), deployed 0b3b2a3 (C-283), no source diff. 224 tests/845 assertions, typecheck clean. MAIN 269 ahead.
-- swing_cron Fri Sep 4 22:00 UTC DOW=6 must fire TONIGHT, Sat Sep 5 DOW=7 must NOT, Sun Sep 6 DOW=1 must NOT. Caps 5000/3700/2000 unchanged.
-- FOLLOW-UP: docs push, D1 paid-tier decision, fee+crypto freshness, reconcile WATCH, monitor ninth cron failure.
+- Alpaca C-388 (13:00 UTC): HEALTHY 2.6.0, ingen defekt, ingen deploy. Run-log 7568-7667 contiguous (100), 0 gaps/errors/LEASE. Equity $97,724 POSITIVE. 18 pos broker-authoritative (15 swing + 3 daytrading + 0 crypto), 0 null. Deployed 0b3b2a3.
+- All 4 schedules cadence: Sat DOW=7 swing NO-FIRE holder (0 swing runs) = første halvdel af sidste weekend-bevis. INTC sell 1080 afventer fill Monday Sep 8. Crypto fail-closed edge gate wired ikke nået. D1 Sep 5 ~13h clean (5. consecutive). Caps 5000/3700/2000 uændret.
+- KERNEPUNKT: i aften 22:00 UTC Sat DOW=7 NO-FIRE bekræftes + Sun Sep 6 DOW=1 NO-FIRE = sidste weekend-bevis. Hourly-health 864e3971 dækker.
+- MK2 Fase D (næste blok): design-dashboard med samlede Anvend-advarsler, FRD/ZMA-import, A/B/C kvalitetsflag, reverse-null UI, golden CSV WinISD/Hornresp, eksport-tests. Se TODO.md/ROADMAP.md.
+- Gotchas: `bun run test` (aldrig `bun test`); push = Git Data API via `assistant oauth request --provider github -s -X POST -d @file <url>`; rollback mk2 = revert til 7eaa2ce.
