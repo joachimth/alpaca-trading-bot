@@ -1162,6 +1162,28 @@ export class Database {
       let strategy: TradeRecord['strategy'] = existing?.strategy ?? null;
       if (order.side === 'sell') {
         strategy = (await this.inferCryptoSellStrategy(order.symbol, order.created_at, strategy)) ?? null;
+        // Conservative stock-sell fallback: when crypto attribution returns
+        // null (non-USD symbols), attribute from the D1 position row for that
+        // ticker. We look at both open and recently-closed positions because
+        // EOD-flatten sells close the position before the reconciliation import
+        // discovers the broker order. Picks the most recently updated position.
+        // Falls back to the most recent buy trade for the same ticker if no
+        // position row exists.
+        if (strategy === null) {
+          const pos = await this.db.prepare(
+            `SELECT strategy FROM positions WHERE ticker = ? AND strategy IS NOT NULL ORDER BY updated_at DESC LIMIT 1`
+          ).bind(order.symbol).first() as { strategy?: TradeRecord['strategy'] } | null;
+          if (pos?.strategy) {
+            strategy = pos.strategy;
+          } else {
+            const buy = await this.db.prepare(
+              `SELECT strategy FROM trades WHERE ticker = ? AND side = 'buy' AND strategy IS NOT NULL ORDER BY timestamp DESC LIMIT 1`
+            ).bind(order.symbol).first() as { strategy?: TradeRecord['strategy'] } | null;
+            if (buy?.strategy) {
+              strategy = buy.strategy;
+            }
+          }
+        }
       }
       if (existing?.id !== undefined && existing.id !== null) {
         const incomingUpdatedAt = order.updated_at ?? null;
@@ -1225,7 +1247,63 @@ export class Database {
       }
     }
     await this.backfillCryptoSellAttribution();
+    await this.backfillStockSellAttribution();
     return imported;
+  }
+
+  /**
+   * Idempotently repair NULL-strategy sell rows for stock symbols by
+   * attributing from the most recently updated D1 position row. This
+   * closes the EOD-flatten gap where broker-imported sells arrive with
+   * strategy=null because the Worker's logOrderTrade was lost to a
+   * timeout. Only sells still null after crypto attribution are touched.
+   */
+  async backfillStockSellAttribution(limit = 200): Promise<number> {
+    await this.ensureTradeSchema();
+    const rows = await this.db.prepare(
+      `SELECT id, ticker, side, timestamp, strategy FROM trades
+       WHERE side = 'sell' AND strategy IS NULL
+       ORDER BY timestamp ASC LIMIT ?`
+    ).bind(limit).all();
+    let updated = 0;
+
+    for (const row of rows.results as Array<{
+      id: number;
+      ticker: string;
+      side: string;
+      timestamp: string;
+      strategy: TradeRecord['strategy'];
+    }>) {
+      // Skip crypto symbols (already handled by backfillCryptoSellAttribution)
+      if (/\/USD$/i.test(row.ticker)) continue;
+      // First, try the D1 position row for that ticker
+      let resolved: TradeRecord['strategy'] | null = null;
+      const pos = await this.db.prepare(
+        `SELECT strategy FROM positions WHERE ticker = ? AND strategy IS NOT NULL ORDER BY updated_at DESC LIMIT 1`
+      ).bind(row.ticker).first() as { strategy?: TradeRecord['strategy'] } | null;
+      if (pos?.strategy) {
+        resolved = pos.strategy;
+      }
+      // Fallback: infer from the most recent buy for the same ticker with a
+      // non-null strategy. This covers the case where the position row was
+      // pruned or never created (e.g. the buy filled at broker but the Worker
+      // cycle threw before the position sync ran).
+      if (resolved === null) {
+        const buy = await this.db.prepare(
+          `SELECT strategy FROM trades WHERE ticker = ? AND side = 'buy' AND strategy IS NOT NULL ORDER BY timestamp DESC LIMIT 1`
+        ).bind(row.ticker).first() as { strategy?: TradeRecord['strategy'] } | null;
+        if (buy?.strategy) {
+          resolved = buy.strategy;
+        }
+      }
+      if (resolved === null) continue;
+      const result = await this.db.prepare(
+        `UPDATE trades SET strategy = ?
+         WHERE id = ? AND side = 'sell' AND strategy IS NULL`
+      ).bind(resolved, row.id).run();
+      if ((result.meta.changes ?? 0) > 0) updated++;
+    }
+    return updated;
   }
 
   /**
