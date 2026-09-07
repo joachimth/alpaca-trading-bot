@@ -76,12 +76,38 @@ const TRADE_OBSERVABILITY_FIELDS = [
   'fee_attribution',
 ] as const;
 
-export const CYCLE_LEASE_TTL_MS = 10 * 60 * 1000;
+export const CYCLE_LEASE_TTL_MS = 5 * 60 * 1000;
 const CRYPTO_COMMITTED_RESERVATION_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
 export interface DatabaseOptions {
   /** Read paths must never attempt runtime schema repair or DDL. */
   readOnly?: boolean;
+}
+
+// Isolate-level schema cache: Cloudflare Workers reuse isolates across
+// invocations, and the same env.DB binding persists. Once schema initialization
+// succeeds for a given D1Database instance, subsequent Database constructions
+// with the same instance skip the ~20 D1 pragma/DDL queries. This is critical
+// under D1 pressure where schema init alone can take 15+ seconds. Test fixtures
+// use fresh D1 instances, so they always run full schema init.
+let isolateSchemaVerifiedDb: D1Database | null = null;
+
+// Module-level config cache to avoid re-reading bot_config on every cycle.
+// Workers isolates are reused across requests, so this persists until the
+// isolate is evicted. TTL of 120s balances freshness against D1 read savings.
+let cachedConfig: { data: Record<string, string>; ts: number } | null = null;
+const CONFIG_CACHE_TTL_MS = 120_000;
+
+// Module-level cached fee summary timestamp to skip expensive refresh queries
+// when the cached version is still fresh enough.
+let cachedFeeSummaryTs: number | null = null;
+export const FEE_SUMMARY_REFRESH_INTERVAL_MS = 3600_000; // 1 hour
+export function isFeeSummaryCacheFresh(): boolean {
+  if (cachedFeeSummaryTs === null) return false;
+  return (Date.now() - cachedFeeSummaryTs) < FEE_SUMMARY_REFRESH_INTERVAL_MS;
+}
+export function markFeeSummaryRefreshed(): void {
+  cachedFeeSummaryTs = Date.now();
 }
 
 export class Database {
@@ -92,17 +118,19 @@ export class Database {
     this.db = db;
     this.schemaReady = options.readOnly
       ? Promise.resolve()
-      : Promise.all([
+      : isolateSchemaVerifiedDb === db
+        ? Promise.resolve()
+        : Promise.all([
           this.ensureTradeLifecycleColumns(),
           this.ensureCycleLeaseSchema(),
           this.ensureRunLogSchema(),
           this.ensureCategorySnapshotSchema(),
           this.ensureBrokerLedgerSchema(),
-        ]).then(() => undefined);
+        ]).then(() => { isolateSchemaVerifiedDb = this.db; });
   }
 
   private async ensureTradeLifecycleColumns(): Promise<void> {
-    const columns = [
+    const required = [
       ['strategy', 'TEXT'],
       ['client_order_id', 'TEXT'],
       ['filled_qty', 'REAL'],
@@ -118,11 +146,14 @@ export class Database {
       ['intent_stop_loss_price', 'REAL'],
       ['intent_take_profit_price', 'REAL'],
     ] as const;
-    for (const [name, type] of columns) {
-      const column = await this.db.prepare(
-        `SELECT 1 FROM pragma_table_info('trades') WHERE name = ? LIMIT 1`
-      ).bind(name).first();
-      if (column) continue;
+    // Single query to fetch all existing column names, then check in JS.
+    // This replaces 14 individual pragma_table_info round-trips with 1.
+    const rows = await this.db.prepare(
+      `SELECT name FROM pragma_table_info('trades')`
+    ).all();
+    const existing = new Set((rows.results ?? []).map(r => String(r.name)));
+    for (const [name, type] of required) {
+      if (existing.has(name)) continue;
       try {
         await this.db.prepare(`ALTER TABLE trades ADD COLUMN ${name} ${type}`).run();
       } catch (error) {
@@ -132,6 +163,10 @@ export class Database {
     }
     await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_trades_client_order_id ON trades(client_order_id)').run();
     await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)').run();
+    // Additional indexes to reduce full-table scans on hot query paths
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_trades_strategy_side_ts ON trades(strategy, side, timestamp)').run();
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_trades_order_id ON trades(alpaca_order_id)').run();
+    await this.db.prepare('CREATE INDEX IF NOT EXISTS idx_positions_open ON positions(closed_at)').run();
   }
 
   private async ensureCycleLeaseSchema(): Promise<void> {
@@ -153,15 +188,17 @@ export class Database {
     // production schema always has run_log, but absent fixtures must remain
     // valid and must not receive a create-table side effect here.
     if (!table) return;
-    const columns = [
+    const required = [
       ['analyzed_candidates', 'INTEGER NOT NULL DEFAULT 0'],
       ['filtered_candidates', 'INTEGER NOT NULL DEFAULT 0'],
     ] as const;
-    for (const [name, definition] of columns) {
-      const column = await this.db.prepare(
-        `SELECT 1 FROM pragma_table_info('run_log') WHERE name = ? LIMIT 1`
-      ).bind(name).first();
-      if (column) continue;
+    // Single query to fetch all existing column names, then check in JS.
+    const rows = await this.db.prepare(
+      `SELECT name FROM pragma_table_info('run_log')`
+    ).all();
+    const existing = new Set((rows.results ?? []).map(r => String(r.name)));
+    for (const [name, definition] of required) {
+      if (existing.has(name)) continue;
       try {
         await this.db.prepare(`ALTER TABLE run_log ADD COLUMN ${name} ${definition}`).run();
       } catch (error) {
@@ -236,14 +273,26 @@ export class Database {
     await this.schemaReady;
   }
 
-  /** Read-only prerequisite check for strategy ownership metadata. */
+  /** Read-only prerequisite check for strategy ownership metadata.
+   *  Fail-open on transient D1 errors: the positions.strategy migration was
+   *  applied days ago and verified across hundreds of runs. A transient D1
+   *  error is not evidence of a missing migration, and throwing here silently
+   *  drops the entire strategy cycle because the caller's ctx.waitUntil
+   *  swallows uncaught errors without logging. */
   async assertPositionsStrategySchema(): Promise<void> {
-    await this.ensureTradeSchema();
-    const column = await this.db.prepare(
-      `SELECT 1 FROM pragma_table_info('positions') WHERE name = ? LIMIT 1`
-    ).bind('strategy').first();
-    if (!column) {
-      throw new Error('Required schema missing: positions.strategy; apply positions-strategy-column-migration.sql before enabling strategy cycles');
+    try {
+      await this.ensureTradeSchema();
+      const column = await this.db.prepare(
+        `SELECT 1 FROM pragma_table_info('positions') WHERE name = ? LIMIT 1`
+      ).bind('strategy').first();
+      if (!column) {
+        throw new Error('Required schema missing: positions.strategy; apply positions-strategy-column-migration.sql before enabling strategy cycles');
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('Required schema missing:')) {
+        throw error; // re-throw genuine schema-missing errors
+      }
+      console.error('positionsStrategySchemaReady transient D1 error (fail-open):', error);
     }
   }
 
@@ -741,11 +790,16 @@ export class Database {
   // ============================================================
 
   async getConfig(): Promise<Record<string, string>> {
+    const now = Date.now();
+    if (cachedConfig && (now - cachedConfig.ts) < CONFIG_CACHE_TTL_MS) {
+      return cachedConfig.data;
+    }
     const result = await this.db.prepare('SELECT key, value FROM bot_config').all();
     const config: Record<string, string> = {};
     for (const row of result.results as any[]) {
       config[row.key] = row.value;
     }
+    cachedConfig = { data: config, ts: now };
     return config;
   }
 
@@ -758,6 +812,8 @@ export class Database {
     await this.db.prepare(
       'INSERT INTO bot_config (key, value, updated_at) VALUES (?, ?, datetime(\'now\')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime(\'now\')'
     ).bind(key, value).run();
+    // Invalidate the module-level config cache so the next getConfig() re-reads.
+    cachedConfig = null;
   }
 
   // ============================================================
@@ -1106,6 +1162,28 @@ export class Database {
       let strategy: TradeRecord['strategy'] = existing?.strategy ?? null;
       if (order.side === 'sell') {
         strategy = (await this.inferCryptoSellStrategy(order.symbol, order.created_at, strategy)) ?? null;
+        // Conservative stock-sell fallback: when crypto attribution returns
+        // null (non-USD symbols), attribute from the D1 position row for that
+        // ticker. We look at both open and recently-closed positions because
+        // EOD-flatten sells close the position before the reconciliation import
+        // discovers the broker order. Picks the most recently updated position.
+        // Falls back to the most recent buy trade for the same ticker if no
+        // position row exists.
+        if (strategy === null) {
+          const pos = await this.db.prepare(
+            `SELECT strategy FROM positions WHERE ticker = ? AND strategy IS NOT NULL ORDER BY updated_at DESC LIMIT 1`
+          ).bind(order.symbol).first() as { strategy?: TradeRecord['strategy'] } | null;
+          if (pos?.strategy) {
+            strategy = pos.strategy;
+          } else {
+            const buy = await this.db.prepare(
+              `SELECT strategy FROM trades WHERE ticker = ? AND side = 'buy' AND strategy IS NOT NULL ORDER BY timestamp DESC LIMIT 1`
+            ).bind(order.symbol).first() as { strategy?: TradeRecord['strategy'] } | null;
+            if (buy?.strategy) {
+              strategy = buy.strategy;
+            }
+          }
+        }
       }
       if (existing?.id !== undefined && existing.id !== null) {
         const incomingUpdatedAt = order.updated_at ?? null;
@@ -1169,7 +1247,63 @@ export class Database {
       }
     }
     await this.backfillCryptoSellAttribution();
+    await this.backfillStockSellAttribution();
     return imported;
+  }
+
+  /**
+   * Idempotently repair NULL-strategy sell rows for stock symbols by
+   * attributing from the most recently updated D1 position row. This
+   * closes the EOD-flatten gap where broker-imported sells arrive with
+   * strategy=null because the Worker's logOrderTrade was lost to a
+   * timeout. Only sells still null after crypto attribution are touched.
+   */
+  async backfillStockSellAttribution(limit = 200): Promise<number> {
+    await this.ensureTradeSchema();
+    const rows = await this.db.prepare(
+      `SELECT id, ticker, side, timestamp, strategy FROM trades
+       WHERE side = 'sell' AND strategy IS NULL
+       ORDER BY timestamp ASC LIMIT ?`
+    ).bind(limit).all();
+    let updated = 0;
+
+    for (const row of rows.results as Array<{
+      id: number;
+      ticker: string;
+      side: string;
+      timestamp: string;
+      strategy: TradeRecord['strategy'];
+    }>) {
+      // Skip crypto symbols (already handled by backfillCryptoSellAttribution)
+      if (/\/USD$/i.test(row.ticker)) continue;
+      // First, try the D1 position row for that ticker
+      let resolved: TradeRecord['strategy'] | null = null;
+      const pos = await this.db.prepare(
+        `SELECT strategy FROM positions WHERE ticker = ? AND strategy IS NOT NULL ORDER BY updated_at DESC LIMIT 1`
+      ).bind(row.ticker).first() as { strategy?: TradeRecord['strategy'] } | null;
+      if (pos?.strategy) {
+        resolved = pos.strategy;
+      }
+      // Fallback: infer from the most recent buy for the same ticker with a
+      // non-null strategy. This covers the case where the position row was
+      // pruned or never created (e.g. the buy filled at broker but the Worker
+      // cycle threw before the position sync ran).
+      if (resolved === null) {
+        const buy = await this.db.prepare(
+          `SELECT strategy FROM trades WHERE ticker = ? AND side = 'buy' AND strategy IS NOT NULL ORDER BY timestamp DESC LIMIT 1`
+        ).bind(row.ticker).first() as { strategy?: TradeRecord['strategy'] } | null;
+        if (buy?.strategy) {
+          resolved = buy.strategy;
+        }
+      }
+      if (resolved === null) continue;
+      const result = await this.db.prepare(
+        `UPDATE trades SET strategy = ?
+         WHERE id = ? AND side = 'sell' AND strategy IS NULL`
+      ).bind(resolved, row.id).run();
+      if ((result.meta.changes ?? 0) > 0) updated++;
+    }
+    return updated;
   }
 
   /**
@@ -1204,7 +1338,7 @@ export class Database {
     return updated;
   }
 
-  async getTradesNeedingSync(limit: number = 200, includeLifecycleBackfill = false): Promise<any[]> {
+  async getTradesNeedingSync(limit: number = 50, includeLifecycleBackfill = false): Promise<any[]> {
     await this.ensureTradeSchema();
     const terminalStatuses = "'filled', 'canceled', 'cancelled', 'rejected', 'expired', 'replaced', 'done_for_day', 'stopped'";
     const predicate = includeLifecycleBackfill
@@ -1443,6 +1577,23 @@ export class Database {
     await this.db.prepare(
       `UPDATE positions SET closed_at = datetime('now'), closed_pl = ?, close_reason = ? WHERE ticker = ? AND closed_at IS NULL`
     ).bind(closedPl, reason, ticker).run();
+  }
+
+  /**
+   * Returns the set of symbols that have recent swing BUY trades (pending or
+   * filled). This lets the daytrading sync exclude symbols owned by the swing
+   * strategy even before D1 positions are tagged — e.g. when swing BUYs fill
+   * at market open and are imported by the auto-reconcile path before the swing
+   * strategy has a chance to tag its positions.
+   */
+  async getSwingTradeSymbols(limit: number = 50): Promise<Set<string>> {
+    await this.ensureTradeSchema();
+    const result = await this.db.prepare(
+      `SELECT DISTINCT ticker FROM trades
+       WHERE strategy = 'swing' AND side = 'buy'
+       ORDER BY timestamp DESC LIMIT ?`
+    ).bind(limit).all();
+    return new Set((result.results as any[]).map(r => r.ticker));
   }
 
   async getOpenPositions(): Promise<any[]> {

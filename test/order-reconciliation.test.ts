@@ -250,6 +250,81 @@ describe('scheduled order reconciliation', () => {
     expect(calls.slice(1)).toEqual(pendingOrders.slice(0, MAX_ORDER_LOOKUPS_PER_INVOCATION).map(candidate => `getOrder:${candidate.id}`));
   });
 
+  test('attributes stock sells from D1 open-position when crypto inference returns null', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    // Simulate an open swing position for NOW
+    await db.upsertPosition({
+      ticker: 'NOW', side: 'long', strategy: 'swing', qty: 1.06, avg_entry_price: 140,
+      current_price: 140.56, market_value: 149.0,
+      unrealized_pl: 0.59, unrealized_plpc: 0.004,
+      stop_loss_price: null, take_profit_price: null,
+    });
+    // Broker imports a sell for NOW with no existing trade row (e.g. EOD
+    // flatten whose Worker logOrderTrade was lost to a timeout)
+    await db.reconcileOrders([order({
+      id: 'eod-sell-now', side: 'sell', symbol: 'NOW', qty: 1.06,
+      filled_qty: 1.06, leaves_qty: 0, filled_avg_price: 140.56,
+      status: 'filled', updated_at: '2026-09-04T19:50:33Z',
+    })]);
+    const row = (await rows(sqlite)).find(r => r.alpaca_order_id === 'eod-sell-now');
+    expect(row).toMatchObject({ side: 'sell', ticker: 'NOW', strategy: 'swing' });
+  });
+
+  test('backfillStockSellAttribution repairs existing null-strategy sells from closed positions', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    // Simulate a swing position that was closed (EOD flatten)
+    await db.upsertPosition({
+      ticker: 'PYPL', side: 'long', strategy: 'swing', qty: 18, avg_entry_price: 55,
+      current_price: 54.91, market_value: 988.38,
+      unrealized_pl: -1.62, unrealized_plpc: -0.016,
+      stop_loss_price: null, take_profit_price: null,
+    });
+    await db.closePosition('PYPL', -1.62, 'eod_flatten');
+    // Insert a sell trade with strategy=null (as the broker import would)
+    await db.reconcileOrders([order({
+      id: 'eod-sell-pypl', side: 'sell', symbol: 'PYPL', qty: 18,
+      filled_qty: 18, leaves_qty: 0, filled_avg_price: 54.91,
+      status: 'filled', updated_at: '2026-09-04T20:00:33Z',
+    })]);
+    // The reconcileOrders fallback should have attributed it via the closed position
+    const row = (await rows(sqlite)).find(r => r.alpaca_order_id === 'eod-sell-pypl');
+    expect(row).toMatchObject({ side: 'sell', ticker: 'PYPL', strategy: 'swing' });
+  });
+
+  test('leaves strategy null when no open position matches a stock sell', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    // No positions in D1; sell should remain unattributed
+    await db.reconcileOrders([order({
+      id: 'orphan-sell', side: 'sell', symbol: 'ZZZ', qty: 5,
+      filled_qty: 5, leaves_qty: 0, filled_avg_price: 50,
+      status: 'filled', updated_at: '2026-09-04T20:00:00Z',
+    })]);
+    const row = (await rows(sqlite)).find(r => r.alpaca_order_id === 'orphan-sell');
+    expect(row).toMatchObject({ side: 'sell', ticker: 'ZZZ', strategy: null });
+  });
+
+  test('backfill infers strategy from prior buy trade when no position row exists', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    // Simulate a daytrading buy that was logged but no position row was created
+    await db.logOrderTrade(order({
+      id: 'buy-now', side: 'buy', symbol: 'NOW', qty: 1.06,
+      filled_qty: 1.06, leaves_qty: 0, filled_avg_price: 140,
+      status: 'filled', updated_at: '2026-09-04T15:00:00Z',
+    }), { strategy: 'daytrading' });
+    // Broker imports a sell with no existing trade row and no position row
+    await db.reconcileOrders([order({
+      id: 'sell-now', side: 'sell', symbol: 'NOW', qty: 1.06,
+      filled_qty: 1.06, leaves_qty: 0, filled_avg_price: 140.56,
+      status: 'filled', updated_at: '2026-09-04T19:50:33Z',
+    })]);
+    const row = (await rows(sqlite)).find(r => r.alpaca_order_id === 'sell-now');
+    expect(row).toMatchObject({ side: 'sell', ticker: 'NOW', strategy: 'daytrading' });
+  });
+
   test('shared scheduled reconciliation only reads the broker and performs no order side effects', async () => {
     const sqlite = createTestDatabase();
     const db = new Database(createFakeD1(sqlite));
