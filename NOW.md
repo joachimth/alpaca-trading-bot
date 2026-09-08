@@ -1,12 +1,6 @@
 # NOW
-- Alpaca Control-466 (Sep 8 16:51 UTC) HEARTBEAT. Release 2.7.0 holding clean under afternoon trading load. HEALTHY 2.7.0, no defect, no deploy. Repo HEAD 3ca8371 (C-465), deployed 2fe9c5a zero src diff. Equity $97,666 POSITIVE, $666 over $97k floor. Risk guards live-verified: config 150/100/100 USD limits + floor 97000 + crypto_trading_enabled=false + min_confidence 0.8 all present.
-- Guard behavior confirmed live: run 9146 documented NOW POSITION_QTY_MISMATCH (internal 5 v broker 6) blocking daytrading BUYs only (risk-reducing exits eligible) + RECONCILIATION_DEFERRED_TO_MAINTENANCE (bounded reconcile path) — expected fail-safes, self-healing, not defects. Crypto :07/:37 skipped CRYPTO_DISABLED_BY_CONFIG throughout.
-- Run-log 9068-9165 contiguous 200-window 0 id-gaps/LEASE. All 4 crons on cadence. 20 positions broker-authoritative (14 swing + 6 daytrading ADBE/AMGN/NFLX/NVDA/PYPL/TSLA + 0 crypto). No twelfth dispatch >170h+.
-- Swing next fire tonight 22:00 UTC DOW=3 Tue under new $100 limit guard.
-- NEXT Alpaca: accounting repair (Queued 2.7.x: FIFO lot-matching in write path + per-sell gross backfill); swing tonight; D1 paid-tier decision; tolvte dispatch monitor; docs-push 413.
-- Alpaca Control-461 (Sep 8 14:00 UTC). LIVE HEALTHY 2.6.0 MARKET OPEN + active daytrading, no code defect, no deploy. Repo HEAD ce521a9 (C-460), deployed fafd37b zero src diff, tree clean, typecheck clean. 19 pos broker-authoritative 0 null (14 swing cost $5,364.82 CAPITAL_CAP [INTC sold] + 5 daytrading NIO/NVDA/ORCL/PLUG/TSLA cost $4,996.24 under $5k + 0 crypto), equity $97,717 POSITIVE ACTIVE (cash 87372.24 + LMV 10344.79), caps 5000/3700/2000 urandret.
-- MILESTONE: INTC swing sell (trade 1080) FILLED 13:31:16Z @$101.90, swing_cron DOW 2-6 fire arc capstone exit complete, INTC position 0.
-- Run-log 9049-9108 kontigu 0 missing/LEASE across market open; daytrading 1-59/5 ACTIVE post-open, reconcile */10 ok all MAINTENANCE_ONLY, crypto :07/:37 exact fail-closed, swing neste fire i aften 22:00 DOW=3 Tue.
-- TO TRANSIENT DEGRADED (self-healed, NOT defect): run 9100 (13:37 TSLA/TSM) + 9106 (13:52 PLUG) POSITION_QTY_MISMATCH fail-safe blocked new daytrading buys 1 cycle, self-healed by reconcile 9105/9108 ok. No code change warranted.
-- Crypto bars stale fail-closed (validTA=0<3, edge gate requireCalibratedEdge=true). C-430 held. Ingen tolvte dispatch ~169h+.
-- NEXT Alpaca: monitor post-open daytrading cadence + cap headroom ($4,996.24 near $5k); swing tonight 22:00 DOW=3; D1 paid-tier decision; crypto freshness; tolvte dispatch monitor; docs-push 413.
+- Alpaca Control-469 (Sep 8 17:51 UTC) HEARTBEAT: 2.7.0 HEALTHY under late-afternoon load, no code defect, no deploy. Equity $97,676 POSITIVE; today's change narrowed -$59.57 -> -$47.52 this hour, $677 over $97k floor.
+- Run-log 9156-9185 contiguous, no 12th dispatch ~172h+. Crypto :07/:37 all CDBC. Swing fires i aften 22:00 UTC DOW=3 Tue. 6 daytrading + 14 swing, 0 null-strategy.
+- Risk guards live: 150/100/100 USD + floor 97000 + crypto disabled + min_conf 0.8. 0 status=error runs in window.
+- Docs-only Control-469 entry prepended to README/OPERATIONS/RUNBOOK. Tests 241/893 clean, typecheck clean. Docs-push 413 still blocked.
+- Restopgave (pkt 5): FIFO lot-matching + per-sell gross backfill for 2.7.x. Telenor: venter Anders-svar.
