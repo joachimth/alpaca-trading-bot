@@ -21,6 +21,14 @@ import { SkipReasonCollector, serializeDecisionSkip, serializeRunDetails, runSta
 import { classifyCryptoOrder, classifyCryptoSkip, classifyCryptoSubmitError, createCycleExposure, cryptoBudgetDecision, cryptoClientOrderId, cryptoMinimumOrderCheck, cryptoReservationNotional, evaluateCryptoProtectiveExit, feeTelemetryFromAggregate, hasPendingCryptoExit, projectedPositions, rankCryptoCandidates, reserveEntry, resolveCryptoConfig, shouldFinalizeCryptoPosition, type FeeTelemetry } from './crypto-runtime';
 import { assessIntradayBars, CRYPTO_BAR_INTERVAL_SECONDS, CRYPTO_MAX_BAR_STALE_INTERVALS } from './market-data-quality';
 import { accountWithEquityDirection, resolveEquityDirection } from './equity-observability';
+import {
+  cryptoTradingEnabled,
+  evaluateEntryGuards,
+  resolveRiskGuardConfig,
+  riskGuardUnavailable,
+  strategyDailyPlUsd,
+  type EntryGuardEvaluation,
+} from './risk-guards';
 
 /**
  * Apply the crypto strategy's explicit calibrated edge to a decision without
@@ -254,12 +262,77 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
     });
 
     // Log per-category market value & P&L from broker-authoritative
-    // positions (non-fatal — must not block the crypto cycle itself).
+    // positions (non-fatal — must not block the crypto cycle itself). The
+    // summaries feed the entry risk guard below.
+    let categorySummaries: ReturnType<typeof summarizeByCategory> = [];
     try {
       const categoryProjections = projectBrokerPositions(positions, allDbPositions);
-      await db.logCategorySnapshots(summarizeByCategory(categoryProjections));
+      categorySummaries = summarizeByCategory(categoryProjections);
+      await db.logCategorySnapshots(categorySummaries);
     } catch (e) {
       console.error('Category snapshot logging failed:', e);
+    }
+
+    // Crypto formal disable (Joachim decision Sep 8, 2026): crypto stays off
+    // until fee telemetry is fresh AND a backtested edge exists. Fail closed —
+    // only the explicit config value 'true' re-enables it. With no open crypto
+    // positions the cycle ends here with an auditable skip instead of the
+    // opaque CRYPTO_BARS_STALE skips; with open positions it continues in
+    // exits-only mode so held exposure can still be reduced.
+    const cryptoEnabled = cryptoTradingEnabled(dbConfig);
+    if (!cryptoEnabled) {
+      skips.add('CRYPTO_DISABLED_BY_CONFIG', 'cycle', 'Crypto trading is disabled by configuration pending fee-telemetry freshness and a backtested edge (Joachim decision Sep 8, 2026); exits for held positions remain eligible', {
+        strategy: 'crypto',
+        openCryptoPositions: cryptoPositions.length,
+      });
+      if (cryptoPositions.length === 0) {
+        console.log('Crypto disabled by config and no open crypto positions; skipping cycle');
+        await db.logRun({
+          trigger,
+          market_open: 1,
+          duration_ms: Date.now() - startTime,
+          decisions_made: 0,
+          trades_executed: 0,
+          errors: 0,
+          error_details: serializeRunDetails(errors, skips),
+          status: 'skipped',
+        });
+        return;
+      }
+      console.warn('Crypto disabled by config but open crypto positions exist; running exits-only');
+    }
+
+    // Entry risk guards (Joachim-approved Sep 8, 2026): crypto daily loss
+    // limit in USD plus the absolute account equity floor, and the formal
+    // disable above blocks entries entirely. Fail closed on evaluation.
+    let cryptoEntryGuard: EntryGuardEvaluation;
+    try {
+      const guardConfig = resolveRiskGuardConfig(dbConfig);
+      const realizedToday = await db.getRealizedPlToday();
+      const intraday = categorySummaries.find(s => s.strategy === 'crypto')?.unrealizedIntradayPl ?? 0;
+      cryptoEntryGuard = evaluateEntryGuards({
+        strategy: 'crypto',
+        equityUsd: account.equity,
+        strategyDailyPlUsd: strategyDailyPlUsd(realizedToday['crypto'] ?? 0, intraday),
+        config: guardConfig,
+      });
+    } catch (e) {
+      cryptoEntryGuard = riskGuardUnavailable('crypto', e instanceof Error ? e.message : String(e));
+    }
+    if (!cryptoEnabled) {
+      cryptoEntryGuard = {
+        blocked: true,
+        code: 'CRYPTO_DISABLED_BY_CONFIG',
+        reason: 'Crypto trading is disabled by configuration pending fee-telemetry freshness and a backtested edge',
+        context: { strategy: 'crypto', openCryptoPositions: cryptoPositions.length },
+      };
+    }
+    if (cryptoEntryGuard.blocked && cryptoEntryGuard.code !== 'CRYPTO_DISABLED_BY_CONFIG') {
+      skips.add(cryptoEntryGuard.code ?? 'RISK_GUARD_UNAVAILABLE', 'cycle', `${cryptoEntryGuard.reason} Risk-reducing exits remain eligible`, {
+        strategy: 'crypto',
+        ...cryptoEntryGuard.context,
+      });
+      console.warn(`Crypto entry guard: ${cryptoEntryGuard.reason}`);
     }
 
     // Initialize risk manager with crypto-specific config
@@ -626,6 +699,16 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
 
       // BUY: risk check then execute
       if (decision.action === 'BUY') {
+        if (cryptoEntryGuard.blocked) {
+          await db.updateDecisionStatus(decisionId, 2, `Crypto BUY skipped: ${cryptoEntryGuard.reason}`);
+          skips.add(cryptoEntryGuard.code ?? 'RISK_GUARD_UNAVAILABLE', 'decision', 'New crypto entries blocked by the entry risk guard; exits remain eligible', {
+            strategy: 'crypto',
+            symbol,
+            ...cryptoEntryGuard.context,
+          });
+          console.log(`Skip crypto BUY ${symbol}: entry guard active (${cryptoEntryGuard.code})`);
+          continue;
+        }
         if (recentlySold.has(symbol)) {
           await db.updateDecisionStatus(decisionId, 2, `Re-entry cooldown (${cooldownMin}min)`);
           skips.add('REENTRY_COOLDOWN', 'decision', 'Crypto entry skipped because the symbol was recently sold', { symbol, minutes: cooldownMin });

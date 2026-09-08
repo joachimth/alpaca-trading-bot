@@ -18,6 +18,13 @@ import { reconcileBrokerQuantityMismatches } from './position-reconciliation';
 import { resolveCapitalCapOverride } from './capital-caps';
 import { assessIntradayBars, DAYTRADING_BAR_INTERVAL_SECONDS, DAYTRADING_MAX_BAR_STALE_INTERVALS } from './market-data-quality';
 import { accountWithEquityDirection, resolveEquityDirection } from './equity-observability';
+import {
+  evaluateEntryGuards,
+  resolveRiskGuardConfig,
+  riskGuardUnavailable,
+  strategyDailyPlUsd,
+  type EntryGuardEvaluation,
+} from './risk-guards';
 
 export interface Env {
   DB: D1Database;
@@ -553,12 +560,44 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
     // Log per-category (daytrading/swing/crypto) market value & P&L from
     // broker-authoritative positions. Non-fatal: a failure here must not
-    // block the trading cycle itself.
+    // block the trading cycle itself. The summaries are kept for the entry
+    // risk guard below.
+    let categorySummaries: ReturnType<typeof summarizeByCategory> = [];
     try {
       const categoryProjections = projectBrokerPositions(allBrokerPositions, allDbPositions);
-      await db.logCategorySnapshots(summarizeByCategory(categoryProjections));
+      categorySummaries = summarizeByCategory(categoryProjections);
+      await db.logCategorySnapshots(categorySummaries);
     } catch (e) {
       console.error('Category snapshot logging failed:', e);
+    }
+
+    // Entry risk guards (Joachim-approved Sep 8, 2026): per-strategy daily
+    // loss limit in USD plus an absolute account equity floor. The legacy
+    // account-percent limits (15% daily / 10% rolling) are far too loose to
+    // trip intraday on a ~$97k account, so these USD guards are the real
+    // bleed-stop. Blocked guards pause new BUY entries only; exits,
+    // reconciliation, and the capital caps are untouched. Fail closed: if
+    // the guard itself cannot be evaluated, entries are blocked this cycle.
+    let daytradingEntryGuard: EntryGuardEvaluation;
+    try {
+      const guardConfig = resolveRiskGuardConfig(dbConfig);
+      const realizedToday = await db.getRealizedPlToday();
+      const intraday = categorySummaries.find(s => s.strategy === 'daytrading')?.unrealizedIntradayPl ?? 0;
+      daytradingEntryGuard = evaluateEntryGuards({
+        strategy: 'daytrading',
+        equityUsd: account.equity,
+        strategyDailyPlUsd: strategyDailyPlUsd(realizedToday['daytrading'] ?? 0, intraday),
+        config: guardConfig,
+      });
+    } catch (e) {
+      daytradingEntryGuard = riskGuardUnavailable('daytrading', e instanceof Error ? e.message : String(e));
+    }
+    if (daytradingEntryGuard.blocked) {
+      skips.add(daytradingEntryGuard.code ?? 'RISK_GUARD_UNAVAILABLE', 'cycle', `${daytradingEntryGuard.reason} Risk-reducing exits remain eligible`, {
+        strategy: 'daytrading',
+        ...daytradingEntryGuard.context,
+      });
+      console.warn(`Daytrading entry guard: ${daytradingEntryGuard.reason}`);
     }
 
     // 5. Initialize risk manager with ATR-scaled parameters
@@ -1009,6 +1048,17 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       // never pass through BUY-oriented sizing/cost checks.
       let riskCheck: RiskCheckResult | null = null;
       if (decision.action === 'BUY') {
+        if (daytradingEntryGuard.blocked) {
+          await db.updateDecisionStatus(decisionId, 2, `Daytrading BUY skipped: ${daytradingEntryGuard.reason}`);
+          skips.add(daytradingEntryGuard.code ?? 'RISK_GUARD_UNAVAILABLE', 'decision', 'New daytrading entries blocked by the entry risk guard; exits remain eligible', {
+            strategy: 'daytrading',
+            symbol: signal.indicators.symbol,
+            decision_id: decisionId,
+            ...daytradingEntryGuard.context,
+          });
+          console.log(`Skip BUY ${signal.indicators.symbol}: entry guard active (${daytradingEntryGuard.code})`);
+          continue;
+        }
         if (swingOwnedSymbols.has(signal.indicators.symbol)) {
           await db.updateDecisionStatus(decisionId, 2, 'Daytrading BUY skipped: symbol is swing-owned, cap tracking cannot separate combined broker positions');
           skips.add('SWING_OWNED_EXCLUDE', 'decision', 'Daytrading BUY skipped because the symbol is swing-owned and the daytrading cap cannot track exposure on combined broker positions', { strategy: 'daytrading', symbol: signal.indicators.symbol, decision_id: decisionId, action: 'BUY' });

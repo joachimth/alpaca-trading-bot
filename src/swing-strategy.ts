@@ -18,6 +18,13 @@ import type { Env } from './index';
 import { SkipReasonCollector, serializeRunDetails, runStatus } from './skip-reasons';
 import { closeBrokerAbsentPositions, reconcileBrokerQuantityMismatches } from './position-reconciliation';
 import { resolveCapitalCapOverride } from './capital-caps';
+import {
+  evaluateEntryGuards,
+  resolveRiskGuardConfig,
+  riskGuardUnavailable,
+  strategyDailyPlUsd,
+  type EntryGuardEvaluation,
+} from './risk-guards';
 import { accountWithEquityDirection, resolveEquityDirection } from './equity-observability';
 import {
   assessSwingBars,
@@ -210,12 +217,40 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
     });
 
     // Log per-category market value & P&L from broker-authoritative
-    // positions (non-fatal — must not block the swing cycle itself).
+    // positions (non-fatal — must not block the swing cycle itself). The
+    // summaries feed the entry risk guard below.
+    let categorySummaries: ReturnType<typeof summarizeByCategory> = [];
     try {
       const categoryProjections = projectBrokerPositions(allBrokerPositions, allDbPositions);
-      await db.logCategorySnapshots(summarizeByCategory(categoryProjections));
+      categorySummaries = summarizeByCategory(categoryProjections);
+      await db.logCategorySnapshots(categorySummaries);
     } catch (e) {
       console.error('Category snapshot logging failed:', e);
+    }
+
+    // Entry risk guards (Joachim-approved Sep 8, 2026): swing daily loss
+    // limit in USD plus the absolute account equity floor. Fail closed —
+    // if the guard cannot be evaluated, new entries are blocked this cycle.
+    let swingEntryGuard: EntryGuardEvaluation;
+    try {
+      const guardConfig = resolveRiskGuardConfig(dbConfig);
+      const realizedToday = await db.getRealizedPlToday();
+      const intraday = categorySummaries.find(s => s.strategy === 'swing')?.unrealizedIntradayPl ?? 0;
+      swingEntryGuard = evaluateEntryGuards({
+        strategy: 'swing',
+        equityUsd: account.equity,
+        strategyDailyPlUsd: strategyDailyPlUsd(realizedToday['swing'] ?? 0, intraday),
+        config: guardConfig,
+      });
+    } catch (e) {
+      swingEntryGuard = riskGuardUnavailable('swing', e instanceof Error ? e.message : String(e));
+    }
+    if (swingEntryGuard.blocked) {
+      skips.add(swingEntryGuard.code ?? 'RISK_GUARD_UNAVAILABLE', 'cycle', `${swingEntryGuard.reason} Risk-reducing exits remain eligible`, {
+        strategy: 'swing',
+        ...swingEntryGuard.context,
+      });
+      console.warn(`Swing entry guard: ${swingEntryGuard.reason}`);
     }
 
     // Initialize risk manager. Broker CFEE is crypto-specific; stock FEE
@@ -572,6 +607,17 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         executed: 0,
         execution_reason: '',
       });
+
+      if (swingEntryGuard.blocked) {
+        await db.updateDecisionStatus(decisionId, 2, `Swing BUY skipped: ${swingEntryGuard.reason}`);
+        skips.add(swingEntryGuard.code ?? 'RISK_GUARD_UNAVAILABLE', 'decision', 'New swing entries blocked by the entry risk guard; exits remain eligible', {
+          strategy: 'swing',
+          symbol: score.symbol,
+          ...swingEntryGuard.context,
+        });
+        console.log(`Swing: skip buy ${score.symbol}: entry guard active (${swingEntryGuard.code})`);
+        continue;
+      }
 
       if (riskCheck.approved && riskCheck.adjustedQty) {
         const proposedValue = riskCheck.adjustedValue || 0;

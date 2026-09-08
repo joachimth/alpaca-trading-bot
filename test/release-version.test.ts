@@ -18,7 +18,7 @@ function seededConfigVersion(): string {
 
 describe('release version contract', () => {
   test('deployable metadata, config seed, runtime health, and dashboard footer agree', async () => {
-    expect(RELEASE_VERSION).toBe('2.6.0');
+    expect(RELEASE_VERSION).toBe('2.7.0');
     expect(packageJson.version).toBe(RELEASE_VERSION);
     expect(seededConfigVersion()).toBe(RELEASE_VERSION);
     expect(dashboardHtml).toContain(`canonical-release-version: ${RELEASE_VERSION}`);
