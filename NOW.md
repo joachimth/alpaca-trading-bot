@@ -1,5 +1,6 @@
 # NOW
-- **Alpaca 2.7.0**: Control-583 (Sun 14:00 +02) HEALTHY, docs-only, trend-bend holder 61 kontroller over $97k (equity $97,428.48 broker-direct bekræftet, run-log thru 11452, reconcile 12:00:58 fresh). Alle 4 schedules friske, crypto :07/:37 holder, ingen 13. dispatch fejl, BROKER_ORDER_LOOKUP ingen recidiv. XOM exit 1366 no_fill venter på mandag Sep 14 åbning — hold øje. FINDING 1+2 uløst (afventer Joachim). Docs-push 413 blokeret (README 1,354,894 / OPERATIONS 1,558,788 / RUNBOOK 1,254,586 B). Næste: Mon open watch + krypto recurrence.
-- **Speaker Design V3 (mk3)** — Fase 1-3 live (572/572 tests, commit c8a6801). Mobil-fix arkiveret (overflow-x:clip + .s3-embed). Afventer Joachims iOS re-test (hard reload).
-- V3 næste: crossover-anbefaling m. forklaring, simulation-view, optimiserings-kort m. apply/preview/undo, directivity summary-first, Learn-indhold.
-- Ventende på Joachim: Anders/Telenor booking, 4 praktik-kandidater, Telenor priser, Kristine/Glamox, Odin amp, MS365, docs-push 413, D1 paid-tier, FINDING 1 min_conf (0.7 vs 0.8).
+- **Alpaca 2.7.0**: C-585 (14:00 UTC) HEALTHY, no defect, no deploy (docs-only). Trend-bend 63 controls over $97k. Run-log thru 11491 contiguous (0 errors/LEASE), all 4 schedules fresh, crypto :07/:37 cadence holds (no 13th dispatch failure), 0 BROKER_ORDER_LOOKUP recurrence, equity $97,428.48. 13 swing broker-auth, daytrading FLAT. XOM 1366 no_fill pending Mon Sep 14 open. FINDING 1+2 un-deployed (need Joachim).
+- **Mon Sep 14 watch**: XOM 1366 fill at open, first daytrading session 09:30 ET, BROKER_ORDER_LOOKUP recurrence. Docs-push 413 blocked; D1 paid-tier.
+- **MatTrin LIVE**: joachimth.github.io/mattrin/ -- sokratisk matematikvejleder (HTX). Egen CAS-kerne, 6 emner, 3 hint-niveauer. 29 tests, CI green, live-verified Sep 13. → [[mattrin]]
+- **Speaker Design V3 (mk3)**: Fase 1-4 live (579/579, commit fcec9e8). Mobilefixes live-verificeret; afventer Joachims iOS re-test.
+- Ventende på Joachim: Anders/Telenor booking, 4 praktik-kandidater, Telenor priser, Kristine/Glamox, Odin amp, MS365, D1 paid-tier, find mid_confidence 0.8 beslutning.
