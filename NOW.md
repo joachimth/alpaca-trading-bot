@@ -4,5 +4,5 @@
 - Alle 5 CYCLE_LEASE_HELD ligger pre-#14-freeze (17:06-18:06); post-redeploy daytrading hver 5-min 18:12..19:57 0 lease-holds. Crypto :07/:37 EXACT CRYPTO_DISABLED_BY_CONFIG, ingen #14-recurrence. Caps+guards uændret (5000/3700/2000, 150/100/100, 97k floor).
 - FINDING 1 rekonfirmeret (min_conf 0.8 nominal, FALLBACK 0.7 enforces, pending Joachim). FINDING 2 self-healing. Edge-gate config-disabled. 241/893 tests PASS, typecheck 0, src ZERO diff (2fe9c5a).
 - NEXT Alpaca: swing fire 22:00 UTC i dag (DOW=3, første post-redeploy weekday swing perimeter), Wed Sep 16 13:30 open lease-recheck.
-- GitHub push BLOKERET (OAuth Contents API 404; C-640 commit 468b297 LOCAL-ONLY, remote main b9120bab divergent non-fast-forward). C-641 commit arver LOCAL-ONLY. Stand-alone follow-up.
+- **GitHub push RESOLVED C-641 (20:04 UTC)**: OAuth Contents API 404 var transient — C-640+641 docs pushet LIVE + verificeret in-sync (README e5850fb8, OPERATIONS 9629a961, RUNBOOK fa5e9656 = local git hash-object). C-641 commit lokalt c4fe2e1. Remote main avanceret paa Contents API; divergent git-push follow-up forbliver.
 - Pending: FINDING 1 (min_conf 0.8) Joachim; D1 paid-tier; remote origin/main DIVERGENT + GitHub push; 5 praktik-kandidater; loudspeakerlab-sync (site DOWN d47f2bad).
