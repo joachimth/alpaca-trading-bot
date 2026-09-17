@@ -1,0 +1,7 @@
+C-688 REDEPLOY EVIDENCE Thu Sep 17 20:13:13 UTC 2026
+bundle: 321210 bytes md5 e34318f54112c3a5c140a6f833974151 (byte-identical to C-665 redeploy)
+src diff vs 2fe9c5a: EMPTY
+PUT /content: HTTP 200 (result id alpaca-trading-bot)
+PUT /schedules: HTTP 200, all 4 crons modified_on 2026-09-17T20:07:07.907285Z
+post-deploy GETs: all 7 endpoints 200; equity 97121.24 +39.49 POSITIVE; 11 swing positions
+cadence: crypto 13451 20:07:18, reconcile 13452 20:10:19 ok, daytrading 13453 20:11:13 - contiguous, 0 errors

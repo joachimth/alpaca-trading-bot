@@ -1,0 +1,112 @@
+{
+  "result": {
+    "created_on": "2026-08-03T11:19:15.94364Z",
+    "modified_on": "2026-09-17T20:07:01.280918Z",
+    "id": "alpaca-trading-bot",
+    "tag": "6d3ee0ab3cf644db9768f331e61a56e8",
+    "entry_point": "index.js",
+    "tags": null,
+    "deployment_id": "a51b97872ee0482f98a92c08d6cae81b",
+    "tail_consumers": null,
+    "logpush": false,
+    "has_assets": false,
+    "has_modules": true,
+    "etag": "a9ad00fce0eee4d00ca79d284a6e2ee4b9c062a323efb125a0e55d91b95d000f",
+    "handlers": [
+      "scheduled",
+      "fetch"
+    ],
+    "named_handlers": [
+      {
+        "name": "FALLBACK_CONFIG",
+        "handlers": [
+          "maxPositions",
+          "maxPositionPct",
+          "stopLossPct",
+          "takeProfitPct",
+          "trailingStopPct",
+          "dailyLossLimitPct",
+          "rollingDrawdownLimitPct",
+          "minConfidence",
+          "scanUniverseSize",
+          "rsiPeriod",
+          "rsiOversold",
+          "rsiOverbought",
+          "emaFast",
+          "emaSlow",
+          "macdFast",
+          "macdSlow",
+          "macdSignal",
+          "atrPeriod",
+          "volumeAvgPeriod",
+          "stopLossATRMultiplier",
+          "takeProfitATRMultiplier",
+          "targetVolatilityPct",
+          "maxOrderRatePerMin",
+          "minEdgeAfterCosts",
+          "useAiRefinement",
+          "llmModel",
+          "llmTemperature",
+          "enableMargin",
+          "eodFlatten",
+          "minHoldMinutes",
+          "reentryCooldownMinutes",
+          "maxTradesPerCycle",
+          "maxCapitalUsd"
+        ]
+      },
+      {
+        "name": "checkDaytradingBuyMinimumNotional",
+        "handlers": [
+          "class"
+        ]
+      },
+      {
+        "name": "daytradingExitEstimatedValue",
+        "handlers": [
+          "class"
+        ]
+      },
+      {
+        "name": "daytradingRiskSkipCode",
+        "handlers": [
+          "class"
+        ]
+      },
+      {
+        "name": "daytradingRiskSkipContext",
+        "handlers": [
+          "class"
+        ]
+      },
+      {
+        "name": "positionsStrategySchemaReady",
+        "handlers": [
+          "class"
+        ]
+      },
+      {
+        "name": "resolveDaytradingConfig",
+        "handlers": [
+          "class"
+        ]
+      },
+      {
+        "name": "runScheduledMaintenance",
+        "handlers": [
+          "class"
+        ]
+      }
+    ],
+    "last_deployed_from": "api",
+    "compatibility_date": "2024-06-20",
+    "compatibility_flags": [
+      "nodejs_compat"
+    ],
+    "usage_model": "standard",
+    "startup_time_ms": 0
+  },
+  "success": true,
+  "errors": [],
+  "messages": []
+}
