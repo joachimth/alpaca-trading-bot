@@ -1,0 +1,10 @@
+Control-691 strict read-only control (Sep 18 01:00 +02 / 23:00 UTC Thu Sep 17)
+Result: HEALTHY 2.7.0 - no code change, NO deploy, docs-only entry
+True clock (date -u): 2026-09-17 23:00 UTC
+Endpoints fetched live: /health 200, / 200, /api/config 200, /api/dashboard 200,
+  /api/positions 200 (source=alpaca), /api/runs 200 (90-row paginated), /api/trades 200, /api/account 200 (broker-direct)
+Evidence files: account.json config.json dashboard.json positions.json runs.json runs_0.json runs_30.json runs_60.json trades.json
+C-688 EOD reliability redeploy HOLDING CLEAN through the full post-redeploy window;
+22:00 swing fire CF-DOW=5 (run 13489 @22:00:44, 25 decisions, 0 errors) = 4th post-redeploy cadence test PASSED (already documented at C-690).
+Repo HEAD d7ead61 (C-690 docs) - docs sha-verified remote-synced live this control
+  (README 111d128a / OPERATIONS 1a9c56bc / RUNBOOK 63677e2a = local).
