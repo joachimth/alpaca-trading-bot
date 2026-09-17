@@ -1,0 +1,7 @@
+Control-656 (Sep 16 11:00 UTC) - HEALTHY 2.7.0, no defect, no code change, no deploy
+Equity $97,190.23, change_today +$20.98 POSITIVE, trend-bend 127 (C-530..C-656)
+11 swing @ $4,992.42, 0 daytrading, 0 crypto. Positions broker-authoritative
+Run-log 12326->12825 0 id-gaps, 0 time-gaps >20min, 0 post-redeploy lease-holds
+Crypto 22/22 today CRYPTO_DISABLED, no #13/#14. 0 pending trades high-water 1454
+Caps 5000/3700/2000, guards 150/100/100+97k. FINDING 1 pending Joachim
+241 tests/893 PASS, typecheck 0. Docs commit d05d4a2, pushed, shas verified
