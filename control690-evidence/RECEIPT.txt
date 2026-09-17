@@ -1,0 +1,26 @@
+Control-690 (Sep 17 22:00 UTC): STRICT READ-ONLY production control
+===============================================================
+Verdict: HEALTHY 2.7.0 (docs-only, no code change, NO new deploy).
+  The C-688 EOD reliability redeploy (20:07:07Z, unchanged 2.7.0 bundle
+  md5 e34318f5, src 2fe9c5a) is HOLDING CLEAN through the full EOD window.
+  THE 22:00 SWING FIRE CF-DOW=5 = 4TH POST-REDEPLOY CADENCE TEST PASSED:
+  run 13489 @22:00:44 swing_cron, 25 decisions, 0 errors, 0 trades (all
+  legit skips: CAPITAL_CAP 14 + HELD_POSITION 4 + RECONCILIATION_DEFERRED
+  + EQUITY_DIRECTION_FALLBACK). Thursday = CF-DOW=5 (1=Sunday), on schedule.
+  Binary: daytrading cron running 20:11->22:01 MARKET_CLOSED skips contiguous;
+  crypto 20:07/20:37/21:07/21:37 all exact :07/:37 CRYPTO_DISABLED_BY_CONFIG;
+  reconcile */10 fresh (13488 @22:00:23 dur 2868ms, no creep).
+  Full 300-window 13189->13488 contiguous 0 id-gaps, single >600s time-gap =
+  documented C-685 3rd-recurrence tail (16:11->16:22, 616s). 4th-recurrence
+  freeze (13423->13443) confined + documented, cleared by clean EOD-flatten.
+  Equity /api/account $97,125.15, change_today +$43.40/+0.0447% POSITIVE,
+  ~$125 above $97k floor, never touched. 11 swing (cost $4,992.42 CAPITAL_CAP,
+  MV $4,814.41) + 0 daytrading (EOD-flat) + 0 crypto. Trades 60/60 filled,
+  0 pending, 0 null-strategy.
+Endpoints (all HTTP 200): /health, /api/account, /api/config, /api/dashboard,
+  /api/positions, /api/runs?limit=300, /api/trades?limit=60.
+Caps 5000/3700/2000 UNCHANGED (capital-caps.ts:6-8), guards 150/100/100 +
+  $97k floor UNCHANGED. FINDING 1 live-reconfirmed (0.7 fallback gate). Edge
+  gate config-disabled. Equity-direction fallback wired (index.ts:532).
+Validation: 241 tests / 893 assertions PASS, typecheck exit 0, diff-check
+  clean, git diff 2fe9c5a -- src/ = ZERO (src identical to deployed).
