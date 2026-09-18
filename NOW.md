@@ -1,8 +1,8 @@
 # NOW
-- **FRE 18/9 ~16:00z C-709 HEALTHY 2.7.0 (docs-only, NO deploy) — C-688 redeploy HOLDS CLEAN Day-3 INTO the Fri live session EXTENDED past 16:00, 0 recurrence.** Live session (13:30-20:00z) DELIVERING clean: newest fills 1582 T/1583 MU/1584 MU sell/1585 CMCSA buy 15:56 (3rd live daytrading pos), new BUYs self-limit CAPITAL_CAP/NO_ENTRY_RISK. 300-run 13550->13850 id-contiguous 0 err/lease/time-gaps, all 4 schedules. Equity $97,102.13 change_today -$14.74 (same-session drift, NOT a loss) ~$102 over $97k floor NEVER touched. 3 daytrading (MV $4,998 under 5k cap) + 11 swing. Crypto :07/:37 EXACT 30/30 CRYPTO_DISABLED.
-- **Eskalerings-predikat AKTIVT men DORMANT: live session til 20:00z EOD-flatten + Mon 22:00 swing fire = næste tests. NY suppression = ESCALATE til Joachim.**
-- **C-709 evidence saved + docs PREPENDED at top all 3 (README/OPERATIONS/RUNBOOK) → commit + push next. Prior HEAD c9411b5, deployed src 2fe9c5a zero diff, bundle md5 e34318f5. 241/893 PASS, typecheck 0.**
-- FINDING 1 live-confirmed IN SESSION (FALLBACK 0.7 firing; gate risk-manager.ts:170/171, pending Joachim NOT deployed). SWING_OWNED_EXCLUDE live (INTC dec 14835). FINDING 2 resolving via reconcile.
-- Mail Sep 18: 6 actionable (Zaptecgo lead Søren Ladegaard, Korsørvej 67 Kadir, Østerbro 13 faktura, Holbæk møde, Niels lærlinge, InstantCall). Michael Koldsø URGENT 2 billeder.
-- 🟠 HØJ: Niels optælling borde/stole, Kragerup mandag 5/10, Ladebox-lead, Ulrik Lerche uge 40, ROS ordre 171017.
-- **Pending Joachim**: FINDING 1, D1 paid-tier, 5 praktik+skolepraktik, Minuba 47289, Apple T&C 29/9, Xolta/Ladebox, remote origin divergent.
+- **FRE 18/9 ~22:00z C-717: HEALTHY 2.7.0 docs-only, NO deploy.** Fri 22:00 swing fire (run 13960) DELIVERED CLEAN = 5th post-redeploy cadence test PASSED.
+- Equity $97,138.16 change_today +$21.29 POSITIVE, $97k floor NEVER touched. Daytrading FLAT (EOD-flatten 13915@19:46), 11 swing, 0 crypto. 0 err/lease, crypto :07/:37 exact except 19:07 miss (C-712/713 freeze, already escalated).
+- **READ-CORRECTION reconfirmed (C-716): the C-712/713 freeze was MULTI-schedule (daytrading 9 slots + crypto 19:07 slot), not daytrading-only.**
+- **DOCS-PUSH GAP CLOSED: C-716 was committed but NOT pushed (remote 1 control behind at C-715); C-717 work item pushed C-716+C-717, remote==local IN SYNC (README 814af2e1/OPERATIONS c384ec0d/RUNBOOK 398570bc).** Tooling lesson: `assistant oauth request` defaults GET — must pass `-X PUT` for Contents API updates (else 404).
+- Caps/guards UNCHANGED (5000/3700/2000, 150/100/100, $97k). Bundle e34318f5, src 2fe9c5a, 241 tests/893 PASS.
+- **Predicate STAYS ARMED (lowered threshold): ANY further suppression/slot-miss (Mon 22:00 swing fire = 6th post-redeploy cadence test) = ESCALATE.**
+- Pending Joachim: FINDING 1, D1 paid-tier, daytrading cap fill-drift re-check, 5 praktik+skolepraktik, Minuba 47289, Apple T&C 29/9, Xolta/Ladebox, remote origin divergent, docs re-archive (~677KB).
