@@ -48,3 +48,14 @@ IDENTITY / VALIDATION:
 EVENTS during control (all GET, no mutations performed): none.
 
 C-711 entry authored, docs+evidence prepared for commit+push.
+
+--- POST-PUSH VERIFICATION (verified) ---
+Docs pushed via GitHub OAuth Contents API (sequential PUTs, authenticated
+@joachimth, sha-verified remote==local):
+  README.md:            local 7b0e21c3 = remote 7b0e21c3  IN SYNC
+  docs/OPERATIONS.md:   local edc31e34 = remote edc31e34  IN SYNC
+  docs/DEPLOYMENT_RUNBOOK.md: local 4b79d8be = remote 4b79d8be  IN SYNC
+Repo HEAD (local) = 2d0b51b (Control-711 docs+evidence commit), prior d11dc81.
+Working tree clean, zero src diff vs deployed 2fe9c5a.
+Note: unauthenticated curl GET hit a stale CDN cache; authenticated Contents API
+GET is the authoritative remote-state check.
