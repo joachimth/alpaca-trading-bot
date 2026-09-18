@@ -1,10 +1,8 @@
 # NOW
-- Control-103 03:00 +02 (01:00 UTC): Fixed 12 pre-existing typecheck errors, deployed, brief 1.0.0 regression (3 min), 2.6.0 restored.
-- Version surfaces aligned: /health=2.6.0, release_version=2.6.0, config.version=2.6.0. HEAD 1c0dc00 (code+docs). 220 tests / 822 assertions, typecheck clean (first time genuinely).
-- 15 broker-authoritative positions all strategy=swing (MV $7,941, over $3,700 cap). Equity $98,523, ACTIVE, cash $90,582. Reconciliation ok every 10 min.
-- LIVE RISK: 12 pending swing BUYs (trades 708-719, day-TIF, accepted, ~$1,362) could fill at Aug 26 09:30 ET → swing ~$9,311 (2.5x cap). Joachim must decide on cancel before market open.
-- Control-101 fix (a206690) verified in source and deployed bundle but not yet naturally tested by daytrading sync (next Aug 26 13:00 UTC).
-- Crypto :07/:37 fail-closed (LINKUSD stale, MATICUSD empty, no rawEdgeBps). Caps 5000/3700/2000 unchanged.
-- DEPLOY LESSON: Always bundle from /workspace/alpaca-trading-bot, not /workspace. Verify bundle size and grep RELEASE_VERSION before PUT.
-- Status: HEALTHY (code/deploy), DEGRADED (pending orders + external limits + run-log gaps + 1.0.0 regression incident).
-- Remaining: 12 pending swing BUYs decision (URGENT, before 13:30 UTC), rawEdgeBps producer, bar freshness, D1 Sep 1 limits + plan upgrade, trade 703 strategy=null, run-log gaps.
+- **FRE 18/9 ~00:01z C-692 HEALTHY 2.7.0 (docs-only, NO deploy) — C-688 redeploy HOLDING CLEAN, 0 recurrence post-redeploy.** 300-run 0 id-gaps, newest 13531 00:01:05z; post-redeploy 81 runs 13451->13531 0 err/0 lease, all 4 schedules cadencing (cron 48 + reconcile 24 + crypto 8 + swing 1). (All 13 lease-held + 2 PQM error-runs are DOCUMENTED pre-redeploy C-685/C-686-687 recurrences, cleared by EOD-flatten 13444@19:46.) Equity $97,123.08 +$41.33 POSITIV (~123 over floor). 11 swing (cost $4,992.42 CAPITAL_CAP) + 0 daytrading (EOD-flat) + 0 crypto; 50/50 trades filled 0 pending.
+- **Dag 2 normal watch; eskalerings-predikat aktivt: NY suppression (Fre 13:30 open/session eller swing fire) = ESCALATE til Joachim (værre CF-ustabilitet).** C-688-buen CLOSED (4. cadence test PASSED C-690).
+- Crypto :07/:37 exact CRYPTO_DISABLED_BY_CONFIG; reconcile 13530 00:00:26 4390ms fresh. 241/893 PASS, typecheck 0, bundle md5 e34318f5, zero src diff 2fe9c5a. Docs C-692 push verified remote==local (README 30508431/OPERATIONS 5ee3f2a1/RUNBOOK 174fa173), commit 3db0349, prior HEAD 730b38e.
+- FINDING 1 (0.7 gate risk-manager.ts:170/171 + src/index.ts:125) + D1 paid-tier + daytrading cap fill-drift re-check pending Joachim.
+- 🟠 HØJ: Niels optælling borde/stole i Slagelse (50 stk) + Kragerup ("efter krydsfeltet?" + mandag 5/10) + Ladebox-lead (Søren Wulf Møller).
+- 🔴 URGENT: Laila ring Janus (Torvegade 15, forfalden), Kent Sct. Michaels Nat 25/9.
+- **Pending Joachim**: FINDING 1, D1 paid-tier, 4th-recurrence escalation, 5 praktik+skolepraktik, Minuba 47289, Apple T&C 29/9, Xolta/Ladebox, remote origin divergent.
