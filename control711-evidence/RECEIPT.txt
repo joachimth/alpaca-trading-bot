@@ -1,0 +1,50 @@
+CONTROL-711 RECEIPT — Fri Sep 18 2026 ~18:00 UTC
+Strict read-only production control of alpaca-trading-bot.joachim-763.workers.dev
+
+VERDICT: HEALTHY 2.7.0 (docs-only, NO deploy). C-688 EOD reliability redeploy
+(20:07:07Z Sep 17) HOLDS CLEAN through Day-3 into the Fri live session extended
+past 18:00 UTC. 0 suppression-PATTERN recurrence; 0 further dispatch-slot miss
+beyond the single observed 15:41 UTC (C-710).
+
+ENDPOINTS (all GET, read-only, HTTP 200, no D1_ERROR):
+  /health            ok 2.7.0
+  /api/account       broker-direct equity $97,104.26, change_today -$12.61
+  /api/config        2.7.0 risk-guard keys live UNCHANGED, caps 5000/3700/2000,
+                     crypto_min_edge_after_costs 8 (config-disabled)
+  /api/dashboard     broker-authoritative current_state_source=alpaca,
+                     metadata_source=d1, observed_at 18:00:23Z
+  /api/positions     17 positions, source=alpaca broker-auth
+  /api/runs          300-run 13590(03:00)->13889(18:00), id-contiguous, 0
+                     id-gaps/lease/time-gaps>15min
+  /api/trades        300/300 filled, 0 pending/leaves/null
+
+KEY OBSERVATIONS:
+  - Position book (broker-auth): 6 daytrading LIVE cost $4,990.83 UNDER $5k cap
+    (QCOM/PLUG/WBD/NVDA/ENPH/SOFI) + 11 swing cost $4,992.42 CAPITAL_CAP legacy
+    book vs $3,700 cap + 0 crypto. MV daytrading $5,002.63 (+$12 benign fill-drift).
+  - Equity $97,104.26 ~$104 over $97k floor, NEVER touched. Trend-bend C-530..C-711.
+  - run 13878 @17:26: ONE documented FINDING 2 self-limiting POSITION_QTY_MISMATCH
+    on WBD (internal 3.19 vs broker 33.19), broker-auth persisted, entries blocked
+    1 cycle, exits free, self-healed. WBD fills 1603/1598/1596 sum exactly 33.19.
+    Benign, NOT a suppression recurrence, NO escalation.
+  - Crypto :07/:37 UTC cadence EXACT 30/30 (13593 03:07 -> 13883 17:37), all
+    CRYPTO_DISABLED_BY_CONFIG. Reconcile */10 fresh (91 runs, newest 13889 ok).
+  - Swing fire 13489 @22:00:44 CF-DOW=5 still newest swing_cron (4th post-redeploy
+    cadence test PASSED). Next fire Mon 22:00.
+  - FINDING 1 reconfirmed live (FALLBACK 0.7 bar, risk-manager.ts:170/171 +
+    src/index.ts:125, pending Joachim NOT deployed). SWING_OWNED_EXCLUDE live
+    (LCID 14998/14997). FINDING 2 resolving via reconcile.
+  - Edge-gate wired config-disabled (computeCalibratedEdgeBps alive-unreached).
+
+IDENTITY / VALIDATION:
+  - Repo HEAD prior = d11dc81 (C-710). Deployed src commit 2fe9c5a EXPLICIT,
+    git diff 2fe9c5a -- src/ = 0 lines (ZERO src diff), diff-check clean.
+  - Bundle index.js md5 = e34318f5 (unchanged C-688 bundle, 321,210 B,
+    RELEASE_VERSION 2.7.0).
+  - 241 tests / 893 assertions PASS (bun test), typecheck exit 0.
+  - Caps+guards UNCHANGED (5000/3700/2000; 150/100/100; $97k floor).
+  - Updating docs (README/OPERATIONS/RUNBOOK prepend) + NOW.md + this receipt.
+
+EVENTS during control (all GET, no mutations performed): none.
+
+C-711 entry authored, docs+evidence prepared for commit+push.
