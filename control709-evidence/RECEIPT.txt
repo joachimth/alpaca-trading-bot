@@ -1,0 +1,32 @@
+CONTROL-709 RECEIPT - Alpaca 2.7.0 strict read-only control
+Date: 2026-09-18 (Fri) ~16:00-16:03 UTC | true clock date -u 16:02:32 UTC
+Verdict: HEALTHY 2.7.0 - docs-only, NO deploy, no src change, no defect
+Deployed: src 2fe9c5a, bundle index.js md5 e34318f5 (unchanged C-688 bundle, 321210 B)
+Repo HEAD: c9411b5 (previous control commit); this entry => new commit
+
+Endpoints (all HTTP 200, no D1_ERROR):
+  /health ok 2.7.0
+  /api/account (broker-direct) equity ~97102.13, last_equity 97116.87, change_today -14.74
+  /api/config 2.7.0 risk-guards live: daily 150/swing 100/crypto 100, floor 97000,
+       crypto_trading_enabled false, crypto_max_capital 2000, max_capital 5000,
+       swing_max_capital 3700, min_confidence 0.8 (FALLBACK enforces 0.7, FINDING 1 pending)
+  /api/dashboard capitalCaps {daytrading:5000, swing:3700, crypto:2000}; current_state_source=alpaca
+  /api/positions source=alpaca, broker-authoritative; 14 positions (3 daytrading + 11 swing + 0 crypto)
+  /api/runs?limit=300 window 13550->13850 id-contiguous 0 gaps/0 errors/0 lease/0 time-gaps>15min
+  /api/trades?limit=300 300/300 filled, 0 pending, 0 leaves, 0 null-strategy,
+       accounting_status filled_lot_exact_unavailable 300/300, fee_attribution none-recorded
+
+Delivery:
+  Daytrading cron cadencing every 5-min slot through live session (13:30-16:00), 0 gaps
+  Reconcile */10 fresh: newest 13849 @16:00:39 ok, 13850 @16:01:41 cron
+  Crypto :07/:37 EXACT 30/30 (13553 01:07 -> 13843 15:37), all CRYPTO_DISABLED_BY_CONFIG fail-closed
+  0 CYCLE_LEASE_HELD, 0 suppression recurrence post C-688 redeploy
+
+Equity: ~$97,102-103 (broker), ~$102 over $97k floor, change_today -$14 (same-session drift, not a loss)
+  trend-bend extends through C-709 (C-530..C-709)
+
+Validation: 241 tests / 893 assertions PASS (bun test), typecheck exit 0,
+  git diff --check clean, git diff 2fe9c5a -- src/ = 0 lines (ZERO src diff)
+
+Evidence files: health.json account.json config.json dashboard.json positions.json
+                runs300.json trades300.json
