@@ -1,0 +1,47 @@
+Control-692 STRICT READ-ONLY PRODUCTION CONTROL RECEIPT
+Run at: 2026-09-18 ~00:00-00:06 UTC (true clock via date -u)
+Target: https://alpaca-trading-bot.joachim-763.workers.dev
+Verdict: HEALTHY 2.7.0 - NO defect, NO deploy, NO source change (docs-only C-692 entry)
+
+Live evidence captured (all fetched fresh ~00:00-00:01 UTC):
+- /health: 200 {"status":"ok","service":"alpaca-trading-bot","version":"2.7.0"}
+- /api/account (broker-direct): equity 97123.08, change_today +41.33 POSITIVE,
+  ~123 over the 97000 floor. status ACTIVE, no blocks.
+- /api/config: release_version 2.7.0. Risk guards UNCHANGED:
+  daily_loss_limit_usd 150 / swing_daily_loss_limit_usd 100 / crypto_daily_loss_limit_usd 100,
+  account_equity_floor_usd 97000, crypto_trading_enabled false, caps 5000/3700/2000,
+  min_confidence 0.8 nominal D1 / FALLBACK 0.7 (FINDING 1, risk-manager.ts:170 + src/index.ts:125),
+  crypto_min_edge_after_costs 8.
+- /api/dashboard: current_state_source=alpaca, metadata_source=d1, observed_at 00:00:28.799Z fresh.
+  capitalCaps daytrading 5000 / swing 3700 / crypto 2000. 11 positions. snapshot equity 97123.32.
+- /api/positions: source=alpaca (broker-authoritative), observed_at 00:00:29.192Z.
+  11 swing (AAL/AVGO/BA/BAC/C/DAL/F/NEE/SNOW/TXN/WMT), cost_basis 4992.42 CAPITAL_CAP, MV 4812.34.
+  Strategy breakdown: 11 swing + 0 daytrading (EOD-flat) + 0 crypto. 0 null.
+- /api/runs?limit=300 (+90): newest 13531 @00:01:05Z. 300-run id-contiguous 0 id-gaps.
+  13 CYCLE_LEASE_HELD + 2 POSITION_QTY_MISMATCH error-runs ALL pre-redeploy (documented C-685 #17
+  15:41-16:11 + C-686/687 #18 18:16-19:41, cleared by EOD-flatten 13444@19:46).
+  POST-REDEPLOY CLEAN: >=20:07:07Z, 81 runs 13451->13531, 0 errors, 0 lease-held.
+  Daytrading cron cadenced [[:06-:01]] every 5-min slot 20:11->00:01 (0 gaps, all skipped MARKT_CLOSED/EOD).
+  Crypto :07/:37 UTC EXACT every slot CRYPTO_DISABLED_BY_CONFIG (16:38..23:37, 0 missing). 
+  Reconcile fresh newest 13530 @00:00:26 dur 4390ms no creep.
+  Swing fire 13489 @22:00:44 CF-DOW=5 25 decisions 0 errors clean (4th post-redeploy cadence test, C-690).
+- /api/trades: 50/50 filled, 0 pending, 0 leaves, 0 null-strategy.
+  accounting_status filled_lot_exact_unavailable (conservative), 0 gross/fee/net inconsistencies.
+  Newest 1573 VZ sell 19:46 = clean EOD-flatten. fee totalUsd 272.82 conservative.
+
+Local validation:
+- bun test: 241 PASS / 893 assertions, 0 fail.
+- typecheck: tsc --noEmit exit 0.
+- git diff --check: clean. git diff 2fe9c5a -- src/: EMPTY (ZERO src diff).
+- bundle from src: /tmp/ctl_index.js 0.32MB md5 e34318f5 == deployed unchanged 2.7.0 bundle.
+- Working tree clean (no source change).
+
+Docs sync:
+- Remote(GitHub Contents API) == local HEAD blob:
+  README eaf18a6d / OPERATIONS 31e4a381 / RUNBOOK 71cb1983 (all match).
+- Control-692 entry prepended newest-first at top of README/OPERATIONS/RUNBOOK, references PRIOR HEAD 730b38e.
+
+Repo HEAD this control: 730b38e (Control-691 docs commit).
+Caps + guards UNCHANGED (5000/3700/2000, 150/100/100, $97k floor).
+NO broker-mutating endpoint called. All requests GET-only.
+Escalation predicate remains active: ANY new suppression recurrence = ESCALATE to Joachim.
