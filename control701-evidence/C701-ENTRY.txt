@@ -1,0 +1,21 @@
+Control-701 evidence receipt - Strict read-only Alpaca production control
+Date: 2026-09-18 ~09:00-09:02 UTC (Fri Sep 18)
+Result: HEALTHY 2.7.0 - docs-only, NO deploy, no defect
+
+Endpoints (all GET, 200, no D1_ERROR):
+  /health              -> ok, version 2.7.0
+  /api/account         -> broker-direct equity $97,150.79, change_today +$33.92 POSITIVE
+  /api/config          -> 2.7.0, risk-guard keys unchanged
+  /api/dashboard       -> current_state_source=alpaca, metadata_source=d1
+  /api/positions       -> source=alpaca broker-auth, 11 swing
+  /api/runs?limit=300  -> 13411->13710 id-contiguous, 0 id-gaps
+  /api/trades?limit=300-> 300/300 filled, 0 pending/leaves/null
+
+Deployed src: 2fe9c5a (zero src diff)
+Repo HEAD: 91617c5 (Control-700); this control = C-701
+C-688 redeploy holds clean Day-3, 0 suppression recurrence post-redeploy
+Post-redeploy (>=13451): 260 runs, 0 err/0 lease/0 time-gaps
+Crypto :07/:37 EXACT 26/26, fail-closed CRYPTO_DISABLED_BY_CONFIG
+Reconcile: 78/78 ok, newest 13710 @09:00:17, 0 gaps >720s
+Swing fire 13489 @22:00:44 CF-DOW=5 25 decisions 0 errors clean
+Validation: 241 tests/893 assertions PASS, typecheck 0, git diff --check clean
