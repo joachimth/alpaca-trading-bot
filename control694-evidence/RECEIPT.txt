@@ -1,0 +1,14 @@
+Control-694 strict read-only control - Sep 18 2026 ~02:00-02:05 UTC (Fri)
+VERDICT: HEALTHY 2.7.0 (no code change, NO deploy) - docs-only. No defect.
+Deployed src: 2fe9c5a (ZERO src diff vs HEAD). Repo HEAD 5a182fe (C-694 docs commit).
+C-688 EOD reliability redeploy (20:07:07Z Sep 17) HOLDS CLEAN Day-2/3: post-redeploy 119 runs
+(13451->13569) 0 errors, 0 CYCLE_LEASE_HELD, 0 time-gaps >6min (all trigger types), all 4 schedules.
+Crypto :07/:37 post-redeploy 12/12 slots exact CRYPTO_DISABLED_BY_CONFIG. Reconcile fresh.
+Equity $97,125.39 change_today +$43.64 POSITIVE (~$125 over $97k floor). Trend-bend -> C-694.
+Positions: 11 swing (cost $4,992.42 CAPITAL_CAP, MV $4,814.65) + 0 daytrading + 0 crypto, 0 null-strategy.
+Trades 50/50 filled, 0 pending, 0 leaves, 0 gross/fee/net inconsistency (conservative unattributed).
+Caps 5000/3700/2000 + guards 150/100/100/$97k UNCHANGED. FINDING 1 live (0.7 gate, pending Joachim).
+Validation: 241/893 PASS, typecheck 0, git diff --check clean, zero src diff 2fe9c5a.
+Docs pushed live remote==local HEAD (README c23dc6ec / OPERATIONS 75edc7b5 / RUNBOOK 8f8f9d48).
+Evidence files: health.json account.json config.json dashboard.json positions.json runs.json trades.json
+ESCALATION predicate ACTIVE: any new suppression recurrence (Fri 13:30 open/session or swing fire) = escalate to Joachim.

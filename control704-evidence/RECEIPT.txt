@@ -1,0 +1,16 @@
+Control-704 (Sep 18 2026 ~12:00 UTC) strict read-only Alpaca production control
+Host: https://alpaca-trading-bot.joachim-763.workers.dev
+Verdict: HEALTHY 2.7.0, docs-only, NO deploy, no defect.
+C-688 EOD reliability redeploy (20:07:07Z Sep 17) HOLDS CLEAN into Day-3 normal watch.
+0 suppression recurrence post-redeploy. Any new recurrence = ESCALATE to Joachim.
+
+Last verified via fresh live curls (real clock date -u = 12:00:43 UTC Fri Sep 18).
+Endpoints: /health 200 ok 2.7.0 | / 200 ok 2.7.0 | /api/config 200 2.7.0
+  /api/dashboard 200 broker-auth | /api/positions 200 source=alpaca | /api/account 200 broker-direct
+  /api/runs 200 (300) | /api/trades 200 (300). /api/health 404 (not a valid probe).
+
+Evidence files saved here: health/account/config/dashboard/positions/runs/trades JSON.
+Deployed bundle index.js md5 = e34318f5 (unchanged C-688 bundle), RELEASE_VERSION 2.7.0.
+Repo HEAD = 473119d (C-703 NOW sync on top of C-703 docs commit 41708bf); deployed src 2fe9c5a, zero src diff.
+Risk-guard keys UNCHANGED: 150/100/100 USD daily loss, $97k floor, crypto disabled, caps 5000/3700/2000.
+min_confidence 0.8 nominal D1 but FALLBACK_CONFIG enforces 0.7 (FINDING 1, risk-manager.ts:170/171) - pending Joachim, NOT deployed.
