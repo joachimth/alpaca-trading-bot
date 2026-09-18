@@ -1,0 +1,22 @@
+{
+  "account": {
+    "id": "e6eb5b00-7ec0-4fa7-9bb4-b7a2726eebe2",
+    "account_number": "PA37I8BTRXPT",
+    "status": "ACTIVE",
+    "currency": "USD",
+    "cash": 87300.77,
+    "portfolio_value": 97121.98,
+    "equity": 97121.98,
+    "buying_power": 376336.55,
+    "long_market_value": 9821.21,
+    "short_market_value": 0,
+    "market_value": 9821.21,
+    "last_equity": 97116.8669,
+    "change_today": 5.113100000002305,
+    "change_today_pct": 0.005264893898674881,
+    "pattern_day_trader": false,
+    "trading_blocked": false,
+    "transfers_blocked": false,
+    "account_blocked": false
+  }
+}
