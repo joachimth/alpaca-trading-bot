@@ -1,0 +1,98 @@
+STRICT READ-ONLY ALPACA PRODUCTION CONTROL — Control-693
+=========================================================
+Time (real clock, C-370 lesson): 2026-09-18 01:00-01:02 UTC (Fri Sep 18, +02 CPH)
+Mode: GET-only. NO broker-mutating / trigger / submit / cancel / close /
+      / replace / retry / migration endpoints called. Live validation does not
+      trigger cycles, submit, cancel or reset broker state.
+Worker host: alpaca-trading-bot.joachim-763.workers.dev
+Result: HEALTHY 2.7.0 — NO code change, NO deploy. C-688 EOD reliability
+        redeploy (20:07:07Z Sep 17) HOLDS CLEAN into Day-2 normal watch.
+
+Endpoints (all HTTP 200, no D1_ERROR):
+  /health            -> {"status":"ok","service":"alpaca-trading-bot","version":"2.7.0"}
+  /                  -> 200 ok 2.7.0
+  /api/account       -> broker-direct; ACTIVE, equity $97,125.50,
+                        change_today +$43.75 / +0.045% POSITIVE
+  /api/config        -> 2.7.0, risk keys live UNCHANGED
+  /api/dashboard     -> broker-authoritative current_state_source=alpaca,
+                        metadata_source=d1, observed_at 01:01:xxZ
+  /api/positions     -> source=alpaca broker-auth
+  /api/runs?limit=60/300 -> observed (saved)
+  /api/trades?limit=60    -> observed (saved)
+
+Positions (broker-authoritative):
+  11 swing (AAL/AVGO/BA/BAC/C/DAL/F/NEE/SNOW/TXN/WMT, cost $4,992.42
+    CAPITAL_CAP legacy book vs $3,700 cap, MV $4,814.76)
+  0 daytrading (EOD-flat, book FLAT overnight)
+  0 crypto / 0 null-strategy
+
+Equity & direction:
+  equity $97,125.50 (broker-direct), change_today +$43.75 POSITIVE
+  (last_equity $97,081.75, upward delta). ~$126 above the $97,000 floor,
+  NEVER touched. Trend-bend extends through C-693 (C-530..C-693).
+  11 positions; capitalCaps verified 5000/3700/2000.
+
+Delivery (run-log, 300-window 13252->13551):
+  0 id-gaps across the full 300-run window.
+  Post-redeploy >=20:07:07Z = 101 runs 13451->13551, 0 status=error,
+  0 CYCLE_LEASE_HELD, 0 time-gaps; all four schedules cadencing
+  (cron 60 + reconcile_cron 30 + crypto_cron 10 + swing_cron 1).
+  ALL 13 CYCLE_LEASE_HELD + 2 POSITION_QTY_MISMATCH error-runs in the wider
+  window are the DOCUMENTED pre-redeploy C-685 (#17) / C-686-687 (#18)
+  recurrences (15:41-19:41, cleared by EOD-flatten 13444 @19:46).
+  Daytrading cron cadenced every 5-min slot 20:11->01:01 all MARKET_CLOSED/
+  EOD-flat skips, 0 gaps 0 errors. Newest run 13551 @01:01:06.
+  Crypto :07/:37 UTC cadence EXACT every slot CRYPTO_DISABLED_BY_CONFIG
+  (10/10 observed, 0 missing), openCryptoPositions 0 — no #13/#17/#18 recurrence.
+
+Schedules (four live, from /api/runs triggers + deploy metadata):
+  1-59/5 * * * * daytrading | 0 22 * * 2-6 swing | 7-59/30 * * * * crypto
+  */10 * * * * reconcile. Swing fire CF-DOW=5 (run 13489 @22:00:44, 25
+  decisions 0 errors) delivered clean = 4th post-redeploy cadence test PASSED
+  (already documented C-690).
+
+Reconcile: newest 13550 @01:00:26 ok; broker_ledger_synced_until fresh.
+Trade lifecycle (60-window ids 1514->1573): 60/60 filled, 0 pending,
+  0 leaves, 0 null-strategy, 0 filled-missing-filled_at. Conservative
+  filled_lot_exact_unavailable accounting (0 gross/fee/net inconsistencies,
+  uncertain fees unattributed; fee totalUsd 272.82 conservative). Newest
+  fill trade 1573 VZ sell 19:46 = the EOD-flatten.
+
+Caps + guards UNCHANGED: 5000/3700/2000 (capitalCaps); daily loss limits
+  150/100/100 USD; account_equity_floor_usd 97000; crypto_trading_enabled false.
+
+FINDING 1 (live, NOT deployed, pending Joachim): min_confidence enforces
+  FALLBACK_CONFIG 0.7 (src/index.ts:125), NOT the D1 0.8, via the
+  risk-manager.ts:170/171 gate. Wiring 0.8 = risk-param change pending
+  Joachim's explicit decision.
+FINDING 2: async fill-lag, 0 persistent pending.
+
+Edge-gate wiring CONFIG-DISABLED (verified in src):
+  crypto-strategy.ts:282/284/325/385, technical-analysis.ts:414/604
+  (computeCalibratedEdgeBps alive-but-unreached); upstream
+  crypto_trading_enabled=false.
+
+Validation:
+  241 tests / 893 assertions PASS (bun test)
+  typecheck exit 0 (tsc --noEmit)
+  git diff --check clean
+  git diff 2fe9c5a -- src/ = EMPTY (ZERO src diff). Deployed src 2fe9c5a.
+  Working tree clean (docs-only, no source change, no deploy).
+
+Docs identity (HEAD-pointer convention):
+  Current repo HEAD c06674e (Control-692 docs + NOW.md follow-up commit).
+  C-693 docs entry prepended to README/OPERATIONS/DEPLOYMENT_RUNBOOK
+  referencing PRIOR HEAD c06674e; deployed src commit 2fe9c5a stated.
+  Live remote blobs sha-verified == local HEAD:
+    README 30508431 / OPERATIONS 5ee3f2a1 / RUNBOOK 174fa173 (verified live
+    via GitHub OAuth Contents API this control).
+  NOTE (minor): the C-692 README/OPERATIONS/RUNBOOK entry prose cites
+  blob sha "eaf18a6d/31e4a381/71cb1983" which is STALE relative to the
+  verified live W=local (30508431/5ee3f2a1/174fa173). Historical prose ref,
+  remote==local HEAD is authoritative and correct; no correction deploy
+  required. Noted to avoid future doc claims of wrong shas.
+
+NEXT: continue normal watch cadence. NEW suppression recurrence (Fri 13:30
+  open/session or any swing fire) = ESCALATE to Joachim again as worsening CF
+  platform instability. FINDING-1 wiring + D1 paid-tier + daytrading cap
+  fill-drift re-check remain pending Joachim.
