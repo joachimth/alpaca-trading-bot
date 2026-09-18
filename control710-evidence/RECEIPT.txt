@@ -1,0 +1,41 @@
+CONTROL-710 RECEIPT - Alpaca 2.7.0 strict read-only control
+Date: 2026-09-18 (Fri) ~17:00-17:05 UTC | true clock date -u 17:00:23 UTC
+Verdict: HEALTHY 2.7.0 - docs-only, NO deploy, no src change, no defect
+Deployed: src 2fe9c5a, bundle index.js md5 e34318f5 (unchanged C-688 bundle, 321210 B)
+Repo HEAD: 637b15f (Control-709 docs + evidence commit); this entry => new commit
+
+Endpoints (all HTTP 200, no D1_ERROR):
+  /health ok 2.7.0
+  /api/account (broker-direct) equity 97089.65, last_equity 97116.87, change_today -27.22
+  /api/config 2.7.0 risk-guards live: daily 150/swing 100/crypto 100, floor 97000,
+       crypto_trading_enabled false, caps 5000/3700/2000, min_confidence 0.8 (FALLBACK 0.7, FINDING 1)
+  /api/dashboard capitalCaps {daytrading:5000, swing:3700, crypto:2000}; current_state_source=alpaca
+  /api/positions source=alpaca, broker-authoritative; 16 positions (5 daytrading + 11 swing + 0 crypto)
+  /api/runs?limit=300 window 13570->13869 id-contiguous 0 id-gaps/0 errors/0 lease/0 time-gaps>15min
+  /api/trades?limit=300 300/300 filled, 0 pending, 0 leaves, 0 null-strategy,
+       accounting_status filled_lot_exact_unavailable 300/300
+
+Delivery:
+  Daytrading cron cadencing; expected-vs-observed 180-slot grid = ONE missing slot 15:41 UTC
+    (single isolated 5-min dispatch miss, 13842@15:36->13845@15:46 604s, self-recovered,
+     reconcile+crypto+surrounding slots all intact) - first dispatch miss since C-688
+  Reconcile */10 fresh: 91 runs, newest 13869 @17:00:14 ok
+  Crypto :07/:37 EXACT 30/30 (13570 02:07 -> 13862 16:37), all CRYPTO_DISABLED_BY_CONFIG fail-closed
+  0 CYCLE_LEASE_HELD, 0 suppression-pattern recurrence post C-688 redeploy
+
+Equity: $97,089.65 (broker), ~$90 over $97k floor, change_today -$27.22 (same-session drift, NOT a loss)
+  trend-bend extends through C-710 (C-530..C-710)
+
+Positions: 5 daytrading LIVE (DIS 9 / NVDA 0.65 / QCOM 16.02 / SLB 21.02 / WBD 1.19, cost $5,021.97
+  over $5k cap benign fill-drift self-limiting, CAPITAL_CAP live) + 11 swing (cost $4,992.42
+  CAPITAL_CAP legacy book) + 0 crypto/null
+
+FINDING 1 live-confirmed IN-SESSION (FALLBACK 0.7 bar firing: DIS/PLUG/CMCSA/MU/QCOM rejected
+  'below minimum 0.7'); SWING_OWNED_EXCLUDE live (GM/RIVN/F swing-owned skipped).
+
+Validation: 241 tests / 893 assertions PASS (bun test), typecheck exit 0,
+  git diff --check clean, git diff 2fe9c5a -- src/ = 0 lines (ZERO src diff), bundle md5 e34318f5
+
+Docs: README/OPERATIONS/RUNBOOK identify current HEAD (C-709 top, prior commit c9411b5,
+  deployed src 2fe9c5a explicit); live GitHub shas in sync (README d9d6e4be/OPERATIONS
+  4c12313f/RUNBOOK 860136fc = local). This C-710 entry prepended + pushed sequential.
