@@ -23,6 +23,36 @@ describe('runtime capital-cap aliases', () => {
     expect(resolveDaytradingConfig({ max_capital_usd: 'not-a-number' }).maxCapitalUsd).toBe(5000);
     expect(resolveSwingConfig({ swing_max_capital_usd: '-1' }).maxCapitalUsd).toBe(3700);
   });
+
+  test('snake_case D1 keys merge into camelCase runtime config (FINDING 1 fix)', () => {
+    // The approved min_confidence 0.8 lives in D1 as 'min_confidence'; before
+    // the normalization fix the snake_case key never merged and the 0.7
+    // FALLBACK default silently governed production entries.
+    expect(resolveDaytradingConfig({ min_confidence: '0.8' }).minConfidence).toBe(0.8);
+    expect(resolveDaytradingConfig({}).minConfidence).toBe(FALLBACK_CONFIG.minConfidence);
+  });
+
+  test('snake_case normalization changes only genuinely overriding keys', () => {
+    const resolved = resolveDaytradingConfig({
+      min_confidence: '0.8',
+      stop_loss_pct: '8',
+      eod_flatten: 'true',
+      enable_margin: 'true',
+      llm_model: 'accounts/fireworks/models/glm-5p2',
+      version: '2.7.0',
+      cached_fee_summary: '{}',
+      crypto_trading_enabled: 'false',
+    });
+    expect(resolved.minConfidence).toBe(0.8);
+    expect(resolved.stopLossPct).toBe(8);
+    expect(resolved.eodFlatten).toBe(true);
+    expect(resolved.enableMargin).toBe(true);
+    expect(resolved.llmModel).toBe('accounts/fireworks/models/glm-5p2');
+    // keys with no runtime-config counterpart must not create new fields
+    expect((resolved as any).version).toBeUndefined();
+    expect((resolved as any).cachedFeeSummary).toBeUndefined();
+    expect((resolved as any).cryptoTradingEnabled).toBeUndefined();
+  });
 });
 
 describe('scheduled schema readiness', () => {

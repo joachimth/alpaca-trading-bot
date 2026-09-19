@@ -154,12 +154,19 @@ export function resolveDaytradingConfig(dbConfig: Record<string, string>) {
   const config = { ...FALLBACK_CONFIG };
   for (const [key, value] of Object.entries(dbConfig)) {
     if (key === 'maxCapitalUsd' || key === 'max_capital_usd') continue;
-    if (key in config) {
+    // D1 stores snake_case keys (e.g. min_confidence); FALLBACK_CONFIG is
+    // camelCase (minConfidence). Without normalization no D1 override ever
+    // merged and the FALLBACK default silently won — that is FINDING 1:
+    // the approved min_confidence 0.8 was ignored in favor of 0.7.
+    const camelKey = key.includes('_')
+      ? key.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase())
+      : key;
+    if (camelKey in config) {
       const numVal = parseFloat(value);
-      if (!isNaN(numVal)) (config as any)[key] = numVal;
-      else if (value === 'true') (config as any)[key] = true;
-      else if (value === 'false') (config as any)[key] = false;
-      else (config as any)[key] = value;
+      if (!isNaN(numVal)) (config as any)[camelKey] = numVal;
+      else if (value === 'true') (config as any)[camelKey] = true;
+      else if (value === 'false') (config as any)[camelKey] = false;
+      else (config as any)[camelKey] = value;
     }
   }
   const cap = resolveCapitalCapOverride(dbConfig, 'daytrading');
