@@ -314,3 +314,39 @@ describe('analysis versioning', () => {
     expect(r.perTrade[0].analysisTimestamp).toBeTruthy();
   });
 });
+
+describe('crypto comparison', () => {
+  test('crypto closes are analyzed as a third strategy in the comparison', () => {
+    const r = buildAnalytics({
+      positions: [],
+      trades: [],
+      decisions: [],
+      fees: [],
+      periodStart: null,
+      periodEnd: null,
+      comparisonPositions: {
+        daytrading: [],
+        swing: [],
+        crypto: [closedPosition(1, { strategy: 'crypto', ticker: 'BTCUSD', closed_pl: -25, close_reason: 'stop_loss' })],
+      },
+    });
+    expect(r.comparison).toBeTruthy();
+    expect(r.comparison!.cryptoTrading.kpis.trades).toBe(1);
+    expect(r.comparison!.cryptoTrading.kpis.netPL).toBe(-25);
+    for (const d of r.comparison!.differences) expect(d.crypto).toBeTruthy();
+  });
+
+  test('comparison still works when crypto rows are absent (legacy callers)', () => {
+    const r = buildAnalytics({
+      positions: [],
+      trades: [],
+      decisions: [],
+      fees: [],
+      periodStart: null,
+      periodEnd: null,
+      comparisonPositions: { daytrading: [], swing: [] },
+    });
+    expect(r.comparison).toBeTruthy();
+    expect(r.comparison!.cryptoTrading.kpis.trades).toBe(0);
+  });
+});
