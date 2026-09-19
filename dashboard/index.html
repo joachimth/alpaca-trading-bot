@@ -1,4 +1,4 @@
-<!-- canonical-release-version: 2.8.0 -->
+<!-- canonical-release-version: 2.8.1 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -400,9 +400,10 @@
         <input type="date" id="anEnd" onchange="setAnPeriod('custom')">
         <label>Strategy</label>
         <select id="anStrategy" onchange="loadAnalytics()">
-          <option value="">Day + Swing</option>
+          <option value="">All strategies</option>
           <option value="daytrading">Day Trading</option>
           <option value="swing">Swing Trading</option>
+          <option value="crypto">Crypto</option>
         </select>
         <label>Symbol</label>
         <input type="text" id="anSymbol" placeholder="e.g. AAPL" style="width:70px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-family:inherit;font-size:11px" onchange="loadAnalytics()">
@@ -444,7 +445,7 @@
         <div class="table-section"><div class="section-title"><span>What Needs Attention (patterns)</span></div><div id="anAttention"></div></div>
       </div>
 
-      <div class="table-section"><div class="section-title"><span>Day Trading vs Swing Trading</span></div><div id="anComparison"></div></div>
+      <div class="table-section"><div class="section-title"><span>Strategy Comparison (Day / Swing / Crypto)</span></div><div id="anComparison"></div></div>
 
       <div class="table-section"><div class="section-title"><span>Research Backlog (hypotheses to backtest — not strategy changes)</span></div><div id="anBacklog"></div></div>
 
@@ -457,13 +458,14 @@
       <div class="export-btns" style="margin-bottom:24px;text-align:center">
         <button class="trigger-btn" onclick="exportA4('daytrading')">Export Day Trading Report (PDF)</button>
         <button class="trigger-btn" onclick="exportA4('swing')">Export Swing Trading Report (PDF)</button>
+        <button class="trigger-btn" onclick="exportA4('crypto')">Export Crypto Trading Report (PDF)</button>
         <span style="display:block;color:var(--text-muted);font-size:11px;margin-top:6px">Opens the print dialog — choose "Save as PDF". The report is exactly one A4 page.</span>
       </div>
 
       <div id="a4ReportHost"></div>
     </div>
 
-    <div class="footer">Alpaca AI Trading Bot v2.8.0 - Cloudflare Worker + D1 - Paper Trading<br>Daytrading: 5-min cron | Swing: daily 22:00 UTC | Crypto: every 30min 24/7 | Auto-refresh 30s</div>
+    <div class="footer">Alpaca AI Trading Bot v2.8.1 - Cloudflare Worker + D1 - Paper Trading<br>Daytrading: 5-min cron | Swing: daily 22:00 UTC | Crypto: every 30min 24/7 | Auto-refresh 30s</div>
   </div>
   <script>
     const API_BASE = 'https://alpaca-trading-bot.joachim-763.workers.dev';
@@ -1306,11 +1308,11 @@
     }
     function renderComparison(cmp) {
       if (!cmp) { document.getElementById('anComparison').innerHTML = '<div class="loading">Insufficient data</div>'; return; }
-      let html = '<table><thead><tr><th>Dimension</th><th>Day Trading</th><th>Swing Trading</th><th>Note</th></tr></thead><tbody>';
+      let html = '<table><thead><tr><th>Dimension</th><th>Day Trading</th><th>Swing Trading</th><th>Crypto</th><th>Note</th></tr></thead><tbody>';
       for (const d of cmp.differences) {
-        html += '<tr><td>' + d.dimension + '</td><td>' + d.daytrading + '</td><td>' + d.swing + '</td><td style="color:var(--text-muted)">' + d.note + '</td></tr>';
+        html += '<tr><td>' + d.dimension + '</td><td>' + d.daytrading + '</td><td>' + d.swing + '</td><td>' + (d.crypto || 'Insufficient data') + '</td><td style="color:var(--text-muted)">' + d.note + '</td></tr>';
       }
-      html += '</tbody></table><div class="run-history-note" style="margin-top:10px">KPI basis — Day: ' + cmp.dayTrading.kpis.trades + ' closed trades · Swing: ' + cmp.swingTrading.kpis.trades + ' closed trades. Neither strategy is called "best": they carry different risk, holding time and cost structures by design.</div>';
+      html += '</tbody></table><div class="run-history-note" style="margin-top:10px">KPI basis — Day: ' + cmp.dayTrading.kpis.trades + ' closed trades · Swing: ' + cmp.swingTrading.kpis.trades + ' closed trades · Crypto: ' + ((cmp.cryptoTrading && cmp.cryptoTrading.kpis.trades) || 0) + ' closed trades. Neither strategy is called "best": they carry different risk, holding time and cost structures by design.</div>';
       document.getElementById('anComparison').innerHTML = html;
     }
     function renderBacklog(items) {
@@ -1366,7 +1368,9 @@
     // ---- A4 reports ----
     function a4StrategySummary(cmp, strategy) {
       if (!cmp) return null;
-      return strategy === 'daytrading' ? cmp.dayTrading : cmp.swingTrading;
+      if (strategy === 'daytrading') return cmp.dayTrading;
+      if (strategy === 'crypto') return cmp.cryptoTrading || null;
+      return cmp.swingTrading;
     }
     function buildA4Html(strategy) {
       // Priority-ordered content so the sheet NEVER exceeds one A4 page:
@@ -1374,7 +1378,7 @@
       const s = a4StrategySummary(anData.comparison, strategy);
       if (!s || !s.kpis.trades) return '<div class="a4-sheet"><h1>Trading Analytics</h1><h2>' + strategy.toUpperCase() + '</h2><p>Insufficient data: no closed trades in the selected period.</p></div>';
       const k = s.kpis;
-      const label = strategy === 'daytrading' ? 'DAY TRADING' : 'SWING TRADING';
+      const label = strategy === 'daytrading' ? 'DAY TRADING' : strategy === 'crypto' ? 'CRYPTO TRADING' : 'SWING TRADING';
       const periodTxt = (anData.periodStart ? anData.periodStart.slice(0, 10) : 'beginning') + ' → ' + (anData.periodEnd ? anData.periodEnd.slice(0, 10) : new Date().toISOString().slice(0, 10));
       const works = anData.patterns.works.filter(p => p.expectancy > 0).slice(0, 3);
       const attention = anData.patterns.needsAttention.filter(p => p.expectancy < 0).slice(0, 3);
