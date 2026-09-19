@@ -2044,7 +2044,7 @@ export class Database {
   // All computation happens in src/analytics.ts; these are data fetchers.
   // ============================================================
 
-  async getClosedPositionsInWindow(sinceUtc: string | null, untilUtc: string | null, strategy?: 'daytrading' | 'swing'): Promise<any[]> {
+  async getClosedPositionsInWindow(sinceUtc: string | null, untilUtc: string | null, strategy?: 'daytrading' | 'swing' | 'crypto'): Promise<any[]> {
     const conditions: string[] = ['closed_at IS NOT NULL', 'closed_pl IS NOT NULL'];
     const binds: any[] = [];
     if (strategy) { conditions.push("COALESCE(strategy, 'daytrading') = ?"); binds.push(strategy); }
@@ -2058,7 +2058,7 @@ export class Database {
     return (result.results ?? []) as any[];
   }
 
-  async getFilledTradesInWindow(sinceUtc: string | null, strategy?: 'daytrading' | 'swing'): Promise<any[]> {
+  async getFilledTradesInWindow(sinceUtc: string | null, strategy?: 'daytrading' | 'swing' | 'crypto'): Promise<any[]> {
     const conditions: string[] = ["status = 'filled'"];
     const binds: any[] = [];
     if (strategy) { conditions.push("COALESCE(strategy, 'daytrading') = ?"); binds.push(strategy); }

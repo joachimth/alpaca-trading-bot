@@ -567,7 +567,9 @@ export class DashboardAPI {
     }
 
     const strategyParam = url.searchParams.get('strategy');
-    const strategyScope = strategyParam === 'daytrading' || strategyParam === 'swing' ? strategyParam : undefined;
+    const strategyScope = strategyParam === 'daytrading' || strategyParam === 'swing' || strategyParam === 'crypto'
+      ? strategyParam
+      : undefined;
 
     // ---- Data fetch (bounded by period) ----
     const [positionsAll, tradesAll] = await Promise.all([
@@ -582,6 +584,7 @@ export class DashboardAPI {
     const comparisonPositions = {
       daytrading: await db.getClosedPositionsInWindow(since, until, 'daytrading'),
       swing: await db.getClosedPositionsInWindow(since, until, 'swing'),
+      crypto: await db.getClosedPositionsInWindow(since, until, 'crypto'),
     };
 
     // Data-level filters applied before analysis.

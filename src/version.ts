@@ -1,2 +1,2 @@
 /** Canonical release version for the deployable Worker observability surfaces. */
-export const RELEASE_VERSION = '2.8.0';
+export const RELEASE_VERSION = '2.8.1';
