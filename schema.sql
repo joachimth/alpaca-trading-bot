@@ -332,5 +332,24 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
 
 -- Authoritative schema/config version. This update is idempotent for existing DBs.
 INSERT INTO bot_config (key, value, updated_at)
-VALUES ('version', '2.6.0', datetime('now'))
+VALUES ('version', '2.8.0', datetime('now'))
 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at;
+
+-- ============================================================
+-- Analytics snapshots: daily per-strategy KPI persistence so improvement
+-- over time (expectancy, profit factor, drawdown, win rate, decision
+-- quality) is measurable. Written once/day by scheduled maintenance from
+-- the same read-only engine as /api/analytics. metrics is a JSON blob of
+-- the KPI set; analysis_version identifies the scoring rules.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS analytics_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  snapshot_date TEXT NOT NULL,
+  strategy TEXT NOT NULL,
+  period TEXT NOT NULL DEFAULT 'all',
+  metrics TEXT NOT NULL,                      -- JSON: KPI set
+  analysis_version TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(snapshot_date, strategy, period)
+);
+CREATE INDEX IF NOT EXISTS idx_analytics_snapshots_date ON analytics_snapshots(strategy, snapshot_date);
