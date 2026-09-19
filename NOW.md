@@ -1,7 +1,7 @@
 # NOW
-- **LØRDAG 19/9 ~09:10 CEST — C-724 post-#19 steady state HEALTHY (docs-only, NO deploy).** Sat 07:00 UTC; US mkt CLOSED (Fri session EOD-flat 13915@19:46, nextOpen Mon Sep 21 09:30-04:00).
-- C-724: no NEW suppression since the 19:31 self-heal (~11.5h); in-window misses (crypto 19:07 + daytrading 15:41/#19 freeze) ALL already-documented/escalated → no new escalate. 300-run 13841..14140 id-contiguous 0 gaps; post-heal daytrading 138 runs 0 gaps; crypto :07/:37 exact from 19:37.
-- Book: daytrading FLAT + 11 swing (MV $4,767.86) + 0 crypto; equity $97,135.81 +$18.94 POSITIVE, trend-bend C-530..C-724 (195), $97k floor never touched. Swing fire 13960@22:00 = 5th cadence test PASSED.
-- Docs: C-724 committed 705e2cd + **PUSHED remote==local IN SYNC (README 0af8be92/OPERATIONS 673aeb86/RUNBOOK 4d1fc3c9) via OAuth sequential PUTs + authed GET**. bundle e34318f5, src 2fe9c5a 0 src diff, RELEASE 2.7.0. 241 tests/893 PASS typecheck 0.
-- Predicate ARMED (lowered): Mon 21/9 22:00z swing fire = 6th post-redeploy cadence test; ANY genuinely-NEW suppression/slot-miss = ESCALATE.
-- Pending Joachim: FINDING 1 (0.7→0.8), D1 paid-tier, daytrading cap fill-drift re-check, 5 praktik+skolepraktik, Minuba 47289, Apple T&C 29/9, Xolta/Ladebox, remote origin divergent, docs re-archive (~690KB).
+- **LØR 19/9 10:00 +02: RELEASE 2.8.1 DEPLOYET — CRYPTO NU MED I ANALYTICS.** Joachim spurgte "mangler crypto?" — ja, scope var kun day/swing. Fix: strategy=crypto tilladt, comparison = Day/Swing/Crypto (crypto-kolonne + cryptoTrading-KPIs), Crypto i filter-dropdown, 3. A4-rapportknap. Live: /health 2.8.1, /api/analytics?strategy=crypto = 9 trades, -56.63 (11,1% win, PF 0,06), crons 07:57:53, runs flyder. 263 tests/969 assertions, typecheck 0. Commits 2ea5e9d+3a94f24, 12 filer pushet sha-verified, Pages = 2.8.1. Rollback: 2.8.0 bundle 3d4bf876 fra git ff2e09d.
+- Crypto handel stadig config-disabled — analytics er read-only over historiske lukninger; fylder sig selv ud hvis crypto genaktiveres.
+- **Verify mandag 13:30z: min_confidence 0.8-afvisninger (C-726); swing-fire 22:00z mandag = 6. kadence-test.** Eskalerings-predikat ARMED. Pending Joachim: D1 paid-tier, cap fill-drift re-check.
+- Data-grænse uændret: daytrading EOD-flatten → closed_pl NULL = "Insufficient data" (FIFO item-5 er forudsætning); MFE/MAE/funding/leverage ikke optaget.
+- Michael Koldsø + mail-items 1/4 LØST. Drafts: FW 593759 + 593551 til lb@ pending send.
+- 🟠 HØJ: Niels optælling borde/stole (50), Kragerup (5/10), Ladebox-lead Søren Wulf Møller, Ulrik Lerche uge 40, Zaptec/Minuba 47289, Apple T&C 29/9.
