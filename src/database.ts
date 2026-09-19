@@ -2074,12 +2074,18 @@ export class Database {
 
   async getDecisionsByIds(ids: number[]): Promise<any[]> {
     if (ids.length === 0) return [];
-    const placeholders = ids.map(() => '?').join(',');
-    const result = await this.db.prepare(
-      `SELECT id, timestamp, ticker, action, confidence, signal_source, reason, ai_reasoning, ta_data, price_at_decision
-       FROM decisions WHERE id IN (${placeholders})`
-    ).bind(...ids).all();
-    return (result.results ?? []) as any[];
+    // Chunked: D1 rejects queries with too many bound variables.
+    const rows: any[] = [];
+    for (let i = 0; i < ids.length; i += 80) {
+      const chunk = ids.slice(i, i + 80);
+      const placeholders = chunk.map(() => '?').join(',');
+      const result = await this.db.prepare(
+        `SELECT id, timestamp, ticker, action, confidence, signal_source, reason, ai_reasoning, ta_data, price_at_decision
+         FROM decisions WHERE id IN (${placeholders})`
+      ).bind(...chunk).all();
+      rows.push(...((result.results ?? []) as any[]));
+    }
+    return rows;
   }
 
   async getBrokerFeesByOrders(orderIds: string[]): Promise<Map<string, number>> {
