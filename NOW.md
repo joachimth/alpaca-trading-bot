@@ -1,8 +1,9 @@
 # NOW
-- **FRE 18/9 ~22:00z C-717: HEALTHY 2.7.0 docs-only, NO deploy.** Fri 22:00 swing fire (run 13960) DELIVERED CLEAN = 5th post-redeploy cadence test PASSED.
-- Equity $97,138.16 change_today +$21.29 POSITIVE, $97k floor NEVER touched. Daytrading FLAT (EOD-flatten 13915@19:46), 11 swing, 0 crypto. 0 err/lease, crypto :07/:37 exact except 19:07 miss (C-712/713 freeze, already escalated).
-- **READ-CORRECTION reconfirmed (C-716): the C-712/713 freeze was MULTI-schedule (daytrading 9 slots + crypto 19:07 slot), not daytrading-only.**
-- **DOCS-PUSH GAP CLOSED: C-716 was committed but NOT pushed (remote 1 control behind at C-715); C-717 work item pushed C-716+C-717, remote==local IN SYNC (README 814af2e1/OPERATIONS c384ec0d/RUNBOOK 398570bc).** Tooling lesson: `assistant oauth request` defaults GET — must pass `-X PUT` for Contents API updates (else 404).
-- Caps/guards UNCHANGED (5000/3700/2000, 150/100/100, $97k). Bundle e34318f5, src 2fe9c5a, 241 tests/893 PASS.
-- **Predicate STAYS ARMED (lowered threshold): ANY further suppression/slot-miss (Mon 22:00 swing fire = 6th post-redeploy cadence test) = ESCALATE.**
-- Pending Joachim: FINDING 1, D1 paid-tier, daytrading cap fill-drift re-check, 5 praktik+skolepraktik, Minuba 47289, Apple T&C 29/9, Xolta/Ladebox, remote origin divergent, docs re-archive (~677KB).
+- **LØRDAG 19/9 ~01:00 UTC — C-718 post-#19 steady state independent re-verified HEALTHY (docs-only, NO deploy).** Real clock 01:00:10Z matches injected (C-370 lesson). US mkt CLOSED (Fri session EOD-flat 13915@19:46).
+- C-718 steady state CONFIRMED: no NEW suppression since 19:31 self-heal (+ new window 13911..14020 = 110 runs 0 err/lease/gaps, id-contiguous). In-window misses (crypto 19:07 + daytrading 15:41) BOTH already-documented/escalated (#19) → no new escalation.
+- Book: daytrading FLAT + 11 swing (MV $4,771.77) + 0 crypto; equity $97,139.72 +$22.85 POSITIVE, trend-bend C-530..C-718 (189), $97k floor never touched.
+- Delivery: reconcile */10 exact (123 runs 0 gaps), crypto :07/:37 exact (missing 19:07 = #19), daytrading exact post-heal; only error run 13878@17:26 = benign WBD POSITION_QTY_MISMATCH (C-711, self-healed). Swing fire 13960@22:00:45 PASSED (5th cadence test).
+- Trades 150/150 filled 0 pending/leaves/null high-water 1616 (EOD-flatten sells 1612-1616); conservative fee accounting (none-recorded). Caps 5000/3700/2000 + guards UNCHANGED; edge-gate wired config-disabled; FINDING 1 (0.7 fallback) pending Joachim.
+- Deployment identity: bundle index.js md5 e34318f5, src 2fe9c5a 0 src diff, RELEASE_VERSION 2.7.0. Docs verified remote==local IN SYNC via authed GET (README e6658f46/OPERATIONS c13892e1/RUNBOOK 3cbe9692), HEAD 347adfd / prior 3c410f4. 241 tests/893 PASS typecheck 0.
+- Predicate ARMED (lowered): Mon 21/9 22:00z swing fire = 6th post-redeploy cadence test; ANY genuinely-NEW suppression/slot-miss = ESCALATE.
+- Pending Joachim: FINDING 1 (0.7→0.8), D1 paid-tier, daytrading cap fill-drift re-check, 5 praktik+skolepraktik, Minuba 47289, Apple T&C 29/9, Xolta/Ladebox, remote origin divergent, docs re-archive (~680KB).
