@@ -209,7 +209,8 @@ export interface StrategySummary {
 export interface StrategyComparison {
   dayTrading: StrategySummary;
   swingTrading: StrategySummary;
-  differences: { dimension: string; daytrading: string; swing: string; note: string }[];
+  cryptoTrading: StrategySummary;
+  differences: { dimension: string; daytrading: string; swing: string; crypto: string; note: string }[];
 }
 
 export interface AnalyticsResult {
@@ -771,7 +772,7 @@ export function buildAnalytics(input: {
   fees: FeeRow[];
   periodStart: string | null;
   periodEnd: string | null;
-  comparisonPositions?: { daytrading: ClosedPositionRow[]; swing: ClosedPositionRow[] } | null;
+  comparisonPositions?: { daytrading: ClosedPositionRow[]; swing: ClosedPositionRow[]; crypto?: ClosedPositionRow[] } | null;
 }): AnalyticsResult {
   const feesByOrderId = new Map<string, number>();
   for (const f of input.fees) {
@@ -841,23 +842,28 @@ export function buildAnalytics(input: {
   if (input.comparisonPositions) {
     const dtRows = input.comparisonPositions.daytrading;
     const swRows = input.comparisonPositions.swing;
+    const crRows = input.comparisonPositions.crypto ?? [];
     const dtAnalyses = dtRows.map(pos => analyzeTrade(pos, scopedTrades, decisions, feesByOrderId));
     const swAnalyses = swRows.map(pos => analyzeTrade(pos, scopedTrades, decisions, feesByOrderId));
+    const crAnalyses = crRows.map(pos => analyzeTrade(pos, scopedTrades, decisions, feesByOrderId));
     const dtKpis = computeKpis(dtAnalyses);
     const swKpis = computeKpis(swAnalyses);
+    const crKpis = computeKpis(crAnalyses);
     const fmt = (v: number | null) => v == null ? 'Insufficient data' : String(v);
+    const fmtDurMin = (v: number | null) => v == null ? 'Insufficient data' : `${v} min`;
     comparison = {
       dayTrading: { strategy: 'daytrading', kpis: dtKpis, bestSetups: [], weakestSetups: [] },
       swingTrading: { strategy: 'swing', kpis: swKpis, bestSetups: [], weakestSetups: [] },
+      cryptoTrading: { strategy: 'crypto', kpis: crKpis, bestSetups: [], weakestSetups: [] },
       differences: [
-        { dimension: 'Risk per trade', daytrading: 'Intraday stops, EOD-flatten', swing: 'Multi-day stops (15% / 8% trailing)', note: 'Different loss magnitude per trade by design' },
-        { dimension: 'Consistency (win rate)', daytrading: fmt(dtKpis.winRate) , swing: fmt(swKpis.winRate), note: 'Compare with sample size, not in isolation' },
-        { dimension: 'Expectancy (USD)', daytrading: fmt(dtKpis.expectancy), swing: fmt(swKpis.expectancy), note: 'Absolute per-trade edge' },
-        { dimension: 'Expectancy (R)', daytrading: fmt(dtKpis.expectancyR), swing: fmt(swKpis.expectancyR), note: 'Risk-normalized edge' },
-        { dimension: 'Max drawdown (USD)', daytrading: fmt(dtKpis.maxDrawdown), swing: fmt(swKpis.maxDrawdown), note: 'Larger accounts for larger swing stops' },
-        { dimension: 'Trading costs', daytrading: fmt(dtKpis.fees), swing: fmt(swKpis.fees), note: 'High-turnover strategies carry structurally higher costs' },
-        { dimension: 'Avg duration', daytrading: dtKpis.avgDurationMinutes != null ? `${dtKpis.avgDurationMinutes} min` : 'Insufficient data', swing: swKpis.avgDurationMinutes != null ? `${swKpis.avgDurationMinutes} min` : 'Insufficient data', note: 'Different capital velocity' },
-        { dimension: 'Result volatility', daytrading: fmt(stdDev(dtAnalyses)), swing: fmt(stdDev(swAnalyses)), note: 'Std dev of per-trade P/L' },
+        { dimension: 'Risk per trade', daytrading: 'Intraday stops, EOD-flatten', swing: 'Multi-day stops (15% / 8% trailing)', crypto: 'Intraday-style stops, 24/7 market', note: 'Different loss magnitude per trade by design' },
+        { dimension: 'Consistency (win rate)', daytrading: fmt(dtKpis.winRate), swing: fmt(swKpis.winRate), crypto: fmt(crKpis.winRate), note: 'Compare with sample size, not in isolation' },
+        { dimension: 'Expectancy (USD)', daytrading: fmt(dtKpis.expectancy), swing: fmt(swKpis.expectancy), crypto: fmt(crKpis.expectancy), note: 'Absolute per-trade edge' },
+        { dimension: 'Expectancy (R)', daytrading: fmt(dtKpis.expectancyR), swing: fmt(swKpis.expectancyR), crypto: fmt(crKpis.expectancyR), note: 'Risk-normalized edge' },
+        { dimension: 'Max drawdown (USD)', daytrading: fmt(dtKpis.maxDrawdown), swing: fmt(swKpis.maxDrawdown), crypto: fmt(crKpis.maxDrawdown), note: 'Larger accounts for larger swing stops' },
+        { dimension: 'Trading costs', daytrading: fmt(dtKpis.fees), swing: fmt(swKpis.fees), crypto: fmt(crKpis.fees), note: 'Crypto fees are structurally higher per trade; turnover compounds this' },
+        { dimension: 'Avg duration', daytrading: fmtDurMin(dtKpis.avgDurationMinutes), swing: fmtDurMin(swKpis.avgDurationMinutes), crypto: fmtDurMin(crKpis.avgDurationMinutes), note: 'Different capital velocity' },
+        { dimension: 'Result volatility', daytrading: fmt(stdDev(dtAnalyses)), swing: fmt(stdDev(swAnalyses)), crypto: fmt(stdDev(crAnalyses)), note: 'Std dev of per-trade P/L' },
       ],
     };
   }
