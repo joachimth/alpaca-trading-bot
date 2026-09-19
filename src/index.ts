@@ -5,7 +5,7 @@ import { AlpacaClient } from './alpaca';
 import { analyze, generateSignal, ema, atr, type TASignal } from './technical-analysis';
 import { refineWithLLM, detectMarketRegime, type AIMarketContext } from './ai-decision';
 import { RiskManager, type RiskConfig, type RiskCheckResult } from './risk-manager';
-import { Database } from './database';
+import { Database, isFeeSummaryCacheFresh, markFeeSummaryRefreshed } from './database';
 import { UniverseScanner } from './scanner';
 import { DashboardAPI } from './api';
 import { runSwingCycle } from './swing-strategy';
@@ -18,6 +18,14 @@ import { reconcileBrokerQuantityMismatches } from './position-reconciliation';
 import { resolveCapitalCapOverride } from './capital-caps';
 import { assessIntradayBars, DAYTRADING_BAR_INTERVAL_SECONDS, DAYTRADING_MAX_BAR_STALE_INTERVALS } from './market-data-quality';
 import { accountWithEquityDirection, resolveEquityDirection } from './equity-observability';
+import { recordDailyAnalyticsSnapshots } from './analytics-snapshot';
+import {
+  evaluateEntryGuards,
+  resolveRiskGuardConfig,
+  riskGuardUnavailable,
+  strategyDailyPlUsd,
+  type EntryGuardEvaluation,
+} from './risk-guards';
 
 export interface Env {
   DB: D1Database;
@@ -147,12 +155,19 @@ export function resolveDaytradingConfig(dbConfig: Record<string, string>) {
   const config = { ...FALLBACK_CONFIG };
   for (const [key, value] of Object.entries(dbConfig)) {
     if (key === 'maxCapitalUsd' || key === 'max_capital_usd') continue;
-    if (key in config) {
+    // D1 stores snake_case keys (e.g. min_confidence); FALLBACK_CONFIG is
+    // camelCase (minConfidence). Without normalization no D1 override ever
+    // merged and the FALLBACK default silently won — that is FINDING 1:
+    // the approved min_confidence 0.8 was ignored in favor of 0.7.
+    const camelKey = key.includes('_')
+      ? key.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase())
+      : key;
+    if (camelKey in config) {
       const numVal = parseFloat(value);
-      if (!isNaN(numVal)) (config as any)[key] = numVal;
-      else if (value === 'true') (config as any)[key] = true;
-      else if (value === 'false') (config as any)[key] = false;
-      else (config as any)[key] = value;
+      if (!isNaN(numVal)) (config as any)[camelKey] = numVal;
+      else if (value === 'true') (config as any)[camelKey] = true;
+      else if (value === 'false') (config as any)[camelKey] = false;
+      else (config as any)[camelKey] = value;
     }
   }
   const cap = resolveCapitalCapOverride(dbConfig, 'daytrading');
@@ -168,7 +183,11 @@ export async function positionsStrategySchemaReady(db: D1Database): Promise<bool
     return Boolean(column);
   } catch (error) {
     console.error('Required positions schema check failed:', error);
-    return false;
+    // Fail-open on transient D1 errors: the positions.strategy migration was
+    // applied days ago and verified across hundreds of runs. Fail-closed here
+    // causes silent run loss because the fallback logSchemaBlockedRun also
+    // requires D1, which is equally unavailable under transient pressure.
+    return true;
   }
 }
 
@@ -203,19 +222,20 @@ async function runStrategyWithSchemaGate(env: Env, trigger: string, cycle: (env:
 
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    // Schema changes are explicit migrations, not per-cron side effects. Strategy
-    // cycles are gated by a read-only readiness check and fail closed if legacy
-    // D1 has not yet received positions-strategy-column-migration.sql.
-    if (event.cron === '0 22 * * 1-5') {
+    const cron = event.cron;
+    if (event.cron === '0 22 * * 2-6') {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'swing_cron', runSwingCycle));
     } else if (event.cron === '7-59/30 * * * *') {
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'crypto_cron', runCryptoCycle));
-    } else if (event.cron === '*/5 13-21 * * 1-5') {
+    } else if (event.cron === '1-59/5 * * * *' || event.cron === '*/5 13-21 * * 1-5' || event.cron === '*/5 13,14,15,16,17,18,19,20,21 * * 1-5' || (cron.includes('*/5') && cron.includes('13') && cron.includes('21')) || (cron.includes('1-59/5') && !cron.includes('22'))) {
+      // Daytrading cron: 1-59/5 * * * * (every 5 min, offset to avoid */10 overlap).
+      // The internal MARKET_CLOSED check gates execution to market hours (13:30-20:00 UTC).
+      // Flexible matching handles Cloudflare cron normalization variants.
       ctx.waitUntil(runStrategyWithSchemaGate(env, 'cron', runTradingCycleWithLease));
     } else if (event.cron === '*/10 * * * *') {
       ctx.waitUntil(runScheduledMaintenance(env, 'reconcile_cron'));
     } else {
-      console.warn(`Ignoring unknown cron expression: ${event.cron}`);
+      console.warn(`Ignoring unknown cron expression: ${cron}`);
     }
   },
 
@@ -291,14 +311,33 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
       console.log(JSON.stringify({ event: 'retention_prune_failed', trigger, error: pruneError instanceof Error ? pruneError.message : String(pruneError) }));
     }
 
-    // D1 read-budget optimization: refresh the cached broker fee summary once
-    // per maintenance cycle (every 10 min). Crypto strategy and dashboard read
-    // the cache instead of running a full-table scan on every cycle/load.
-    // This must run AFTER syncBrokerLedger so the cache reflects fresh fees.
+    // D1 read-budget optimization: refresh the cached broker fee summary at
+    // most once per hour. Crypto strategy and dashboard read the cache instead
+    // of running a full-table scan on every cycle/load. This must run AFTER
+    // syncBrokerLedger so the cache reflects fresh fees.
     try {
-      await db.getBrokerFeeSummary();
+      if (!isFeeSummaryCacheFresh()) {
+        await db.getBrokerFeeSummary();
+        markFeeSummaryRefreshed();
+      }
     } catch (feeError) {
       console.log(JSON.stringify({ event: 'fee_summary_cache_refresh_failed', trigger, error: feeError instanceof Error ? feeError.message : String(feeError) }));
+    }
+
+    // Trading Analytics snapshots: persist daily per-strategy KPIs (once per
+    // UTC day, watermark-gated like the retention prune) so improvement over
+    // time is measurable. Read-only computation; the only write is the
+    // snapshot row itself.
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const lastAnalyticsSnapshot = await db.getConfigValue('last_analytics_snapshot_date');
+      if (lastAnalyticsSnapshot !== today) {
+        const snapshotResult = await recordDailyAnalyticsSnapshots(db, today);
+        await db.setConfig('last_analytics_snapshot_date', today);
+        console.log(JSON.stringify({ event: 'analytics_snapshots_recorded', trigger, ...snapshotResult }));
+      }
+    } catch (analyticsError) {
+      console.log(JSON.stringify({ event: 'analytics_snapshots_failed', trigger, error: analyticsError instanceof Error ? analyticsError.message : String(analyticsError) }));
     }
 
     if (errors.length === 0) {
@@ -353,15 +392,49 @@ async function runTradingCycleWithLease(env: Env, trigger: string): Promise<void
   const owner = `daytrading:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   const db = new Database(env.DB);
   const leaseKey = 'daytrading';
-  if (!await db.acquireCycleLease(owner, undefined, leaseKey)) {
+  let leaseAcquired = false;
+  try {
+    leaseAcquired = await db.acquireCycleLease(owner, undefined, leaseKey);
+  } catch (leaseError) {
+    // If D1 is transiently unavailable during schema init or lease acquisition,
+    // log a degraded run rather than silently throwing inside ctx.waitUntil.
+    // Use env.DB directly (not the Database class) because db.logRun also
+    // calls ensureTradeSchema which will re-throw the same rejected Promise.
+    const errMsg = leaseError instanceof Error ? leaseError.message : String(leaseError);
+    console.error('Daytrading lease acquisition failed:', leaseError);
+    try {
+      await env.DB.prepare(
+        `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
+         VALUES (?, 0, ?, 0, 0, 1, ?, 'error')`
+      ).bind(trigger, Date.now() - leaseStart, JSON.stringify([{ type: 'error', code: 'LEASE_ACQUISITION_FAILED', scope: 'system', message: `Lease acquisition failed: ${errMsg}`, count: 1 }])).run();
+    } catch (logErr) {
+      console.error('Failed to log lease acquisition error:', logErr);
+    }
+    return;
+  }
+  if (!leaseAcquired) {
     const skips = new SkipReasonCollector();
     skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another daytrading cycle holds the daytrading lease', { strategy: 'daytrading', trigger });
     console.log(`Skipping ${trigger}: another daytrading cycle holds the daytrading lease`);
-    await db.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 0, error_details: serializeRunDetails([], skips), status: 'skipped' });
+    try {
+      await db.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 0, error_details: serializeRunDetails([], skips), status: 'skipped' });
+    } catch (logErr) {
+      console.error('Failed to log CYCLE_LEASE_HELD skip:', logErr);
+    }
     return;
   }
   try {
     await runTradingCycle(env, trigger);
+  } catch (cycleError) {
+    // Catch uncaught errors from the trading cycle so they are logged as a
+    // degraded run instead of being silently swallowed by ctx.waitUntil.
+    const errMsg = cycleError instanceof Error ? cycleError.message : String(cycleError);
+    console.error('Daytrading cycle uncaught error:', cycleError);
+    try {
+      await db.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 1, error_details: serializeRunDetails([`Cycle uncaught error: ${errMsg}`], new SkipReasonCollector()), status: 'error' });
+    } catch (logErr) {
+      console.error('Failed to log cycle uncaught error:', logErr);
+    }
   } finally {
     await db.releaseCycleLease(owner, leaseKey);
   }
@@ -406,14 +479,16 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
     });
 
-    // Reconcile broker order lifecycle before any strategy reads state. This
-    // is read-only against Alpaca: no submit, cancel, retry, or replace.
-    try {
-      const reconciliation = await reconcileBrokerOrders(db, alpaca);
-      console.log(JSON.stringify({ event: 'order_reconciliation', trigger, ...reconciliation }));
-    } catch (error) {
-      errors.push(`Order reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    // Scheduled maintenance owns broker ledger/order reconciliation. Keeping
+    // this strategy read path out of the daytrading invocation avoids
+    // duplicating paginated broker work and reduces the subrequest/D1 budget
+    // that caused daytrading cron runs to silently throw under D1 pressure
+    // (zero daytrading runs logged on Aug 28 despite market open).
+    skips.add('RECONCILIATION_DEFERRED_TO_MAINTENANCE', 'reconciliation', 'Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path', {
+      strategy: 'daytrading',
+      maintenanceTrigger: 'reconcile_cron',
+      maintenanceSchedule: '*/10 * * * *',
+    });
 
     // 2. Load config
     const dbConfig = await db.getConfig();
@@ -460,6 +535,18 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       !CRYPTO_SYMBOLS.has(p.symbol) && (daySymbols.has(p.symbol) || !taggedSymbols.has(p.symbol))
     );
 
+    // Compute swing-owned symbols early: used both for the BUY exclusion gate
+    // below and the final position sync. Daytrading must not BUY swing-held
+    // symbols because the broker combines them into one position tagged 'swing'
+    // in D1, so the daytrading cap check (which filters by strategy='daytrading')
+    // cannot see the daytrading portion — a cap bypass. Excluding swing-owned
+    // symbols from daytrading BUYs is consistent with the existing design: the
+    // final sync already excludes them to prevent swing re-attribution.
+    const swingOwnedSymbols = new Set([
+      ...allDbPositions.filter(p => p.strategy === 'swing').map(p => p.ticker),
+      ...(await db.getSwingTradeSymbols()),
+    ]);
+
     // Restore the durable rolling equity window before appending this cycle's
     // snapshot. RiskManager instances are recreated on every Worker run.
     const recentEquityHistory = await db.getRecentEquityHistory();
@@ -497,12 +584,44 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
     // Log per-category (daytrading/swing/crypto) market value & P&L from
     // broker-authoritative positions. Non-fatal: a failure here must not
-    // block the trading cycle itself.
+    // block the trading cycle itself. The summaries are kept for the entry
+    // risk guard below.
+    let categorySummaries: ReturnType<typeof summarizeByCategory> = [];
     try {
       const categoryProjections = projectBrokerPositions(allBrokerPositions, allDbPositions);
-      await db.logCategorySnapshots(summarizeByCategory(categoryProjections));
+      categorySummaries = summarizeByCategory(categoryProjections);
+      await db.logCategorySnapshots(categorySummaries);
     } catch (e) {
       console.error('Category snapshot logging failed:', e);
+    }
+
+    // Entry risk guards (Joachim-approved Sep 8, 2026): per-strategy daily
+    // loss limit in USD plus an absolute account equity floor. The legacy
+    // account-percent limits (15% daily / 10% rolling) are far too loose to
+    // trip intraday on a ~$97k account, so these USD guards are the real
+    // bleed-stop. Blocked guards pause new BUY entries only; exits,
+    // reconciliation, and the capital caps are untouched. Fail closed: if
+    // the guard itself cannot be evaluated, entries are blocked this cycle.
+    let daytradingEntryGuard: EntryGuardEvaluation;
+    try {
+      const guardConfig = resolveRiskGuardConfig(dbConfig);
+      const realizedToday = await db.getRealizedPlToday();
+      const intraday = categorySummaries.find(s => s.strategy === 'daytrading')?.unrealizedIntradayPl ?? 0;
+      daytradingEntryGuard = evaluateEntryGuards({
+        strategy: 'daytrading',
+        equityUsd: account.equity,
+        strategyDailyPlUsd: strategyDailyPlUsd(realizedToday['daytrading'] ?? 0, intraday),
+        config: guardConfig,
+      });
+    } catch (e) {
+      daytradingEntryGuard = riskGuardUnavailable('daytrading', e instanceof Error ? e.message : String(e));
+    }
+    if (daytradingEntryGuard.blocked) {
+      skips.add(daytradingEntryGuard.code ?? 'RISK_GUARD_UNAVAILABLE', 'cycle', `${daytradingEntryGuard.reason} Risk-reducing exits remain eligible`, {
+        strategy: 'daytrading',
+        ...daytradingEntryGuard.context,
+      });
+      console.warn(`Daytrading entry guard: ${daytradingEntryGuard.reason}`);
     }
 
     // 5. Initialize risk manager with ATR-scaled parameters
@@ -560,11 +679,20 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       } else {
         // Auto-reconcile: upsert all broker positions into DB. This is a
         // successful broker-authoritative repair, not an execution error.
+        // Exclude swing-owned and swing-trade symbols: the swing strategy owns
+        // its positions and the daytrading reconciliation must not import them
+        // as unattributed rows that the final sync would then re-tag as
+        // 'daytrading', bypassing the swing cap on the next swing_cron run.
+        const reconcileSwingSymbols = new Set([
+          ...(await db.getOpenPositions()).filter(p => p.strategy === 'swing').map(p => p.ticker),
+          ...(await db.getSwingTradeSymbols()),
+        ]);
         console.warn(`DIVERGENCE (auto-reconciling): ${details}`);
         skips.add('BROKER_ONLY_RECONCILED', 'reconciliation', 'Broker-authoritative position divergence reconciled into D1', {
           details: divergence.details,
         });
         for (const pos of positions) {
+          if (reconcileSwingSymbols.has(pos.symbol)) continue;
           const existing = dbPositions.find(p => p.ticker === pos.symbol);
           await db.upsertPosition({
             ticker: pos.symbol,
@@ -652,9 +780,18 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       }
     }
 
-    // 8. Scan universe for candidates
-    const scanner = new UniverseScanner(alpaca, config.scanUniverseSize);
-    const candidates = await scanner.scan();
+    // 8. Scan universe for candidates.
+    // During the EOD no-entry window, candidate bar analysis is skipped
+    // (see section 9 below), so scanning the universe wastes 2 broker
+    // subrequests whose results are never used. Skip the scan in that
+    // window to further reduce subrequest pressure during EOD flatten.
+    let candidates: string[] = [];
+    if (!noNewEntries) {
+      const scanner = new UniverseScanner(alpaca, config.scanUniverseSize);
+      candidates = await scanner.scan();
+    } else {
+      console.log('EOD no-entry window: skipping universe scan to preserve subrequest budget');
+    }
     console.log(`Scanned universe: ${candidates.length} candidates`);
 
     // 8b. Detect market regime using SPY (S&P 500 ETF)
@@ -726,9 +863,37 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       }
     }
 
-    // Analyze new candidates (skip already analyzed) - parallel, limited per cycle
+    // Analyze new candidates (skip already analyzed) - parallel, limited per cycle.
+    // When EOD noNewEntries is active, all new BUY entries are blocked by
+    // EOD_NO_ENTRY anyway. Fetching 200 bars per candidate under EOD flatten
+    // load (which already submits closePosition orders for every held
+    // position) doubles the subrequest pressure and can exceed the Worker
+    // hard subrequest limit ("Fatal: Too many subrequests"). Skip the
+    // candidate bar fetches entirely in that window; held-position exits
+    // still get their signals from the loop above.
     const newCandidates = candidates.filter(s => !analyzedSymbols.has(s));
-    const scanLimit = Math.min(newCandidates.length, 20); // Reduced from 30 to avoid timeout
+    const eodEntryBlocked = noNewEntries;
+    const SUBREQUEST_BUDGET = 400; // conservative ceiling below the Worker hard limit
+    const subrequestsUsed = alpaca.getSubrequestCount();
+    let scanLimit = 0;
+    if (eodEntryBlocked) {
+      scanLimit = 0;
+      skips.add('EOD_NO_ENTRY', 'cycle', 'New candidate analysis skipped during EOD no-entry window to preserve subrequest budget; held-position exit signals are unaffected', {
+        strategy: 'daytrading',
+        candidatesAvailable: newCandidates.length,
+        minutesToClose: minutesToClose.toFixed(1),
+      });
+    } else if (subrequestsUsed >= SUBREQUEST_BUDGET) {
+      scanLimit = 0;
+      skips.add('SUBREQUEST_BUDGET_EXHAUSTED', 'cycle', 'New candidate analysis skipped because the broker subrequest budget was reached; held-position exit signals are unaffected', {
+        strategy: 'daytrading',
+        subrequestsUsed,
+        budget: SUBREQUEST_BUDGET,
+        candidatesAvailable: newCandidates.length,
+      });
+    } else {
+      scanLimit = Math.min(newCandidates.length, 20); // Reduced from 30 to avoid timeout
+    }
 
     const candidateBarPromises = newCandidates.slice(0, scanLimit).map(async symbol => {
       try {
@@ -907,6 +1072,22 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       // never pass through BUY-oriented sizing/cost checks.
       let riskCheck: RiskCheckResult | null = null;
       if (decision.action === 'BUY') {
+        if (daytradingEntryGuard.blocked) {
+          await db.updateDecisionStatus(decisionId, 2, `Daytrading BUY skipped: ${daytradingEntryGuard.reason}`);
+          skips.add(daytradingEntryGuard.code ?? 'RISK_GUARD_UNAVAILABLE', 'decision', 'New daytrading entries blocked by the entry risk guard; exits remain eligible', {
+            strategy: 'daytrading',
+            symbol: signal.indicators.symbol,
+            decision_id: decisionId,
+            ...daytradingEntryGuard.context,
+          });
+          console.log(`Skip BUY ${signal.indicators.symbol}: entry guard active (${daytradingEntryGuard.code})`);
+          continue;
+        }
+        if (swingOwnedSymbols.has(signal.indicators.symbol)) {
+          await db.updateDecisionStatus(decisionId, 2, 'Daytrading BUY skipped: symbol is swing-owned, cap tracking cannot separate combined broker positions');
+          skips.add('SWING_OWNED_EXCLUDE', 'decision', 'Daytrading BUY skipped because the symbol is swing-owned and the daytrading cap cannot track exposure on combined broker positions', { strategy: 'daytrading', symbol: signal.indicators.symbol, decision_id: decisionId, action: 'BUY' });
+          continue;
+        }
         riskCheck = riskManager.checkTrade(decision, accountForRisk, positions, signal.indicators, cycleEntryNotionalUsd);
         if (!riskCheck.approved) {
           await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
@@ -1067,7 +1248,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     // 'daytrading', causing the swing cap check to see $0 exposure on the next
     // swing run and bypass the swing_max_capital_usd cap.
     const syncDbPositions = await db.getOpenPositions();
-    const swingOwnedSymbols = new Set(syncDbPositions.filter(p => p.strategy === 'swing').map(p => p.ticker));
+    // swingOwnedSymbols was computed at the start of the cycle (line ~467) and
+    // is reused here. Swing positions do not change during a daytrading cycle.
     const finalPositions = (await alpaca.getPositions()).filter(p => !CRYPTO_SYMBOLS.has(p.symbol) && !swingOwnedSymbols.has(p.symbol));
     const dbPositionMap = new Map(syncDbPositions.filter(p => p.strategy === 'daytrading' || (!p.strategy && !CRYPTO_SYMBOLS.has(p.ticker))).map(p => [p.ticker, p]));
 
@@ -1090,11 +1272,15 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
     // A complete successful broker snapshot is authoritative. Do not retain a
     // D1-only current position unless a known order is still live and could fill.
+    // Skip swing-owned symbols: they were excluded from finalPositions and thus
+    // from finalBrokerSymbols, but they ARE at the broker and must not be closed
+    // by the daytrading sync — the swing strategy owns their lifecycle.
     const pendingDaySymbols = new Set((await db.getTradesNeedingSync(200))
       .filter(trade => trade.strategy === 'daytrading')
       .map(trade => String(trade.ticker)));
     const finalBrokerSymbols = new Set(finalPositions.map(pos => pos.symbol));
     for (const dbPos of dbPositions) {
+      if (swingOwnedSymbols.has(dbPos.ticker)) continue;
       if (!finalBrokerSymbols.has(dbPos.ticker) && !pendingDaySymbols.has(dbPos.ticker)) {
         await db.closePosition(dbPos.ticker, null, 'broker_authoritative_sync_absent');
       }
