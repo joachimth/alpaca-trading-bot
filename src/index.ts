@@ -18,6 +18,7 @@ import { reconcileBrokerQuantityMismatches } from './position-reconciliation';
 import { resolveCapitalCapOverride } from './capital-caps';
 import { assessIntradayBars, DAYTRADING_BAR_INTERVAL_SECONDS, DAYTRADING_MAX_BAR_STALE_INTERVALS } from './market-data-quality';
 import { accountWithEquityDirection, resolveEquityDirection } from './equity-observability';
+import { recordDailyAnalyticsSnapshots } from './analytics-snapshot';
 import {
   evaluateEntryGuards,
   resolveRiskGuardConfig,
@@ -321,6 +322,22 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
       }
     } catch (feeError) {
       console.log(JSON.stringify({ event: 'fee_summary_cache_refresh_failed', trigger, error: feeError instanceof Error ? feeError.message : String(feeError) }));
+    }
+
+    // Trading Analytics snapshots: persist daily per-strategy KPIs (once per
+    // UTC day, watermark-gated like the retention prune) so improvement over
+    // time is measurable. Read-only computation; the only write is the
+    // snapshot row itself.
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const lastAnalyticsSnapshot = await db.getConfigValue('last_analytics_snapshot_date');
+      if (lastAnalyticsSnapshot !== today) {
+        const snapshotResult = await recordDailyAnalyticsSnapshots(db, today);
+        await db.setConfig('last_analytics_snapshot_date', today);
+        console.log(JSON.stringify({ event: 'analytics_snapshots_recorded', trigger, ...snapshotResult }));
+      }
+    } catch (analyticsError) {
+      console.log(JSON.stringify({ event: 'analytics_snapshots_failed', trigger, error: analyticsError instanceof Error ? analyticsError.message : String(analyticsError) }));
     }
 
     if (errors.length === 0) {

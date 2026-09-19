@@ -12,6 +12,15 @@ import { projectBrokerPositions } from './position-projection';
 import { resolveCapitalCaps } from './capital-caps';
 import { accountWithEquityDirection } from './equity-observability';
 import { RELEASE_VERSION } from './version';
+import {
+  buildAnalytics,
+  computeKpis,
+  computeCalibration,
+  calibrationVerdict,
+  type ClosedPositionRow,
+  type TradeRow,
+  type DecisionRow,
+} from './analytics';
 
 const RUN_TRIGGER_ALIASES: Record<string, string> = {
   daytrading_cron: 'cron',
@@ -81,6 +90,10 @@ export class DashboardAPI {
 
       if (path === '/api/strategy-comparison') {
         return await this.getStrategyComparison(corsHeaders);
+      }
+
+      if (path === '/api/analytics') {
+        return await this.getAnalytics(url, corsHeaders);
       }
 
       if (path === '/api/config') {
@@ -524,6 +537,99 @@ export class DashboardAPI {
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);
     }
+  }
+
+  /**
+   * Trading Analytics & Review. Strictly read-only: computation happens from
+   * stored D1 data; no writes, no broker mutations. Unknown/underivable
+   * datapoints surface as null ("Insufficient data" in the UI), never as
+   * fabricated numbers.
+   */
+  private async getAnalytics(url: URL, cors: Record<string, string>): Promise<Response> {
+    const db = new Database(this.env.DB, { readOnly: true });
+
+    // ---- Period resolution (UTC, matching D1 datetime strings) ----
+    const period = url.searchParams.get('period') || 'all';
+    const now = new Date();
+    const fmt = (d: Date) => d.toISOString().slice(0, 19).replace('T', ' ');
+    let since: string | null = null;
+    let until: string | null = null;
+    if (period === '7' || period === '30' || period === '90') {
+      const days = parseInt(period);
+      since = fmt(new Date(now.getTime() - days * 86400_000));
+    } else if (period === 'ytd') {
+      since = fmt(new Date(Date.UTC(now.getUTCFullYear(), 0, 1)));
+    } else if (period === 'custom') {
+      const start = url.searchParams.get('start');
+      const end = url.searchParams.get('end');
+      if (start) since = `${start} 00:00:00`;
+      if (end) until = `${end} 23:59:59`;
+    }
+
+    const strategyParam = url.searchParams.get('strategy');
+    const strategyScope = strategyParam === 'daytrading' || strategyParam === 'swing' ? strategyParam : undefined;
+
+    // ---- Data fetch (bounded by period) ----
+    const [positionsAll, tradesAll] = await Promise.all([
+      db.getClosedPositionsInWindow(since, until, strategyScope),
+      db.getFilledTradesInWindow(since, strategyScope),
+    ]);
+    const decisionIds = Array.from(new Set(tradesAll.map(t => t.decision_id).filter((id): id is number => id != null)));
+    const decisions = await db.getDecisionsByIds(decisionIds);
+    const orderIds = Array.from(new Set(tradesAll.map(t => t.alpaca_order_id).filter((id): id is string => id != null)));
+    const feeMap = await db.getBrokerFeesByOrders(orderIds);
+
+    const comparisonPositions = {
+      daytrading: await db.getClosedPositionsInWindow(since, until, 'daytrading'),
+      swing: await db.getClosedPositionsInWindow(since, until, 'swing'),
+    };
+
+    // Data-level filters applied before analysis.
+    const symbol = url.searchParams.get('symbol');
+    const side = url.searchParams.get('side');
+    let positions = positionsAll.filter(p =>
+      (!symbol || p.ticker === symbol.toUpperCase()) &&
+      (!side || p.side === side)
+    );
+
+    let result = buildAnalytics({
+      positions: positions as ClosedPositionRow[],
+      trades: tradesAll as TradeRow[],
+      decisions: decisions as DecisionRow[],
+      fees: Array.from(feeMap.entries()).map(([order_id, usd_value]) => ({ order_id, usd_value, strategy: null, fee_type: null })),
+      periodStart: since,
+      periodEnd: until,
+      comparisonPositions,
+    });
+
+    // ---- Analysis-level filters (regime / confidence / result): refilter perTrade ----
+    const regime = url.searchParams.get('regime');
+    const confMin = parseFloat(url.searchParams.get('conf_min') ?? '');
+    const confMax = parseFloat(url.searchParams.get('conf_max') ?? '');
+    const resultFilter = url.searchParams.get('result'); // win | loss
+    const filteredPerTrade = result.perTrade.filter(a =>
+      (!regime || a.marketRegime === regime) &&
+      (Number.isFinite(confMin) ? a.confidence != null && a.confidence >= confMin : true) &&
+      (Number.isFinite(confMax) ? a.confidence != null && a.confidence < confMax : true) &&
+      (!resultFilter || (resultFilter === 'win' ? (a.pl ?? 0) > 0 : (a.pl ?? 0) <= 0))
+    );
+
+    if (filteredPerTrade.length !== result.perTrade.length) {
+      result = {
+        ...result,
+        kpis: computeKpis(filteredPerTrade),
+        calibration: computeCalibration(filteredPerTrade),
+        perTrade: filteredPerTrade,
+        equityCurve: (() => {
+          let c = 0;
+          return filteredPerTrade.slice().sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''))
+            .filter(a => a.pl != null).map(a => { c += a.pl!; return { timestamp: a.closed_at!, cumulativePL: Math.round(c * 100) / 100 }; });
+        })(),
+      };
+      result.calibrationVerdict = calibrationVerdict(result.calibration);
+    }
+
+    return this.json(result, cors);
   }
 
   private getAlpacaClient(): AlpacaClient {

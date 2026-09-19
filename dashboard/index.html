@@ -1,4 +1,4 @@
-<!-- canonical-release-version: 2.7.1 -->
+<!-- canonical-release-version: 2.8.0 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -193,6 +193,44 @@
     .range-btn { padding: 3px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); cursor: pointer; font-family: inherit; font-size: 10px; font-weight: 600; transition: all 0.2s; }
     .range-btn:hover { color: var(--text); border-color: var(--blue); }
     .range-btn.active { background: var(--blue-bg); color: var(--blue); border-color: rgba(41, 121, 255, 0.4); }
+    /* ===== Trading Analytics & Review ===== */
+    .an-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:24px; }
+    .an-controls select, .an-controls input[type=date] { background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-family:inherit; font-size:11px; }
+    .an-controls label { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); }
+    .an-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+    @media (max-width: 900px) { .an-grid2 { grid-template-columns:1fr; } }
+    .an-verdict { padding:10px 14px; border-radius:8px; font-size:12px; margin-bottom:16px; }
+    .an-verdict.ok { background:var(--green-bg); color:var(--green); border:1px solid rgba(0,200,83,0.3); }
+    .an-verdict.warn { background:rgba(255,145,0,0.08); color:var(--orange); border:1px solid rgba(255,145,0,0.3); }
+    .an-verdict.nodata { background:var(--bg-card); color:var(--text-muted); border:1px solid var(--border); }
+    .dq-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; }
+    .dq-strong { background:var(--green-bg); color:var(--green); }
+    .dq-good { background:var(--blue-bg); color:var(--blue); }
+    .dq-questionable { background:rgba(255,145,0,0.12); color:var(--orange); }
+    .dq-weak { background:var(--red-bg); color:var(--red); }
+    .an-detail { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin:8px 0 16px; font-size:12px; }
+    .an-detail h4 { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); margin:10px 0 4px; }
+    .an-detail h4:first-child { margin-top:0; }
+    .evidence-pill { font-size:10px; padding:1px 8px; border-radius:8px; border:1px solid var(--border); color:var(--text-muted); }
+    /* ===== A4 report (screen preview + print) ===== */
+    .a4-sheet { background:#ffffff; color:#111111; width:210mm; max-width:100%; margin:16px auto; padding:14mm 12mm; border-radius:6px; box-shadow:0 2px 16px rgba(0,0,0,0.4); font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:10.5px; line-height:1.45; }
+    .a4-sheet h1 { font-size:20px; font-weight:700; letter-spacing:-0.4px; margin:0; color:#111; }
+    .a4-sheet h2 { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:1.2px; color:#555; margin:14px 0 6px; border-bottom:1px solid #ddd; padding-bottom:3px; }
+    .a4-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:8px; }
+    .a4-kpi { border:1px solid #e2e2e2; border-radius:6px; padding:6px 8px; }
+    .a4-kpi .k { font-size:8.5px; text-transform:uppercase; letter-spacing:0.8px; color:#666; }
+    .a4-kpi .v { font-size:14px; font-weight:700; color:#111; }
+    .a4-finding { margin:6px 0; padding-left:16px; text-indent:-16px; }
+    .a4-finding .sym { font-weight:700; margin-right:4px; }
+    .a4-bottomline { border:1.5px solid #111; border-radius:6px; padding:8px 12px; margin-top:12px; }
+    .a4-bottomline .t { font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+    @media print {
+      body { background:#fff; }
+      .tab-bar-wrap, .an-controls, header, .footer, .chart-section, .table-section, .metrics-grid, .info-card, .an-grid2, .an-verdict, .export-btns { display:none !important; }
+      #contentAnalytics { display:block !important; }
+      .a4-sheet { box-shadow:none; border-radius:0; margin:0; width:auto; padding:10mm 8mm; }
+      @page { size:A4 portrait; margin:8mm; }
+    }
   </style>
 </head>
 <body>
@@ -217,6 +255,7 @@
         <div class="tab" id="tabDaytrading" onclick="switchTab('daytrading')">Daytrading <span class="tab-badge day">5min</span></div>
         <div class="tab tab-swing" id="tabSwing" onclick="switchTab('swing')">Swing <span class="tab-badge swing">Daily</span></div>
         <div class="tab tab-crypto" id="tabCrypto" onclick="switchTab('crypto')">Crypto <span class="tab-badge crypto">30min</span></div>
+        <div class="tab" id="tabAnalytics" onclick="switchTab('analytics')">Analytics <span class="tab-badge day">REVIEW</span></div>
       </div>
     </div>
 
@@ -349,7 +388,82 @@
       <div class="table-section"><div class="section-title"><span>Crypto Run History</span></div><div class="run-history-note">trades_executed = broker-confirmed full fills. Orders in trades may be submitted, accepted, pending, rejected, canceled, partially filled, or filled; only full fills count.</div><div id="runsTableCrypto"><div class="loading">Loading...</div></div></div>
     </div>
 
-    <div class="footer">Alpaca AI Trading Bot v2.7.1 - Cloudflare Worker + D1 - Paper Trading<br>Daytrading: 5-min cron | Swing: daily 22:00 UTC | Crypto: every 30min 24/7 | Auto-refresh 30s</div>
+    <div class="tab-content" id="contentAnalytics">
+      <div class="an-controls">
+        <label>Period</label>
+        <button class="range-btn active" id="anP-all" onclick="setAnPeriod('all')">All Time</button>
+        <button class="range-btn" id="anP-7" onclick="setAnPeriod('7')">7d</button>
+        <button class="range-btn" id="anP-30" onclick="setAnPeriod('30')">30d</button>
+        <button class="range-btn" id="anP-90" onclick="setAnPeriod('90')">90d</button>
+        <button class="range-btn" id="anP-ytd" onclick="setAnPeriod('ytd')">YTD</button>
+        <input type="date" id="anStart" onchange="setAnPeriod('custom')">
+        <input type="date" id="anEnd" onchange="setAnPeriod('custom')">
+        <label>Strategy</label>
+        <select id="anStrategy" onchange="loadAnalytics()">
+          <option value="">Day + Swing</option>
+          <option value="daytrading">Day Trading</option>
+          <option value="swing">Swing Trading</option>
+        </select>
+        <label>Symbol</label>
+        <input type="text" id="anSymbol" placeholder="e.g. AAPL" style="width:70px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-family:inherit;font-size:11px" onchange="loadAnalytics()">
+        <label>Side</label>
+        <select id="anSide" onchange="loadAnalytics()">
+          <option value="">All</option>
+          <option value="long">Long</option>
+          <option value="short">Short</option>
+        </select>
+        <label>Result</label>
+        <select id="anResult" onchange="loadAnalytics()">
+          <option value="">All</option>
+          <option value="win">Wins</option>
+          <option value="loss">Losses</option>
+        </select>
+        <button class="refresh-btn" onclick="loadAnalytics()">Apply</button>
+      </div>
+
+      <div class="an-verdict nodata" id="anVerdict">Loading analytics…</div>
+
+      <div class="metrics-grid" id="anKpis"></div>
+
+      <div class="chart-section">
+        <div class="section-title"><span>Cumulative P/L (realized, per closed trade)</span><span style="font-size:11px;color:var(--text-muted)" id="anEquityNote"></span></div>
+        <div class="chart-container"><canvas id="anEquityChart"></canvas></div>
+      </div>
+      <div class="chart-section">
+        <div class="section-title"><span>Drawdown (from cumulative realized P/L peak)</span></div>
+        <div class="chart-container" style="height:160px"><canvas id="anDrawdownChart"></canvas></div>
+      </div>
+
+      <div class="an-grid2">
+        <div class="table-section"><div class="section-title"><span>Confidence Calibration</span></div><div id="anCalibration"></div></div>
+        <div class="table-section"><div class="section-title"><span>Long vs Short &amp; Costs</span></div><div id="anSideSplit"></div></div>
+      </div>
+
+      <div class="an-grid2">
+        <div class="table-section"><div class="section-title"><span>What Works (patterns)</span></div><div id="anWorks"></div></div>
+        <div class="table-section"><div class="section-title"><span>What Needs Attention (patterns)</span></div><div id="anAttention"></div></div>
+      </div>
+
+      <div class="table-section"><div class="section-title"><span>Day Trading vs Swing Trading</span></div><div id="anComparison"></div></div>
+
+      <div class="table-section"><div class="section-title"><span>Research Backlog (hypotheses to backtest — not strategy changes)</span></div><div id="anBacklog"></div></div>
+
+      <div class="table-section">
+        <div class="section-title"><span>Trade-by-Trade Analysis</span><span style="font-size:11px;color:var(--text-muted)" id="anTradeCount"></span></div>
+        <div class="run-history-note">Decision Quality uses only entry-time information (no outcome, no hindsight). Fields that cannot be derived from stored data show "Insufficient data" — nothing is estimated.</div>
+        <div id="anTrades"></div>
+      </div>
+
+      <div class="export-btns" style="margin-bottom:24px;text-align:center">
+        <button class="trigger-btn" onclick="exportA4('daytrading')">Export Day Trading Report (PDF)</button>
+        <button class="trigger-btn" onclick="exportA4('swing')">Export Swing Trading Report (PDF)</button>
+        <span style="display:block;color:var(--text-muted);font-size:11px;margin-top:6px">Opens the print dialog — choose "Save as PDF". The report is exactly one A4 page.</span>
+      </div>
+
+      <div id="a4ReportHost"></div>
+    </div>
+
+    <div class="footer">Alpaca AI Trading Bot v2.8.0 - Cloudflare Worker + D1 - Paper Trading<br>Daytrading: 5-min cron | Swing: daily 22:00 UTC | Crypto: every 30min 24/7 | Auto-refresh 30s</div>
   </div>
   <script>
     const API_BASE = 'https://alpaca-trading-bot.joachim-763.workers.dev';
@@ -388,6 +502,7 @@
       document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
       document.getElementById('content' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
       renderTab(tab);
+      if (tab === 'analytics') loadAnalytics();
     }
     async function loadDashboard() {
       if (dashboardRefreshInFlight) return;
@@ -1020,6 +1135,312 @@
     async function closeAllPositions() { if (!confirm('Close ALL positions?')) return; const r = await fetch(API_BASE + '/api/positions/close-all', { method: 'POST' }); if (r.ok) { alert('All positions closed'); loadDashboard(); } else alert('Failed'); }
     async function triggerSwing() { if (!confirm('Trigger swing cycle now? This calls the Worker API and runs immediately.')) return; const r = await fetch(API_BASE + '/api/trigger-swing', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
     async function triggerCrypto() { if (!confirm('Trigger crypto cycle now? This calls the Worker API and runs immediately.')) return; const r = await fetch(API_BASE + '/api/trigger-crypto', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
+    // ============================================================
+    // Trading Analytics & Review
+    // ============================================================
+    let anPeriod = 'all';
+    let anData = null;
+    let anInFlight = false;
+    const INSUF = 'Insufficient data';
+
+    function setAnPeriod(p) {
+      anPeriod = p;
+      document.querySelectorAll('[id^="anP-"]').forEach(b => b.classList.remove('active'));
+      const btn = document.getElementById('anP-' + p);
+      if (btn) btn.classList.add('active');
+      loadAnalytics();
+    }
+    function anQuery(extra) {
+      const symbol = document.getElementById('anSymbol').value.trim();
+      const params = new URLSearchParams({ period: anPeriod });
+      const strategy = document.getElementById('anStrategy').value;
+      const side = document.getElementById('anSide').value;
+      const result = document.getElementById('anResult').value;
+      if (strategy) params.set('strategy', strategy);
+      if (side) params.set('side', side);
+      if (result) params.set('result', result);
+      if (symbol) params.set('symbol', symbol.toUpperCase());
+      if (anPeriod === 'custom') {
+        const s = document.getElementById('anStart').value, e = document.getElementById('anEnd').value;
+        if (s) params.set('start', s);
+        if (e) params.set('end', e);
+      }
+      return '/api/analytics?' + params.toString();
+    }
+    async function loadAnalytics() {
+      if (anInFlight) return;
+      anInFlight = true;
+      try {
+        const data = await fetchAPI(anQuery());
+        anData = data;
+        renderAnalytics();
+      } finally { anInFlight = false; }
+    }
+    function fmtDur(min) {
+      if (min == null) return INSUF;
+      if (min < 120) return min + ' min';
+      if (min < 60 * 48) return (min / 60).toFixed(1) + ' h';
+      return (min / 1440).toFixed(1) + ' d';
+    }
+    function fmtNum(v, d = 2, suffix = '') { return v == null || isNaN(v) ? INSUF : Number(v).toFixed(d) + suffix; }
+    function kpiCard(label, value, cls, sub) {
+      return '<div class="metric-card"><div class="metric-label">' + label + '</div><div class="metric-value ' + (cls || 'neutral') + '">' + value + '</div>' + (sub ? '<div class="metric-sub">' + sub + '</div>' : '') + '</div>';
+    }
+    function renderAnalytics() {
+      if (!anData) { document.getElementById('anVerdict').textContent = 'Analytics unavailable (API error).'; return; }
+      const k = anData.kpis;
+      const verdictEl = document.getElementById('anVerdict');
+      const ev = anData.robustness;
+      if (!k.trades) {
+        verdictEl.className = 'an-verdict nodata';
+        verdictEl.textContent = 'No closed trades in the selected period/filters. ' + ev.inSampleNote;
+      } else {
+        const calibOff = anData.calibrationVerdict.includes('NOT');
+        verdictEl.className = 'an-verdict ' + (k.netPL >= 0 ? 'ok' : 'warn');
+        verdictEl.textContent = 'Net P/L ' + fmtSignedMoney(k.netPL) + ' over ' + k.trades + ' closed trades · evidence: ' + ev.evidence
+          + ' (sample ' + ev.sampleSize + ') · ' + anData.calibrationVerdict + ' Losses: ' + anData.acceptableLosses + ' acceptable / ' + anData.avoidableLosses + ' avoidable. ' + ev.inSampleNote;
+      }
+      // KPI grid
+      document.getElementById('anKpis').innerHTML = [
+        kpiCard('Net P/L', fmtSignedMoney(k.netPL), k.netPL >= 0 ? 'positive' : 'negative'),
+        kpiCard('Trades', k.trades, 'neutral', ev.evidence + ' evidence'),
+        kpiCard('Win Rate', k.winRate != null ? k.winRate + '%' : INSUF, k.winRate != null && k.winRate >= 50 ? 'positive' : k.winRate != null ? 'negative' : 'neutral'),
+        kpiCard('Profit Factor', k.profitFactor != null ? k.profitFactor.toFixed(2) : INSUF, k.profitFactor != null && k.profitFactor >= 1 ? 'positive' : 'negative'),
+        kpiCard('Expectancy', k.expectancy != null ? fmtSignedMoney(k.expectancy) : INSUF, 'neutral'),
+        kpiCard('Expectancy (R)', k.expectancyR != null ? fmtSignedMoney(k.expectancyR, 2) : INSUF, 'neutral'),
+        kpiCard('Avg Win', k.avgWin != null ? fmtMoney(k.avgWin) : INSUF, 'positive'),
+        kpiCard('Avg Loss', k.avgLoss != null ? fmtMoney(k.avgLoss) : INSUF, 'negative'),
+        kpiCard('Avg Planned R:R', k.avgRR != null ? k.avgRR.toFixed(2) : INSUF, 'neutral'),
+        kpiCard('Max Drawdown', k.maxDrawdown != null ? fmtMoney(k.maxDrawdown) : INSUF, 'negative'),
+        kpiCard('Avg Duration', fmtDur(k.avgDurationMinutes), 'neutral'),
+        kpiCard('Fees (attributed)', k.fees != null ? fmtMoney(k.fees) : INSUF, 'negative', 'MFE/MAE: not recorded · Funding: n/a'),
+        kpiCard('Long P/L (' + k.longTrades + ')', k.longPL != null ? fmtSignedMoney(k.longPL) : INSUF, k.longPL >= 0 ? 'positive' : 'negative'),
+        kpiCard('Short P/L (' + k.shortTrades + ')', k.shortPL != null ? fmtSignedMoney(k.shortPL) : INSUF, k.shortPL >= 0 ? 'positive' : 'negative'),
+        kpiCard('Avg Decision Quality', k.avgDecisionQuality != null ? k.avgDecisionQuality.toFixed(1) + ' / 100' : INSUF, 'neutral', 'Entry-time info only'),
+        kpiCard('Avg Realized R', k.avgRealizedR != null ? k.avgRealizedR.toFixed(2) : INSUF, 'neutral'),
+      ].join('');
+      document.getElementById('anEquityNote').textContent = (anData.equityCurve.length) + ' closed trades' + (anData.periodStart ? ' · ' + anData.periodStart.slice(0, 10) + ' → ' + (anData.periodEnd ? anData.periodEnd.slice(0, 10) : 'now') : ' · all time');
+      drawAnLine('anEquityChart', anData.equityCurve.map(p => ({ ts: p.timestamp, v: p.cumulativePL })), v => '$' + v.toFixed(0));
+      drawAnLine('anDrawdownChart', anData.drawdownCurve.map(p => ({ ts: p.timestamp, v: -p.drawdownPct })), v => v.toFixed(0) + '%', true);
+      renderCalibration(anData.calibration);
+      renderPatterns(anData.patterns);
+      renderComparison(anData.comparison);
+      renderBacklog(anData.researchBacklog);
+      renderTradesAnalysis(anData.perTrade);
+    }
+    function drawAnLine(canvasId, points, fmt, redAlways) {
+      const c = document.getElementById(canvasId);
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      const r = c.getBoundingClientRect(); c.width = r.width * devicePixelRatio; c.height = r.height * devicePixelRatio;
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+      const w = r.width, h = r.height, p = { t: 10, r: 10, b: 26, l: 64 };
+      const cw = w - p.l - p.r, ch = h - p.t - p.b;
+      ctx.clearRect(0, 0, w, h);
+      if (!points || points.length < 2) { ctx.fillStyle = '#6b7689'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillText(INSUF, w / 2, h / 2); return; }
+      const vals = points.map(pt => pt.v);
+      const min = Math.min(0, ...vals), max = Math.max(...vals);
+      const range = (max - min) || 1, pr = range * 0.1, yMin = min - pr, yMax = max + pr;
+      ctx.strokeStyle = '#1e2638'; ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = p.t + (ch / 4) * i;
+        ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(p.l + cw, y); ctx.stroke();
+        const v = yMax - ((yMax - yMin) / 4) * i;
+        ctx.fillStyle = '#6b7689'; ctx.font = '10px monospace'; ctx.textAlign = 'right'; ctx.fillText(fmt(v), p.l - 8, y + 3);
+      }
+      ctx.beginPath();
+      points.forEach((pt, i) => {
+        const x = p.l + (cw / (points.length - 1)) * i;
+        const y = p.t + ch - ((pt.v - yMin) / (yMax - yMin)) * ch;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      const up = redAlways ? false : vals[vals.length - 1] >= 0;
+      ctx.strokeStyle = redAlways ? '#ff1744' : (up ? '#00c853' : '#ff1744');
+      ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = '#6b7689'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+      const labelCount = Math.min(5, points.length);
+      for (let i = 0; i < labelCount; i++) {
+        const idx = Math.floor((points.length - 1) * (i / (labelCount - 1 || 1)));
+        const x = p.l + (cw / (points.length - 1)) * idx;
+        const d = new Date(points[idx].ts.includes('T') ? points[idx].ts + 'Z' : points[idx].ts);
+        ctx.fillText(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), x, h - 8);
+      }
+    }
+    function dqBadge(label) {
+      if (!label) return '<span class="dq-badge" style="background:var(--bg-card);color:var(--text-muted)">n/a</span>';
+      const cls = label === 'Strong' ? 'dq-strong' : label === 'Good' ? 'dq-good' : label === 'Questionable' ? 'dq-questionable' : 'dq-weak';
+      return '<span class="dq-badge ' + cls + '">' + label + '</span>';
+    }
+    function renderCalibration(cal) {
+      const verdict = anData.calibrationVerdict;
+      const off = verdict.includes('NOT');
+      let html = '<div class="an-verdict ' + (off ? 'warn' : 'ok') + '" style="margin-bottom:10px">' + verdict + '</div>';
+      html += '<table><thead><tr><th>Confidence</th><th>Trades</th><th>Win rate</th><th>Expectancy</th><th>PF</th><th>Net P/L</th></tr></thead><tbody>';
+      for (const b of cal) {
+        html += '<tr><td>' + b.band + '</td><td>' + b.trades + '</td><td>' + (b.winRate != null ? b.winRate + '%' : INSUF) + '</td><td>' + (b.expectancy != null ? fmtSignedMoney(b.expectancy) : INSUF) + '</td><td>' + (b.profitFactor != null ? b.profitFactor.toFixed(2) : INSUF) + '</td><td class="' + (b.netPL >= 0 ? 'positive' : 'negative') + '">' + fmtSignedMoney(b.netPL) + '</td></tr>';
+      }
+      html += '</tbody></table>';
+      document.getElementById('anCalibration').innerHTML = html;
+      const k = anData.kpis;
+      document.getElementById('anSideSplit').innerHTML = '<table><thead><tr><th>Metric</th><th>Long</th><th>Short</th></tr></thead><tbody>'
+        + '<tr><td>Trades</td><td>' + k.longTrades + '</td><td>' + k.shortTrades + '</td></tr>'
+        + '<tr><td>Net P/L</td><td class="' + (k.longPL >= 0 ? 'positive' : 'negative') + '">' + fmtSignedMoney(k.longPL) + '</td><td class="' + (k.shortPL >= 0 ? 'positive' : 'negative') + '">' + fmtSignedMoney(k.shortPL) + '</td></tr>'
+        + '<tr><td>Fees (attributed)</td><td colspan="2">' + (k.fees != null ? fmtMoney(k.fees) : INSUF) + '</td></tr>'
+        + '<tr><td>Funding</td><td colspan="2">Not recorded (equities; crypto disabled) — ' + INSUF + '</td></tr>'
+        + '<tr><td>Avg Decision Quality</td><td colspan="2">' + (k.avgDecisionQuality != null ? k.avgDecisionQuality.toFixed(1) : INSUF) + '</td></tr>'
+        + '</tbody></table>';
+    }
+    function patternRow(f) {
+      const oos = f.outOfSampleHolds == null ? '' : f.outOfSampleHolds ? ' · holds out-of-sample' : ' · does NOT hold out-of-sample';
+      return '<div style="margin:8px 0"><strong style="font-size:12px">' + f.factorCombo + '</strong><br>'
+        + '<span style="color:var(--text-muted)">Expectancy ' + fmtSignedMoney(f.expectancy) + ' · net ' + fmtSignedMoney(f.netPL) + ' · win rate ' + (f.winRate != null ? f.winRate + '%' : INSUF) + ' · n=' + f.trades + oos + '</span> '
+        + '<span class="evidence-pill">' + f.evidence + '</span></div>';
+    }
+    function renderPatterns(patterns) {
+      document.getElementById('anWorks').innerHTML = patterns.works.length
+        ? patterns.works.map(patternRow).join('')
+        : '<div class="loading">No positive pattern with n>=3 in this period. ' + INSUF + '</div>';
+      document.getElementById('anAttention').innerHTML = patterns.needsAttention.length
+        ? patterns.needsAttention.map(patternRow).join('')
+        : '<div class="loading">No negative pattern with n>=3 in this period.</div>';
+    }
+    function renderComparison(cmp) {
+      if (!cmp) { document.getElementById('anComparison').innerHTML = '<div class="loading">Insufficient data</div>'; return; }
+      let html = '<table><thead><tr><th>Dimension</th><th>Day Trading</th><th>Swing Trading</th><th>Note</th></tr></thead><tbody>';
+      for (const d of cmp.differences) {
+        html += '<tr><td>' + d.dimension + '</td><td>' + d.daytrading + '</td><td>' + d.swing + '</td><td style="color:var(--text-muted)">' + d.note + '</td></tr>';
+      }
+      html += '</tbody></table><div class="run-history-note" style="margin-top:10px">KPI basis — Day: ' + cmp.dayTrading.kpis.trades + ' closed trades · Swing: ' + cmp.swingTrading.kpis.trades + ' closed trades. Neither strategy is called "best": they carry different risk, holding time and cost structures by design.</div>';
+      document.getElementById('anComparison').innerHTML = html;
+    }
+    function renderBacklog(items) {
+      if (!items.length) { document.getElementById('anBacklog').innerHTML = '<div class="loading">No hypothesis-worthy patterns in this period.</div>'; return; }
+      let html = '<table><thead><tr><th>Title</th><th>Observation</th><th>Evidence</th><th>n</th><th>Hypothesis &amp; Test</th><th>Status</th></tr></thead><tbody>';
+      for (const it of items) {
+        html += '<tr><td><strong>' + it.title + '</strong></td><td>' + it.observation + '</td><td>' + it.evidence + '</td><td>' + it.sampleSize + '</td><td>' + it.hypothesis + ' <em style="color:var(--text-muted)">' + it.proposedTest + ' ' + it.successCriteria + '</em></td><td><span class="evidence-pill">' + it.status + '</span></td></tr>';
+      }
+      html += '</tbody></table>';
+      document.getElementById('anBacklog').innerHTML = html;
+    }
+    function renderTradesAnalysis(trades) {
+      document.getElementById('anTradeCount').textContent = trades.length + ' closed trades';
+      if (!trades.length) { document.getElementById('anTrades').innerHTML = '<div class="loading">No closed trades in this period/filters.</div>'; return; }
+      let html = '<table><thead><tr><th>Closed</th><th>Symbol</th><th>Side</th><th>Strategy</th><th>Outcome</th><th>P/L</th><th>R</th><th>Decision</th><th>Loss class</th><th></th></tr></thead><tbody>';
+      trades.forEach((t, i) => {
+        html += '<tr><td>' + fmtDateTime(t.closed_at) + '</td><td><strong>' + t.ticker + '</strong></td><td>' + t.side + '</td><td>' + t.strategy + '</td>'
+          + '<td>' + (t.close_reason || 'n/a') + '</td>'
+          + '<td class="' + ((t.pl ?? 0) >= 0 ? 'positive' : 'negative') + '">' + fmtSignedMoney(t.pl) + '</td>'
+          + '<td>' + (t.realizedR != null ? t.realizedR.toFixed(2) : INSUF) + '</td>'
+          + '<td>' + dqBadge(t.decisionQualityLabel) + '</td>'
+          + '<td>' + (t.pl < 0 ? (t.lossClassification || INSUF) : '-') + '</td>'
+          + '<td><button class="refresh-btn" onclick="toggleTradeDetail(' + t.position_id + ')">Detail</button></td></tr>';
+        html += '<tr><td colspan="10" style="padding:0;border:none"><div class="an-detail" id="anDetail-' + t.position_id + '" style="display:none">' + tradeDetailHtml(t) + '</div></td></tr>';
+      });
+      html += '</tbody></table>';
+      document.getElementById('anTrades').innerHTML = html;
+    }
+    function tradeDetailHtml(t) {
+      const regime = t.marketRegime.replace(/_/g, ' ');
+      const vol = t.volatilityBucket || INSUF, vol2 = t.volumeRegime || INSUF;
+      return '<h4>Market Context (at entry)</h4>'
+        + 'Regime: <strong>' + regime + '</strong> · Volatility (ATR%): ' + vol + ' · Volume: ' + vol2 + ' · AI confidence: ' + (t.confidence != null ? (t.confidence * 100).toFixed(0) + '%' : INSUF)
+        + '<h4>Original AI Thesis (unchanged, entry-time)</h4>'
+        + '<div style="white-space:pre-wrap;font-style:italic">' + (t.originalThesis ? t.originalThesis : 'Not recorded (decision was TA-only or unlinked).') + '</div>'
+        + '<h4>Entry Review</h4>'
+        + 'Decision quality: ' + dqBadge(t.decisionQualityLabel) + ' (score ' + (t.decisionQualityScore != null ? t.decisionQualityScore + '/100' : INSUF) + ', entry-time info only) · Strategy-compliant: ' + (t.strategyCompliant == null ? INSUF : t.strategyCompliant ? 'Yes' : 'No')
+        + '<h4>Execution</h4>'
+        + 'Slippage (fill vs decision price): ' + (t.slippagePct != null ? t.slippagePct.toFixed(2) + '%' : INSUF) + ' · Execution score: ' + (t.executionQualityScore != null ? t.executionQualityScore + '/100' : INSUF)
+        + '<h4>Trade Management &amp; Exit</h4>'
+        + 'Management score: ' + (t.tradeManagementScore != null ? t.tradeManagementScore + '/100' : INSUF) + ' · Exit quality: ' + (t.exitQualityScore != null ? t.exitQualityScore + '/100' : INSUF) + ' · Exit reason: ' + (t.close_reason || 'n/a') + ' · Duration: ' + fmtDur(t.durationMinutes)
+        + '<h4>Outcome</h4>'
+        + 'P/L: ' + fmtSignedMoney(t.pl) + ' · P/L %: ' + (t.plPct != null ? t.plPct.toFixed(2) + '%' : INSUF) + ' · R: ' + (t.realizedR != null ? t.realizedR.toFixed(2) : INSUF) + ' (initial risk ' + (t.initialRisk != null ? '$' + t.initialRisk.toFixed(2) : INSUF) + ') · Fees: ' + (t.fees != null ? fmtMoney(t.fees) : INSUF) + ' · MFE/MAE: not recorded · Funding: n/a'
+        + '<h4>What Was Done Well</h4><div>' + (t.whatWorked || INSUF) + '</div>'
+        + '<h4>What Could Be Improved</h4><div>' + (t.whatCouldImprove || INSUF) + '</div>'
+        + '<h4>Learning</h4><div>' + (t.learningPoint || INSUF) + '</div>'
+        + (t.dataGaps && t.dataGaps.length && t.dataGaps[0] !== 'none' ? '<h4>Data Gaps</h4><div style="color:var(--text-muted)">' + t.dataGaps.join(', ') + '</div>' : '');
+    }
+    function toggleTradeDetail(id) {
+      const el = document.getElementById('anDetail-' + id);
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+    // ---- A4 reports ----
+    function a4StrategySummary(cmp, strategy) {
+      if (!cmp) return null;
+      return strategy === 'daytrading' ? cmp.dayTrading : cmp.swingTrading;
+    }
+    function buildA4Html(strategy) {
+      // Priority-ordered content so the sheet NEVER exceeds one A4 page:
+      // type, period, net P/L, expectancy, PF, win rate, DD, graph, findings, review.
+      const s = a4StrategySummary(anData.comparison, strategy);
+      if (!s || !s.kpis.trades) return '<div class="a4-sheet"><h1>Trading Analytics</h1><h2>' + strategy.toUpperCase() + '</h2><p>Insufficient data: no closed trades in the selected period.</p></div>';
+      const k = s.kpis;
+      const label = strategy === 'daytrading' ? 'DAY TRADING' : 'SWING TRADING';
+      const periodTxt = (anData.periodStart ? anData.periodStart.slice(0, 10) : 'beginning') + ' → ' + (anData.periodEnd ? anData.periodEnd.slice(0, 10) : new Date().toISOString().slice(0, 10));
+      const works = anData.patterns.works.filter(p => p.expectancy > 0).slice(0, 3);
+      const attention = anData.patterns.needsAttention.filter(p => p.expectancy < 0).slice(0, 3);
+      // Trading Review: 3-5 lines from data.
+      const review = [];
+      review.push('Net P/L ' + fmtSignedMoney(k.netPL) + ' across ' + k.trades + ' closed trades (win rate ' + (k.winRate != null ? k.winRate + '%' : INSUF) + ', profit factor ' + (k.profitFactor != null ? k.profitFactor.toFixed(2) : INSUF) + ').');
+      review.push('Strongest pattern: ' + (works.length ? works[0].factorCombo + ' (' + fmtSignedMoney(works[0].expectancy) + '/trade)' : INSUF) + '.');
+      review.push('Key improvement area: ' + (attention.length ? attention[0].factorCombo + ' (' + fmtSignedMoney(attention[0].expectancy) + '/trade)' : INSUF) + '.');
+      review.push(anData.calibrationVerdict);
+      review.push('Next: ' + (anData.researchBacklog.length ? anData.researchBacklog[0].title : 'no open hypotheses in this period.'));
+      return '<div class="a4-sheet" id="a4Sheet">'
+        + '<h1>Trading Analytics</h1>'
+        + '<div style="font-size:13px;font-weight:600;letter-spacing:2px;color:#333">' + label + '</div>'
+        + '<div style="color:#666;margin-top:2px">Analysis period: ' + periodTxt + ' · Generated: ' + new Date().toLocaleString('en-GB') + ' · Evidence: ' + anData.robustness.evidence + ' (n=' + k.trades + ')</div>'
+        + '<h2>Key Metrics</h2>'
+        + '<div class="a4-kpis">'
+        + '<div class="a4-kpi"><div class="k">Trades</div><div class="v">' + k.trades + '</div></div>'
+        + '<div class="a4-kpi"><div class="k">Net P/L</div><div class="v">' + fmtSignedMoney(k.netPL) + '</div></div>'
+        + '<div class="a4-kpi"><div class="k">Win Rate</div><div class="v">' + (k.winRate != null ? k.winRate + '%' : INSUF) + '</div></div>'
+        + '<div class="a4-kpi"><div class="k">Profit Factor</div><div class="v">' + (k.profitFactor != null ? k.profitFactor.toFixed(2) : INSUF) + '</div></div>'
+        + '<div class="a4-kpi"><div class="k">Expectancy</div><div class="v">' + (k.expectancy != null ? fmtSignedMoney(k.expectancy) : INSUF) + '</div></div>'
+        + '<div class="a4-kpi"><div class="k">Max Drawdown</div><div class="v">' + (k.maxDrawdown != null ? fmtMoney(k.maxDrawdown) : INSUF) + '</div></div>'
+        + '<div class="a4-kpi"><div class="k">Avg Win</div><div class="v">' + (k.avgWin != null ? fmtMoney(k.avgWin) : INSUF) + '</div></div>'
+        + '<div class="a4-kpi"><div class="k">Avg Loss</div><div class="v">' + (k.avgLoss != null ? fmtMoney(k.avgLoss) : INSUF) + '</div></div>'
+        + '</div>'
+        + '<h2>Cumulative P/L</h2>'
+        + '<canvas id="a4Chart" style="width:100%;height:150px"></canvas>'
+        + '<h2>What Works</h2>'
+        + (works.map(f => '<div class="a4-finding"><span class="sym">+</span><strong>' + f.factorCombo + '</strong> — expectancy ' + fmtSignedMoney(f.expectancy) + '/trade, net ' + fmtSignedMoney(f.netPL) + ', n=' + f.trades + ' (' + f.evidence + ').</div>').join('') || '<div class="a4-finding">No positive pattern with sufficient sample in this period.</div>')
+        + '<h2>Improvements</h2>'
+        + (attention.map(f => '<div class="a4-finding"><span class="sym">-</span><strong>' + f.factorCombo + '</strong> — expectancy ' + fmtSignedMoney(f.expectancy) + '/trade, net ' + fmtSignedMoney(f.netPL) + ', n=' + f.trades + ' (' + f.evidence + ').</div>').join('') || '<div class="a4-finding">No negative pattern with sufficient sample in this period.</div>')
+        + '<div class="a4-bottomline"><div class="t">Trading Review</div>'
+        + review.map(l => '<div>' + l + '</div>').join('')
+        + '</div></div>';
+    }
+    function exportA4(strategy) {
+      if (!anData) { alert('Analytics not loaded yet.'); return; }
+      document.getElementById('a4ReportHost').innerHTML = buildA4Html(strategy);
+      setTimeout(() => {
+        const curve = (strategy === 'daytrading' ? anData.comparison?.dayTrading : anData.comparison?.swingTrading);
+        // Draw the cumulative P/L curve for THIS strategy's trades only.
+        const rows = anData.perTrade.filter(t => t.strategy === strategy && t.pl != null).slice().sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''));
+        let c = 0;
+        const pts = rows.map(t => { c += t.pl; return { ts: t.closed_at, v: c }; });
+        const canvas = document.getElementById('a4Chart');
+        if (canvas && pts.length >= 2) {
+          const ctx = canvas.getContext('2d');
+          const r = canvas.getBoundingClientRect(); canvas.width = r.width * 2; canvas.height = r.height * 2; ctx.scale(2, 2);
+          const w = r.width, h = r.height, pad = 30;
+          ctx.clearRect(0, 0, w, h);
+          const vals = pts.map(p => p.v);
+          const min = Math.min(0, ...vals), max = Math.max(...vals);
+          const range = (max - min) || 1;
+          ctx.strokeStyle = '#e2e2e2'; ctx.lineWidth = 1;
+          for (let i = 0; i <= 3; i++) { const y = pad + ((h - 2 * pad) / 3) * i; ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(w - pad / 2, y); ctx.stroke(); ctx.fillStyle = '#666'; ctx.font = '8px sans-serif'; ctx.textAlign = 'right'; ctx.fillText('$' + (max - (range / 3) * i).toFixed(0), pad - 4, y + 3); }
+          ctx.beginPath();
+          pts.forEach((pt, i) => { const x = pad + ((w - pad * 1.5) / (pts.length - 1)) * i; const y = h - pad - ((pt.v - min) / range) * (h - 2 * pad); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+          ctx.strokeStyle = vals[vals.length - 1] >= 0 ? '#0a7a35' : '#b3122e'; ctx.lineWidth = 1.6; ctx.stroke();
+        } else if (canvas) {
+          const ctx = canvas.getContext('2d'); ctx.fillStyle = '#666'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Insufficient data for cumulative P/L curve', canvas.width / 4, canvas.height / 4);
+        }
+        window.print();
+      }, 60);
+    }
+    loadAnalyticsOnBoot();
+    function loadAnalyticsOnBoot() { /* analytics loads on first tab switch */ }
     loadDashboard();
     // Tab scroll hint: fade gradient when scrolled to end
     (function() {
