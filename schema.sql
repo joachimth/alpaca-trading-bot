@@ -332,7 +332,7 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
 
 -- Authoritative schema/config version. This update is idempotent for existing DBs.
 INSERT INTO bot_config (key, value, updated_at)
-VALUES ('version', '2.8.0', datetime('now'))
+VALUES ('version', '2.8.1', datetime('now'))
 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at;
 
 -- ============================================================
