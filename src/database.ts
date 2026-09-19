@@ -2038,4 +2038,116 @@ export class Database {
       avgConfidence: (avgConfidenceResult?.avg as number) || 0,
     };
   }
+
+  // ============================================================
+  // Trading Analytics & Review (read-only queries)
+  // All computation happens in src/analytics.ts; these are data fetchers.
+  // ============================================================
+
+  async getClosedPositionsInWindow(sinceUtc: string | null, untilUtc: string | null, strategy?: 'daytrading' | 'swing'): Promise<any[]> {
+    const conditions: string[] = ['closed_at IS NOT NULL', 'closed_pl IS NOT NULL'];
+    const binds: any[] = [];
+    if (strategy) { conditions.push("COALESCE(strategy, 'daytrading') = ?"); binds.push(strategy); }
+    if (sinceUtc) { conditions.push('closed_at >= ?'); binds.push(sinceUtc); }
+    if (untilUtc) { conditions.push('closed_at <= ?'); binds.push(untilUtc); }
+    const result = await this.db.prepare(
+      `SELECT id, ticker, side, COALESCE(strategy, 'daytrading') as strategy, qty, avg_entry_price,
+              stop_loss_price, take_profit_price, opened_at, closed_at, closed_pl, close_reason
+       FROM positions WHERE ${conditions.join(' AND ')} ORDER BY closed_at ASC`
+    ).bind(...binds).all();
+    return (result.results ?? []) as any[];
+  }
+
+  async getFilledTradesInWindow(sinceUtc: string | null, strategy?: 'daytrading' | 'swing'): Promise<any[]> {
+    const conditions: string[] = ["status = 'filled'"];
+    const binds: any[] = [];
+    if (strategy) { conditions.push("COALESCE(strategy, 'daytrading') = ?"); binds.push(strategy); }
+    if (sinceUtc) { conditions.push('COALESCE(filled_at, timestamp) >= ?'); binds.push(sinceUtc); }
+    const result = await this.db.prepare(
+      `SELECT id, timestamp, alpaca_order_id, ticker, side, qty, avg_fill_price, fill_price, status,
+              COALESCE(strategy, 'daytrading') as strategy, decision_id,
+              intent_stop_loss_price, intent_take_profit_price, filled_at
+       FROM trades WHERE ${conditions.join(' AND ')} ORDER BY timestamp ASC`
+    ).bind(...binds).all();
+    return (result.results ?? []) as any[];
+  }
+
+  async getDecisionsByIds(ids: number[]): Promise<any[]> {
+    if (ids.length === 0) return [];
+    // Chunked: D1 rejects queries with too many bound variables.
+    const rows: any[] = [];
+    for (let i = 0; i < ids.length; i += 80) {
+      const chunk = ids.slice(i, i + 80);
+      const placeholders = chunk.map(() => '?').join(',');
+      const result = await this.db.prepare(
+        `SELECT id, timestamp, ticker, action, confidence, signal_source, reason, ai_reasoning, ta_data, price_at_decision
+         FROM decisions WHERE id IN (${placeholders})`
+      ).bind(...chunk).all();
+      rows.push(...((result.results ?? []) as any[]));
+    }
+    return rows;
+  }
+
+  async getBrokerFeesByOrders(orderIds: string[]): Promise<Map<string, number>> {
+    const map = new Map<string, number>();
+    if (orderIds.length === 0) return map;
+    // Chunk to stay within D1 bind limits.
+    for (let i = 0; i < orderIds.length; i += 80) {
+      const chunk = orderIds.slice(i, i + 80);
+      const placeholders = chunk.map(() => '?').join(',');
+      const result = await this.db.prepare(
+        `SELECT order_id, SUM(usd_value) as total FROM broker_fees WHERE order_id IN (${placeholders}) GROUP BY order_id`
+      ).bind(...chunk).all();
+      for (const row of (result.results ?? []) as any[]) {
+        if (row.order_id != null && row.total != null) map.set(row.order_id, row.total);
+      }
+    }
+    return map;
+  }
+
+  async recordAnalyticsSnapshot(snapshot: {
+    snapshotDate: string;
+    strategy: string;
+    period: string;
+    metrics: string;
+    analysisVersion: string;
+  }): Promise<void> {
+    await this.db.prepare(
+      `CREATE TABLE IF NOT EXISTS analytics_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        snapshot_date TEXT NOT NULL,
+        strategy TEXT NOT NULL,
+        period TEXT NOT NULL DEFAULT 'all',
+        metrics TEXT NOT NULL,
+        analysis_version TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(snapshot_date, strategy, period)
+      )`
+    ).run();
+    await this.db.prepare(
+      `INSERT INTO analytics_snapshots (snapshot_date, strategy, period, metrics, analysis_version)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(snapshot_date, strategy, period) DO UPDATE SET metrics = excluded.metrics, analysis_version = excluded.analysis_version`
+    ).bind(snapshot.snapshotDate, snapshot.strategy, snapshot.period, snapshot.metrics, snapshot.analysisVersion).run();
+  }
+
+  async getAnalyticsSnapshots(strategy: string, limit: number = 90): Promise<any[]> {
+    await this.db.prepare(
+      `CREATE TABLE IF NOT EXISTS analytics_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        snapshot_date TEXT NOT NULL,
+        strategy TEXT NOT NULL,
+        period TEXT NOT NULL DEFAULT 'all',
+        metrics TEXT NOT NULL,
+        analysis_version TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(snapshot_date, strategy, period)
+      )`
+    ).run();
+    const result = await this.db.prepare(
+      `SELECT snapshot_date, strategy, period, metrics, analysis_version, created_at
+       FROM analytics_snapshots WHERE strategy = ? ORDER BY snapshot_date DESC LIMIT ?`
+    ).bind(strategy, limit).all();
+    return (result.results ?? []) as any[];
+  }
 }
