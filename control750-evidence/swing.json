@@ -1,0 +1,1614 @@
+{
+  "runs": [
+    {
+      "id": 13960,
+      "timestamp": "2026-09-18 22:00:45",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 21258,
+      "decisions_made": 25,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97138.11,\"last_equity\":97116.8669,\"fallback_change_today_pct\":0.021873749306472904,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"GS\",\"reason\":\"Swing capital cap exhausted: $4770.18 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":14},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"BAC\"},\"count\":4}]",
+      "status": "skipped",
+      "created_at": "2026-09-18 22:00:45",
+      "analyzed_candidates": 94,
+      "filtered_candidates": 90,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97138.11,
+            "last_equity": 97116.8669,
+            "fallback_change_today_pct": 0.021873749306472904,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "GS",
+            "reason": "Swing capital cap exhausted: $4770.18 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 14
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "BAC"
+          },
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": 13489,
+      "timestamp": "2026-09-17 22:00:44",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 22093,
+      "decisions_made": 25,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97125.16,\"last_equity\":97081.752,\"fallback_change_today_pct\":0.04471283130532128,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"CMCSA\",\"reason\":\"Swing capital cap exhausted: $4814.41 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":14},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"BAC\"},\"count\":4}]",
+      "status": "skipped",
+      "created_at": "2026-09-17 22:00:44",
+      "analyzed_candidates": 94,
+      "filtered_candidates": 90,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97125.16,
+            "last_equity": 97081.752,
+            "fallback_change_today_pct": 0.04471283130532128,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "CMCSA",
+            "reason": "Swing capital cap exhausted: $4814.41 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 14
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "BAC"
+          },
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": 13028,
+      "timestamp": "2026-09-16 22:01:18",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 21301,
+      "decisions_made": 25,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97089.45,\"last_equity\":97169.2454,\"fallback_change_today_pct\":-0.08212001613424354,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"MU\",\"reason\":\"Swing capital cap exhausted: $4734.52 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":14},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"BAC\"},\"count\":3}]",
+      "status": "skipped",
+      "created_at": "2026-09-16 22:01:18",
+      "analyzed_candidates": 93,
+      "filtered_candidates": 89,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97089.45,
+            "last_equity": 97169.2454,
+            "fallback_change_today_pct": -0.08212001613424354,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "MU",
+            "reason": "Swing capital cap exhausted: $4734.52 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 14
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "BAC"
+          },
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": 12566,
+      "timestamp": "2026-09-15 22:01:18",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 21420,
+      "decisions_made": 26,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97171.81,\"last_equity\":97335.0646,\"fallback_change_today_pct\":-0.16772434545648846,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"BROKER_AUTHORITATIVE_SYNC_ABSENT\",\"scope\":\"reconciliation\",\"message\":\"Closed stale swing D1 rows absent from the broker snapshot\",\"context\":{\"strategy\":\"swing\",\"closed\":1,\"symbols\":\"[\\\"GOOGL\\\"]\",\"pendingExcluded\":0},\"count\":1},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"FCEL\",\"reason\":\"Swing capital cap exhausted: $4768.13 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":15},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"AVGO\"},\"count\":2}]",
+      "status": "skipped",
+      "created_at": "2026-09-15 22:01:18",
+      "analyzed_candidates": 92,
+      "filtered_candidates": 88,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97171.81,
+            "last_equity": 97335.0646,
+            "fallback_change_today_pct": -0.16772434545648846,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "BROKER_AUTHORITATIVE_SYNC_ABSENT",
+          "scope": "reconciliation",
+          "message": "Closed stale swing D1 rows absent from the broker snapshot",
+          "context": {
+            "strategy": "swing",
+            "closed": 1,
+            "symbols": "[\"GOOGL\"]",
+            "pendingExcluded": 0
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "FCEL",
+            "reason": "Swing capital cap exhausted: $4768.13 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 15
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "AVGO"
+          },
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": 12096,
+      "timestamp": "2026-09-14 22:01:18",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 23205,
+      "decisions_made": 28,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97343.22,\"last_equity\":97428.4843,\"fallback_change_today_pct\":-0.08751475568217915,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"BROKER_AUTHORITATIVE_SYNC_ABSENT\",\"scope\":\"reconciliation\",\"message\":\"Closed stale swing D1 rows absent from the broker snapshot\",\"context\":{\"strategy\":\"swing\",\"closed\":1,\"symbols\":\"[\\\"XOM\\\"]\",\"pendingExcluded\":0},\"count\":1},{\"type\":\"skip\",\"code\":\"EXIT_PENDING_RECONCILIATION\",\"scope\":\"decision\",\"message\":\"Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation\",\"context\":{\"symbol\":\"GOOGL\",\"status\":\"accepted\",\"alpacaOrderId\":\"9476dd93-5cd2-4219-89e0-16c9c8255100\",\"filledQty\":0,\"leavesQty\":null},\"count\":1},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"AMGN\",\"reason\":\"Swing capital cap exhausted: $4998.24 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":16},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"BAC\"},\"count\":2}]",
+      "status": "skipped",
+      "created_at": "2026-09-14 22:01:18",
+      "analyzed_candidates": 97,
+      "filtered_candidates": 93,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97343.22,
+            "last_equity": 97428.4843,
+            "fallback_change_today_pct": -0.08751475568217915,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "BROKER_AUTHORITATIVE_SYNC_ABSENT",
+          "scope": "reconciliation",
+          "message": "Closed stale swing D1 rows absent from the broker snapshot",
+          "context": {
+            "strategy": "swing",
+            "closed": 1,
+            "symbols": "[\"XOM\"]",
+            "pendingExcluded": 0
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EXIT_PENDING_RECONCILIATION",
+          "scope": "decision",
+          "message": "Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation",
+          "context": {
+            "symbol": "GOOGL",
+            "status": "accepted",
+            "alpacaOrderId": "9476dd93-5cd2-4219-89e0-16c9c8255100",
+            "filledQty": 0,
+            "leavesQty": null
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "AMGN",
+            "reason": "Swing capital cap exhausted: $4998.24 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 16
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "BAC"
+          },
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": 10692,
+      "timestamp": "2026-09-11 22:01:15",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 25200,
+      "decisions_made": 30,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97424.71,\"last_equity\":97414.9966,\"fallback_change_today_pct\":0.009971154687704237,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"BROKER_AUTHORITATIVE_SYNC_ABSENT\",\"scope\":\"reconciliation\",\"message\":\"Closed stale swing D1 rows absent from the broker snapshot\",\"context\":{\"strategy\":\"swing\",\"closed\":1,\"symbols\":\"[\\\"DDOG\\\"]\",\"pendingExcluded\":0},\"count\":1},{\"type\":\"skip\",\"code\":\"EXIT_PENDING_RECONCILIATION\",\"scope\":\"decision\",\"message\":\"Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation\",\"context\":{\"symbol\":\"XOM\",\"status\":\"accepted\",\"alpacaOrderId\":\"c0c8b915-ccf1-4082-8252-f9d78f474c37\",\"filledQty\":0,\"leavesQty\":null},\"count\":1},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"AMGN\",\"reason\":\"Swing capital cap exhausted: $5166.88 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":17},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"SNOW\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-11 22:01:15",
+      "analyzed_candidates": 95,
+      "filtered_candidates": 91,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97424.71,
+            "last_equity": 97414.9966,
+            "fallback_change_today_pct": 0.009971154687704237,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "BROKER_AUTHORITATIVE_SYNC_ABSENT",
+          "scope": "reconciliation",
+          "message": "Closed stale swing D1 rows absent from the broker snapshot",
+          "context": {
+            "strategy": "swing",
+            "closed": 1,
+            "symbols": "[\"DDOG\"]",
+            "pendingExcluded": 0
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EXIT_PENDING_RECONCILIATION",
+          "scope": "decision",
+          "message": "Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation",
+          "context": {
+            "symbol": "XOM",
+            "status": "accepted",
+            "alpacaOrderId": "c0c8b915-ccf1-4082-8252-f9d78f474c37",
+            "filledQty": 0,
+            "leavesQty": null
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "AMGN",
+            "reason": "Swing capital cap exhausted: $5166.88 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 17
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "SNOW"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 10214,
+      "timestamp": "2026-09-10 22:01:04",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 25293,
+      "decisions_made": 31,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97415.42,\"last_equity\":97384.9775,\"fallback_change_today_pct\":0.03125995485289778,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"HELD_NO_SCORE\",\"scope\":\"position\",\"message\":\"Held position has no current score; it was preserved only when data was degraded\",\"context\":{\"symbol\":\"DDOG\"},\"count\":1},{\"type\":\"skip\",\"code\":\"HELD_NO_SCORE_EXIT\",\"scope\":\"position\",\"message\":\"Protective data-integrity exit: held symbol has no current score\",\"context\":{\"symbol\":\"DDOG\",\"exitType\":\"protective\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EXIT_PENDING_RECONCILIATION\",\"scope\":\"decision\",\"message\":\"Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation\",\"context\":{\"symbol\":\"DDOG\",\"status\":\"accepted\",\"alpacaOrderId\":\"acc8db33-0319-481b-bf7d-9385a21f8ae7\",\"filledQty\":0,\"leavesQty\":null},\"count\":1},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"AMGN\",\"reason\":\"Swing capital cap exhausted: $5248.01 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":17}]",
+      "status": "skipped",
+      "created_at": "2026-09-10 22:01:04",
+      "analyzed_candidates": 89,
+      "filtered_candidates": 85,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97415.42,
+            "last_equity": 97384.9775,
+            "fallback_change_today_pct": 0.03125995485289778,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "HELD_NO_SCORE",
+          "scope": "position",
+          "message": "Held position has no current score; it was preserved only when data was degraded",
+          "context": {
+            "symbol": "DDOG"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "HELD_NO_SCORE_EXIT",
+          "scope": "position",
+          "message": "Protective data-integrity exit: held symbol has no current score",
+          "context": {
+            "symbol": "DDOG",
+            "exitType": "protective"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EXIT_PENDING_RECONCILIATION",
+          "scope": "decision",
+          "message": "Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation",
+          "context": {
+            "symbol": "DDOG",
+            "status": "accepted",
+            "alpacaOrderId": "acc8db33-0319-481b-bf7d-9385a21f8ae7",
+            "filledQty": 0,
+            "leavesQty": null
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "AMGN",
+            "reason": "Swing capital cap exhausted: $5248.01 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 17
+        }
+      ]
+    },
+    {
+      "id": 9750,
+      "timestamp": "2026-09-09 22:01:19",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 24360,
+      "decisions_made": 30,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97396.85,\"last_equity\":97581.366,\"fallback_change_today_pct\":-0.18908938003592685,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"AMGN\",\"reason\":\"Swing capital cap exhausted: $5207.03 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":16}]",
+      "status": "skipped",
+      "created_at": "2026-09-09 22:01:19",
+      "analyzed_candidates": 88,
+      "filtered_candidates": 84,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97396.85,
+            "last_equity": 97581.366,
+            "fallback_change_today_pct": -0.18908938003592685,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "AMGN",
+            "reason": "Swing capital cap exhausted: $5207.03 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 16
+        }
+      ]
+    },
+    {
+      "id": 9269,
+      "timestamp": "2026-09-08 22:01:19",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 24873,
+      "decisions_made": 30,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97584.25,\"last_equity\":97724.19675,\"fallback_change_today_pct\":-0.14320583300164377,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"BROKER_AUTHORITATIVE_SYNC_ABSENT\",\"scope\":\"reconciliation\",\"message\":\"Closed stale swing D1 rows absent from the broker snapshot\",\"context\":{\"strategy\":\"swing\",\"closed\":1,\"symbols\":\"[\\\"INTC\\\"]\",\"pendingExcluded\":0},\"count\":1},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"DDOG\"},\"count\":2},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"ADBE\",\"reason\":\"Swing capital cap exhausted: $5289.58 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":16}]",
+      "status": "skipped",
+      "created_at": "2026-09-08 22:01:19",
+      "analyzed_candidates": 94,
+      "filtered_candidates": 90,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97584.25,
+            "last_equity": 97724.19675,
+            "fallback_change_today_pct": -0.14320583300164377,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "BROKER_AUTHORITATIVE_SYNC_ABSENT",
+          "scope": "reconciliation",
+          "message": "Closed stale swing D1 rows absent from the broker snapshot",
+          "context": {
+            "strategy": "swing",
+            "closed": 1,
+            "symbols": "[\"INTC\"]",
+            "pendingExcluded": 0
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "DDOG"
+          },
+          "count": 2
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "ADBE",
+            "reason": "Swing capital cap exhausted: $5289.58 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 16
+        }
+      ]
+    },
+    {
+      "id": 8788,
+      "timestamp": "2026-09-07 22:01:15",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 9791,
+      "decisions_made": 28,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97724.2,\"last_equity\":97724.19675,\"fallback_change_today_pct\":0.000003325686065867458,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"PENDING_EXIT_EXISTS\",\"scope\":\"cycle\",\"message\":\"Swing exit skipped because a non-terminal sell order already exists\",\"context\":{\"strategy\":\"swing\",\"symbol\":\"INTC\",\"tradeId\":1080,\"status\":\"accepted\",\"qty\":1,\"filledQty\":0,\"leavesQty\":1,\"alpacaOrderId\":\"ae92116f-2c84-4c12-8d7d-b4efdae88bec\",\"clientOrderId\":\"0c7727ed-daae-4882-9cda-7472cd2650ca\",\"brokerUpdatedAt\":\"2026-09-04T22:00:44.620609Z\",\"lastReconciledAt\":\"2026-09-07 22:01:06\",\"exitType\":\"discretionary\"},\"count\":1},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"FCEL\",\"reason\":\"Swing capital cap exhausted: $5480.98 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":13},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"DDOG\"},\"count\":3}]",
+      "status": "skipped",
+      "created_at": "2026-09-07 22:01:15",
+      "analyzed_candidates": 86,
+      "filtered_candidates": 82,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97724.2,
+            "last_equity": 97724.19675,
+            "fallback_change_today_pct": 0.000003325686065867458,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "PENDING_EXIT_EXISTS",
+          "scope": "cycle",
+          "message": "Swing exit skipped because a non-terminal sell order already exists",
+          "context": {
+            "strategy": "swing",
+            "symbol": "INTC",
+            "tradeId": 1080,
+            "status": "accepted",
+            "qty": 1,
+            "filledQty": 0,
+            "leavesQty": 1,
+            "alpacaOrderId": "ae92116f-2c84-4c12-8d7d-b4efdae88bec",
+            "clientOrderId": "0c7727ed-daae-4882-9cda-7472cd2650ca",
+            "brokerUpdatedAt": "2026-09-04T22:00:44.620609Z",
+            "lastReconciledAt": "2026-09-07 22:01:06",
+            "exitType": "discretionary"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "FCEL",
+            "reason": "Swing capital cap exhausted: $5480.98 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 13
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "DDOG"
+          },
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": 7367,
+      "timestamp": "2026-09-04 22:00:59",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 28696,
+      "decisions_made": 28,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97714.3,\"last_equity\":97686.9257,\"fallback_change_today_pct\":0.028022480801641048,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"BROKER_AUTHORITATIVE_SYNC_ABSENT\",\"scope\":\"reconciliation\",\"message\":\"Closed stale swing D1 rows absent from the broker snapshot\",\"context\":{\"strategy\":\"swing\",\"closed\":1,\"symbols\":\"[\\\"CCL\\\"]\",\"pendingExcluded\":0},\"count\":1},{\"type\":\"skip\",\"code\":\"EXIT_PENDING_RECONCILIATION\",\"scope\":\"decision\",\"message\":\"Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation\",\"context\":{\"symbol\":\"INTC\",\"status\":\"accepted\",\"alpacaOrderId\":\"ae92116f-2c84-4c12-8d7d-b4efdae88bec\",\"filledQty\":0,\"leavesQty\":null},\"count\":1},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"FCEL\",\"reason\":\"Swing capital cap exhausted: $5477.15 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":13},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"DDOG\"},\"count\":3}]",
+      "status": "skipped",
+      "created_at": "2026-09-04 22:00:59",
+      "analyzed_candidates": 86,
+      "filtered_candidates": 82,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97714.3,
+            "last_equity": 97686.9257,
+            "fallback_change_today_pct": 0.028022480801641048,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "BROKER_AUTHORITATIVE_SYNC_ABSENT",
+          "scope": "reconciliation",
+          "message": "Closed stale swing D1 rows absent from the broker snapshot",
+          "context": {
+            "strategy": "swing",
+            "closed": 1,
+            "symbols": "[\"CCL\"]",
+            "pendingExcluded": 0
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EXIT_PENDING_RECONCILIATION",
+          "scope": "decision",
+          "message": "Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation",
+          "context": {
+            "symbol": "INTC",
+            "status": "accepted",
+            "alpacaOrderId": "ae92116f-2c84-4c12-8d7d-b4efdae88bec",
+            "filledQty": 0,
+            "leavesQty": null
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "FCEL",
+            "reason": "Swing capital cap exhausted: $5477.15 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 13
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "DDOG"
+          },
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": 6919,
+      "timestamp": "2026-09-03 22:00:59",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 28831,
+      "decisions_made": 26,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97683.3,\"last_equity\":97634.5161,\"fallback_change_today_pct\":0.04996583375293592,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"BROKER_AUTHORITATIVE_SYNC_ABSENT\",\"scope\":\"reconciliation\",\"message\":\"Closed stale swing D1 rows absent from the broker snapshot\",\"context\":{\"strategy\":\"swing\",\"closed\":4,\"symbols\":\"[\\\"FCEL\\\",\\\"CVX\\\",\\\"SIRI\\\",\\\"WFC\\\"]\",\"pendingExcluded\":0},\"count\":1},{\"type\":\"skip\",\"code\":\"EXIT_PENDING_RECONCILIATION\",\"scope\":\"decision\",\"message\":\"Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation\",\"context\":{\"symbol\":\"CCL\",\"status\":\"accepted\",\"alpacaOrderId\":\"c2d3b6ef-bf8c-45f7-8901-712e1d66057b\",\"filledQty\":0,\"leavesQty\":null},\"count\":1},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"FCEL\",\"reason\":\"Swing capital cap exhausted: $5603.69 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":10},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"DDOG\"},\"count\":6}]",
+      "status": "skipped",
+      "created_at": "2026-09-03 22:00:59",
+      "analyzed_candidates": 87,
+      "filtered_candidates": 83,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97683.3,
+            "last_equity": 97634.5161,
+            "fallback_change_today_pct": 0.04996583375293592,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "BROKER_AUTHORITATIVE_SYNC_ABSENT",
+          "scope": "reconciliation",
+          "message": "Closed stale swing D1 rows absent from the broker snapshot",
+          "context": {
+            "strategy": "swing",
+            "closed": 4,
+            "symbols": "[\"FCEL\",\"CVX\",\"SIRI\",\"WFC\"]",
+            "pendingExcluded": 0
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EXIT_PENDING_RECONCILIATION",
+          "scope": "decision",
+          "message": "Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation",
+          "context": {
+            "symbol": "CCL",
+            "status": "accepted",
+            "alpacaOrderId": "c2d3b6ef-bf8c-45f7-8901-712e1d66057b",
+            "filledQty": 0,
+            "leavesQty": null
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "FCEL",
+            "reason": "Swing capital cap exhausted: $5603.69 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 10
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "DDOG"
+          },
+          "count": 6
+        }
+      ]
+    },
+    {
+      "id": 6438,
+      "timestamp": "2026-09-02 22:01:07",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 36425,
+      "decisions_made": 33,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97679.1,\"last_equity\":97976.6576,\"fallback_change_today_pct\":-0.303702542308404,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"BROKER_AUTHORITATIVE_SYNC_ABSENT\",\"scope\":\"reconciliation\",\"message\":\"Closed stale swing D1 rows absent from the broker snapshot\",\"context\":{\"strategy\":\"swing\",\"closed\":3,\"symbols\":\"[\\\"RTX\\\",\\\"GE\\\",\\\"UNH\\\"]\",\"pendingExcluded\":0},\"count\":1},{\"type\":\"skip\",\"code\":\"EXIT_PENDING_RECONCILIATION\",\"scope\":\"decision\",\"message\":\"Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation\",\"context\":{\"symbol\":\"CVX\",\"status\":\"accepted\",\"alpacaOrderId\":\"694145ff-ffc6-4659-945d-2b166a16f549\",\"filledQty\":0,\"leavesQty\":null},\"count\":4},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"FCEL\"},\"count\":5},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"PYPL\",\"reason\":\"Swing capital cap exhausted: $7547.55 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":13}]",
+      "status": "skipped",
+      "created_at": "2026-09-02 22:01:07",
+      "analyzed_candidates": 96,
+      "filtered_candidates": 92,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97679.1,
+            "last_equity": 97976.6576,
+            "fallback_change_today_pct": -0.303702542308404,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "BROKER_AUTHORITATIVE_SYNC_ABSENT",
+          "scope": "reconciliation",
+          "message": "Closed stale swing D1 rows absent from the broker snapshot",
+          "context": {
+            "strategy": "swing",
+            "closed": 3,
+            "symbols": "[\"RTX\",\"GE\",\"UNH\"]",
+            "pendingExcluded": 0
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EXIT_PENDING_RECONCILIATION",
+          "scope": "decision",
+          "message": "Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation",
+          "context": {
+            "symbol": "CVX",
+            "status": "accepted",
+            "alpacaOrderId": "694145ff-ffc6-4659-945d-2b166a16f549",
+            "filledQty": 0,
+            "leavesQty": null
+          },
+          "count": 4
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "FCEL"
+          },
+          "count": 5
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "PYPL",
+            "reason": "Swing capital cap exhausted: $7547.55 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 13
+        }
+      ]
+    },
+    {
+      "id": 5120,
+      "timestamp": "2026-08-30 22:00:24",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 10537,
+      "decisions_made": 32,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":98219.06,\"last_equity\":98219.0626,\"fallback_change_today_pct\":-0.000002647143984326777,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"BROKER_AUTHORITATIVE_SYNC_ABSENT\",\"scope\":\"reconciliation\",\"message\":\"Closed stale swing D1 rows absent from the broker snapshot\",\"context\":{\"strategy\":\"swing\",\"closed\":2,\"symbols\":\"[\\\"RIVN\\\",\\\"AEP\\\"]\",\"pendingExcluded\":0},\"count\":1},{\"type\":\"skip\",\"code\":\"HELD_NO_SCORE\",\"scope\":\"position\",\"message\":\"Held position has no current score; it was preserved only when data was degraded\",\"context\":{\"symbol\":\"GE\"},\"count\":3},{\"type\":\"skip\",\"code\":\"HELD_NO_SCORE_EXIT\",\"scope\":\"position\",\"message\":\"Protective data-integrity exit: held symbol has no current score\",\"context\":{\"symbol\":\"GE\",\"exitType\":\"protective\"},\"count\":3},{\"type\":\"skip\",\"code\":\"EXIT_PENDING_RECONCILIATION\",\"scope\":\"decision\",\"message\":\"Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation\",\"context\":{\"symbol\":\"GE\",\"status\":\"accepted\",\"alpacaOrderId\":\"40a1e49d-ef27-4c87-bf84-73b8bde3775f\",\"filledQty\":0,\"leavesQty\":null},\"count\":3},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"PYPL\",\"reason\":\"Swing capital cap exhausted: $8255.74 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":9},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"FCEL\"},\"count\":8}]",
+      "status": "skipped",
+      "created_at": "2026-08-30 22:00:24",
+      "analyzed_candidates": 88,
+      "filtered_candidates": 85,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 98219.06,
+            "last_equity": 98219.0626,
+            "fallback_change_today_pct": -0.000002647143984326777,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "BROKER_AUTHORITATIVE_SYNC_ABSENT",
+          "scope": "reconciliation",
+          "message": "Closed stale swing D1 rows absent from the broker snapshot",
+          "context": {
+            "strategy": "swing",
+            "closed": 2,
+            "symbols": "[\"RIVN\",\"AEP\"]",
+            "pendingExcluded": 0
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "HELD_NO_SCORE",
+          "scope": "position",
+          "message": "Held position has no current score; it was preserved only when data was degraded",
+          "context": {
+            "symbol": "GE"
+          },
+          "count": 3
+        },
+        {
+          "type": "skip",
+          "code": "HELD_NO_SCORE_EXIT",
+          "scope": "position",
+          "message": "Protective data-integrity exit: held symbol has no current score",
+          "context": {
+            "symbol": "GE",
+            "exitType": "protective"
+          },
+          "count": 3
+        },
+        {
+          "type": "skip",
+          "code": "EXIT_PENDING_RECONCILIATION",
+          "scope": "decision",
+          "message": "Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation",
+          "context": {
+            "symbol": "GE",
+            "status": "accepted",
+            "alpacaOrderId": "40a1e49d-ef27-4c87-bf84-73b8bde3775f",
+            "filledQty": 0,
+            "leavesQty": null
+          },
+          "count": 3
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "PYPL",
+            "reason": "Swing capital cap exhausted: $8255.74 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 9
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "FCEL"
+          },
+          "count": 8
+        }
+      ]
+    },
+    {
+      "id": 4020,
+      "timestamp": "2026-08-27 22:01:34",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 37526,
+      "decisions_made": 37,
+      "trades_executed": 0,
+      "errors": 2,
+      "error_details": "[\"Broker-authoritative quantity persisted for 2 mismatched position(s)\",\"Broker/internal quantity mismatch detected; new swing entries blocked for this cycle: AVGO: qty mismatch (internal: 0.35, broker: 2.35); RIVN: qty mismatch (internal: 11.29, broker: 186.29); LCID: in internal but not broker (qty: 209); AMD: in internal but not broker (qty: 0.28); NXPI: in internal but not broker (qty: 0.53)\",{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":98424.08,\"last_equity\":98417.7079,\"fallback_change_today_pct\":0.006474546233572441,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"BROKER_AUTHORITATIVE_SYNC_ABSENT\",\"scope\":\"reconciliation\",\"message\":\"Closed stale swing D1 rows absent from the broker snapshot\",\"context\":{\"strategy\":\"swing\",\"closed\":3,\"symbols\":\"[\\\"LCID\\\",\\\"AMD\\\",\\\"NXPI\\\"]\",\"pendingExcluded\":0},\"count\":1},{\"type\":\"skip\",\"code\":\"POSITION_QTY_MISMATCH\",\"scope\":\"cycle\",\"message\":\"New swing BUY entries blocked by broker/internal quantity mismatch; risk-reducing exits remain eligible\",\"context\":{\"strategy\":\"swing\",\"mismatchCount\":2,\"details\":\"[\\\"AVGO: qty mismatch (internal: 0.35, broker: 2.35)\\\",\\\"RIVN: qty mismatch (internal: 11.29, broker: 186.29)\\\",\\\"LCID: in internal but not broker (qty: 209)\\\",\\\"AMD: in internal but not broker (qty: 0.28)\\\",\\\"NXPI: in internal but not broker (qty: \"},\"count\":1},{\"type\":\"skip\",\"code\":\"HELD_NO_SCORE\",\"scope\":\"position\",\"message\":\"Held position has no current score; it was preserved only when data was degraded\",\"context\":{\"symbol\":\"AEP\"},\"count\":1},{\"type\":\"skip\",\"code\":\"HELD_NO_SCORE_EXIT\",\"scope\":\"position\",\"message\":\"Protective data-integrity exit: held symbol has no current score\",\"context\":{\"symbol\":\"AEP\",\"exitType\":\"protective\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EXIT_PENDING_RECONCILIATION\",\"scope\":\"decision\",\"message\":\"Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation\",\"context\":{\"symbol\":\"AEP\",\"status\":\"accepted\",\"alpacaOrderId\":\"5c0a5ab0-2b29-45f3-8c81-5b823456b888\",\"filledQty\":0,\"leavesQty\":null},\"count\":2},{\"type\":\"skip\",\"code\":\"NO_ENTRY_RISK\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"LCID\",\"reason\":\"Trading halted: New swing entries blocked by broker/internal quantity mismatch: AVGO: qty mismatch (internal: 0.35, broker: 2.35); RIVN: qty mismatch (internal: 11.29, broker: 186.29); LCID: in internal but not broker (qty: 209); AMD: in in\",\"plannedEntryNotionalUsd\":0},\"count\":12},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"XOM\"},\"count\":5}]",
+      "status": "error",
+      "created_at": "2026-08-27 22:01:34",
+      "analyzed_candidates": 90,
+      "filtered_candidates": 87,
+      "run_details": [
+        "Broker-authoritative quantity persisted for 2 mismatched position(s)",
+        "Broker/internal quantity mismatch detected; new swing entries blocked for this cycle: AVGO: qty mismatch (internal: 0.35, broker: 2.35); RIVN: qty mismatch (internal: 11.29, broker: 186.29); LCID: in internal but not broker (qty: 209); AMD: in internal but not broker (qty: 0.28); NXPI: in internal but not broker (qty: 0.53)",
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 98424.08,
+            "last_equity": 98417.7079,
+            "fallback_change_today_pct": 0.006474546233572441,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "BROKER_AUTHORITATIVE_SYNC_ABSENT",
+          "scope": "reconciliation",
+          "message": "Closed stale swing D1 rows absent from the broker snapshot",
+          "context": {
+            "strategy": "swing",
+            "closed": 3,
+            "symbols": "[\"LCID\",\"AMD\",\"NXPI\"]",
+            "pendingExcluded": 0
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "POSITION_QTY_MISMATCH",
+          "scope": "cycle",
+          "message": "New swing BUY entries blocked by broker/internal quantity mismatch; risk-reducing exits remain eligible",
+          "context": {
+            "strategy": "swing",
+            "mismatchCount": 2,
+            "details": "[\"AVGO: qty mismatch (internal: 0.35, broker: 2.35)\",\"RIVN: qty mismatch (internal: 11.29, broker: 186.29)\",\"LCID: in internal but not broker (qty: 209)\",\"AMD: in internal but not broker (qty: 0.28)\",\"NXPI: in internal but not broker (qty: "
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "HELD_NO_SCORE",
+          "scope": "position",
+          "message": "Held position has no current score; it was preserved only when data was degraded",
+          "context": {
+            "symbol": "AEP"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "HELD_NO_SCORE_EXIT",
+          "scope": "position",
+          "message": "Protective data-integrity exit: held symbol has no current score",
+          "context": {
+            "symbol": "AEP",
+            "exitType": "protective"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EXIT_PENDING_RECONCILIATION",
+          "scope": "decision",
+          "message": "Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation",
+          "context": {
+            "symbol": "AEP",
+            "status": "accepted",
+            "alpacaOrderId": "5c0a5ab0-2b29-45f3-8c81-5b823456b888",
+            "filledQty": 0,
+            "leavesQty": null
+          },
+          "count": 2
+        },
+        {
+          "type": "skip",
+          "code": "NO_ENTRY_RISK",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "LCID",
+            "reason": "Trading halted: New swing entries blocked by broker/internal quantity mismatch: AVGO: qty mismatch (internal: 0.35, broker: 2.35); RIVN: qty mismatch (internal: 11.29, broker: 186.29); LCID: in internal but not broker (qty: 209); AMD: in in",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 12
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "XOM"
+          },
+          "count": 5
+        }
+      ]
+    },
+    {
+      "id": 3794,
+      "timestamp": "2026-08-26 22:01:28",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 31769,
+      "decisions_made": 21,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":98474.55,\"last_equity\":98524.9839,\"fallback_change_today_pct\":-0.051188945182871155,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"HELD_NO_SCORE\",\"scope\":\"position\",\"message\":\"Held position has no current score; it was preserved only when data was degraded\",\"context\":{\"symbol\":\"LCID\"},\"count\":2},{\"type\":\"skip\",\"code\":\"HELD_NO_SCORE_EXIT\",\"scope\":\"position\",\"message\":\"Protective data-integrity exit: held symbol has no current score\",\"context\":{\"symbol\":\"LCID\",\"exitType\":\"protective\"},\"count\":2},{\"type\":\"skip\",\"code\":\"EXIT_PENDING_RECONCILIATION\",\"scope\":\"decision\",\"message\":\"Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation\",\"context\":{\"symbol\":\"AMD\",\"status\":\"accepted\",\"alpacaOrderId\":\"e377f936-a6d5-4021-b7e0-78a629e83941\",\"filledQty\":0,\"leavesQty\":null},\"count\":3},{\"type\":\"skip\",\"code\":\"UNATTRIBUTED_BROKER_EXPOSURE\",\"scope\":\"reconciliation\",\"message\":\"Unattributed broker exposure is included conservatively in swing cap accounting\",\"context\":{\"strategy\":\"swing\",\"unattributedExposureUsd\":1455.0936000000002},\"count\":1},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"WMT\"},\"count\":11},{\"type\":\"skip\",\"code\":\"CAPITAL_CAP\",\"scope\":\"decision\",\"message\":\"Swing entry skipped by risk controls\",\"context\":{\"symbol\":\"LLY\",\"reason\":\"Swing capital cap exhausted: $9337.83 allocated against $3700.00\",\"plannedEntryNotionalUsd\":0},\"count\":6}]",
+      "status": "skipped",
+      "created_at": "2026-08-26 22:01:28",
+      "analyzed_candidates": 90,
+      "filtered_candidates": 86,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 98474.55,
+            "last_equity": 98524.9839,
+            "fallback_change_today_pct": -0.051188945182871155,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "HELD_NO_SCORE",
+          "scope": "position",
+          "message": "Held position has no current score; it was preserved only when data was degraded",
+          "context": {
+            "symbol": "LCID"
+          },
+          "count": 2
+        },
+        {
+          "type": "skip",
+          "code": "HELD_NO_SCORE_EXIT",
+          "scope": "position",
+          "message": "Protective data-integrity exit: held symbol has no current score",
+          "context": {
+            "symbol": "LCID",
+            "exitType": "protective"
+          },
+          "count": 2
+        },
+        {
+          "type": "skip",
+          "code": "EXIT_PENDING_RECONCILIATION",
+          "scope": "decision",
+          "message": "Swing exit was accepted or partially filled and remains open for scheduled broker reconciliation",
+          "context": {
+            "symbol": "AMD",
+            "status": "accepted",
+            "alpacaOrderId": "e377f936-a6d5-4021-b7e0-78a629e83941",
+            "filledQty": 0,
+            "leavesQty": null
+          },
+          "count": 3
+        },
+        {
+          "type": "skip",
+          "code": "UNATTRIBUTED_BROKER_EXPOSURE",
+          "scope": "reconciliation",
+          "message": "Unattributed broker exposure is included conservatively in swing cap accounting",
+          "context": {
+            "strategy": "swing",
+            "unattributedExposureUsd": 1455.0936000000002
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "WMT"
+          },
+          "count": 11
+        },
+        {
+          "type": "skip",
+          "code": "CAPITAL_CAP",
+          "scope": "decision",
+          "message": "Swing entry skipped by risk controls",
+          "context": {
+            "symbol": "LLY",
+            "reason": "Swing capital cap exhausted: $9337.83 allocated against $3700.00",
+            "plannedEntryNotionalUsd": 0
+          },
+          "count": 6
+        }
+      ]
+    },
+    {
+      "id": 3574,
+      "timestamp": "2026-08-25 22:01:33",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 40311,
+      "decisions_made": 13,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"swing\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"swing\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":98539.06,\"last_equity\":98386.6243,\"fallback_change_today_pct\":0.15493538993186273,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"BROKER_AUTHORITATIVE_SYNC_ABSENT\",\"scope\":\"reconciliation\",\"message\":\"Closed stale swing D1 rows absent from the broker snapshot\",\"context\":{\"strategy\":\"swing\",\"closed\":3,\"symbols\":\"[\\\"EOG\\\",\\\"PLD\\\",\\\"HON\\\"]\",\"pendingExcluded\":0},\"count\":1},{\"type\":\"skip\",\"code\":\"HELD_POSITION\",\"scope\":\"decision\",\"message\":\"Entry skipped because the symbol is already held\",\"context\":{\"symbol\":\"FCEL\"},\"count\":4}]",
+      "status": "skipped",
+      "created_at": "2026-08-25 22:01:33",
+      "analyzed_candidates": 89,
+      "filtered_candidates": 86,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Swing skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "swing",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "swing",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 98539.06,
+            "last_equity": 98386.6243,
+            "fallback_change_today_pct": 0.15493538993186273,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "BROKER_AUTHORITATIVE_SYNC_ABSENT",
+          "scope": "reconciliation",
+          "message": "Closed stale swing D1 rows absent from the broker snapshot",
+          "context": {
+            "strategy": "swing",
+            "closed": 3,
+            "symbols": "[\"EOG\",\"PLD\",\"HON\"]",
+            "pendingExcluded": 0
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "HELD_POSITION",
+          "scope": "decision",
+          "message": "Entry skipped because the symbol is already held",
+          "context": {
+            "symbol": "FCEL"
+          },
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": 3409,
+      "timestamp": "2026-08-24 22:01:37",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 53973,
+      "decisions_made": 21,
+      "trades_executed": 0,
+      "errors": 4,
+      "error_details": "[\"Swing exit not fully filled EOG: accepted\",\"Swing exit not fully filled HON: accepted\",\"Swing sell failed PLD: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits\",\"Fatal: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits\",{\"type\":\"skip\",\"code\":\"BROKER_AUTHORITATIVE_SYNC_ABSENT\",\"scope\":\"reconciliation\",\"message\":\"Closed stale swing D1 rows absent from the broker snapshot\",\"context\":{\"strategy\":\"swing\",\"closed\":3,\"symbols\":\"[\\\"COIN\\\",\\\"ABBV\\\",\\\"DUK\\\"]\",\"pendingExcluded\":0},\"count\":1},{\"type\":\"skip\",\"code\":\"HELD_NO_SCORE\",\"scope\":\"position\",\"message\":\"Held position has no current score; it was preserved only when data was degraded\",\"context\":{\"symbol\":\"EOG\"},\"count\":3},{\"type\":\"skip\",\"code\":\"HELD_NO_SCORE_EXIT\",\"scope\":\"position\",\"message\":\"Protective data-integrity exit: held symbol has no current score\",\"context\":{\"symbol\":\"EOG\",\"exitType\":\"protective\"},\"count\":3}]",
+      "status": "error",
+      "created_at": "2026-08-24 22:01:37",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        "Swing exit not fully filled EOG: accepted",
+        "Swing exit not fully filled HON: accepted",
+        "Swing sell failed PLD: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits",
+        "Fatal: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits",
+        {
+          "type": "skip",
+          "code": "BROKER_AUTHORITATIVE_SYNC_ABSENT",
+          "scope": "reconciliation",
+          "message": "Closed stale swing D1 rows absent from the broker snapshot",
+          "context": {
+            "strategy": "swing",
+            "closed": 3,
+            "symbols": "[\"COIN\",\"ABBV\",\"DUK\"]",
+            "pendingExcluded": 0
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "HELD_NO_SCORE",
+          "scope": "position",
+          "message": "Held position has no current score; it was preserved only when data was degraded",
+          "context": {
+            "symbol": "EOG"
+          },
+          "count": 3
+        },
+        {
+          "type": "skip",
+          "code": "HELD_NO_SCORE_EXIT",
+          "scope": "position",
+          "message": "Protective data-integrity exit: held symbol has no current score",
+          "context": {
+            "symbol": "EOG",
+            "exitType": "protective"
+          },
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": 3182,
+      "timestamp": "2026-08-23 22:01:16",
+      "trigger": "swing_cron",
+      "market_open": 0,
+      "duration_ms": 32624,
+      "decisions_made": 24,
+      "trades_executed": 0,
+      "errors": 8,
+      "error_details": "[\"Swing exit not fully filled ABBV: accepted\",\"Swing exit not fully filled COIN: accepted\",\"Swing sell failed DUK: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits\",\"Swing sell failed EOG: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits\",\"Swing sell failed HON: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits\",\"Swing sell failed LCID: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits\",\"Swing sell failed NXPI: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits\",\"Fatal: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits\",{\"type\":\"skip\",\"code\":\"BROKER_AUTHORITATIVE_SYNC_ABSENT\",\"scope\":\"reconciliation\",\"message\":\"Closed stale swing D1 rows absent from the broker snapshot\",\"context\":{\"strategy\":\"swing\",\"closed\":2,\"symbols\":\"[\\\"UAL\\\",\\\"SEDG\\\"]\",\"pendingExcluded\":0},\"count\":1},{\"type\":\"skip\",\"code\":\"HELD_NO_SCORE\",\"scope\":\"position\",\"message\":\"Held position has no current score; it was preserved only when data was degraded\",\"context\":{\"symbol\":\"DUK\"},\"count\":4},{\"type\":\"skip\",\"code\":\"HELD_NO_SCORE_EXIT\",\"scope\":\"position\",\"message\":\"Protective data-integrity exit: held symbol has no current score\",\"context\":{\"symbol\":\"DUK\",\"exitType\":\"protective\"},\"count\":4}]",
+      "status": "error",
+      "created_at": "2026-08-23 22:01:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        "Swing exit not fully filled ABBV: accepted",
+        "Swing exit not fully filled COIN: accepted",
+        "Swing sell failed DUK: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits",
+        "Swing sell failed EOG: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits",
+        "Swing sell failed HON: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits",
+        "Swing sell failed LCID: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits",
+        "Swing sell failed NXPI: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits",
+        "Fatal: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits",
+        {
+          "type": "skip",
+          "code": "BROKER_AUTHORITATIVE_SYNC_ABSENT",
+          "scope": "reconciliation",
+          "message": "Closed stale swing D1 rows absent from the broker snapshot",
+          "context": {
+            "strategy": "swing",
+            "closed": 2,
+            "symbols": "[\"UAL\",\"SEDG\"]",
+            "pendingExcluded": 0
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "HELD_NO_SCORE",
+          "scope": "position",
+          "message": "Held position has no current score; it was preserved only when data was degraded",
+          "context": {
+            "symbol": "DUK"
+          },
+          "count": 4
+        },
+        {
+          "type": "skip",
+          "code": "HELD_NO_SCORE_EXIT",
+          "scope": "position",
+          "message": "Protective data-integrity exit: held symbol has no current score",
+          "context": {
+            "symbol": "DUK",
+            "exitType": "protective"
+          },
+          "count": 4
+        }
+      ]
+    }
+  ],
+  "limit": 50,
+  "offset": 0,
+  "page": 1
+}
