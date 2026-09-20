@@ -1,0 +1,568 @@
+{
+  "analysisVersion": "1.0.0",
+  "analysisTimestamp": "2026-09-20T05:01:41.757Z",
+  "periodStart": null,
+  "periodEnd": null,
+  "kpis": {
+    "trades": 5,
+    "netPL": 0,
+    "winRate": 0,
+    "profitFactor": 0,
+    "expectancy": 0,
+    "expectancyR": null,
+    "avgWin": null,
+    "avgLoss": 0,
+    "avgRR": null,
+    "maxDrawdown": 0,
+    "avgDurationMinutes": 22500,
+    "fees": null,
+    "longPL": 0,
+    "shortPL": 0,
+    "longTrades": 5,
+    "shortTrades": 0,
+    "avgDecisionQuality": 24,
+    "avgRealizedR": null
+  },
+  "equityCurve": [
+    {
+      "timestamp": "2026-08-23 22:00:55",
+      "cumulativePL": 0
+    },
+    {
+      "timestamp": "2026-08-23 22:00:55",
+      "cumulativePL": 0
+    },
+    {
+      "timestamp": "2026-08-24 22:01:18",
+      "cumulativePL": 0
+    },
+    {
+      "timestamp": "2026-08-24 22:01:18",
+      "cumulativePL": 0
+    },
+    {
+      "timestamp": "2026-08-24 22:01:18",
+      "cumulativePL": 0
+    }
+  ],
+  "drawdownCurve": [
+    {
+      "timestamp": "2026-08-23 22:00:55",
+      "drawdownPct": 0
+    },
+    {
+      "timestamp": "2026-08-23 22:00:55",
+      "drawdownPct": 0
+    },
+    {
+      "timestamp": "2026-08-24 22:01:18",
+      "drawdownPct": 0
+    },
+    {
+      "timestamp": "2026-08-24 22:01:18",
+      "drawdownPct": 0
+    },
+    {
+      "timestamp": "2026-08-24 22:01:18",
+      "drawdownPct": 0
+    }
+  ],
+  "perTrade": [
+    {
+      "position_id": 1883,
+      "ticker": "DUK",
+      "strategy": "swing",
+      "side": "long",
+      "opened_at": "2026-08-11 13:36:03",
+      "closed_at": "2026-08-24 22:01:18",
+      "close_reason": "broker_authoritative_sync_absent",
+      "pl": 0,
+      "plPct": 0,
+      "realizedR": null,
+      "initialRisk": null,
+      "durationMinutes": 19225,
+      "fees": null,
+      "mfe": null,
+      "mae": null,
+      "marketRegime": "unknown",
+      "volatilityBucket": null,
+      "volumeRegime": null,
+      "confidence": 0.12359550561797752,
+      "decisionQualityScore": 23,
+      "decisionQualityLabel": "Weak",
+      "executionQualityScore": 40,
+      "tradeManagementScore": null,
+      "exitQualityScore": 60,
+      "slippagePct": 0.602,
+      "strategyCompliant": true,
+      "originalThesis": "Approved (gap-aware size: $123, worst-case gap: 3.5%, costs: 708.1bps, edge gate not calibrated)",
+      "postTradeReview": "Outcome was positive but decision quality was low; do not reinforce this pattern.",
+      "whatWorked": "Positive outcome despite Weak decision quality",
+      "whatCouldImprove": "Outcome was positive but decision quality was low; do not reinforce this pattern.",
+      "learningPoint": "Profit does not validate a weak decision.",
+      "lossClassification": null,
+      "analysisVersion": "1.0.0",
+      "analysisTimestamp": "2026-09-20T05:01:41.757Z",
+      "dataGaps": [
+        "trade_management_insufficient_data"
+      ],
+      "avgRRHint": null
+    },
+    {
+      "position_id": 1258,
+      "ticker": "ABBV",
+      "strategy": "swing",
+      "side": "long",
+      "opened_at": "2026-08-07 07:17:17",
+      "closed_at": "2026-08-24 22:01:18",
+      "close_reason": "broker_authoritative_sync_absent",
+      "pl": 0,
+      "plPct": 0,
+      "realizedR": null,
+      "initialRisk": null,
+      "durationMinutes": 25364,
+      "fees": null,
+      "mfe": null,
+      "mae": null,
+      "marketRegime": "unknown",
+      "volatilityBucket": null,
+      "volumeRegime": null,
+      "confidence": null,
+      "decisionQualityScore": null,
+      "decisionQualityLabel": null,
+      "executionQualityScore": null,
+      "tradeManagementScore": null,
+      "exitQualityScore": 60,
+      "slippagePct": null,
+      "strategyCompliant": null,
+      "originalThesis": null,
+      "postTradeReview": "Consider letting planned targets work instead of early exits.",
+      "whatWorked": "Positive outcome despite unscored decision quality",
+      "whatCouldImprove": "Consider letting planned targets work instead of early exits.",
+      "learningPoint": "Positive outcome despite unscored decision quality",
+      "lossClassification": null,
+      "analysisVersion": "1.0.0",
+      "analysisTimestamp": "2026-09-20T05:01:41.757Z",
+      "dataGaps": [
+        "entry_decision_unlinked",
+        "slippage_unavailable",
+        "execution_quality_unscored",
+        "trade_management_insufficient_data"
+      ],
+      "avgRRHint": null
+    },
+    {
+      "position_id": 1252,
+      "ticker": "COIN",
+      "strategy": "swing",
+      "side": "long",
+      "opened_at": "2026-08-07 07:17:13",
+      "closed_at": "2026-08-24 22:01:18",
+      "close_reason": "broker_authoritative_sync_absent",
+      "pl": 0,
+      "plPct": 0,
+      "realizedR": null,
+      "initialRisk": null,
+      "durationMinutes": 25364,
+      "fees": null,
+      "mfe": null,
+      "mae": null,
+      "marketRegime": "unknown",
+      "volatilityBucket": null,
+      "volumeRegime": null,
+      "confidence": null,
+      "decisionQualityScore": null,
+      "decisionQualityLabel": null,
+      "executionQualityScore": null,
+      "tradeManagementScore": null,
+      "exitQualityScore": 60,
+      "slippagePct": null,
+      "strategyCompliant": null,
+      "originalThesis": null,
+      "postTradeReview": "Consider letting planned targets work instead of early exits.",
+      "whatWorked": "Positive outcome despite unscored decision quality",
+      "whatCouldImprove": "Consider letting planned targets work instead of early exits.",
+      "learningPoint": "Positive outcome despite unscored decision quality",
+      "lossClassification": null,
+      "analysisVersion": "1.0.0",
+      "analysisTimestamp": "2026-09-20T05:01:41.757Z",
+      "dataGaps": [
+        "entry_decision_unlinked",
+        "slippage_unavailable",
+        "execution_quality_unscored",
+        "trade_management_insufficient_data"
+      ],
+      "avgRRHint": null
+    },
+    {
+      "position_id": 1880,
+      "ticker": "UAL",
+      "strategy": "swing",
+      "side": "long",
+      "opened_at": "2026-08-11 13:30:58",
+      "closed_at": "2026-08-23 22:00:55",
+      "close_reason": "broker_authoritative_sync_absent",
+      "pl": 0,
+      "plPct": 0,
+      "realizedR": null,
+      "initialRisk": null,
+      "durationMinutes": 17790,
+      "fees": null,
+      "mfe": null,
+      "mae": null,
+      "marketRegime": "unknown",
+      "volatilityBucket": null,
+      "volumeRegime": null,
+      "confidence": 0.15730337078651685,
+      "decisionQualityScore": 25,
+      "decisionQualityLabel": "Weak",
+      "executionQualityScore": 40,
+      "tradeManagementScore": null,
+      "exitQualityScore": 60,
+      "slippagePct": 0.38,
+      "strategyCompliant": true,
+      "originalThesis": "Approved (gap-aware size: $123, worst-case gap: 7.8%, costs: 1565.8bps, edge gate not calibrated)",
+      "postTradeReview": "Outcome was positive but decision quality was low; do not reinforce this pattern.",
+      "whatWorked": "Positive outcome despite Weak decision quality",
+      "whatCouldImprove": "Outcome was positive but decision quality was low; do not reinforce this pattern.",
+      "learningPoint": "Profit does not validate a weak decision.",
+      "lossClassification": null,
+      "analysisVersion": "1.0.0",
+      "analysisTimestamp": "2026-09-20T05:01:41.757Z",
+      "dataGaps": [
+        "trade_management_insufficient_data"
+      ],
+      "avgRRHint": null
+    },
+    {
+      "position_id": 240,
+      "ticker": "SEDG",
+      "strategy": "swing",
+      "side": "long",
+      "opened_at": "2026-08-06 17:26:10",
+      "closed_at": "2026-08-23 22:00:55",
+      "close_reason": "broker_authoritative_sync_absent",
+      "pl": 0,
+      "plPct": 0,
+      "realizedR": null,
+      "initialRisk": null,
+      "durationMinutes": 24755,
+      "fees": null,
+      "mfe": null,
+      "mae": null,
+      "marketRegime": "unknown",
+      "volatilityBucket": null,
+      "volumeRegime": null,
+      "confidence": null,
+      "decisionQualityScore": null,
+      "decisionQualityLabel": null,
+      "executionQualityScore": null,
+      "tradeManagementScore": null,
+      "exitQualityScore": 60,
+      "slippagePct": null,
+      "strategyCompliant": null,
+      "originalThesis": null,
+      "postTradeReview": "Consider letting planned targets work instead of early exits.",
+      "whatWorked": "Positive outcome despite unscored decision quality",
+      "whatCouldImprove": "Consider letting planned targets work instead of early exits.",
+      "learningPoint": "Positive outcome despite unscored decision quality",
+      "lossClassification": null,
+      "analysisVersion": "1.0.0",
+      "analysisTimestamp": "2026-09-20T05:01:41.757Z",
+      "dataGaps": [
+        "entry_decision_unlinked",
+        "slippage_unavailable",
+        "execution_quality_unscored",
+        "trade_management_insufficient_data"
+      ],
+      "avgRRHint": null
+    }
+  ],
+  "calibration": [
+    {
+      "band": "<60%",
+      "trades": 2,
+      "winRate": 0,
+      "expectancy": 0,
+      "profitFactor": null,
+      "netPL": 0,
+      "avgDecisionQuality": 24
+    },
+    {
+      "band": "60-69%",
+      "trades": 0,
+      "winRate": null,
+      "expectancy": null,
+      "profitFactor": null,
+      "netPL": 0,
+      "avgDecisionQuality": null
+    },
+    {
+      "band": "70-79%",
+      "trades": 0,
+      "winRate": null,
+      "expectancy": null,
+      "profitFactor": null,
+      "netPL": 0,
+      "avgDecisionQuality": null
+    },
+    {
+      "band": "80-89%",
+      "trades": 0,
+      "winRate": null,
+      "expectancy": null,
+      "profitFactor": null,
+      "netPL": 0,
+      "avgDecisionQuality": null
+    },
+    {
+      "band": "90%+",
+      "trades": 0,
+      "winRate": null,
+      "expectancy": null,
+      "profitFactor": null,
+      "netPL": 0,
+      "avgDecisionQuality": null
+    }
+  ],
+  "calibrationVerdict": "Insufficient data: fewer than 3 bands have at least 5 trades.",
+  "patterns": {
+    "works": [],
+    "needsAttention": []
+  },
+  "winners": [
+    {
+      "position_id": 240,
+      "ticker": "SEDG",
+      "strategy": "swing",
+      "side": "long",
+      "opened_at": "2026-08-06 17:26:10",
+      "closed_at": "2026-08-23 22:00:55",
+      "close_reason": "broker_authoritative_sync_absent",
+      "pl": 0,
+      "plPct": 0,
+      "realizedR": null,
+      "initialRisk": null,
+      "durationMinutes": 24755,
+      "fees": null,
+      "mfe": null,
+      "mae": null,
+      "marketRegime": "unknown",
+      "volatilityBucket": null,
+      "volumeRegime": null,
+      "confidence": null,
+      "decisionQualityScore": null,
+      "decisionQualityLabel": null,
+      "executionQualityScore": null,
+      "tradeManagementScore": null,
+      "exitQualityScore": 60,
+      "slippagePct": null,
+      "strategyCompliant": null,
+      "originalThesis": null,
+      "postTradeReview": "Consider letting planned targets work instead of early exits.",
+      "whatWorked": "Positive outcome despite unscored decision quality",
+      "whatCouldImprove": "Consider letting planned targets work instead of early exits.",
+      "learningPoint": "Positive outcome despite unscored decision quality",
+      "lossClassification": null,
+      "analysisVersion": "1.0.0",
+      "analysisTimestamp": "2026-09-20T05:01:41.757Z",
+      "dataGaps": [
+        "entry_decision_unlinked",
+        "slippage_unavailable",
+        "execution_quality_unscored",
+        "trade_management_insufficient_data"
+      ],
+      "avgRRHint": null
+    }
+  ],
+  "losers": [
+    {
+      "position_id": 1883,
+      "ticker": "DUK",
+      "strategy": "swing",
+      "side": "long",
+      "opened_at": "2026-08-11 13:36:03",
+      "closed_at": "2026-08-24 22:01:18",
+      "close_reason": "broker_authoritative_sync_absent",
+      "pl": 0,
+      "plPct": 0,
+      "realizedR": null,
+      "initialRisk": null,
+      "durationMinutes": 19225,
+      "fees": null,
+      "mfe": null,
+      "mae": null,
+      "marketRegime": "unknown",
+      "volatilityBucket": null,
+      "volumeRegime": null,
+      "confidence": 0.12359550561797752,
+      "decisionQualityScore": 23,
+      "decisionQualityLabel": "Weak",
+      "executionQualityScore": 40,
+      "tradeManagementScore": null,
+      "exitQualityScore": 60,
+      "slippagePct": 0.602,
+      "strategyCompliant": true,
+      "originalThesis": "Approved (gap-aware size: $123, worst-case gap: 3.5%, costs: 708.1bps, edge gate not calibrated)",
+      "postTradeReview": "Outcome was positive but decision quality was low; do not reinforce this pattern.",
+      "whatWorked": "Positive outcome despite Weak decision quality",
+      "whatCouldImprove": "Outcome was positive but decision quality was low; do not reinforce this pattern.",
+      "learningPoint": "Profit does not validate a weak decision.",
+      "lossClassification": null,
+      "analysisVersion": "1.0.0",
+      "analysisTimestamp": "2026-09-20T05:01:41.757Z",
+      "dataGaps": [
+        "trade_management_insufficient_data"
+      ],
+      "avgRRHint": null
+    }
+  ],
+  "acceptableLosses": 0,
+  "avoidableLosses": 0,
+  "comparison": {
+    "dayTrading": {
+      "strategy": "daytrading",
+      "kpis": {
+        "trades": 10,
+        "netPL": -9.32,
+        "winRate": 30,
+        "profitFactor": 0.68,
+        "expectancy": -0.93,
+        "expectancyR": -1.065,
+        "avgWin": 6.6,
+        "avgLoss": -4.16,
+        "avgRR": null,
+        "maxDrawdown": 23.28,
+        "avgDurationMinutes": 751,
+        "fees": null,
+        "longPL": -9.32,
+        "shortPL": 0,
+        "longTrades": 10,
+        "shortTrades": 0,
+        "avgDecisionQuality": null,
+        "avgRealizedR": -1.065
+      },
+      "bestSetups": [],
+      "weakestSetups": []
+    },
+    "swingTrading": {
+      "strategy": "swing",
+      "kpis": {
+        "trades": 5,
+        "netPL": 0,
+        "winRate": 0,
+        "profitFactor": 0,
+        "expectancy": 0,
+        "expectancyR": null,
+        "avgWin": null,
+        "avgLoss": 0,
+        "avgRR": null,
+        "maxDrawdown": 0,
+        "avgDurationMinutes": 22500,
+        "fees": null,
+        "longPL": 0,
+        "shortPL": 0,
+        "longTrades": 5,
+        "shortTrades": 0,
+        "avgDecisionQuality": 24,
+        "avgRealizedR": null
+      },
+      "bestSetups": [],
+      "weakestSetups": []
+    },
+    "cryptoTrading": {
+      "strategy": "crypto",
+      "kpis": {
+        "trades": 9,
+        "netPL": -56.63,
+        "winRate": 11.1,
+        "profitFactor": 0.06,
+        "expectancy": -6.29,
+        "expectancyR": null,
+        "avgWin": 3.3,
+        "avgLoss": -7.49,
+        "avgRR": null,
+        "maxDrawdown": 56.63,
+        "avgDurationMinutes": 1510,
+        "fees": null,
+        "longPL": -56.63,
+        "shortPL": 0,
+        "longTrades": 9,
+        "shortTrades": 0,
+        "avgDecisionQuality": null,
+        "avgRealizedR": null
+      },
+      "bestSetups": [],
+      "weakestSetups": []
+    },
+    "differences": [
+      {
+        "dimension": "Risk per trade",
+        "daytrading": "Intraday stops, EOD-flatten",
+        "swing": "Multi-day stops (15% / 8% trailing)",
+        "crypto": "Intraday-style stops, 24/7 market",
+        "note": "Different loss magnitude per trade by design"
+      },
+      {
+        "dimension": "Consistency (win rate)",
+        "daytrading": "30",
+        "swing": "0",
+        "crypto": "11.1",
+        "note": "Compare with sample size, not in isolation"
+      },
+      {
+        "dimension": "Expectancy (USD)",
+        "daytrading": "-0.93",
+        "swing": "0",
+        "crypto": "-6.29",
+        "note": "Absolute per-trade edge"
+      },
+      {
+        "dimension": "Expectancy (R)",
+        "daytrading": "-1.065",
+        "swing": "Insufficient data",
+        "crypto": "Insufficient data",
+        "note": "Risk-normalized edge"
+      },
+      {
+        "dimension": "Max drawdown (USD)",
+        "daytrading": "23.28",
+        "swing": "0",
+        "crypto": "56.63",
+        "note": "Larger accounts for larger swing stops"
+      },
+      {
+        "dimension": "Trading costs",
+        "daytrading": "Insufficient data",
+        "swing": "Insufficient data",
+        "crypto": "Insufficient data",
+        "note": "Crypto fees are structurally higher per trade; turnover compounds this"
+      },
+      {
+        "dimension": "Avg duration",
+        "daytrading": "751 min",
+        "swing": "22500 min",
+        "crypto": "1510 min",
+        "note": "Different capital velocity"
+      },
+      {
+        "dimension": "Result volatility",
+        "daytrading": "7.41",
+        "swing": "0",
+        "crypto": "11.72",
+        "note": "Std dev of per-trade P/L"
+      }
+    ]
+  },
+  "researchBacklog": [],
+  "robustness": {
+    "sampleSize": 5,
+    "evidence": "Preliminary",
+    "inSampleNote": "All figures are in-sample observations. Hypotheses must be validated out-of-sample before any strategy change.",
+    "chronologicalSplit": null
+  },
+  "dataGaps": [
+    "mfe_mae_not_recorded",
+    "per_trade_fees_partially_attributable"
+  ]
+}
