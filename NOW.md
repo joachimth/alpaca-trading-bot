@@ -1,5 +1,5 @@
-- Alpaca C-764 (Sun 17:01z) HEALTHY 2.8.1: 300/300 id-contiguous 0 err/0 lease, crypto :07/:37 EXACT 30/30, reconcile 90 ok, daytrading 180 no gaps (closed market), 0 swing (Sun), equity $97,135.81 positive, trend-bend 235, caps/min_conf 0.8 unchanged, 263 tests/969 PASS, docs identify 2ea5e9d. Push-blocker (fork divergence C-750) carried.
-- Alpaca gates Mon Sep 21: 13:30z min_conf 0.8 rejection verify (C-726) + 22:00z swing fire (6th cadence test). Any suppression = escalate.
-- Speaker mk3 ROUND-3 audit-fix CLOSED Sep 20 (commit 7ecc6d1, 712 tests, deployed). iOS re-test pending Joachim.
-- Pending Joachim: D1 paid-tier, cap fill-drift re-check, alpaca fork reconciliation (C-750), FIFO item-5.
-- Øvrige tråde → threads.md.
+- Alpaca C-779 (Mon 08:00z) WEEKLY REVIEW HEALTHY 2.8.1, docs+evidence only, NO deploy/mutation: 300-run 14819->15118 id-contiguous 0 err/0 lease/0 gap>15m; crypto :07/:37 30/30 CRYPTO_DISABLED; reconcile 90 ok; daytrading pre-open MARKET_CLOSED. Equity $97,162.35 POSITIVE, trend-bend 250, floor untouched ~$162.
+- 11 swing (MV 4794.40 cost 4992.42 legacy) 0 daytrading 0 crypto; caps 5000/3700/2000, min_conf 0.8, guards 150/100/100/97000 unchanged. Trades 300 ALL filled, 0 pending/rejected, lifecycle correlated, accounting conservative.
+- Next gates Mon Sep 21: ~13:30z min_conf 0.8 rejection verify (C-726) + 22:00z swing fire (6th cadence test); ANY suppression recurrence = escalate.
+- Docs push blocked by origin/main fork-divergence (C-750, Joachim decision); committed locally only (C-779).
+- SB Acoustics harvest done; speaker mk3 round-5 closed. Pending Joachim: D1 paid-tier, FIFO item-5, cap fill-drift re-check, iOS mk3 re-test, fork reconciliation.
