@@ -1,0 +1,1192 @@
+{
+  "runs": [
+    {
+      "id": 14957,
+      "timestamp": "2026-09-20 23:56:16",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 225,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:56:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14956,
+      "timestamp": "2026-09-20 23:51:16",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 172,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:51:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14955,
+      "timestamp": "2026-09-20 23:50:19",
+      "trigger": "reconcile_cron",
+      "market_open": 0,
+      "duration_ms": 1157,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"MAINTENANCE_ONLY\",\"scope\":\"maintenance\",\"message\":\"Scheduled maintenance reconciled broker state without running a trading strategy\",\"context\":{\"brokerOrders\":0,\"imported\":0,\"pendingLookups\":0,\"lookupFailures\":0,\"ledgerActivities\":0,\"ledgerPages\":1,\"ledgerPageBudget\":5,\"ledgerTruncated\":false,\"ledgerDegraded\":false},\"count\":1}]",
+      "status": "ok",
+      "created_at": "2026-09-20 23:50:19",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "MAINTENANCE_ONLY",
+          "scope": "maintenance",
+          "message": "Scheduled maintenance reconciled broker state without running a trading strategy",
+          "context": {
+            "brokerOrders": 0,
+            "imported": 0,
+            "pendingLookups": 0,
+            "lookupFailures": 0,
+            "ledgerActivities": 0,
+            "ledgerPages": 1,
+            "ledgerPageBudget": 5,
+            "ledgerTruncated": false,
+            "ledgerDegraded": false
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14954,
+      "timestamp": "2026-09-20 23:46:17",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 247,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:46:17",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14953,
+      "timestamp": "2026-09-20 23:41:16",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 200,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:41:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14952,
+      "timestamp": "2026-09-20 23:40:16",
+      "trigger": "reconcile_cron",
+      "market_open": 0,
+      "duration_ms": 1107,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"MAINTENANCE_ONLY\",\"scope\":\"maintenance\",\"message\":\"Scheduled maintenance reconciled broker state without running a trading strategy\",\"context\":{\"brokerOrders\":0,\"imported\":0,\"pendingLookups\":0,\"lookupFailures\":0,\"ledgerActivities\":0,\"ledgerPages\":1,\"ledgerPageBudget\":5,\"ledgerTruncated\":false,\"ledgerDegraded\":false},\"count\":1}]",
+      "status": "ok",
+      "created_at": "2026-09-20 23:40:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "MAINTENANCE_ONLY",
+          "scope": "maintenance",
+          "message": "Scheduled maintenance reconciled broker state without running a trading strategy",
+          "context": {
+            "brokerOrders": 0,
+            "imported": 0,
+            "pendingLookups": 0,
+            "lookupFailures": 0,
+            "ledgerActivities": 0,
+            "ledgerPages": 1,
+            "ledgerPageBudget": 5,
+            "ledgerTruncated": false,
+            "ledgerDegraded": false
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14951,
+      "timestamp": "2026-09-20 23:37:11",
+      "trigger": "crypto_cron",
+      "market_open": 1,
+      "duration_ms": 890,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Crypto skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"crypto\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"crypto\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97135.81,\"last_equity\":97135.8064,\"fallback_change_today_pct\":0.000003706151346027063,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"CRYPTO_DISABLED_BY_CONFIG\",\"scope\":\"cycle\",\"message\":\"Crypto trading is disabled by configuration pending fee-telemetry freshness and a backtested edge (Joachim decision Sep 8, 2026); exits for held positions remain eligible\",\"context\":{\"strategy\":\"crypto\",\"openCryptoPositions\":0},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:37:11",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Crypto skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "crypto",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "crypto",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97135.81,
+            "last_equity": 97135.8064,
+            "fallback_change_today_pct": 0.000003706151346027063,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CRYPTO_DISABLED_BY_CONFIG",
+          "scope": "cycle",
+          "message": "Crypto trading is disabled by configuration pending fee-telemetry freshness and a backtested edge (Joachim decision Sep 8, 2026); exits for held positions remain eligible",
+          "context": {
+            "strategy": "crypto",
+            "openCryptoPositions": 0
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14950,
+      "timestamp": "2026-09-20 23:36:17",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 244,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:36:17",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14949,
+      "timestamp": "2026-09-20 23:31:16",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 168,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:31:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14948,
+      "timestamp": "2026-09-20 23:30:26",
+      "trigger": "reconcile_cron",
+      "market_open": 0,
+      "duration_ms": 1147,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"MAINTENANCE_ONLY\",\"scope\":\"maintenance\",\"message\":\"Scheduled maintenance reconciled broker state without running a trading strategy\",\"context\":{\"brokerOrders\":0,\"imported\":0,\"pendingLookups\":0,\"lookupFailures\":0,\"ledgerActivities\":0,\"ledgerPages\":1,\"ledgerPageBudget\":5,\"ledgerTruncated\":false,\"ledgerDegraded\":false},\"count\":1}]",
+      "status": "ok",
+      "created_at": "2026-09-20 23:30:26",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "MAINTENANCE_ONLY",
+          "scope": "maintenance",
+          "message": "Scheduled maintenance reconciled broker state without running a trading strategy",
+          "context": {
+            "brokerOrders": 0,
+            "imported": 0,
+            "pendingLookups": 0,
+            "lookupFailures": 0,
+            "ledgerActivities": 0,
+            "ledgerPages": 1,
+            "ledgerPageBudget": 5,
+            "ledgerTruncated": false,
+            "ledgerDegraded": false
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14947,
+      "timestamp": "2026-09-20 23:26:17",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 253,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:26:17",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14946,
+      "timestamp": "2026-09-20 23:21:16",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 181,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:21:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14945,
+      "timestamp": "2026-09-20 23:20:22",
+      "trigger": "reconcile_cron",
+      "market_open": 0,
+      "duration_ms": 1188,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"MAINTENANCE_ONLY\",\"scope\":\"maintenance\",\"message\":\"Scheduled maintenance reconciled broker state without running a trading strategy\",\"context\":{\"brokerOrders\":0,\"imported\":0,\"pendingLookups\":0,\"lookupFailures\":0,\"ledgerActivities\":0,\"ledgerPages\":1,\"ledgerPageBudget\":5,\"ledgerTruncated\":false,\"ledgerDegraded\":false},\"count\":1}]",
+      "status": "ok",
+      "created_at": "2026-09-20 23:20:22",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "MAINTENANCE_ONLY",
+          "scope": "maintenance",
+          "message": "Scheduled maintenance reconciled broker state without running a trading strategy",
+          "context": {
+            "brokerOrders": 0,
+            "imported": 0,
+            "pendingLookups": 0,
+            "lookupFailures": 0,
+            "ledgerActivities": 0,
+            "ledgerPages": 1,
+            "ledgerPageBudget": 5,
+            "ledgerTruncated": false,
+            "ledgerDegraded": false
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14944,
+      "timestamp": "2026-09-20 23:16:16",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 234,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:16:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14943,
+      "timestamp": "2026-09-20 23:11:16",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 187,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:11:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14942,
+      "timestamp": "2026-09-20 23:10:17",
+      "trigger": "reconcile_cron",
+      "market_open": 0,
+      "duration_ms": 1256,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"MAINTENANCE_ONLY\",\"scope\":\"maintenance\",\"message\":\"Scheduled maintenance reconciled broker state without running a trading strategy\",\"context\":{\"brokerOrders\":0,\"imported\":0,\"pendingLookups\":0,\"lookupFailures\":0,\"ledgerActivities\":0,\"ledgerPages\":1,\"ledgerPageBudget\":5,\"ledgerTruncated\":false,\"ledgerDegraded\":false},\"count\":1}]",
+      "status": "ok",
+      "created_at": "2026-09-20 23:10:17",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "MAINTENANCE_ONLY",
+          "scope": "maintenance",
+          "message": "Scheduled maintenance reconciled broker state without running a trading strategy",
+          "context": {
+            "brokerOrders": 0,
+            "imported": 0,
+            "pendingLookups": 0,
+            "lookupFailures": 0,
+            "ledgerActivities": 0,
+            "ledgerPages": 1,
+            "ledgerPageBudget": 5,
+            "ledgerTruncated": false,
+            "ledgerDegraded": false
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14941,
+      "timestamp": "2026-09-20 23:07:11",
+      "trigger": "crypto_cron",
+      "market_open": 1,
+      "duration_ms": 935,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Crypto skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"crypto\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"crypto\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97135.81,\"last_equity\":97135.8064,\"fallback_change_today_pct\":0.000003706151346027063,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"CRYPTO_DISABLED_BY_CONFIG\",\"scope\":\"cycle\",\"message\":\"Crypto trading is disabled by configuration pending fee-telemetry freshness and a backtested edge (Joachim decision Sep 8, 2026); exits for held positions remain eligible\",\"context\":{\"strategy\":\"crypto\",\"openCryptoPositions\":0},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:07:11",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Crypto skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "crypto",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "crypto",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97135.81,
+            "last_equity": 97135.8064,
+            "fallback_change_today_pct": 0.000003706151346027063,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CRYPTO_DISABLED_BY_CONFIG",
+          "scope": "cycle",
+          "message": "Crypto trading is disabled by configuration pending fee-telemetry freshness and a backtested edge (Joachim decision Sep 8, 2026); exits for held positions remain eligible",
+          "context": {
+            "strategy": "crypto",
+            "openCryptoPositions": 0
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14940,
+      "timestamp": "2026-09-20 23:06:17",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 247,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:06:17",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14939,
+      "timestamp": "2026-09-20 23:01:16",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 163,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 23:01:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14938,
+      "timestamp": "2026-09-20 23:00:37",
+      "trigger": "reconcile_cron",
+      "market_open": 0,
+      "duration_ms": 900,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"MAINTENANCE_ONLY\",\"scope\":\"maintenance\",\"message\":\"Scheduled maintenance reconciled broker state without running a trading strategy\",\"context\":{\"brokerOrders\":0,\"imported\":0,\"pendingLookups\":0,\"lookupFailures\":0,\"ledgerActivities\":0,\"ledgerPages\":1,\"ledgerPageBudget\":5,\"ledgerTruncated\":false,\"ledgerDegraded\":false},\"count\":1}]",
+      "status": "ok",
+      "created_at": "2026-09-20 23:00:37",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "MAINTENANCE_ONLY",
+          "scope": "maintenance",
+          "message": "Scheduled maintenance reconciled broker state without running a trading strategy",
+          "context": {
+            "brokerOrders": 0,
+            "imported": 0,
+            "pendingLookups": 0,
+            "lookupFailures": 0,
+            "ledgerActivities": 0,
+            "ledgerPages": 1,
+            "ledgerPageBudget": 5,
+            "ledgerTruncated": false,
+            "ledgerDegraded": false
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14937,
+      "timestamp": "2026-09-20 22:56:17",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 269,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 22:56:17",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14936,
+      "timestamp": "2026-09-20 22:51:16",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 176,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 22:51:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14935,
+      "timestamp": "2026-09-20 22:50:22",
+      "trigger": "reconcile_cron",
+      "market_open": 0,
+      "duration_ms": 1272,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"MAINTENANCE_ONLY\",\"scope\":\"maintenance\",\"message\":\"Scheduled maintenance reconciled broker state without running a trading strategy\",\"context\":{\"brokerOrders\":0,\"imported\":0,\"pendingLookups\":0,\"lookupFailures\":0,\"ledgerActivities\":0,\"ledgerPages\":1,\"ledgerPageBudget\":5,\"ledgerTruncated\":false,\"ledgerDegraded\":false},\"count\":1}]",
+      "status": "ok",
+      "created_at": "2026-09-20 22:50:22",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "MAINTENANCE_ONLY",
+          "scope": "maintenance",
+          "message": "Scheduled maintenance reconciled broker state without running a trading strategy",
+          "context": {
+            "brokerOrders": 0,
+            "imported": 0,
+            "pendingLookups": 0,
+            "lookupFailures": 0,
+            "ledgerActivities": 0,
+            "ledgerPages": 1,
+            "ledgerPageBudget": 5,
+            "ledgerTruncated": false,
+            "ledgerDegraded": false
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14934,
+      "timestamp": "2026-09-20 22:46:17",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 269,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 22:46:17",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14933,
+      "timestamp": "2026-09-20 22:41:16",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 194,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 22:41:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14932,
+      "timestamp": "2026-09-20 22:40:17",
+      "trigger": "reconcile_cron",
+      "market_open": 0,
+      "duration_ms": 1083,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"MAINTENANCE_ONLY\",\"scope\":\"maintenance\",\"message\":\"Scheduled maintenance reconciled broker state without running a trading strategy\",\"context\":{\"brokerOrders\":0,\"imported\":0,\"pendingLookups\":0,\"lookupFailures\":0,\"ledgerActivities\":0,\"ledgerPages\":1,\"ledgerPageBudget\":5,\"ledgerTruncated\":false,\"ledgerDegraded\":false},\"count\":1}]",
+      "status": "ok",
+      "created_at": "2026-09-20 22:40:17",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "MAINTENANCE_ONLY",
+          "scope": "maintenance",
+          "message": "Scheduled maintenance reconciled broker state without running a trading strategy",
+          "context": {
+            "brokerOrders": 0,
+            "imported": 0,
+            "pendingLookups": 0,
+            "lookupFailures": 0,
+            "ledgerActivities": 0,
+            "ledgerPages": 1,
+            "ledgerPageBudget": 5,
+            "ledgerTruncated": false,
+            "ledgerDegraded": false
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14931,
+      "timestamp": "2026-09-20 22:37:11",
+      "trigger": "crypto_cron",
+      "market_open": 1,
+      "duration_ms": 852,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Crypto skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"crypto\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"EQUITY_DIRECTION_FALLBACK\",\"scope\":\"account\",\"message\":\"Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls\",\"context\":{\"strategy\":\"crypto\",\"source\":\"equity_delta_fallback\",\"change_today_pct\":0,\"equity\":97135.81,\"last_equity\":97135.8064,\"fallback_change_today_pct\":0.000003706151346027063,\"reason\":\"broker change_today_pct was zero or unavailable\"},\"count\":1},{\"type\":\"skip\",\"code\":\"CRYPTO_DISABLED_BY_CONFIG\",\"scope\":\"cycle\",\"message\":\"Crypto trading is disabled by configuration pending fee-telemetry freshness and a backtested edge (Joachim decision Sep 8, 2026); exits for held positions remain eligible\",\"context\":{\"strategy\":\"crypto\",\"openCryptoPositions\":0},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 22:37:11",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Crypto skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "crypto",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "EQUITY_DIRECTION_FALLBACK",
+          "scope": "account",
+          "message": "Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls",
+          "context": {
+            "strategy": "crypto",
+            "source": "equity_delta_fallback",
+            "change_today_pct": 0,
+            "equity": 97135.81,
+            "last_equity": 97135.8064,
+            "fallback_change_today_pct": 0.000003706151346027063,
+            "reason": "broker change_today_pct was zero or unavailable"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "CRYPTO_DISABLED_BY_CONFIG",
+          "scope": "cycle",
+          "message": "Crypto trading is disabled by configuration pending fee-telemetry freshness and a backtested edge (Joachim decision Sep 8, 2026); exits for held positions remain eligible",
+          "context": {
+            "strategy": "crypto",
+            "openCryptoPositions": 0
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14930,
+      "timestamp": "2026-09-20 22:36:16",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 270,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 22:36:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14929,
+      "timestamp": "2026-09-20 22:31:16",
+      "trigger": "cron",
+      "market_open": 0,
+      "duration_ms": 165,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"RECONCILIATION_DEFERRED_TO_MAINTENANCE\",\"scope\":\"reconciliation\",\"message\":\"Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path\",\"context\":{\"strategy\":\"daytrading\",\"maintenanceTrigger\":\"reconcile_cron\",\"maintenanceSchedule\":\"*/10 * * * *\"},\"count\":1},{\"type\":\"skip\",\"code\":\"MARKET_CLOSED\",\"scope\":\"cycle\",\"message\":\"Market is closed; no daytrading actions were evaluated\",\"context\":{\"nextOpen\":\"2026-09-21T09:30:00-04:00\"},\"count\":1}]",
+      "status": "skipped",
+      "created_at": "2026-09-20 22:31:16",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "RECONCILIATION_DEFERRED_TO_MAINTENANCE",
+          "scope": "reconciliation",
+          "message": "Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path",
+          "context": {
+            "strategy": "daytrading",
+            "maintenanceTrigger": "reconcile_cron",
+            "maintenanceSchedule": "*/10 * * * *"
+          },
+          "count": 1
+        },
+        {
+          "type": "skip",
+          "code": "MARKET_CLOSED",
+          "scope": "cycle",
+          "message": "Market is closed; no daytrading actions were evaluated",
+          "context": {
+            "nextOpen": "2026-09-21T09:30:00-04:00"
+          },
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 14928,
+      "timestamp": "2026-09-20 22:30:29",
+      "trigger": "reconcile_cron",
+      "market_open": 0,
+      "duration_ms": 1073,
+      "decisions_made": 0,
+      "trades_executed": 0,
+      "errors": 0,
+      "error_details": "[{\"type\":\"skip\",\"code\":\"MAINTENANCE_ONLY\",\"scope\":\"maintenance\",\"message\":\"Scheduled maintenance reconciled broker state without running a trading strategy\",\"context\":{\"brokerOrders\":0,\"imported\":0,\"pendingLookups\":0,\"lookupFailures\":0,\"ledgerActivities\":0,\"ledgerPages\":1,\"ledgerPageBudget\":5,\"ledgerTruncated\":false,\"ledgerDegraded\":false},\"count\":1}]",
+      "status": "ok",
+      "created_at": "2026-09-20 22:30:29",
+      "analyzed_candidates": 0,
+      "filtered_candidates": 0,
+      "run_details": [
+        {
+          "type": "skip",
+          "code": "MAINTENANCE_ONLY",
+          "scope": "maintenance",
+          "message": "Scheduled maintenance reconciled broker state without running a trading strategy",
+          "context": {
+            "brokerOrders": 0,
+            "imported": 0,
+            "pendingLookups": 0,
+            "lookupFailures": 0,
+            "ledgerActivities": 0,
+            "ledgerPages": 1,
+            "ledgerPageBudget": 5,
+            "ledgerTruncated": false,
+            "ledgerDegraded": false
+          },
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "limit": 30,
+  "offset": 0,
+  "page": 1
+}
