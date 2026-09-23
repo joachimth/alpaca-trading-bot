@@ -59,6 +59,12 @@ CREATE TABLE IF NOT EXISTS trades (
   failed_at TEXT,
   replaced_at TEXT,
   last_reconciled_at TEXT,
+  -- FIFO item-5: durable per-sell gross P&L from FIFO lot-matching over the
+  -- recorded ledger. gross_basis: fifo-lot-matched | fifo-no-recorded-lots |
+  -- fifo-lot-incomplete (NULL = not yet processed). Fees stay unattributed.
+  fifo_gross REAL,
+  fifo_lots TEXT,
+  gross_basis TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -332,7 +338,7 @@ INSERT OR IGNORE INTO bot_config (key, value) VALUES
 
 -- Authoritative schema/config version. This update is idempotent for existing DBs.
 INSERT INTO bot_config (key, value, updated_at)
-VALUES ('version', '2.8.1', datetime('now'))
+VALUES ('version', '2.8.2', datetime('now'))
 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at;
 
 -- ============================================================

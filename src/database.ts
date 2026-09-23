@@ -11,6 +11,7 @@ import {
 } from './crypto-attribution';
 import type { CategoryPositionSummary, CategoryStrategy } from './position-projection';
 import { parseDecisionSkip, parseRunDetails } from './skip-reasons';
+import { matchSellFifo, type FifoTradeLike } from './fifo-lots';
 
 export interface DecisionRecord {
   ticker: string;
@@ -145,6 +146,9 @@ export class Database {
       ['last_reconciled_at', 'TEXT'],
       ['intent_stop_loss_price', 'REAL'],
       ['intent_take_profit_price', 'REAL'],
+      ['fifo_gross', 'REAL'],
+      ['fifo_lots', 'TEXT'],
+      ['gross_basis', 'TEXT'],
     ] as const;
     // Single query to fetch all existing column names, then check in JS.
     // This replaces 14 individual pragma_table_info round-trips with 1.
@@ -1248,6 +1252,8 @@ export class Database {
     }
     await this.backfillCryptoSellAttribution();
     await this.backfillStockSellAttribution();
+    // FIFO item-5: make per-sell gross durable (bounded, idempotent).
+    await this.backfillFifoSellGross();
     return imported;
   }
 
@@ -1304,6 +1310,76 @@ export class Database {
       if ((result.meta.changes ?? 0) > 0) updated++;
     }
     return updated;
+  }
+
+  /**
+   * FIFO item-5: make per-sell gross P&L durable by matching filled sells
+   * against the recorded filled buy lots for the same symbol in FIFO order
+   * (src/fifo-lots.ts).
+   *
+   * Conservative boundaries:
+   * - Only recorded-ledger trades participate; sells with no recorded prior
+   *   buys get gross_basis='fifo-no-recorded-lots' and NO gross (never
+   *   invented). Sells whose matched lots include an unknown fill price get
+   *   'fifo-lot-incomplete' and NO gross (never guessed).
+   * - Fees are NOT part of gross; they stay conservative/unattributed.
+   * - Bounded per invocation (LIMIT sells) to protect the D1 read/write
+   *   budget; idempotent via gross_basis IS NULL, so repeated runs converge
+   *   without reprocessing matched sells.
+   *
+   * Per-symbol replay loads the full filled-trade history for one symbol and
+   * consumes lots for ALL filled sells (including already-matched ones), so
+   * results are deterministic and independent of backfill batching order.
+   */
+  async backfillFifoSellGross(limit = 25): Promise<{ processed: number; matched: number }> {
+    await this.ensureTradeSchema();
+    const targets = await this.db.prepare(
+      `SELECT id, ticker FROM trades
+       WHERE side = 'sell' AND status = 'filled'
+         AND gross_basis IS NULL
+         AND COALESCE(filled_qty, 0) > 0
+       ORDER BY timestamp ASC, id ASC LIMIT ?`
+    ).bind(limit).all();
+    const targetRows = targets.results as Array<{ id: number; ticker: string }>;
+    if (targetRows.length === 0) return { processed: 0, matched: 0 };
+
+    const bySymbol = new Map<string, number[]>();
+    for (const row of targetRows) {
+      const list = bySymbol.get(row.ticker) ?? [];
+      list.push(row.id);
+      bySymbol.set(row.ticker, list);
+    }
+
+    let processed = 0;
+    let matched = 0;
+    for (const [ticker, sellIds] of bySymbol) {
+      const history = await this.db.prepare(
+        `SELECT id, side, status, filled_qty, avg_fill_price, filled_at, timestamp
+         FROM trades WHERE ticker = ? AND status = 'filled'
+         AND (side IN ('buy','sell')) AND COALESCE(filled_qty, 0) > 0`
+      ).bind(ticker).all();
+      const symbolTrades = history.results as unknown as FifoTradeLike[];
+      for (const sellId of sellIds) {
+        const result = matchSellFifo(sellId, symbolTrades);
+        const basis = result.outcome === 'matched' ? 'fifo-lot-matched'
+          : result.outcome === 'no-recorded-lots' ? 'fifo-no-recorded-lots'
+          : 'fifo-lot-incomplete';
+        const update = await this.db.prepare(
+          `UPDATE trades SET fifo_gross = ?, fifo_lots = ?, gross_basis = ?
+           WHERE id = ? AND side = 'sell' AND status = 'filled' AND gross_basis IS NULL`
+        ).bind(
+          result.gross,
+          result.lots.length > 0 ? JSON.stringify(result.lots) : null,
+          basis,
+          sellId,
+        ).run();
+        if ((update.meta.changes ?? 0) > 0) {
+          processed++;
+          if (result.outcome === 'matched') matched++;
+        }
+      }
+    }
+    return { processed, matched };
   }
 
   /**
@@ -1406,10 +1482,11 @@ export class Database {
   }
 
   /**
-   * Add conservative per-trade accounting metadata without inventing
-   * fill/lot-level P&L. Gross P&L cannot currently be linked to a single
-   * trade because positions.closed_pl has no order/lot key. Fees are exposed
-   * only when every broker_fees row linked by order_id has a known USD value;
+   * Add conservative per-trade accounting metadata. Since FIFO item-5, gross
+   * P&L is durable for sells processed by backfillFifoSellGross
+   * (gross_basis='fifo-lot-matched', accounting_status='fifo-lot-matched');
+   * unprocessed rows stay gross=null. Fees are exposed only when every
+   * broker_fees row linked by order_id has a known USD value;
    * orderless/account-level fees remain outside individual trades.
    */
   private async enrichTradeAccounting(trades: any[]): Promise<any[]> {
@@ -1456,7 +1533,11 @@ export class Database {
 
     return trades.map(trade => {
       const linkedFee = trade.alpaca_order_id ? feesByOrder.get(String(trade.alpaca_order_id)) : undefined;
-      const gross = null;
+      // FIFO item-5: per-sell gross is now durable when the FIFO lot-matching
+      // backfill has processed the row (gross_basis='fifo-lot-matched').
+      // Rows not yet processed stay gross=null — never invented.
+      const rawFifoGross = trade.fifo_gross == null ? null : Number(trade.fifo_gross);
+      const gross = rawFifoGross !== null && Number.isFinite(rawFifoGross) ? rawFifoGross : null;
       const fee = linkedFee?.fee ?? null;
       const net = gross !== null && fee !== null ? gross - fee : null;
       const filledQty = Number(trade.filled_qty);
@@ -1481,9 +1562,11 @@ export class Database {
         estimated_value_basis: 'order_time_estimate',
         filled_notional: filledNotional,
         estimated_vs_filled_delta: estimatedVsFilledDelta,
-        accounting_status: (filledNotional !== null || String(trade.status) === 'filled')
-          ? 'filled_lot_exact_unavailable'
-          : 'no_fill',
+        accounting_status: gross !== null
+          ? 'fifo-lot-matched'
+          : (filledNotional !== null || String(trade.status) === 'filled')
+            ? 'filled_lot_exact_unavailable'
+            : 'no_fill',
         fee_attribution: linkedFee?.attribution ?? 'none-recorded',
       };
     });
