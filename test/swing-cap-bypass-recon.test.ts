@@ -126,26 +126,82 @@ describe('swing cap bypass via auto-reconcile (Control-117)', () => {
     const decisions = [
       { action: 'BUY', symbol: 'RIVN' },   // swing-owned → skip
       { action: 'BUY', symbol: 'TSLA' },   // not swing-owned → proceed
-      { action: 'SELL', symbol: 'RIVN' },  // swing-owned but SELL → proceed (exits allowed)
+      { action: 'SELL', symbol: 'RIVN' },  // swing-owned → skip in exit path too (Control-854: daytrading cannot sell combined swing positions)
       { action: 'BUY', symbol: 'PLUG' },   // not swing-owned → proceed
     ];
 
     const skipped: string[] = [];
     const proceeded: string[] = [];
     for (const d of decisions) {
-      if (d.action === 'BUY' && swingOwnedSymbols.has(d.symbol)) {
-        skipped.push(d.symbol);
+      // Both BUY (Control-150) and CLOSE/SELL exit (Control-854) on a
+      // swing-owned symbol are skipped: the broker combines daytrading + swing
+      // shares into one position, so daytrading cannot own/sell its portion
+      // separately. Because daytrading EOD-flattens before the 22:00z
+      // swing_cron owns any symbol, a swing-owned symbol present at a
+      // daytrading cycle is never a genuine daytrading-held position, so
+      // blocking its exit cannot strand daytrading shares.
+      if (swingOwnedSymbols.has(d.symbol)) {
+        skipped.push(`${d.action}:${d.symbol}`);
         continue;
       }
       proceeded.push(`${d.action}:${d.symbol}`);
     }
 
-    // BUY on swing-owned is skipped
-    expect(skipped).toEqual(['RIVN']);
-    // SELL on swing-owned is NOT skipped (exits are always allowed)
-    expect(proceeded).toContain('SELL:RIVN');
+    // Both BUY and SELL/CLOSE on swing-owned symbols are skipped
+    expect(skipped).toEqual(['BUY:RIVN', 'SELL:RIVN']);
     // BUY on non-swing symbols proceeds
     expect(proceeded).toContain('BUY:TSLA');
     expect(proceeded).toContain('BUY:PLUG');
+  });
+
+  test('daytrading exit/EOD path never sells a freshly-filled swing buy (Control-854)', () => {
+    // Regression for Control-854 (Sep 24 13:30z): the swing_cron rebalance
+    // bought ENPH/VZ/AFRM/INTU at the open, but before D1 attributed swing
+    // ownership the daytrading held-position exit loop (index.ts ~837) and the
+    // discretionary CLOSE decision (~1010) scanned the broker book and sold all
+    // four within 16 minutes, FIFO-matching the sells to the swing buy lots.
+    // The fix guards the daytrading protective-exit, EOD-flatten, and CLOSE
+    // decision paths with the same swingOwnedSymbols set the BUY gate uses.
+    const swingOwnedSymbols = new Set(['SIRI', 'INTU', 'VZ', 'AFRM', 'ENPH', 'WFC', 'TMUS', 'BMY']);
+    const swingFill = { ticker: 'ENPH', qty: 3, strategy: 'swing' };
+
+    const sellDecision = { decision_id: 17004, symbol: 'ENPH', action: 'CLOSE' };
+    const protectiveAction = { symbol: 'ENPH', priority: 'high', reason: 'Protective data-integrity exit' };
+
+    // CLOSE decision path guard
+    let closeSubmitted = false;
+    if (sellDecision.action === 'CLOSE' && swingOwnedSymbols.has(sellDecision.symbol)) {
+      // guarded: skipped, do not closePosition
+    } else {
+      closeSubmitted = true;
+    }
+    expect(closeSubmitted).toBe(false);
+
+    // Protective-exit path guard
+    let protectiveSubmitted = false;
+    if (protectiveAction.priority === 'high' && swingOwnedSymbols.has(protectiveAction.symbol)) {
+      // guarded: skipped
+    } else {
+      protectiveSubmitted = true;
+    }
+    expect(protectiveSubmitted).toBe(false);
+
+    // EOD flatten guard
+    let eodSubmitted = false;
+    for (const pos of [swingFill]) {
+      if (swingOwnedSymbols.has(pos.ticker)) continue;
+      eodSubmitted = true;
+    }
+    expect(eodSubmitted).toBe(false);
+
+    // A genuine non-swing held position is still exitable
+    const held = { ticker: 'PLUG', qty: 5, strategy: 'daytrading' };
+    let realExit = false;
+    if (swingOwnedSymbols.has(held.ticker)) {
+      // guarded
+    } else {
+      realExit = true;
+    }
+    expect(realExit).toBe(true);
   });
 });

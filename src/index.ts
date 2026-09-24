@@ -535,13 +535,16 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       !CRYPTO_SYMBOLS.has(p.symbol) && (daySymbols.has(p.symbol) || !taggedSymbols.has(p.symbol))
     );
 
-    // Compute swing-owned symbols early: used both for the BUY exclusion gate
-    // below and the final position sync. Daytrading must not BUY swing-held
-    // symbols because the broker combines them into one position tagged 'swing'
-    // in D1, so the daytrading cap check (which filters by strategy='daytrading')
-    // cannot see the daytrading portion — a cap bypass. Excluding swing-owned
-    // symbols from daytrading BUYs is consistent with the existing design: the
-    // final sync already excludes them to prevent swing re-attribution.
+    // Compute swing-owned symbols early: used for the BUY exclusion gate, the
+    // daytrading protective-exit / EOD-flatten / CLOSE guards below, and the
+    // final position sync. Daytrading must not BUY swing-held symbols because
+    // the broker combines them into one position tagged 'swing' in D1, so the
+    // daytrading cap check (which filters by strategy='daytrading') cannot see
+    // the daytrading portion — a cap bypass. For the same combined-book reason
+    // daytrading must ALSO NOT SELL swing-held symbols: a swing buy that fills
+    // at market open can briefly appear 'untagged' in D1 (attribution lag) and,
+    // without the guards below, the daytrading exit/EOD paths would sell it
+    // straight back out, defeating the swing entry (Control-854).
     const swingOwnedSymbols = new Set([
       ...allDbPositions.filter(p => p.strategy === 'swing').map(p => p.ticker),
       ...(await db.getSwingTradeSymbols()),
@@ -724,6 +727,15 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     const positionActions = riskManager.checkPositions(positions, dbPositions);
     for (const action of positionActions) {
       if (action.priority === 'critical' || action.priority === 'high') {
+        // Never sell a swing-owned symbol from the daytrading lane: the broker
+        // combines daytrading + swing shares of one symbol into a single
+        // position, so daytrading cannot own/sell its portion separately and a
+        // swing-bought position could otherwise be flattened by the daytrading
+        // exit path the same cycle it fills (Control-854).
+        if (swingOwnedSymbols.has(action.symbol)) {
+          skips.add('SWING_OWNED_EXCLUDE', 'position', 'Daytrading protective exit skipped because the symbol is swing-owned and daytrading cannot sell combined swing positions', { strategy: 'daytrading', symbol: action.symbol, reason: action.reason });
+          continue;
+        }
         try {
           const pendingExit = await findPendingDayExit(action.symbol, 'position', { exitType: 'protective' });
           if (pendingExit) continue;
@@ -759,6 +771,10 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         const closeOrders = [];
         for (const pos of positions) {
           if (closedSymbols.has(pos.symbol)) continue;
+          // EOD flatten must not liquidate swing-owned symbols: daytrading does
+          // not own their shares (combined broker book) and must leave them to
+          // the swing strategy (Control-854).
+          if (swingOwnedSymbols.has(pos.symbol)) continue;
           const pendingExit = await findPendingDayExit(pos.symbol, 'cycle', { exitType: 'eod_flatten' });
           if (pendingExit) continue;
           const order = await alpaca.closePosition(pos.symbol);
@@ -1024,6 +1040,15 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
       // CLOSE: close existing position
       if (decision.action === 'CLOSE') {
+        // Never close a swing-owned symbol from the daytrading lane: the broker
+        // combines daytrading + swing shares into one position, so a freshly
+        // filled swing buy can appear untagged and be sold by this exit path
+        // the same cycle it fills, defeating the swing entry (Control-854).
+        if (swingOwnedSymbols.has(signal.indicators.symbol)) {
+          await db.updateDecisionStatus(decisionId, 2, 'Daytrading CLOSE skipped: symbol is swing-owned, daytrading must not sell swing-held positions');
+          skips.add('SWING_OWNED_EXCLUDE', 'decision', 'Daytrading CLOSE skipped because the symbol is swing-owned and daytrading cannot own/sell combined swing positions', { strategy: 'daytrading', symbol: signal.indicators.symbol, decision_id: decisionId, action: 'CLOSE' });
+          continue;
+        }
         const existingPos = closedSymbols.has(signal.indicators.symbol) ? undefined : positions.find(p => p.symbol === signal.indicators.symbol);
         if (existingPos) {
           const pendingExit = await findPendingDayExit(signal.indicators.symbol, 'decision', { exitType: 'close', decisionId });
