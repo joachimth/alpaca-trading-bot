@@ -1130,6 +1130,19 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
       // SELL: close existing long position
       if (decision.action === 'SELL') {
+        // Never sell a swing-owned symbol from the daytrading lane: the broker
+        // combines daytrading + swing shares into one position, so a freshly
+        // filled swing buy can appear untagged and be sold by this exit path
+        // the same cycle it fills, defeating the swing entry. This SELL path
+        // was missed by the Control-854 (e36b17f) exit-guard set — it guarded
+        // protective-exit/EOD-flatten/CLOSE but not the SELL decision action,
+        // and Control-879 exposed the gap when daytrading sold 5 of the 9 fresh
+        // swing buys (ORCL/UPS/FCEL/RUN/INTU) via SELL at the Fri 13:30z open.
+        if (swingOwnedSymbols.has(signal.indicators.symbol)) {
+          await db.updateDecisionStatus(decisionId, 2, 'Daytrading SELL skipped: symbol is swing-owned, daytrading must not sell swing-held positions');
+          skips.add('SWING_OWNED_EXCLUDE', 'decision', 'Daytrading SELL skipped because the symbol is swing-owned and daytrading cannot own/sell combined swing positions', { strategy: 'daytrading', symbol: signal.indicators.symbol, decision_id: decisionId, action: 'SELL' });
+          continue;
+        }
         const existingPos = closedSymbols.has(signal.indicators.symbol) ? undefined : positions.find(p => p.symbol === signal.indicators.symbol);
         if (existingPos) {
           const pendingExit = await findPendingDayExit(signal.indicators.symbol, 'decision', { exitType: 'sell', decisionId });

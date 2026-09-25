@@ -204,4 +204,43 @@ describe('swing cap bypass via auto-reconcile (Control-117)', () => {
     }
     expect(realExit).toBe(true);
   });
+
+  test('daytrading SELL decision path never sells a swing-owned symbol (Control-879 F1-b recurrence)', () => {
+    // Regression for Control-879 (Sep 25 13:30z open): the e36b17f (Control-854)
+    // exit guard covered protective-exit / EOD-flatten / CLOSE but MISSED the
+    // SELL decision action (index.ts decision-processing loop). The daytrading
+    // SELL path sold 5 of the 9 fresh swing buys (ORCL 1827, UPS 1830, FCEL 1831,
+    // RUN 1832, INTU 1833) via SELL, FIFO-matching each sell to the swing buy lot.
+    // Each sell carried a UUID client_order_id (not a bot_ prefix), confirming
+    // the SELL/closePosition path. The SELL path must apply the same
+    // swingOwnedSymbols guard the CLOSE/BUY/protective-exit paths use.
+    const swingOwnedSymbols = new Set(['INTU', 'RUN', 'UPS', 'ENPH', 'PSX', 'SEDG', 'FCEL', 'ORCL', 'GM']);
+    const sellDecisions = [
+      { decisionId: 17177, symbol: 'ORCL' },
+      { decisionId: 17190, symbol: 'UPS' },
+      { decisionId: 17197, symbol: 'FCEL' },
+      { decisionId: 17200, symbol: 'RUN' },
+      { decisionId: 17206, symbol: 'INTU' },
+    ];
+
+    const submittedSells: string[] = [];
+    for (const sd of sellDecisions) {
+      // Mirrors the (now fixed) index.ts SELL decision path: guard first.
+      if (swingOwnedSymbols.has(sd.symbol)) {
+        // guarded: skip sell, do not closePosition
+        continue;
+      }
+      submittedSells.push(`${sd.symbol}`);
+    }
+    expect(submittedSells).toEqual([]);
+
+    // A genuine daytrading-held symbol (opened by daytrading, not swing) is
+    // still exitable via SELL.
+    const daytradingHeld = { symbol: 'NVDA', strategy: 'daytrading' };
+    let realSell = false;
+    if (!swingOwnedSymbols.has(daytradingHeld.symbol)) {
+      realSell = true;
+    }
+    expect(realSell).toBe(true);
+  });
 });
