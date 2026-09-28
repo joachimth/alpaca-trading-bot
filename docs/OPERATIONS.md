@@ -1,3 +1,22 @@
+## Control-904 (Sep 28 21:00 UTC Mon) - STRICT READ-ONLY CONTROL: **HEALTHY**, NO code change, NO deploy (control scope).
+
+2.8.2 live; CF active version `4c96049f-08bb-4e63-be1a-ff8dbe16c21f` @100% (deployment created **2026-09-28T20:04:24Z**, from the parallel Control-901 reliability redeploy), previous `e0b2a2f6` (Sep 25 14:03:07Z). **Zero src diff vs deployed `092b84b`** -- the working-tree Control-901 edits remain uncommitted and undeployed, so live behavior is unchanged. All four schedules CF-verified, each `modified_on 2026-09-28T20:04:34.219701Z`: daytrading `1-59/5 * * * *`, swing `0 22 * * 2-6`, crypto `7-59/30 * * * *`, reconcile `*/10 * * * *`.
+
+**Live probes: 8/8 HTTP 200, zero D1_ERROR.** `/health` 2.8.2; `/api/account` broker-direct, equity **$97,111.36** POSITIVE (day -$99.05 vs C-902's $97,112.06), ~$111 above the $97,000 floor, floor never touched. Broker-authoritative projection confirmed: `freshness.current_state_source=alpaca`, `metadata_source=d1` (metadata `updated_at 2026-09-25 22:00:25` = trade run 1883's lifecycle timestamp, benign).
+
+**Delivery cadence, 400-run window (ids 18214-18613, zero id gaps = suppression proof):** daytrading 240 runs, exact 5-min cadence from the 13:30z open through 20:57z; reconcile 120 runs, newest 20:51:06z; crypto 40 runs, `:07/:37` cadence intact, all fail-closed `CRYPTO_DISABLED_BY_CONFIG`. Zero CYCLE_LEASE_HELD, zero suppression, zero D1 write loss.
+
+**Error-class runs (4, all benign, no write loss):** 18583/18589 `Fatal: Too many subrequests` raised while polling an already-accepted broker EXIT (18589 sell for T); 18576/18585 `POSITION_QTY_MISMATCH` (entries blocked one cycle, broker-authoritative quantity persisted). Two of these are the exact failure mode the uncommitted Control-901 fix targets. Zero swing-owned trades; the F1 guard held all session.
+
+**Caps/guards unchanged:** caps 5000/3700/2000 USD; guards 150/100/100/97000; `min_confidence` 0.8; crypto disabled by config.
+
+**C-864 unchanged and still decision-gated:** broker-authoritative swing cost basis **$3,744.99** ($3,138.25 swing-tagged incl. F + $606.74 the six unattributed) vs the $3,700 cap = **+$44.99 OVER**, while the code's MV basis reads $3,451.21 = $248.79 UNDER (defect at `src/risk-manager.ts:234/237`). F remains the selldown candidate. **C-896-A unchanged:** ADBE/FCEL/INTU/ORCL/SIRI/UPS still `strategy=unattributed`, F1 `SWING_OWNED_EXCLUDE` blind to them, but zero daytrading trades on those six today. NO auto-fix -- both require Joachim's decision.
+
+**Fee accounting conservative:** all 200 sampled trades `fee_attribution=none-recorded`; per-fill fee/gross/net remain unavailable in this surface, so fees stay unattributed rather than weakly matched. Sell-side `gross`/`fifo_gross` reported (TXN 7.6328, WMT 4.73, AAL -20.099952, DAL -6.71), `accounting_status` `fifo-lot-matched`; `filled_lot_exact_unavailable` on 127 older rows where no exact cost lot exists.
+
+**Local validation at HEAD `959d465`** (with the uncommitted Control-901 edits in the tree): `bun test` **279 pass / 0 fail / 1009 assertions**, `bun run typecheck` clean, `git diff --check` clean. Docs HEAD identity: README/OPERATIONS/RUNBOOK top entry is this Control-904 block after commit.
+
+Evidence: `/workspace/control904-evidence-20260928T210000Z/` (8 JSON payloads + SHA256SUMS).
 ## Control-902 (Sep 28 20:00 UTC Mon) - STRICT READ-ONLY CONTROL: **HEALTHY**, NO code change, NO deploy (control scope).
 
 2.8.2 live; CF active version `4c96049f-08bb-4e63-be1a-ff8dbe16c21f` @100% (deployment `62a32206-50b0-475b-8499-555408400a0f`, created **2026-09-28T20:04:24Z**), previous version `e0b2a2f6` (Sep 25 14:03:07Z). **Zero src diff vs deployed `092b84b`** (`git diff 092b84b..HEAD -- src workers` EMPTY at HEAD `1b61bc0`) -> the 20:04:24Z deployment re-uploaded the identical `092b84b` bundle (reliability redeploy by the parallel Control-901 work item, not a release); all four schedules `modified_on 2026-09-28T20:04:34.219701Z`, a 10s-later re-registration of the same four expressions.
