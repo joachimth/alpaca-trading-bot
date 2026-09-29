@@ -1,3 +1,31 @@
+## Control-920 (Sep 29 06:00 UTC Tue) - STRICT READ-ONLY CONTROL: **HEALTHY**, NO config change, NO code change, NO deploy. No defect found this cycle.
+
+**Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256 **`7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad`** (364154 bytes, `index.js` part of the multipart envelope from `.../workers/scripts/alpaca-trading-bot/content/v2`) == current source build `bun build src/index.ts` (364154 bytes) - **BYTE-IDENTICAL**. CF active version `4c96049f-08bb-4e63-be1a-ff8dbe16c21f` @100% (deployment `62a32206-50b0-475b-8499-555408400a0f`, `2026-09-28T20:04:24.862538Z`), previous `e0b2a2f6` (Sep 25 14:03:07Z). `/health` + `/` = 2.8.2 (config surface `version` 2.7.0 = known cosmetic D1-seed lag, NOT a defect). True clock `date -u` = `2026-09-29T06:00:09Z` (injected turn_context clock is not evidence). All four schedules CF-API-GET verified, each `modified_on 2026-09-28T20:04:34.219701Z`: daytrading `1-59/5 * * * *`, swing `0 22 * * * 2-6`, crypto `7-59/30 * * * *`, reconcile `*/10 * * * *`.
+
+**GATE TIMING RESOLVED:** the 06:00z routine control slot belongs to the standalone process; evidence dirs `control918-evidence-20260929T060009Z` (standalone, the authoritative C-918) and `...T060014Z` (this control) are the same slot, so this work item folds into C-918's result and writes **NO new Control-NNN block** into the repo docs. It records its session evidence in `/workspace/control918-evidence-20260929T060014Z/` and updates `NOW.md` only.
+
+**All 8 GETs HTTP 200** (`/`, `/health`, `/api/config`, `/api/dashboard`, `/api/positions`, `/api/runs`, `/api/trades`, `/api/account`), re-probed x3 for `/api/runs` + `/api/config` + `/api/dashboard` - **ZERO `D1_ERROR`, zero D1 read flap** (late-UTC 22:00-00:00z watch window already past, clean).
+
+**Run log: 400/400 IDs contiguous** `18395 -> 18794`, **ZERO id gaps**, ZERO `CYCLE_LEASE_HELD`, ZERO dispatch suppression. Trigger split 240 `cron` / 119 `reconcile_cron` / 40 `crypto_cron` / 1 `swing_cron`. Daytrading slot grid: every intended 5-min slot present (199/199 once the current in-flight 06:00z slot is excluded; dispatch lag of 117-134 s normalized, a naive `:01`-tag grid false-alarms). Reconcile 119 ex68 `*/10`, avg 4238 ms / max 13974 ms (no creep toward the ~20 s pre-gap threshold).
+
+**Crypto:** 40/40 runs at `:07`/`:37` UTC, ALL 40 `CRYPTO_DISABLED_BY_CONFIG` fail-closed (edge-gate wiring intact; `crypto_trading_enabled=false`).
+
+**Swing:** 1 fire, run `18635` Sep 28 22:01:25z, 0 errors - hold/exit-reconciliation cycle only (`EXIT_PENDING_RECONCILIATION`, `HELD_NO_SCORE`), no orders.
+
+**4 error-class runs - ALL PRE-EXISTING AND BENIGN (Sep 28 19:07-19:42z, unchanged since C-896/898/900/902/910/916/918):** `18576`/`18585` `POSITION_QTY_MISMATCH` (7 unmatched names incl. the C-864 swing holders, broker-authoritative quantity persisted, new entries blocked that cycle only); `18583` `Fatal: Too many subrequests`; `18589` `Sell failed for T: Too many subrequests` + `Fatal: Too many subrequests` - the exact failure mode the committed Control-901 reliability fix targets. Run log around them is id-contiguous, so none hid dispatch suppression.
+
+**Positions: 16/16 `strategy=swing`** (no unattributed rows - C-896-A closed). Broker-authoritative source confirmed (`source=alpaca`, `current_state_source=alpaca`, `metadata_source=d1`, observed `2026-09-29T06:00:17.227Z`). Cost basis **$3,744.99** vs the $3,700 swing cap = **+$44.99 OVER**; code MV basis $3,438.50 = $261.50 under - the MV-vs-cost-basis admission defect stands (`src/risk-manager.ts:234`, `src/swing-risk.ts:167/176/184`). **F** remains the selldown candidate (cost $2,256.81, unrealized -$270.07).
+
+**Caps 5000/3700/2000 USD, guards 150/100/100/97000 USD, `min_confidence` 0.8 - ALL UNCHANGED.** Equity **$97,102.47**, POSITIVE, day -$107.94 (-0.111%), ~$102 above the $97,000 floor (never touched) - still the top watch item, as the floor is deliberately reachable.
+
+**Trades:** 50 rows - 47 `filled` / 3 `accepted` (no_fill, all swing, Sep 28 22:01z). Accounting conservative: 15 `fifo-lot-matched`, 32 `filled_lot_exact_unavailable`, 3 `no_fill`; gross/fee/net remain `null` where lot-exact attribution is unavailable (uncertain fees stay unattributed, by design). Fee summary unchanged: total $272.82, crypto $269.11, `cryptoFeeTelemetryStatus=unavailable`, `cryptoRateBps=null`.
+
+**Docs HEAD identity PASS:** README.md, docs/OPERATIONS.md, docs/DEPLOYMENT_RUNBOOK.md line 1 all carry the Control-918 block naming repo HEAD `8939b27`; `git ls-remote origin refs/heads/main` = `8939b277c763908b44aac256ad4bc9eea72dc7d9` == local HEAD; working tree CLEAN.
+
+**Validation:** **279 tests / 1009 assertions PASS**, `bun run typecheck` clean (exit 0), `git diff --check` clean.
+
+**NEXT GATES:** (1) Joachim's C-864 selldown/accept decision (F $2,256.81); (2) equity proximity to the $97,000 floor (~$102); (3) D1 late-UTC 22:00-00:00z watch; (4) D1 paid-tier upgrade; (5) whether `Fatal: Too many subrequests` on accepted exits recurs now that the Control-901 fix is live. Evidence: `/workspace/control918-evidence-20260929T060014Z/`. NO trigger/submit/cancel/close/replace/retry/migration/broker-mutating call. `curl` GET only (`urllib` gets CF 403).
+
 ## Control-918 (Sep 29 05:00 UTC Tue) - STRICT READ-ONLY CONTROL: **HEALTHY**, NO config change, NO code change, NO deploy. No defect found this cycle.
 
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256 **`7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad`** (364154 bytes, `index.js` part of the multipart envelope from `.../workers/scripts/alpaca-trading-bot/content/v2`) == current source build `bun build src/index.ts` (364154 bytes) - **BYTE-IDENTICAL**. Repo HEAD `6b479a501871848070887bc300368d75815531a4` == `origin/main` (ls-remote verified), working tree clean. `/health` + `/` = 2.8.2 (config surface `version` 2.7.0 = known cosmetic D1-seed lag, NOT a defect). True clock `date -u` = `2026-09-29T05:00:08Z`.
