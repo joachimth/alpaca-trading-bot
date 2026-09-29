@@ -60,6 +60,49 @@ describe('Alpaca order normalization', () => {
     expect(calls[0]).toContain('DELETE https://paper-api.alpaca.markets/v2/positions/AAPL');
   });
 
+  test('waitForOrder poll budget is bounded so an accepted exit cannot exhaust the subrequest ceiling', async () => {
+    const calls: string[] = [];
+    // The broker keeps reporting a non-terminal status forever, mimicking the
+    // Control-901 condition where the invocation subrequest ceiling was reached
+    // while polling AFTER the exit had already been accepted.
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push(`${init?.method || 'GET'} ${String(input)}`);
+      return new Response(JSON.stringify({
+        id: 'exit-bounded',
+        client_order_id: 'exit-bounded-client',
+        symbol: 'T',
+        qty: '1.57',
+        filled_qty: '1.57',
+        leaves_qty: '0',
+        filled_avg_price: '24.92',
+        type: 'market',
+        side: 'sell',
+        status: 'accepted',
+        time_in_force: 'day',
+        created_at: '2026-09-28T19:42:06Z',
+        updated_at: '2026-09-28T19:42:06Z',
+        submitted_at: '2026-09-28T19:42:06Z',
+        filled_at: null,
+        canceled_at: null,
+        expired_at: null,
+        failed_at: null,
+        replaced_at: null,
+        limit_price: null,
+        stop_price: null,
+        trail_price: null,
+        trail_percent: null,
+      }), { status: 200 });
+    }) as typeof fetch;
+
+    const client = new AlpacaClient({ apiKey: 'key', apiSecret: 'secret', baseUrl: 'https://paper-api.alpaca.markets' });
+    const result = await client.closePosition('T');
+
+    // DELETE submit + at most 1 initial read + 3 bounded polls = 5 requests.
+    expect(calls).toHaveLength(5);
+    expect(calls[0]).toContain('DELETE https://paper-api.alpaca.markets/v2/positions/T');
+    expect(result).toMatchObject({ id: 'exit-bounded', status: 'accepted' });
+  });
+
   test('submitOrder preserves broker lifecycle timestamps', async () => {
     globalThis.fetch = (async () => new Response(JSON.stringify({
       id: 'order-1',

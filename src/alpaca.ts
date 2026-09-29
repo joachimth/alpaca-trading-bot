@@ -350,12 +350,20 @@ export class AlpacaClient {
     return TERMINAL_ORDER_STATUSES.has(status);
   }
 
-  async waitForOrder(orderId: string, timeoutMs: number = 5000): Promise<Order> {
+  async waitForOrder(orderId: string, timeoutMs: number = 2000): Promise<Order> {
     const started = Date.now();
+    // One initial read plus at most three polls. This is a convenience
+    // confirmation only: the maintenance lane (reconcile_cron) is the
+    // authoritative confirmation path, and an unbounded poll budget could
+    // exhaust the per-invocation subrequest ceiling after the broker had
+    // already accepted the order, turning a successful submit into a false
+    // "Sell failed"/"Close failed" error run (Control-901).
+    let polls = 0;
     let order = await this.getOrder(orderId);
-    while (!this.isTerminalOrder(order.status) && Date.now() - started < timeoutMs) {
+    while (!this.isTerminalOrder(order.status) && Date.now() - started < timeoutMs && polls < 3) {
       await new Promise(resolve => setTimeout(resolve, 250));
       order = await this.getOrder(orderId);
+      polls++;
     }
     return order;
   }

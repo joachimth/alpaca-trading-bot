@@ -740,7 +740,14 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           const pendingExit = await findPendingDayExit(action.symbol, 'position', { exitType: 'protective' });
           if (pendingExit) continue;
           console.log(`Closing ${action.symbol}: ${action.reason}`);
-          const order = await alpaca.closePosition(action.symbol);
+          // Submit the exit WITHOUT synchronous getOrder polling. The submit
+          // request is what places the order; the polling that followed it only
+          // burned additional subrequests and, on a near-ceiling invocation, threw
+          // "Too many subrequests" AFTER the broker had already executed the exit —
+          // recording a false "Failed to close" error and skipping the D1 close.
+          // The bounded maintenance lane (reconcile_cron) confirms the terminal
+          // state later, matching the swing exit path (Control-901).
+          const order = await alpaca.closePosition(action.symbol, { waitForFill: false });
           const pos = positions.find(p => p.symbol === action.symbol);
           await db.logOrderTrade(order, {
             strategy: dbPositions.find(p => p.ticker === action.symbol)?.strategy ?? 'daytrading',
@@ -750,7 +757,9 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             await db.closePosition(action.symbol, null, action.reason);
             closedSymbols.add(action.symbol);
           } else if (pos) {
-            errors.push(`Exit order for ${action.symbol} not fully filled: ${order.status}`);
+            // Not a failure: the exit was accepted and is pending broker
+            // confirmation. Reconciliation closes it once the fill lands.
+            console.log(`Exit order for ${action.symbol} pending confirmation: ${order.status}`);
           }
 
         } catch (e) {
@@ -777,7 +786,10 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
           if (swingOwnedSymbols.has(pos.symbol)) continue;
           const pendingExit = await findPendingDayExit(pos.symbol, 'cycle', { exitType: 'eod_flatten' });
           if (pendingExit) continue;
-          const order = await alpaca.closePosition(pos.symbol);
+          // Submit de-confirmed, same rationale as the protective path above:
+          // polling for the fill burned subrequests and could throw the
+          // invocation ceiling after the broker had already executed the exit.
+          const order = await alpaca.closePosition(pos.symbol, { waitForFill: false });
           closeOrders.push(order);
           await db.logOrderTrade(order, {
             strategy: 'daytrading',
@@ -787,7 +799,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             await db.closePosition(pos.symbol, null, 'eod_flatten');
             closedSymbols.add(pos.symbol);
           } else {
-            errors.push(`EOD exit for ${pos.symbol} not fully filled`);
+            console.log(`EOD exit for ${pos.symbol} pending confirmation: ${order.status}`);
           }
         }
 
@@ -1070,7 +1082,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             continue;
           }
           try {
-            const order = await alpaca.closePosition(signal.indicators.symbol);
+            const order = await alpaca.closePosition(signal.indicators.symbol, { waitForFill: false });
             await db.logOrderTrade(order, {
               decisionId,
               strategy: 'daytrading',
@@ -1164,7 +1176,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             continue;
           }
           try {
-            const order = await alpaca.closePosition(signal.indicators.symbol);
+            const order = await alpaca.closePosition(signal.indicators.symbol, { waitForFill: false });
             await db.logOrderTrade(order, {
               decisionId,
               strategy: 'daytrading',
