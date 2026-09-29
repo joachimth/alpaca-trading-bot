@@ -1,7 +1,8 @@
 # NOW
 
-- **Control-910 (Sep 29 00:00z Tue) - STRICT READ-ONLY CONTROL: HEALTHY, NO deploy.** 2.8.2 live (src 092b84b, repo HEAD == origin/main, docs commit pushed). 8/8 GETs 200, run-log 400/400 id-contiguous ZERO suppression/lease, daytrading 240 exact `1-59/5`, reconcile 119 exact `*/10`, crypto 40 `:07`/`:37` ALL `CRYPTO_DISABLED_BY_CONFIG`; 4 schedules CF-verified `modified_on 2026-09-28T20:04:34Z`. D1 late-UTC 22:00-00:00z watch CLEAN (both faces).
-- **C-896-A resolved observationally (holds):** all 16 positions `strategy=swing`, quantities match C-864 fills, D1 swing cost basis COMPLETE at **$3,744.99**, F1 guard covers all 16. WHICH path persisted the tag still UNPROVEN.
-- **C-864 unchanged & decision-gated:** cost basis $3,744.99 vs $3,700 = **+$44.99 OVER**, code MV basis $3,448.27 (=$251.73 under) confirms risk-manager.ts:234/237 defect. **F = selldown candidate** (cost $2,256.81, uPL -$263.71). NO auto-fix.
-- Equity **$97,112.24** POSITIVE, day -$98.17, ~$112 above the $97,000 floor (never touched) = top watch item. Caps/guards/min_conf 0.8 unchanged.
-- Uncommitted Control-901 reliability fix still in the worktree, NOT deployed (live behavior unchanged).
+- **Control-920 (Sep 29 06:00z) folded into C-918 (same :00z slot): HEALTHY, no deploy, no defect.** 2.8.2 live, CF `4c96049f` @100%, content-hash `7e8d4507…` == source build (364154 B); repo HEAD `8939b27` -> docs commit `a230b09` pushed to origin/main. 8/8 GETs 200 x3 probes zero D1 flap; run log 400/400 id-contiguous (18395->18794); daytrading 199/199 intended slots; reconcile 119 */10 avg 4.2s; crypto 40/40 fail-closed; swing 1 hold-only fire; zero lease/suppression; 4 benign Sep 28 error runs unchanged.
+- **C-864 OPEN (decision-gated):** 16/16 positions swing-tagged (C-896-A closed), cost basis **$3,744.99 vs $3,700 = +$44.99 over**; MV basis $3,438.50 under (risk-manager.ts:234). F = selldown candidate ($2,256.81, uPL -$270.07).
+- Equity **$97,102.47** positive, day -$107.94, ~$102 above the $97,000 floor (never touched) = top watch item.
+- Caps 5000/3700/2000, guards 150/100/100/97000, min_conf 0.8 unchanged. 279 tests/1009 assertions PASS, typecheck clean.
+- Sep 29 07:15 CEST daily todo pipeline ran (todo mail sent to jt@eilandel.dk; notification `64667fc5`). Skill `messaging_*` tooling still broken -> use /workspace/skills/*/scripts/*.ts directly.
+- mk3 awaiting Joachim's round-10 brief.
