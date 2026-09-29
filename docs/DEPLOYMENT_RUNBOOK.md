@@ -1,6 +1,6 @@
-## Control-910 (Sep 29 00:00 UTC Tue) - STRICT READ-ONLY CONTROL: **HEALTHY**, NO code change, NO config change, NO deploy (control scope).
+## Control-911 (Sep 29 01:00 UTC Tue) - STRICT READ-ONLY CONTROL + docs/src identity correction: **HEALTHY**, NO config change, NO deploy (control scope). **CORRECTED a six-control-long misstatement: the live Worker DOES run the Control-901 reliability change; the earlier "zero src diff vs deployed `092b84b`" verdict was reached by diffing the worktree against itself.**
 
-2.8.2 live; CF active version `4c96049f-08bb-4e63-be1a-ff8dbe16c21f` @100% (deployment `2026-09-28T20:04:24Z`, the parallel Control-901 reliability redeploy), previous `e0b2a2f6` (Sep 25 14:03:07Z). **Zero src diff vs deployed `092b84b`** (`git diff 092b84b..HEAD -- src workers` = 0 lines) - the working-tree Control-901 edits remain uncommitted and undeployed, so live behavior is unchanged. True clock `date -u` = 2026-09-29T00:00:15Z (the injected turn_context clock is NOT used as evidence; it is routinely ~2h ahead). All four schedules CF-API-GET verified, each `modified_on 2026-09-28T20:04:34.219701Z`: daytrading `1-59/5 * * * *`, swing `0 22 * * 2-6`, crypto `7-59/30 * * * *`, reconcile `*/10 * * * *`. **All 8 GETs HTTP 200, ZERO D1_ERROR.**
+2.8.2 live; CF active version `4c96049f-08bb-4e63-be1a-ff8dbe16c21f` @100% (deployment `2026-09-28T20:04:24Z`, the Control-901 reliability redeploy), previous `e0b2a2f6` (Sep 25 14:03:07Z). **Control-911 VERIFIED the deployed script content against a locally rebuilt bundle**: live payload sha256 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad` (364154 bytes) == the current source build, and the `092b84b` build differs at `7ba77eccd313f825c16361f8457ed5203acdb7d5a2a8e1cf370214b6d5456597` (364195 bytes, `waitForOrder` `timeoutMs = 5000`, no `polls < 3`). **The true source delta vs `092b84b` is 97 lines (src/alpaca.ts 12, src/index.ts 24)** - bounded `waitForOrder` poll budget (default 5000->2000 ms, at most 3 polls) plus `closePosition(symbol, { waitForFill: false })` on four daytrading exit paths, all reliability-only. Control-911 committed that change (repo HEAD advanced past `092b84b`), so repository HEAD now matches the live script. `092b84b` remains the release-version anchor (2.8.2) and is no longer a content-identity anchor. True clock `date -u` = 2026-09-29T01:00:16Z (the injected turn_context clock is NOT used as evidence; it is routinely ~2h ahead). All four schedules CF-API-GET verified, each `modified_on 2026-09-28T20:04:34.219701Z`: daytrading `1-59/5 * * * *`, swing `0 22 * * 2-6`, crypto `7-59/30 * * * *`, reconcile `*/10 * * * *`. **All 8 GETs HTTP 200, ZERO D1_ERROR.**
 
 **Delivery:** 400-window (18275-18674) **id-contiguous 400/400, ZERO gaps** (window spans 2026-09-28T04:01:58Z -> 23:56:57Z) - the suppression proof. daytrading **240 runs exact `1-59/5`** (newest 18674@23:56:57); reconcile **119 runs exact `*/10`** (newest 18672@23:51:08); crypto **40 runs at exact `:07`/`:37`** ALL `CRYPTO_DISABLED_BY_CONFIG` fail-closed; swing 1 fire (18635@22:01:25, `RECONCILIATION_DEFERRED_TO_MAINTENANCE`). **ZERO `CYCLE_LEASE_HELD`, ZERO dispatch suppression** (dispatch failures remain at #26; predicate stays ARMED for #27).
 
@@ -12,23 +12,50 @@
 
 **C-864 (unchanged, decision-gated):** swing cost basis **$3,744.99 vs $3,700 = +$44.99 OVER** while the code MV basis reads **$3,448.27 = $251.73 UNDER** - the MV-vs-cost-basis admission defect (`src/risk-manager.ts:234` `currentGross=Sum|market_value|`, `:237` `capRemaining`). **F = selldown candidate** (cost $2,256.81, unrealized -$263.71, larger than the whole overage). NO auto-fix.
 
-**Equity:** broker-direct **$97,112.24 POSITIVE** (cash $93,663.97, long_market_value $3,448.27, buying_power $383,704.87, status ACTIVE, trading_blocked false, last_equity $97,210.41). Dashboard `change_today` **-$98.17 = -0.10098805%** vs `last_equity` == delta exactly (direction NEGATIVE for the day). **Floor $97,000 NEVER touched, ~$112 above it - proximity remains the top watch item.**
+**Equity:** broker-direct **$97,113.64 POSITIVE** (cash $93,663.97, buying_power $383,708.79, last_equity $97,210.41). Dashboard `change_today` **-$98.17** vs `last_equity` == delta exactly (direction NEGATIVE for the day). **Floor $97,000 NEVER touched, ~$114 above it - proximity remains the top watch item.**
 
-**Vital params UNCHANGED:** caps **5000/3700/2000** (config + dashboard `capitalCaps`), guards **150/100/100/97000**, min_confidence **0.8**, crypto disabled, eod_flatten true. Config surface `version` 2.7.0 = known cosmetic D1-seed lag, NOT a defect (`/health` + `release_version` 2.8.2 authoritative).
+**Vital params UNCHANGED:** caps **5000/3700/2000** (config + dashboard `capitalCaps`), guards **150/100/100/97000**, min_confidence **0.8**, crypto disabled, eod_flatten true. Config surface `version` 2.7.0 = known cosmetic D1-seed lag, NOT a defect (`/health` + `release_version` 2.8.2 authoritative). **No cap or risk-parameter change was made by this control.**
 
-**Trade/fill lifecycle:** 400-window: 397 `filled` / 3 `accepted`; **0 null-strategy**, 0 canceled/expired/rejected. Newest three are the swing fire's own orders (1928 SELL SEDG 3, 1929 BUY RUN 16, 1930 BUY MS 0.64, all `accepted`/`no_fill` = `EXIT_PENDING_RECONCILIATION`, correct open lifecycle awaiting scheduled reconciliation). Accounting conservative PASS: 264 `filled_lot_exact_unavailable` + 133 `fifo-lot-matched` + 3 `no_fill`, **0 gross/fee/net mismatches**, fees unattributed by design (broker fee data is aggregate-only).
+**Trade/fill lifecycle:** 50-window `?strategy=swing`: 47 `filled` / 3 `accepted`, **0 null-strategy**, 0 canceled/expired/rejected. The three `accepted` are the swing fire's own orders (1928 SELL SEDG, 1929 BUY RUN, 1930 BUY MS) - correct open lifecycle awaiting the scheduled read-only reconcile. Accounting conservative PASS: `filled_lot_exact_unavailable` + `fifo-lot-matched` only, **0 gross/fee/net mismatches**, fees unattributed by design (broker fee data is aggregate-only).
 
 **Filtered run observability PASS:** `?trigger=crypto_cron` -> 18668/18658/18648; `?status=error` -> the 4 error rows; `?limit=3&offset=6` reports `page: 3`; `?strategy=swing` on /api/trades filters correctly.
 
-**Error-class runs (4, all pre-existing 19:07-19:42z, none new):** 18576/18585 `POSITION_QTY_MISMATCH` (broker-authoritative qty persisted, entries blocked one cycle), 18583/18589 `Fatal: Too many subrequests` raised while polling an already-accepted broker EXIT (sell for T) - exactly the failure mode the uncommitted Control-901 fix targets. Run log is id-contiguous around all four, so they hid NO dispatch suppression.
+**Error-class runs (4, all pre-existing 19:07-19:42z Sep 28, none new):** 18576/18585 `POSITION_QTY_MISMATCH` (broker-authoritative qty persisted, entries blocked one cycle), 18583/18589 `Fatal: Too many subrequests` raised while polling an already-accepted broker EXIT (sell for T) - the exact failure mode the Control-901 change targets, and the only two in the window. Run log is id-contiguous around all four, so they hid NO dispatch suppression.
 
-**Crypto edge-gate wiring intact in source** (`rawEdgeBps` through `prepareCryptoRiskDecision` at `src/crypto-strategy.ts:37-40`, `CRYPTO_DISABLED_BY_CONFIG` at `:284`/`:325`, `crypto_min_edge_after_costs` 8) - upstream-disabled by config, never exercised live.
+**Crypto edge-gate wiring intact in source** (`rawEdgeBps` through `prepareCryptoRiskDecision` at `src/crypto-strategy.ts:37-40`, `CRYPTO_DISABLED_BY_CONFIG` at `:284`/`:325`, `crypto_min_edge_after_costs` 8) - upstream-disabled by config, never exercised live (40/40 crypto runs fail-closed).
 
-**Validation:** **279 tests / 1009 assertions PASS** (`bun test`), `bun run typecheck` clean, `git diff --check` clean. Working tree intentionally holds 3 modified files (uncommitted Control-901 reliability fix) - NOT deployed, so live behavior is unchanged.
+**Validation:** **279 tests / 1009 assertions PASS** (`bun test`), `bun run typecheck` clean, `git diff --check` clean.
 
-**Docs HEAD identity PASS:** README.md, docs/OPERATIONS.md and docs/DEPLOYMENT_RUNBOOK.md line 1 all carry the Control-908 block stating repo HEAD `83cf8b9` == `origin/main` and deployed src `092b84b`; verified against `git rev-parse HEAD origin/main` (identical) and `git diff 092b84b..HEAD -- src workers` (empty). No defect.
+**IDENTITY VERIFICATION PROCEDURE (new, mandatory - this control's core correction):** do NOT conclude "zero src diff" from `git diff <deployed-commit> -- src` alone, because that compares the deployed commit to the WORKING TREE, which silently returns the diverging worktree edits as if they were live. Compare CONTENT instead: `curl -H "Authorization: Bearer $TOKEN" -H "Accept: application/javascript" .../workers/scripts/alpaca-trading-bot/content/v2` -> strip the multipart envelope -> sha256 the `index.js` payload -> compare against `bun build src/index.ts` of the candidate source. Control-911: live payload `7e8d4507…` == current source build (364154 B); `092b84b` build = `7ba77ecc…` (364195 B). Exact bundle equality is the ONLY acceptable identity claim.
 
-**NEXT GATES:** (1) Joachim's C-864 selldown/accept decision (F $2,256.81); (2) confirm which path resolved C-896-A's attribution; (3) equity proximity to the $97,000 floor; (4) D1 late-UTC 22:00-00:00z watch (clean tonight); (5) D1 paid-tier upgrade; (6) whether to commit + deploy the Control-901 reliability fix. Evidence: `/workspace/control906-evidence-20260929T000000Z/` (SHA256SUMS written). NO trigger/submit/cancel/close/replace/retry/migration/broker-mutating call. `curl` GET only (`urllib` gets CF 403).
+**Docs HEAD identity PASS:** README.md, docs/OPERATIONS.md and docs/DEPLOYMENT_RUNBOOK.md line 1 all now carry the Control-911 block naming the corrected content identity (live `7e8d4507…`) and repo HEAD; `origin/main == HEAD` after the push.
+
+**NEXT GATES:** (1) Joachim's C-864 selldown/accept decision (F $2,256.81, swing cost basis $3,744.99 vs $3,700 = +$44.99); (2) confirm which path resolved C-896-A's attribution; (3) equity proximity to the $97,000 floor (~$114); (4) D1 late-UTC 22:00-00:00z watch (clean tonight); (5) D1 paid-tier upgrade; (6) whether the now-committed Control-901 reliability change should be declared the release anchor (Joachim's call; live behavior already includes it). Evidence: `/workspace/control910-evidence-20260929T010016Z/` incl. `LIVE_BUNDLE_SHA256.txt`, `deployed_variant_build.js`, `base092b84b_build.js`. NO trigger/submit/cancel/close/replace/retry/migration/broker-mutating call. `curl` GET only (`urllib` gets CF 403).
+
+## Content-identity verification (mandatory, added Control-911)
+
+The deploy recipe below proves a PUT succeeded; it does NOT prove what is actually running. `git diff <deployed-commit> -- src` is NOT a valid identity check either: it compares the deployed commit against the WORKING TREE, so a diverging worktree reports the divergence and reads as if the tree were live. That is exactly how a false "zero src diff vs `092b84b`" claim survived six controls (C-896 through C-910) while the live bundle actually differed from `092b84b`.
+
+The only acceptable identity claim is exact bundle equality:
+
+```
+TOKEN=$(assistant credentials reveal 98f4bfe3-21e3-47a5-b400-30c5ac8c4d6f | grep -o 'cfat_[A-Za-z0-9_-]*')
+curl -s -H "Authorization: Bearer $TOKEN" -H "Accept: application/javascript" \
+  "https://api.cloudflare.com/client/v4/accounts/763e5b5405cdf8b307fe62dbf68c4f32/workers/scripts/alpaca-trading-bot/content/v2" -o live.js
+python3 - <<'EOF'
+import re,hashlib
+raw=open('live.js','rb').read(); m=re.search(rb'\r\n\r\n',raw); body=raw[m.end():]
+body=re.sub(rb'\r\n--[0-9a-f]+(--)?\r\n?$',b'',body)
+print(len(body), hashlib.sha256(body).hexdigest())
+EOF
+cd /workspace/alpaca-trading-bot && bun build src/index.ts --outfile /tmp/candidate.js && sha256sum /tmp/candidate.js
+```
+
+`Content-Type: multipart/form-data` is returned, not a bare script, so the multipart envelope must be stripped before hashing (`Content-Disposition: form-data; name="index.js"` is the payload part). Behavioural markers (`timeoutMs = 2000`, `polls < 3`, `waitForFill` count) corroborate, but bundle-hash equality is the verdict. Rebuild the same source twice and confirm the hash is stable before trusting a mismatch - Vite hashes are non-deterministic, esbuild bundles of this source are not.
+
+**Consequence in force (Control-911):** the live Worker (CF version `4c96049f`, deployed `2026-09-28T20:04:24Z`) serves release 2.8.2 PLUS the Control-901 reliability change (bounded `waitForOrder` poll budget, `waitForFill: false` on four daytrading exit paths). `092b84b` remains the 2.8.2 release-version anchor but is no longer a content-identity anchor; the content anchor is live payload sha256 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad` (364154 bytes).
+
+---
 
 ## Control-908 (Sep 28 23:00 UTC Mon) - STRICT READ-ONLY CONTROL: **HEALTHY**, NO code change, NO config change, NO deploy (control scope).
 
