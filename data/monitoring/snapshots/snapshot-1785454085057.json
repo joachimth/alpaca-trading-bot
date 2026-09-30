@@ -1,0 +1,388 @@
+{
+  "ts": 1785454085057,
+  "kind": "high-mem",
+  "sample": {
+    "ts": 1785454085057,
+    "memory": {
+      "currentBytes": 6858862592,
+      "limitBytes": 8589934592,
+      "peakBytes": 8589938688,
+      "ratio": 0.7984766960144043
+    },
+    "memoryStat": {
+      "anonBytes": 4023525376,
+      "fileBytes": 2530017280,
+      "kernelBytes": 323362816,
+      "slabReclaimableBytes": 292242328,
+      "slabUnreclaimableBytes": 14478752,
+      "unevictableBytes": 4038004128,
+      "reclaimableBytes": 2822259608
+    },
+    "reclaim": {
+      "pgscanDirect": 300807,
+      "pgstealDirect": 290660,
+      "workingsetRefaultFile": 4
+    },
+    "cpu": {
+      "usageUsec": 19095772661,
+      "userUsec": 15184121612,
+      "systemUsec": 3911651049,
+      "nrPeriods": 1038368,
+      "nrThrottled": 17972,
+      "throttledUsec": 2528984267
+    },
+    "events": {
+      "low": 0,
+      "high": 0,
+      "max": 9077,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "deltas": {
+      "events": {
+        "low": 0,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oomKill": 0
+      },
+      "reclaim": {
+        "pgscanDirect": 0,
+        "pgstealDirect": 0,
+        "workingsetRefaultFile": 0
+      },
+      "cpu": {
+        "usageUsec": 1098161,
+        "userUsec": 194817,
+        "systemUsec": 903344,
+        "nrPeriods": 3,
+        "nrThrottled": 2,
+        "throttledUsec": 365839
+      }
+    },
+    "disk": {
+      "path": "/workspace",
+      "usedMb": 12047.48,
+      "totalMb": 60386.2,
+      "freeMb": 48338.72
+    },
+    "activeConversations": [
+      {
+        "conversationId": "6b046635-d16f-4996-a524-b698e792cf50",
+        "title": "Key Database Access Status",
+        "originChannel": "vellum",
+        "originInterface": "web",
+        "processingStartedAt": 1785452356873
+      }
+    ]
+  },
+  "fileResidency": [
+    {
+      "path": "/workspace/data/db/assistant.db",
+      "sizeBytes": 845709312,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/db/assistant.db-wal",
+      "sizeBytes": 16315232,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/db/assistant.db-shm",
+      "sizeBytes": 32768,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/bin/qdrant",
+      "sizeBytes": 76128640,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/bin/vellum-qdrant",
+      "sizeBytes": 76128640,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/segments/c9275b55-ae28-42c9-9378-ea42e182fced/vector_index-sparse/inverted_index.dat",
+      "sizeBytes": 41341832,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory/0/wal/open-2",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory/0/wal/open-1",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/wal/closed-0",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/wal/open-2",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/wal/open-3",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory_v2_concept_pages/0/wal/open-13",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory_v2_concept_pages/0/wal/open-12",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    }
+  ],
+  "topProcesses": [
+    {
+      "pid": 120735,
+      "command": "python3 import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np, cv2, time, warnings warnings.filterwarnings('ignore') from scipy.ndimage import maximum_filter1d from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() def get_residual_stats(img_rgb, sr_scale=1): if sr_scale > 1: img_out, _ = upsampler.enhance(img_rgb, outscale=sr_scale) else: img_out = img_rgb gray = cv2.cvtColor(img_out, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) if largest is None: return None vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) bp = kd.extract_bottom_profile_subpixel(gray, bbox, bxs, bxe) if len(bp) < 10: return None xs = np.array([p[0] for p in bp]); ys = np.array([p[1] for p in bp]) smooth_ys = kd.smooth_1d(ys, 2.0*sr_scale) env = maximum_filter1d(smooth_ys, size=max(5, int(len(smooth_ys)*0.15)|1)) near = smooth_ys > env 2.0*sr_scale if near.sum() < 3: near = np.ones(len(smooth_ys), dtype=bool) coeffs = np.polyfit(xs[near], smooth_ys[near], 1) baseline = np.polyval(coeffs, xs) residual = baseline smooth_ys blade_span = bxe vs; ppi = blade_span / kd.SC1_BLADE_LENGTH incr = kd.SC1_DEPTH_INCREMENT * ppi shoulder = vs + kd.SHOULDER_OFFSET * sr_scale pin_spacing = kd.SC1_SPACING_INCREMENT * ppi pin_depths = [] for pin in range(5): pos = shoulder + (pin+1)*pin_spacing + kd.PIN_OFFSETS[pin]*sr_scale nearby = [residual[i] for i in range(len(xs)) if abs(xs[i]-pos) <= 2*sr_scale] depth = max(nearby) if nearby else 0.0 pin_depths.append(depth / incr if incr > 0 else 0.0) noise_regions = [] for pin in range(4): p1 = shoulder + (pin+1)*pin_spacing + kd.PIN_OFFSETS[pin]*sr_scale p2 = shoulder + (pin+2)*pin_spacing + kd.PIN_OFFSETS[pin+1]*sr_scale mid = (p1 + p2) / 2 between = [residual[i] for i in range(len(xs)) if abs(xs[i]-mid) <= pin_spacing*0.2] if between: noise_regions.append(np.std(between)) noise = np.mean(noise_regions) if noise_regions else 0.0 noise_norm = noise / incr if incr > 0 else noise return { 'n_points': len(bp), 'incr': incr, 'pin_depths': pin_depths, 'noise_norm': noise_norm, 'snr': np.std(pin_depths) / noise_norm if noise_norm > 0 else 0, } N = 5 print(f'Comparing baseline vs SR on {N} keys...', flush=True) t0 = time.time() for i in range(N): true = data['bittings'][i] base_stats = get_residual_stats(data['obverse'][i], sr_scale=1) sr_stats = get_residual_stats(data['obverse'][i], sr_scale=4) if base_stats and sr_stats: print(f'Key {i} (true={true}):', flush=True) print(f' Base: incr={base_stats[\"incr\"]:.2f}px noise={base_stats[\"noise_norm\"]:.2f} SNR={base_stats[\"snr\"]:.2f} depths={[f\"{d:.1f}\" for d in base_stats[\"pin_depths\"]]}', flush=True) print(f' SR: incr={sr_stats[\"incr\"]:.2f}px noise={sr_stats[\"noise_norm\"]:.2f} SNR={sr_stats[\"snr\"]:.2f} depths={[f\"{d:.1f}\" for d in sr_stats[\"pin_depths\"]]}', flush=True) print(f' ({time.time()-t0:.0f}s)', flush=True)",
+      "rssBytes": 3813826560,
+      "pssBytes": 3813820416,
+      "pssAnonBytes": 3671400448,
+      "pssFileBytes": 142419968,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 1,
+      "command": "daemon-main",
+      "rssBytes": 429264896,
+      "pssBytes": 402739200,
+      "pssAnonBytes": 389668864,
+      "pssFileBytes": 13070336,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 804,
+      "command": "memory-worker",
+      "rssBytes": 366731264,
+      "pssBytes": 340104192,
+      "pssAnonBytes": 328110080,
+      "pssFileBytes": 11994112,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 36,
+      "command": "schedule-worker",
+      "rssBytes": 258928640,
+      "pssBytes": 243630080,
+      "pssAnonBytes": 238411776,
+      "pssFileBytes": 5218304,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 60,
+      "command": "monitoring-worker",
+      "rssBytes": 133881856,
+      "pssBytes": 108491776,
+      "pssAnonBytes": 97488896,
+      "pssFileBytes": 11002880,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 33,
+      "command": "vellum-qdrant",
+      "rssBytes": 78864384,
+      "pssBytes": 78860288,
+      "pssAnonBytes": 70709248,
+      "pssFileBytes": 8151040,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 120875,
+      "command": "git",
+      "rssBytes": 5074944,
+      "pssBytes": 4738048,
+      "pssAnonBytes": 1585152,
+      "pssFileBytes": 3152896,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 120733,
+      "command": "bash cd /workspace/keydatabaseforthefun && timeout 280 python3 \" import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np, cv2, time, warnings warnings.filterwarnings('ignore') from scipy.ndimage import maximum_filter1d from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() def get_residual_stats(img_rgb, sr_scale=1): if sr_scale > 1: img_out, _ = upsampler.enhance(img_rgb, outscale=sr_scale) else: img_out = img_rgb gray = cv2.cvtColor(img_out, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) if largest is None: return None vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) bp = kd.extract_bottom_profile_subpixel(gray, bbox, bxs, bxe) if len(bp) < 10: return None xs = np.array([p[0] for p in bp]); ys = np.array([p[1] for p in bp]) smooth_ys = kd.smooth_1d(ys, 2.0*sr_scale) env = maximum_filter1d(smooth_ys, size=max(5, int(len(smooth_ys)*0.15)|1)) near = smooth_ys > env 2.0*sr_scale if near.sum() < 3: near = np.ones(len(smooth_ys), dtype=bool) coeffs = np.polyfit(xs[near], smooth_ys[near], 1) baseline = np.polyval(coeffs, xs) residual = baseline smooth_ys blade_span = bxe vs; ppi = blade_span / kd.SC1_BLADE_LENGTH incr = kd.SC1_DEPTH_INCREMENT * ppi shoulder = vs + kd.SHOULDER_OFFSET * sr_scale pin_spacing = kd.SC1_SPACING_INCREMENT * ppi pin_depths = [] for pin in range(5): pos = shoulder + (pin+1)*pin_spacing + kd.PIN_OFFSETS[pin]*sr_scale nearby = [residual[i] for i in range(len(xs)) if abs(xs[i]-pos) <= 2*sr_scale] depth = max(nearby) if nearby else 0.0 pin_depths.append(depth / incr if incr > 0 else 0.0) noise_regions = [] for pin in range(4): p1 = shoulder + (pin+1)*pin_spacing + kd.PIN_OFFSETS[pin]*sr_scale p2 = shoulder + (pin+2)*pin_spacing + kd.PIN_OFFSETS[pin+1]*sr_scale mid = (p1 + p2) / 2 between = [residual[i] for i in range(len(xs)) if abs(xs[i]-mid) <= pin_spacing*0.2] if between: noise_regions.append(np.std(between)) noise = np.mean(noise_regions) if noise_regions else 0.0 noise_norm = noise / incr if incr > 0 else noise return { 'n_points': len(bp), 'incr': incr, 'pin_depths': pin_depths, 'noise_norm': noise_norm, 'snr': np.std(pin_depths) / noise_norm if noise_norm > 0 else 0, } N = 5 print(f'Comparing baseline vs SR on {N} keys...', flush=True) t0 = time.time() for i in range(N): true = data['bittings'][i] base_stats = get_residual_stats(data['obverse'][i], sr_scale=1) sr_stats = get_residual_stats(data['obverse'][i], sr_scale=4) if base_stats and sr_stats: print(f'Key {i} (true={true}):', flush=True) print(f' Base: incr={base_stats[\\\"incr\\\"]:.2f}px noise={base_stats[\\\"noise_norm\\\"]:.2f} SNR={base_stats[\\\"snr\\\"]:.2f} depths={[f\\\"{d:.1f}\\\" for d in base_stats[\\\"pin_depths\\\"]]}', flush=True) print(f' SR: incr={sr_stats[\\\"incr\\\"]:.2f}px noise={sr_stats[\\\"noise_norm\\\"]:.2f} SNR={sr_stats[\\\"snr\\\"]:.2f} depths={[f\\\"{d:.1f}\\\" for d in sr_stats[\\\"pin_depths\\\"]]}', flush=True) print(f' ({time.time()-t0:.0f}s)', flush=True) \" 2>&1",
+      "rssBytes": 1466368,
+      "pssBytes": 1462272,
+      "pssAnonBytes": 339968,
+      "pssFileBytes": 1122304,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 120734,
+      "command": "timeout",
+      "rssBytes": 155648,
+      "pssBytes": 151552,
+      "pssAnonBytes": 110592,
+      "pssFileBytes": 40960,
+      "pssShmemBytes": 0
+    }
+  ],
+  "topSlabCaches": [
+    {
+      "name": "fuse_inode",
+      "activeObjs": 247413,
+      "numObjs": 247428,
+      "objSizeBytes": 896,
+      "totalBytes": 221695488
+    },
+    {
+      "name": "dentry",
+      "activeObjs": 259593,
+      "numObjs": 261471,
+      "objSizeBytes": 192,
+      "totalBytes": 50202432
+    },
+    {
+      "name": "radix_tree_node",
+      "activeObjs": 35093,
+      "numObjs": 37492,
+      "objSizeBytes": 584,
+      "totalBytes": 21895328
+    },
+    {
+      "name": "kmalloc-cg-32",
+      "activeObjs": 247910,
+      "numObjs": 247936,
+      "objSizeBytes": 32,
+      "totalBytes": 7933952
+    },
+    {
+      "name": "kmalloc-512",
+      "activeObjs": 8168,
+      "numObjs": 8288,
+      "objSizeBytes": 512,
+      "totalBytes": 4243456
+    },
+    {
+      "name": "kmalloc-192",
+      "activeObjs": 13963,
+      "numObjs": 14847,
+      "objSizeBytes": 192,
+      "totalBytes": 2850624
+    },
+    {
+      "name": "vm_area_struct",
+      "activeObjs": 12786,
+      "numObjs": 13860,
+      "objSizeBytes": 192,
+      "totalBytes": 2661120
+    },
+    {
+      "name": "kernfs_node_cache",
+      "activeObjs": 18122,
+      "numObjs": 18150,
+      "objSizeBytes": 136,
+      "totalBytes": 2468400
+    },
+    {
+      "name": "kmalloc-1k",
+      "activeObjs": 2358,
+      "numObjs": 2368,
+      "objSizeBytes": 1024,
+      "totalBytes": 2424832
+    },
+    {
+      "name": "kmalloc-4k",
+      "activeObjs": 312,
+      "numObjs": 368,
+      "objSizeBytes": 4096,
+      "totalBytes": 1507328
+    }
+  ],
+  "processTree": {
+    "pid": 1,
+    "name": "daemon-main",
+    "command": "daemon-main",
+    "origin": "workspace",
+    "children": [
+      {
+        "pid": 33,
+        "name": "vellum-qdrant",
+        "command": "vellum-qdrant",
+        "origin": "workspace",
+        "children": []
+      },
+      {
+        "pid": 36,
+        "name": "schedule-worker",
+        "command": "schedule-worker",
+        "origin": "workspace",
+        "children": []
+      },
+      {
+        "pid": 60,
+        "name": "monitoring-worker",
+        "command": "monitoring-worker",
+        "origin": "workspace",
+        "children": []
+      },
+      {
+        "pid": 804,
+        "name": "memory-worker",
+        "command": "memory-worker",
+        "origin": "plugin:default-memory",
+        "children": []
+      },
+      {
+        "pid": 120733,
+        "name": "bash cd /workspace/keydatabaseforthefun && timeout 280 python3 \" import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np, cv2, time, warnings warnings.filterwarnings('ignore') from scipy.ndimage import maximum_filter1d from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() def get_residual_stats(img_rgb, sr_scale=1): if sr_scale > 1: img_out, _ = upsampler.enhance(img_rgb, outscale=sr_scale) else: img_out = img_rgb gray = cv2.cvtColor(img_out, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) if largest is None: return None vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) bp = kd.extract_bottom_profile_subpixel(gray, bbox, bxs, bxe) if len(bp) < 10: return None xs = np.array([p[0] for p in bp]); ys = np.array([p[1] for p in bp]) smooth_ys = kd.smooth_1d(ys, 2.0*sr_scale) env = maximum_filter1d(smooth_ys, size=max(5, int(len(smooth_ys)*0.15)|1)) near = smooth_ys > env 2.0*sr_scale if near.sum() < 3: near = np.ones(len(smooth_ys), dtype=bool) coeffs = np.polyfit(xs[near], smooth_ys[near], 1) baseline = np.polyval(coeffs, xs) residual = baseline smooth_ys blade_span = bxe vs; ppi = blade_span / kd.SC1_BLADE_LENGTH incr = kd.SC1_DEPTH_INCREMENT * ppi shoulder = vs + kd.SHOULDER_OFFSET * sr_scale pin_spacing = kd.SC1_SPACING_INCREMENT * ppi pin_depths = [] for pin in range(5): pos = shoulder + (pin+1)*pin_spacing + kd.PIN_OFFSETS[pin]*sr_scale nearby = [residual[i] for i in range(len(xs)) if abs(xs[i]-pos) <= 2*sr_scale] depth = max(nearby) if nearby else 0.0 pin_depths.append(depth / incr if incr > 0 else 0.0) noise_regions = [] for pin in range(4): p1 = shoulder + (pin+1)*pin_spacing + kd.PIN_OFFSETS[pin]*sr_scale p2 = shoulder + (pin+2)*pin_spacing + kd.PIN_OFFSETS[pin+1]*sr_scale mid = (p1 + p2) / 2 between = [residual[i] for i in range(len(xs)) if abs(xs[i]-mid) <= pin_spacing*0.2] if between: noise_regions.append(np.std(between)) noise = np.mean(noise_regions) if noise_regions else 0.0 noise_norm = noise / incr if incr > 0 else noise return { 'n_points': len(bp), 'incr': incr, 'pin_depths': pin_depths, 'noise_norm': noise_norm, 'snr': np.std(pin_depths) / noise_norm if noise_norm > 0 else 0, } N = 5 print(f'Comparing baseline vs SR on {N} keys...', flush=True) t0 = time.time() for i in range(N): true = data['bittings'][i] base_stats = get_residual_stats(data['obverse'][i], sr_scale=1) sr_stats = get_residual_stats(data['obverse'][i], sr_scale=4) if base_stats and sr_stats: print(f'Key {i} (true={true}):', flush=True) print(f' Base: incr={base_stats[\\\"incr\\\"]:.2f}px noise={base_stats[\\\"noise_norm\\\"]:.2f} SNR={base_stats[\\\"snr\\\"]:.2f} depths={[f\\\"{d:.1f}\\\" for d in base_stats[\\\"pin_depths\\\"]]}', flush=True) print(f' SR: incr={sr_stats[\\\"incr\\\"]:.2f}px noise={sr_stats[\\\"noise_norm\\\"]:.2f} SNR={sr_stats[\\\"snr\\\"]:.2f} depths={[f\\\"{d:.1f}\\\" for d in sr_stats[\\\"pin_depths\\\"]]}', flush=True) print(f' ({time.time()-t0:.0f}s)', flush=True) \" 2>&1",
+        "command": "bash cd /workspace/keydatabaseforthefun && timeout 280 python3 \" import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np, cv2, time, warnings warnings.filterwarnings('ignore') from scipy.ndimage import maximum_filter1d from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() def get_residual_stats(img_rgb, sr_scale=1): if sr_scale > 1: img_out, _ = upsampler.enhance(img_rgb, outscale=sr_scale) else: img_out = img_rgb gray = cv2.cvtColor(img_out, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) if largest is None: return None vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) bp = kd.extract_bottom_profile_subpixel(gray, bbox, bxs, bxe) if len(bp) < 10: return None xs = np.array([p[0] for p in bp]); ys = np.array([p[1] for p in bp]) smooth_ys = kd.smooth_1d(ys, 2.0*sr_scale) env = maximum_filter1d(smooth_ys, size=max(5, int(len(smooth_ys)*0.15)|1)) near = smooth_ys > env 2.0*sr_scale if near.sum() < 3: near = np.ones(len(smooth_ys), dtype=bool) coeffs = np.polyfit(xs[near], smooth_ys[near], 1) baseline = np.polyval(coeffs, xs) residual = baseline smooth_ys blade_span = bxe vs; ppi = blade_span / kd.SC1_BLADE_LENGTH incr = kd.SC1_DEPTH_INCREMENT * ppi shoulder = vs + kd.SHOULDER_OFFSET * sr_scale pin_spacing = kd.SC1_SPACING_INCREMENT * ppi pin_depths = [] for pin in range(5): pos = shoulder + (pin+1)*pin_spacing + kd.PIN_OFFSETS[pin]*sr_scale nearby = [residual[i] for i in range(len(xs)) if abs(xs[i]-pos) <= 2*sr_scale] depth = max(nearby) if nearby else 0.0 pin_depths.append(depth / incr if incr > 0 else 0.0) noise_regions = [] for pin in range(4): p1 = shoulder + (pin+1)*pin_spacing + kd.PIN_OFFSETS[pin]*sr_scale p2 = shoulder + (pin+2)*pin_spacing + kd.PIN_OFFSETS[pin+1]*sr_scale mid = (p1 + p2) / 2 between = [residual[i] for i in range(len(xs)) if abs(xs[i]-mid) <= pin_spacing*0.2] if between: noise_regions.append(np.std(between)) noise = np.mean(noise_regions) if noise_regions else 0.0 noise_norm = noise / incr if incr > 0 else noise return { 'n_points': len(bp), 'incr': incr, 'pin_depths': pin_depths, 'noise_norm': noise_norm, 'snr': np.std(pin_depths) / noise_norm if noise_norm > 0 else 0, } N = 5 print(f'Comparing baseline vs SR on {N} keys...', flush=True) t0 = time.time() for i in range(N): true = data['bittings'][i] base_stats = get_residual_stats(data['obverse'][i], sr_scale=1) sr_stats = get_residual_stats(data['obverse'][i], sr_scale=4) if base_stats and sr_stats: print(f'Key {i} (true={true}):', flush=True) print(f' Base: incr={base_stats[\\\"incr\\\"]:.2f}px noise={base_stats[\\\"noise_norm\\\"]:.2f} SNR={base_stats[\\\"snr\\\"]:.2f} depths={[f\\\"{d:.1f}\\\" for d in base_stats[\\\"pin_depths\\\"]]}', flush=True) print(f' SR: incr={sr_stats[\\\"incr\\\"]:.2f}px noise={sr_stats[\\\"noise_norm\\\"]:.2f} SNR={sr_stats[\\\"snr\\\"]:.2f} depths={[f\\\"{d:.1f}\\\" for d in sr_stats[\\\"pin_depths\\\"]]}', flush=True) print(f' ({time.time()-t0:.0f}s)', flush=True) \" 2>&1",
+        "origin": "workspace",
+        "children": [
+          {
+            "pid": 120734,
+            "name": "timeout",
+            "command": "timeout",
+            "origin": "workspace",
+            "children": [
+              {
+                "pid": 120735,
+                "name": "python3 import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np, cv2, time, warnings warnings.filterwarnings('ignore') from scipy.ndimage import maximum_filter1d from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() def get_residual_stats(img_rgb, sr_scale=1): if sr_scale > 1: img_out, _ = upsampler.enhance(img_rgb, outscale=sr_scale) else: img_out = img_rgb gray = cv2.cvtColor(img_out, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) if largest is None: return None vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) bp = kd.extract_bottom_profile_subpixel(gray, bbox, bxs, bxe) if len(bp) < 10: return None xs = np.array([p[0] for p in bp]); ys = np.array([p[1] for p in bp]) smooth_ys = kd.smooth_1d(ys, 2.0*sr_scale) env = maximum_filter1d(smooth_ys, size=max(5, int(len(smooth_ys)*0.15)|1)) near = smooth_ys > env 2.0*sr_scale if near.sum() < 3: near = np.ones(len(smooth_ys), dtype=bool) coeffs = np.polyfit(xs[near], smooth_ys[near], 1) baseline = np.polyval(coeffs, xs) residual = baseline smooth_ys blade_span = bxe vs; ppi = blade_span / kd.SC1_BLADE_LENGTH incr = kd.SC1_DEPTH_INCREMENT * ppi shoulder = vs + kd.SHOULDER_OFFSET * sr_scale pin_spacing = kd.SC1_SPACING_INCREMENT * ppi pin_depths = [] for pin in range(5): pos = shoulder + (pin+1)*pin_spacing + kd.PIN_OFFSETS[pin]*sr_scale nearby = [residual[i] for i in range(len(xs)) if abs(xs[i]-pos) <= 2*sr_scale] depth = max(nearby) if nearby else 0.0 pin_depths.append(depth / incr if incr > 0 else 0.0) noise_regions = [] for pin in range(4): p1 = shoulder + (pin+1)*pin_spacing + kd.PIN_OFFSETS[pin]*sr_scale p2 = shoulder + (pin+2)*pin_spacing + kd.PIN_OFFSETS[pin+1]*sr_scale mid = (p1 + p2) / 2 between = [residual[i] for i in range(len(xs)) if abs(xs[i]-mid) <= pin_spacing*0.2] if between: noise_regions.append(np.std(between)) noise = np.mean(noise_regions) if noise_regions else 0.0 noise_norm = noise / incr if incr > 0 else noise return { 'n_points': len(bp), 'incr': incr, 'pin_depths': pin_depths, 'noise_norm': noise_norm, 'snr': np.std(pin_depths) / noise_norm if noise_norm > 0 else 0, } N = 5 print(f'Comparing baseline vs SR on {N} keys...', flush=True) t0 = time.time() for i in range(N): true = data['bittings'][i] base_stats = get_residual_stats(data['obverse'][i], sr_scale=1) sr_stats = get_residual_stats(data['obverse'][i], sr_scale=4) if base_stats and sr_stats: print(f'Key {i} (true={true}):', flush=True) print(f' Base: incr={base_stats[\"incr\"]:.2f}px noise={base_stats[\"noise_norm\"]:.2f} SNR={base_stats[\"snr\"]:.2f} depths={[f\"{d:.1f}\" for d in base_stats[\"pin_depths\"]]}', flush=True) print(f' SR: incr={sr_stats[\"incr\"]:.2f}px noise={sr_stats[\"noise_norm\"]:.2f} SNR={sr_stats[\"snr\"]:.2f} depths={[f\"{d:.1f}\" for d in sr_stats[\"pin_depths\"]]}', flush=True) print(f' ({time.time()-t0:.0f}s)', flush=True)",
+                "command": "python3 import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np, cv2, time, warnings warnings.filterwarnings('ignore') from scipy.ndimage import maximum_filter1d from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() def get_residual_stats(img_rgb, sr_scale=1): if sr_scale > 1: img_out, _ = upsampler.enhance(img_rgb, outscale=sr_scale) else: img_out = img_rgb gray = cv2.cvtColor(img_out, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) if largest is None: return None vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) bp = kd.extract_bottom_profile_subpixel(gray, bbox, bxs, bxe) if len(bp) < 10: return None xs = np.array([p[0] for p in bp]); ys = np.array([p[1] for p in bp]) smooth_ys = kd.smooth_1d(ys, 2.0*sr_scale) env = maximum_filter1d(smooth_ys, size=max(5, int(len(smooth_ys)*0.15)|1)) near = smooth_ys > env 2.0*sr_scale if near.sum() < 3: near = np.ones(len(smooth_ys), dtype=bool) coeffs = np.polyfit(xs[near], smooth_ys[near], 1) baseline = np.polyval(coeffs, xs) residual = baseline smooth_ys blade_span = bxe vs; ppi = blade_span / kd.SC1_BLADE_LENGTH incr = kd.SC1_DEPTH_INCREMENT * ppi shoulder = vs + kd.SHOULDER_OFFSET * sr_scale pin_spacing = kd.SC1_SPACING_INCREMENT * ppi pin_depths = [] for pin in range(5): pos = shoulder + (pin+1)*pin_spacing + kd.PIN_OFFSETS[pin]*sr_scale nearby = [residual[i] for i in range(len(xs)) if abs(xs[i]-pos) <= 2*sr_scale] depth = max(nearby) if nearby else 0.0 pin_depths.append(depth / incr if incr > 0 else 0.0) noise_regions = [] for pin in range(4): p1 = shoulder + (pin+1)*pin_spacing + kd.PIN_OFFSETS[pin]*sr_scale p2 = shoulder + (pin+2)*pin_spacing + kd.PIN_OFFSETS[pin+1]*sr_scale mid = (p1 + p2) / 2 between = [residual[i] for i in range(len(xs)) if abs(xs[i]-mid) <= pin_spacing*0.2] if between: noise_regions.append(np.std(between)) noise = np.mean(noise_regions) if noise_regions else 0.0 noise_norm = noise / incr if incr > 0 else noise return { 'n_points': len(bp), 'incr': incr, 'pin_depths': pin_depths, 'noise_norm': noise_norm, 'snr': np.std(pin_depths) / noise_norm if noise_norm > 0 else 0, } N = 5 print(f'Comparing baseline vs SR on {N} keys...', flush=True) t0 = time.time() for i in range(N): true = data['bittings'][i] base_stats = get_residual_stats(data['obverse'][i], sr_scale=1) sr_stats = get_residual_stats(data['obverse'][i], sr_scale=4) if base_stats and sr_stats: print(f'Key {i} (true={true}):', flush=True) print(f' Base: incr={base_stats[\"incr\"]:.2f}px noise={base_stats[\"noise_norm\"]:.2f} SNR={base_stats[\"snr\"]:.2f} depths={[f\"{d:.1f}\" for d in base_stats[\"pin_depths\"]]}', flush=True) print(f' SR: incr={sr_stats[\"incr\"]:.2f}px noise={sr_stats[\"noise_norm\"]:.2f} SNR={sr_stats[\"snr\"]:.2f} depths={[f\"{d:.1f}\" for d in sr_stats[\"pin_depths\"]]}', flush=True) print(f' ({time.time()-t0:.0f}s)', flush=True)",
+                "origin": "workspace",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "pid": 120875,
+        "name": "git",
+        "command": "git",
+        "origin": "workspace",
+        "children": [
+          {
+            "pid": 120887,
+            "name": "git",
+            "command": "git",
+            "origin": "workspace",
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}

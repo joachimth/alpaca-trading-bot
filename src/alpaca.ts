@@ -46,69 +46,20 @@ export interface Position {
   change_today_pct: number;
 }
 
-export interface AccountActivity {
-  id: string;
-  activity_type: string;
-  activity_sub_type?: string | null;
-  date?: string | null;
-  created_at?: string | null;
-  transaction_time?: string | null;
-  type?: string | null;
-  order_id?: string | null;
-  symbol?: string | null;
-  side?: string | null;
-  qty?: number | null;
-  price?: number | null;
-  cum_qty?: number | null;
-  leaves_qty?: number | null;
-  net_amount?: number | null;
-  currency?: string | null;
-  description?: string | null;
-  status?: string | null;
-}
-
-export interface AccountActivitiesResult {
-  activities: AccountActivity[];
-  pages: number;
-  pageBudget: number;
-  truncated: boolean;
-  degraded: boolean;
-}
-
-/** Shared read-only budget for the scheduled broker activity import. */
-export const ACCOUNT_ACTIVITY_PAGE_BUDGET = 5;
-
-export type AlpacaOrderStatus =
-  | 'new' | 'partially_filled' | 'filled' | 'done_for_day'
-  | 'canceled' | 'cancelled' | 'expired' | 'replaced'
-  | 'pending_cancel' | 'pending_replace' | 'accepted' | 'pending_new'
-  | 'accepted_for_bidding' | 'stopped' | 'rejected' | 'calculated' | string;
-
-/** Broker terminal states: reconciliation never retries or mutates the broker order. */
-export const TERMINAL_ORDER_STATUSES = new Set([
-  'filled', 'canceled', 'cancelled', 'rejected', 'expired', 'replaced', 'done_for_day', 'stopped',
-]);
-
 export interface Order {
   id: string;
   client_order_id: string;
   symbol: string;
   qty: number;
   filled_qty: number;
-  leaves_qty: number | null;
   filled_avg_price: number | null;
-  type: 'market' | 'limit' | 'stop' | 'stop_limit' | 'trailing_stop' | string;
+  type: 'market' | 'limit' | 'stop' | 'stop_limit' | 'trailing_stop';
   side: 'buy' | 'sell';
-  status: AlpacaOrderStatus;
+  status: 'new' | 'partially_filled' | 'filled' | 'done_for_day' | 'canceled' | 'expired' | 'replaced' | 'pending_cancel' | 'pending_replace' | 'accepted' | 'pending_new' | 'accepted_for_bidding' | 'stopped' | 'rejected' | 'calculated';
   time_in_force: string;
   created_at: string;
   updated_at: string;
-  submitted_at: string | null;
-  filled_at: string | null;
-  canceled_at: string | null;
-  expired_at: string | null;
-  failed_at: string | null;
-  replaced_at: string | null;
+  submitted_at: string;
   limit_price: number | null;
   stop_price: number | null;
   trail_price: number | null;
@@ -124,12 +75,6 @@ export interface Bar {
   v: number;   // volume
 }
 
-export interface BatchBarsResult {
-  barsBySymbol: Map<string, Bar[]>;
-  pages: number;
-  symbolsRequested: number;
-}
-
 export interface Quote {
   symbol: string;
   bid_price: number;
@@ -142,29 +87,9 @@ export interface Quote {
 
 export class AlpacaClient {
   private config: AlpacaConfig;
-  /**
-   * Running count of outbound fetch() subrequests made by this client.
-   * Cloudflare Workers enforces a hard subrequest limit per invocation
-   * (1000 on the paid plan). Exceeding it kills the Worker mid-cycle with
-   * "Fatal: Too many subrequests", which can leave stuck leases and missing
-   * cron dispatches. This counter lets the calling cycle proactively limit
-   * candidate analysis before hitting the hard limit.
-   */
-  subrequestCount = 0;
 
   constructor(config: AlpacaConfig) {
     this.config = config;
-  }
-
-  /** Increment the subrequest counter and delegate to fetch(). */
-  private async trackedFetch(url: string, init?: RequestInit): Promise<Response> {
-    this.subrequestCount++;
-    return fetch(url, init);
-  }
-
-  /** Current subrequest count for budget-aware cycle logic. */
-  getSubrequestCount(): number {
-    return this.subrequestCount;
   }
 
   private getHeaders(): Record<string, string> {
@@ -187,25 +112,14 @@ export class AlpacaClient {
 
   private async request(path: string, options: RequestInit = {}): Promise<Response> {
     const url = `${this.getBaseUrl()}${path}`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort('alpaca_request_timeout'), 12_000);
-    const upstreamSignal = options.signal;
-    if (upstreamSignal) {
-      if (upstreamSignal.aborted) controller.abort(upstreamSignal.reason);
-      else upstreamSignal.addEventListener('abort', () => controller.abort(upstreamSignal.reason), { once: true });
-    }
-    try {
-      return await this.trackedFetch(url, {
-        ...options,
-        signal: controller.signal,
-        headers: {
-          ...this.getHeaders(),
-          ...options.headers,
-        },
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...this.getHeaders(),
+        ...options.headers,
+      },
+    });
+    return response;
   }
 
   // ============================================================
@@ -230,16 +144,7 @@ export class AlpacaClient {
       buying_power: parseFloat(data.buying_power),
       long_market_value: parseFloat(data.long_market_value || '0'),
       short_market_value: parseFloat(data.short_market_value || '0'),
-      // Alpaca account payloads may omit market_value while still exposing
-      // authoritative long/short market values. Never surface a false zero
-      // when those broker aggregates are present.
-      market_value: (() => {
-        const longMarketValue = parseFloat(data.long_market_value || '0');
-        const shortMarketValue = parseFloat(data.short_market_value || '0');
-        const aggregate = longMarketValue + shortMarketValue;
-        const reported = data.market_value == null ? NaN : parseFloat(data.market_value);
-        return Number.isFinite(reported) && (reported !== 0 || aggregate === 0) ? reported : aggregate;
-      })(),
+      market_value: parseFloat(data.market_value || '0'),
       last_equity: parseFloat(data.last_equity || '0'),
       change_today: parseFloat(data.change_today || '0'),
       change_today_pct: parseFloat(data.change_today_pct || '0'),
@@ -314,83 +219,21 @@ export class AlpacaClient {
     };
   }
 
-  private parseOrder(data: any): Order {
-    return {
-      id: data.id,
-      client_order_id: data.client_order_id,
-      symbol: data.symbol,
-      qty: parseFloat(data.qty),
-      filled_qty: parseFloat(data.filled_qty || '0'),
-      leaves_qty: data.leaves_qty == null ? null : parseFloat(data.leaves_qty),
-      filled_avg_price: data.filled_avg_price ? parseFloat(data.filled_avg_price) : null,
-      type: data.type,
-      side: data.side,
-      status: data.status,
-      time_in_force: data.time_in_force,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
-      submitted_at: data.submitted_at ?? null,
-      filled_at: data.filled_at ?? null,
-      canceled_at: data.canceled_at ?? null,
-      expired_at: data.expired_at ?? null,
-      failed_at: data.failed_at ?? null,
-      replaced_at: data.replaced_at ?? null,
-      limit_price: data.limit_price ? parseFloat(data.limit_price) : null,
-      stop_price: data.stop_price ? parseFloat(data.stop_price) : null,
-      trail_price: data.trail_price ? parseFloat(data.trail_price) : null,
-      trail_percent: data.trail_percent ? parseFloat(data.trail_percent) : null,
-    };
-  }
-
-  isOrderFullyFilled(order: Order): boolean {
-    return order.status === 'filled' && order.filled_qty > 0 && order.filled_qty >= order.qty * 0.999;
-  }
-
-  private isTerminalOrder(status: string): boolean {
-    return TERMINAL_ORDER_STATUSES.has(status);
-  }
-
-  async waitForOrder(orderId: string, timeoutMs: number = 2000): Promise<Order> {
-    const started = Date.now();
-    // One initial read plus at most three polls. This is a convenience
-    // confirmation only: the maintenance lane (reconcile_cron) is the
-    // authoritative confirmation path, and an unbounded poll budget could
-    // exhaust the per-invocation subrequest ceiling after the broker had
-    // already accepted the order, turning a successful submit into a false
-    // "Sell failed"/"Close failed" error run (Control-901).
-    let polls = 0;
-    let order = await this.getOrder(orderId);
-    while (!this.isTerminalOrder(order.status) && Date.now() - started < timeoutMs && polls < 3) {
-      await new Promise(resolve => setTimeout(resolve, 250));
-      order = await this.getOrder(orderId);
-      polls++;
-    }
-    return order;
-  }
-
-  async closePosition(symbol: string, options: { waitForFill?: boolean } = {}): Promise<Order> {
+  async closePosition(symbol: string): Promise<Order> {
     const resp = await this.request(`/v2/positions/${symbol}`, { method: 'DELETE' });
     if (!resp.ok) {
       const text = await resp.text();
       throw new Error(`Alpaca closePosition failed: ${resp.status} ${text}`);
     }
-    const order = this.parseOrder(await resp.json());
-    // Strategy cycles may submit an exit and defer broker confirmation to the
-    // bounded scheduled reconciliation pass. Existing callers retain the
-    // synchronous confirmation default.
-    return order.id && options.waitForFill !== false ? await this.waitForOrder(order.id) : order;
+    return await resp.json() as any;
   }
 
-  async closeAllPositions(): Promise<Order[]> {
+  async closeAllPositions(): Promise<void> {
     const resp = await this.request('/v2/positions', { method: 'DELETE' });
     if (!resp.ok && resp.status !== 207) {
       const text = await resp.text();
       throw new Error(`Alpaca closeAllPositions failed: ${resp.status} ${text}`);
     }
-    const data: any = await resp.json().catch(() => [] as any);
-    const rawOrders = Array.isArray(data) ? data : (data?.orders || data?.results || []);
-    const orders = rawOrders.filter((order: any) => order?.id).map((order: any) => this.parseOrder(order));
-    return await Promise.all(orders.map((order: Order) => this.waitForOrder(order.id)));
   }
 
   // ============================================================
@@ -433,15 +276,32 @@ export class AlpacaClient {
       throw new Error(`Alpaca submitOrder failed: ${resp.status} ${text}`);
     }
 
-    // Normalize the submit response so broker lifecycle timestamps are
-    // preserved before the order reaches D1 persistence.
-    return this.parseOrder(await resp.json());
+    return await resp.json() as any;
   }
 
   async getOrder(orderId: string): Promise<Order> {
     const resp = await this.request(`/v2/orders/${orderId}`);
     if (!resp.ok) throw new Error(`Alpaca getOrder failed: ${resp.status}`);
-    return this.parseOrder(await resp.json());
+    const data = await resp.json() as any;
+    return {
+      id: data.id,
+      client_order_id: data.client_order_id,
+      symbol: data.symbol,
+      qty: parseFloat(data.qty),
+      filled_qty: parseFloat(data.filled_qty),
+      filled_avg_price: data.filled_avg_price ? parseFloat(data.filled_avg_price) : null,
+      type: data.type,
+      side: data.side,
+      status: data.status,
+      time_in_force: data.time_in_force,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      submitted_at: data.submitted_at,
+      limit_price: data.limit_price ? parseFloat(data.limit_price) : null,
+      stop_price: data.stop_price ? parseFloat(data.stop_price) : null,
+      trail_price: data.trail_price ? parseFloat(data.trail_price) : null,
+      trail_percent: data.trail_percent ? parseFloat(data.trail_percent) : null,
+    };
   }
 
   async cancelOrder(orderId: string): Promise<void> {
@@ -449,235 +309,65 @@ export class AlpacaClient {
     if (!resp.ok) throw new Error(`Alpaca cancelOrder failed: ${resp.status}`);
   }
 
-  /**
-   * Backward-compatible activity read. Scheduled ledger callers should use the
-   * structured bounded result below so truncation cannot be mistaken for a
-   * complete broker sync.
-   */
-  async getAccountActivities(
-    activityTypes: string[],
-    after?: string,
-    until?: string,
-  ): Promise<AccountActivity[]> {
-    return (await this.getAccountActivitiesBounded(activityTypes, after, until)).activities;
-  }
-
-  async getAccountActivitiesBounded(
-    activityTypes: string[],
-    after?: string,
-    until?: string,
-    requestedPageBudget = ACCOUNT_ACTIVITY_PAGE_BUDGET,
-  ): Promise<AccountActivitiesResult> {
-    const activities: AccountActivity[] = [];
-    const pageBudget = Math.max(1, Math.floor(requestedPageBudget));
-    let pageToken: string | undefined;
-    let pages = 0;
-    for (let page = 0; page < pageBudget; page++) {
-      const params = new URLSearchParams({
-        activity_types: activityTypes.join(','),
-        direction: 'asc',
-        page_size: '100',
-      });
-      if (after) params.set('after', after);
-      if (until) params.set('until', until);
-      if (pageToken) params.set('page_token', pageToken);
-      const resp = await this.request(`/v2/account/activities?${params.toString()}`);
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(`Alpaca getAccountActivities failed: ${resp.status} ${text}`);
-      }
-      const data = await resp.json() as any[];
-      pages++;
-      if (!Array.isArray(data) || data.length === 0) {
-        pageToken = undefined;
-        break;
-      }
-      for (const a of data) {
-        activities.push({
-          id: String(a.id),
-          activity_type: String(a.activity_type || ''),
-          activity_sub_type: a.activity_sub_type ?? null,
-          date: a.date ?? null,
-          created_at: a.created_at ?? null,
-          transaction_time: a.transaction_time ?? null,
-          type: a.type ?? null,
-          order_id: a.order_id ?? null,
-          symbol: a.symbol ?? null,
-          side: a.side ?? null,
-          qty: a.qty == null ? null : Number(a.qty),
-          price: a.price == null ? null : Number(a.price),
-          cum_qty: a.cum_qty == null ? null : Number(a.cum_qty),
-          leaves_qty: a.leaves_qty == null ? null : Number(a.leaves_qty),
-          net_amount: a.net_amount == null ? null : Number(a.net_amount),
-          currency: a.currency ?? null,
-          description: a.description ?? null,
-          status: a.status ?? null,
-        });
-      }
-      const next = data[data.length - 1]?.id;
-      if (!next || data.length < 100 || next === pageToken) {
-        pageToken = undefined;
-        break;
-      }
-      pageToken = String(next);
-    }
-    const truncated = Boolean(pageToken);
-    return { activities, pages, pageBudget, truncated, degraded: truncated };
-  }
-
-  async getRecentOrders(limit: number = 50, options: { after?: string; until?: string; direction?: 'asc' | 'desc' } = {}): Promise<Order[]> {
-    const params = new URLSearchParams({
-      limit: String(limit),
-      status: 'all',
-      direction: options.direction || 'desc',
-    });
-    if (options.after) params.set('after', options.after);
-    if (options.until) params.set('until', options.until);
-    const resp = await this.request(`/v2/orders?${params.toString()}`);
+  async getRecentOrders(limit: number = 50): Promise<Order[]> {
+    const resp = await this.request(`/v2/orders?limit=${limit}&status=all`);
     if (!resp.ok) throw new Error(`Alpaca getRecentOrders failed: ${resp.status}`);
     const data = await resp.json() as any[];
-    return data.map(o => this.parseOrder(o));
+    return data.map(o => ({
+      id: o.id,
+      client_order_id: o.client_order_id,
+      symbol: o.symbol,
+      qty: parseFloat(o.qty),
+      filled_qty: parseFloat(o.filled_qty),
+      filled_avg_price: o.filled_avg_price ? parseFloat(o.filled_avg_price) : null,
+      type: o.type,
+      side: o.side,
+      status: o.status,
+      time_in_force: o.time_in_force,
+      created_at: o.created_at,
+      updated_at: o.updated_at,
+      submitted_at: o.submitted_at,
+      limit_price: o.limit_price ? parseFloat(o.limit_price) : null,
+      stop_price: o.stop_price ? parseFloat(o.stop_price) : null,
+      trail_price: o.trail_price ? parseFloat(o.trail_price) : null,
+      trail_percent: o.trail_percent ? parseFloat(o.trail_percent) : null,
+    }));
   }
 
   // ============================================================
   // Market Data (via data.alpaca.markets)
   // ============================================================
 
-  async getBars(
-    symbol: string,
-    timeframe: string = '5Min',
-    limit: number = 200,
-    options: { start?: string; end?: string } = {},
-  ): Promise<Bar[]> {
+  async getBars(symbol: string, timeframe: string = '5Min', limit: number = 200): Promise<Bar[]> {
     const dataUrl = this.getDataBaseUrl();
-    const bars: any[] = [];
-    let pageToken: string | undefined;
-    // Alpaca may return fewer rows than requested and expose the remainder via
-    // next_page_token. Follow it so a short first page cannot masquerade as a
-    // short history window.
-    for (let page = 0; page < 20; page++) {
-      const params = new URLSearchParams({
-        timeframe,
-        limit: String(limit),
-        sort: 'asc',
-      });
-      if (options.start) params.set('start', options.start);
-      if (options.end) params.set('end', options.end);
-      if (pageToken) params.set('page_token', pageToken);
-      const url = `${dataUrl}/v2/stocks/${symbol}/bars?${params.toString()}`;
+    const url = `${dataUrl}/v2/stocks/${symbol}/bars?timeframe=${timeframe}&limit=${limit}`;
 
-      const resp = await this.trackedFetch(url, {
-        headers: this.getHeaders(),
-      });
+    const resp = await fetch(url, {
+      headers: this.getHeaders(),
+    });
 
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(`Alpaca getBars failed for ${symbol}: ${resp.status} ${text}`);
-      }
-
-      const data = await resp.json() as any;
-      bars.push(...(Array.isArray(data.bars) ? data.bars : []));
-      pageToken = typeof data.next_page_token === 'string' && data.next_page_token.length > 0
-        ? data.next_page_token
-        : undefined;
-      if (!pageToken) break;
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Alpaca getBars failed for ${symbol}: ${resp.status} ${text}`);
     }
 
+    const data = await resp.json() as any;
+    const bars = data.bars || [];
     return bars.map((b: any) => ({
-      // Alpaca returns RFC-3339 timestamps for stock bars. Normalize them to
-      // unix seconds so all indicator timestamp arithmetic is deterministic.
-      t: typeof b.t === 'string' ? Date.parse(b.t) / 1000 : Number(b.t),
-      o: Number(b.o),
-      h: Number(b.h),
-      l: Number(b.l),
-      c: Number(b.c),
-      v: Number(b.v),
+      t: b.t,
+      o: b.o,
+      h: b.h,
+      l: b.l,
+      c: b.c,
+      v: b.v,
     }));
-  }
-
-  async getBarsBatch(
-    symbols: string[],
-    timeframe: string = '5Min',
-    limit: number = 200,
-    options: { start?: string; end?: string } = {},
-  ): Promise<BatchBarsResult> {
-    const result = new Map<string, Bar[]>();
-    const requestedSymbols = Array.from(new Set(symbols.filter(Boolean)));
-    requestedSymbols.forEach(symbol => result.set(symbol, []));
-    if (requestedSymbols.length === 0) return { barsBySymbol: result, pages: 0, symbolsRequested: 0 };
-
-    const dataUrl = this.getDataBaseUrl();
-    let pageToken: string | undefined;
-    const seenPageTokens = new Set<string>();
-    let pages = 0;
-    const maxPages = 8; // 150 symbols × 400 daily bars needs at most 6 pages at 10,000/page.
-    // Alpaca's multi-symbol limit applies to the total number of bars in a
-    // response page, not per symbol. Request the documented maximum so a full
-    // swing universe needs only a handful of pages, then follow pagination so
-    // every requested symbol gets the same historical window.
-    const pageLimit = Math.min(Math.max(limit, 1) * requestedSymbols.length, 10000);
-    for (let page = 0; page < maxPages; page++) {
-      const params = new URLSearchParams({
-        symbols: requestedSymbols.join(','),
-        timeframe,
-        limit: String(pageLimit),
-        sort: 'asc',
-      });
-      if (options.start) params.set('start', options.start);
-      if (options.end) params.set('end', options.end);
-      if (pageToken) params.set('page_token', pageToken);
-      const url = `${dataUrl}/v2/stocks/bars?${params.toString()}`;
-
-      const resp = await this.trackedFetch(url, {
-        headers: this.getHeaders(),
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(`Alpaca getBarsBatch failed: ${resp.status} ${text}`);
-      }
-      pages++;
-
-      const data = await resp.json() as any;
-      const barsBySymbol = data.bars && typeof data.bars === 'object' ? data.bars : {};
-      for (const [symbol, rawBars] of Object.entries(barsBySymbol)) {
-        const normalized = Array.isArray(rawBars) ? rawBars.map((b: any) => ({
-          t: typeof b.t === 'string' ? Date.parse(b.t) / 1000 : Number(b.t),
-          o: Number(b.o),
-          h: Number(b.h),
-          l: Number(b.l),
-          c: Number(b.c),
-          v: Number(b.v),
-        })) : [];
-        const existing = result.get(symbol) || [];
-        result.set(symbol, existing.concat(normalized));
-      }
-
-      const nextPageToken = typeof data.next_page_token === 'string' && data.next_page_token.length > 0
-        ? data.next_page_token
-        : undefined;
-      if (!nextPageToken) {
-        pageToken = undefined;
-        break;
-      }
-      if (seenPageTokens.has(nextPageToken)) {
-        throw new Error(`Alpaca getBarsBatch repeated next_page_token after ${pages} pages`);
-      }
-      seenPageTokens.add(nextPageToken);
-      pageToken = nextPageToken;
-    }
-
-    if (pageToken) {
-      throw new Error(`Alpaca getBarsBatch exceeded ${maxPages}-page budget`);
-    }
-    return { barsBySymbol: result, pages, symbolsRequested: requestedSymbols.length };
   }
 
   async getLatestQuote(symbol: string): Promise<Quote | null> {
     const dataUrl = this.getDataBaseUrl();
     const url = `${dataUrl}/v2/stocks/${symbol}/quotes/latest`;
 
-    const resp = await this.trackedFetch(url, {
+    const resp = await fetch(url, {
       headers: this.getHeaders(),
     });
 
@@ -701,7 +391,7 @@ export class AlpacaClient {
     const dataUrl = this.getDataBaseUrl();
     const url = `${dataUrl}/v2/stocks/${symbol}/trades/latest`;
 
-    const resp = await this.trackedFetch(url, {
+    const resp = await fetch(url, {
       headers: this.getHeaders(),
     });
 
@@ -736,7 +426,7 @@ export class AlpacaClient {
     const dataUrl = this.getDataBaseUrl();
     const url = `${dataUrl}/v2/screener/markets/stocks/movers`;
 
-    const resp = await this.trackedFetch(url, {
+    const resp = await fetch(url, {
       headers: this.getHeaders(),
     });
 
@@ -767,7 +457,7 @@ export class AlpacaClient {
     const symbolsStr = symbols.join(',');
     const url = `${dataUrl}/v2/stocks/snapshots?symbols=${symbolsStr}`;
 
-    const resp = await this.trackedFetch(url, {
+    const resp = await fetch(url, {
       headers: this.getHeaders(),
     });
 
@@ -796,14 +486,9 @@ export class AlpacaClient {
     const dataUrl = this.getDataBaseUrl();
     // Crypto API requires BTC/USD format, but our universe uses BTCUSD
     const apiSymbol = symbol.includes('/') ? symbol : symbol.replace(/USD$/, '/USD');
-    // Alpaca otherwise defaults to bars from the current UTC day only.
-    // Use a rolling historical window so early 00/04/08/12 UTC cycles
-    // still have enough bars for the TA indicators.
-    const end = new Date();
-    const start = new Date(end.getTime() - 3 * 24 * 60 * 60 * 1000);
-    const url = `${dataUrl}/v1beta3/crypto/us/bars?symbols=${encodeURIComponent(apiSymbol)}&timeframe=${encodeURIComponent(timeframe)}&start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}&limit=${limit}`;
+    const url = `${dataUrl}/v1beta3/crypto/us/bars?symbols=${apiSymbol}&timeframe=${timeframe}&limit=${limit}`;
 
-    const resp = await this.trackedFetch(url, { headers: this.getHeaders() });
+    const resp = await fetch(url, { headers: this.getHeaders() });
     if (!resp.ok) {
       const text = await resp.text();
       throw new Error(`Alpaca getCryptoBars failed for ${symbol}: ${resp.status} ${text}`);
@@ -818,7 +503,7 @@ export class AlpacaClient {
       h: parseFloat(b.h || b.H),
       l: parseFloat(b.l || b.L),
       c: parseFloat(b.c || b.C),
-      v: parseFloat(b.v || b.V) || 0,
+      v: parseFloat(b.v || b.V),
     }));
   }
 
@@ -834,7 +519,7 @@ export class AlpacaClient {
     const apiSymbols = symbols.map(s => s.includes('/') ? s : s.replace(/USD$/, '/USD'));
     const url = `${dataUrl}/v1beta3/crypto/us/snapshots?symbols=${apiSymbols.join(',')}`;
 
-    const resp = await this.trackedFetch(url, { headers: this.getHeaders() });
+    const resp = await fetch(url, { headers: this.getHeaders() });
     if (!resp.ok) {
       console.error(`Crypto snapshots failed: ${resp.status}`);
       return {};

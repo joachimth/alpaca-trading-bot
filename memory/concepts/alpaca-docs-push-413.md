@@ -1,0 +1,38 @@
+---
+title: Alpaca docs-push 413 blocker — OPERATIONS.md outgrew the proxy
+slug: alpaca-docs-push-413
+tags: [alpaca, github, operations, infrastructure]
+main: alpaca-trading-bot
+summary: Alpaca docs-push blocker — since C-750 (Sep 20) the PROXIMATE blocker is origin/main fork divergence (non-fast-forward) → alpaca-repo-fork-divergence; the ~1.03MB proxy 413 (all 3 files ~1.05-1.10MB b64 since Sep 19) remains the underlying size problem; LIFTED Sep 23 2026 (C-825): after fork reconciliation, plain git push works (stored credential) and bypasses the proxy 413 entirely — the Contents-API path is no longer needed; docs re-archive is optional hygiene only. Full per-push playbook (sequential PUTs, -X PUT, authenticated sha checks) inside.
+current: "SUPERSEDED as proximate blocker by FORK DIVERGENCE (C-750, Sep 20) — see alpaca-repo-fork-divergence; the 413 remains the underlying size problem. 413 BACK — BLOCKING ALL THREE files (Sep 19, C-736→C-744): README/OPERATIONS/RUNBOOK payloads ~1.05→1.10MB b64, all past the ~1.03MB proxy limit; remote stuck at C-736 shas (README 796f77be / OPERATIONS 0cd79fb8 / RUNBOOK 243eba3b), local per-control commits authoritative. Re-archive below ~500KB = URGENT + BLOCKING, needs Joachim's go-ahead. Prior state: RESOLVED Sep 15 2026 (structural reorg, C-1..C-593 archived to docs/archive/*-archive-01..04.md ≤500KB; main files ~215KB); regrew ~767KB by Sep 18, ~822KB by Sep 19. Playbook: 404-everywhere = infrastructure, verify via /user + /rate_limit, retry later, local commit is authoritative; 409 on PUT = raced commit, re-fetch remote sha; -X PUT MANDATORY (C-717); authenticated GET for shas (C-711)"
+links:
+  - "alpaca-trading-bot — parent hub"
+  - "2026-09-09-alpaca-monitoring — the Sep 9 retry attempt, day arc"
+---
+# Alpaca docs-push blocker — fork divergence (current) + 413 size history
+
+**CORRECTION (C-750, Sep 20 04:00 UTC): the proximate push blocker is NO LONGER the 413 — it is origin/main FORK DIVERGENCE** (non-fast-forward, merge-base Control-105; remote stuck C-736 lacking 2ea5e9d, 465 vs local 662 commits). The 413 was the earlier enabler. Reconciliation direction = Joachim's decision → [[alpaca-repo-fork-divergence]]. Everything below is the 413 history + the still-valid per-push playbook.
+
+README.md, docs/OPERATIONS.md, and docs/DEPLOYMENT_RUNBOOK.md of the Alpaca bot had outgrown the platform proxy's **~1.03MB request-body limit (HTTP 413)** after months of per-control appends. **RESOLVED Sep 15, 2026** after Joachim's go-ahead: controls C-1..C-593 (pre-Sep 14) were rolled out into `docs/archive/{README,OPERATIONS,DEPLOYMENT_RUNBOOK}-archive-01..04.md` chunks, each kept under 500KB raw so the base64 JSON payload (~667KB) clears the proxy. Main files keep C-594+ (Sep 14 onward) at ~215KB each. All 13 files pushed via the OAuth Contents API (10 new archive files + 3 main updates with fresh shas), all 200 OK, and remote blob shas verified equal to local `git hash-object`. Local commit 837bc49.
+
+## What fails, and what the working shape is
+
+The retry pattern each control cycle: rebuild the JSON payload via a **temp-file technique** and PUT via the Contents API. Two hard walls: the proxy 413 at ~1.03MB, and — discovered Sep 9, threshold refined Sep 12 — building the `assistant oauth request -d` body inline dies with **'Argument list too long' (ARG_MAX) from roughly 600KB+ of base64** before the proxy is even reached; the temp-file workaround (`-d @/tmp/payload.json`) is the standard route → [[sandbox-tooling-quirks]]. Sep 9 10:02 UTC retry with the temp-file technique: local OPERATIONS.md 1,159,488 bytes → 1,546,165-byte JSON payload → 413 again, unchanged. NOT forced, NOT split — per standing instruction the file is never split or force-pushed without Joachim's decision. The scheduled retries continue each control cycle: Sep 11 10:03 UTC came in at 1,348,126 bytes → 1,797,612-byte payload → 413, and **all three docs now exceed the limit** (README 1,251,908 B, RUNBOOK 1,158,774 B). Sep 14 10:03 UTC: local OPERATIONS.md 1,681,355 B → 2,241,983-byte payload via temp-file → 413 again (remote sha 6045e67e verified first). Sep 15 10:05 UTC retry: local OPERATIONS.md 1,817,559 B (still growing) → 2,423,579-byte payload → 413 again (remote sha 6045e67e verified first). Still NOT forced/split — per standing instruction the file is never split or force-pushed without Joachim's decision.
+
+**Sep 15 C-640 transient → recurring by Sep 16 (failure shape #3):** the Contents API 404'd on ALL api.github.com paths (even /user) at 19:00 UTC Sep 15 — an outage, not credential death; by 20:04 everything worked and the local-only commit pushed + verified in sync. It then RECURRED twice on Sep 16: C-646 (~01:03-01:08 UTC, docs committed locally 4e4fcb2, push deferred) and C-650 (~05:03-05:05 UTC, local c386593, deferred). OAuth stays ACTIVE with repo+workflow scopes each time — always verify `assistant oauth status github` before concluding anything about credentials. Deferred pushes cleared at C-647 and C-651 (shas verified; C-651's RUNBOOK PUT threw a transient 409 race, re-fetched sha, retried clean). Three occurrences in two days, each resolved within ~1-2h: treat 404-everywhere as retry-later infrastructure weather. Also: a 409 "does not match" on PUT means a second PUT raced the first commit — re-fetch the remote sha and retry.
+
+## The real fix
+
+A structural doc reorg: roll the accumulated old Control-N sections into an archive file so OPERATIONS.md shrinks back under the limit. EXECUTED Sep 15 with Joachim's go-ahead — C-1..C-593 archived, main files ~215KB, pushes verified in sync (see header).
+
+## Two push-operations lessons (Sep 18, C-702 + C-704)
+
+- **Stale origin/main local ref (C-702):** after OAuth Contents-API pushes, the LOCAL origin/main ref does NOT advance — a 409 came from building the payload with the stale ref's sha (c5d467b7). Live Contents API GET returns the correct shas; never trust the local ref, re-fetch from the API.
+- **No parallel PUTs (C-704):** running the 3 file-PUTs in parallel let RUNBOOK's commit advance first, 409-racing README/OPERATIONS. Sequential PUTs, retrying clean on any 409.
+
+Two more (Sep 18 evening, C-711 + C-717):
+
+- **Unauthenticated curl GET can hit a STALE CDN cache** on the github Contents API (C-711) — per-push remote==local verification must use authenticated `assistant oauth request --provider github` GET, not curl.
+- **`-X PUT` is MANDATORY on file updates (C-717):** `assistant oauth request` defaults to HTTP GET; a "PUT" without `-X` sends a GET and GitHub returns 404 "Not Found" on /contents/{path} even though a plain GET returns 200 with the sha. At C-716 the push was skipped entirely so remote lagged 1 control until C-717 closed it. Working form: `assistant oauth request --provider github -X PUT -d @/tmp/payload.json "https://api.github.com/repos/joachimth/alpaca-trading-bot/contents/{path}"` with payload `{"message":..., "content":<base64>, "sha":<current-remote-sha>}`.
+- **Docs size watch:** main files ~677KB each (Sep 18) — re-archive into docs/archive chunks below ~500KB is a pending follow-up, not blocking (still under the ~1.03MB proxy limit).
+- **413 RECURRED, now blocking ALL THREE (Sep 19, C-736→C-744):** files regrew past the limit — C-736 OPERATIONS alone 413'd (b64 1,048,468 B), by C-738 all three (README 1,057,255 / OPERATIONS 1,057,527 / RUNBOOK 1,050,059 b64), C-744 ~1.10MB each. Remote stuck at C-736 shas; local docs committed per-control remain authoritative. Growth rate: ~215KB (Sep 15 reorg) → ~767KB (Sep 18) → ~822KB raw (Sep 19) — per-control appends re-fill the budget in days, so the re-archive must also change the cadence or it recurs again. NEVER split/force without Joachim's decision.

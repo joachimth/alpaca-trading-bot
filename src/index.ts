@@ -4,28 +4,12 @@
 import { AlpacaClient } from './alpaca';
 import { analyze, generateSignal, ema, atr, type TASignal } from './technical-analysis';
 import { refineWithLLM, detectMarketRegime, type AIMarketContext } from './ai-decision';
-import { RiskManager, type RiskConfig, type RiskCheckResult } from './risk-manager';
-import { Database, isFeeSummaryCacheFresh, markFeeSummaryRefreshed } from './database';
+import { RiskManager, type RiskConfig } from './risk-manager';
+import { Database } from './database';
 import { UniverseScanner } from './scanner';
 import { DashboardAPI } from './api';
 import { runSwingCycle } from './swing-strategy';
 import { runCryptoCycle } from './crypto-strategy';
-import { projectBrokerPositions, summarizeByCategory } from './position-projection';
-import { SkipReasonCollector, serializeDecisionSkip, serializeRunDetails, runStatus } from './skip-reasons';
-import { syncBrokerLedger } from './broker-ledger';
-import { reconcileBrokerOrders } from './order-reconciliation';
-import { reconcileBrokerQuantityMismatches } from './position-reconciliation';
-import { resolveCapitalCapOverride } from './capital-caps';
-import { assessIntradayBars, DAYTRADING_BAR_INTERVAL_SECONDS, DAYTRADING_MAX_BAR_STALE_INTERVALS } from './market-data-quality';
-import { accountWithEquityDirection, resolveEquityDirection } from './equity-observability';
-import { recordDailyAnalyticsSnapshots } from './analytics-snapshot';
-import {
-  evaluateEntryGuards,
-  resolveRiskGuardConfig,
-  riskGuardUnavailable,
-  strategyDailyPlUsd,
-  type EntryGuardEvaluation,
-} from './risk-guards';
 
 export interface Env {
   DB: D1Database;
@@ -35,87 +19,8 @@ export interface Env {
   LLM_API_KEY: string;
 }
 
-/**
- * Keep daytrading RiskManager rejections durable in the shared structured skip
- * stream without changing the existing decision reason or broker path.
- */
-export function daytradingRiskSkipCode(reason: string): string {
-  return reason.toLowerCase().includes('capital cap') || reason.toLowerCase().includes('available cash')
-    ? 'CAPITAL_CAP'
-    : 'NO_ENTRY_RISK';
-}
-
-export function daytradingRiskSkipContext(input: {
-  symbol: string;
-  decisionId: number;
-  action: 'BUY' | 'SELL';
-  riskCheck: RiskCheckResult;
-}): Record<string, unknown> {
-  const context: Record<string, unknown> = {
-    strategy: 'daytrading',
-    symbol: input.symbol,
-    decision_id: input.decisionId,
-    action: input.action,
-    reason: input.riskCheck.reason,
-  };
-  if (Number.isFinite(input.riskCheck.estimatedCostBps)) context.estimated_cost_bps = input.riskCheck.estimatedCostBps;
-  if (Number.isFinite(input.riskCheck.estimatedCosts)) context.estimated_cost_usd = input.riskCheck.estimatedCosts;
-  if (Number.isFinite(input.riskCheck.edgeAfterCosts)) context.edge_after_costs = input.riskCheck.edgeAfterCosts;
-  return context;
-}
-
-/** Alpaca's confirmed minimum notional for daytrading stock BUY submissions. */
-export const DAYTRADING_MIN_ORDER_NOTIONAL_USD = 1;
-
-export interface DaytradingBuyNotionalCheck {
-  approved: boolean;
-  estimatedNotionalUsd: number;
-  minimumNotionalUsd: number;
-  reason: string;
-}
-
-/**
- * Read-only preflight for the broker's minimum stock order notional. This is
- * intentionally limited to daytrading BUY entries; exits and protective
- * orders remain broker-authoritative and are never routed through this check.
- */
-export function checkDaytradingBuyMinimumNotional(
-  qty: number,
-  price: number,
-  minimumNotionalUsd = DAYTRADING_MIN_ORDER_NOTIONAL_USD,
-): DaytradingBuyNotionalCheck {
-  const estimatedNotionalUsd = qty * price;
-  const approved = Number.isFinite(estimatedNotionalUsd) && estimatedNotionalUsd >= minimumNotionalUsd;
-  return {
-    approved,
-    estimatedNotionalUsd,
-    minimumNotionalUsd,
-    reason: approved
-      ? 'Daytrading BUY meets the broker minimum order notional'
-      : `Daytrading BUY estimated notional $${Number.isFinite(estimatedNotionalUsd) ? estimatedNotionalUsd.toFixed(2) : 'invalid'} is below the broker minimum order notional $${minimumNotionalUsd.toFixed(2)}`,
-  };
-}
-
-/** Read-only order-record estimate for a daytrading position exit. */
-export function daytradingExitEstimatedValue(
-  order: { qty: number; filled_avg_price: number | null },
-  position: { qty: number; current_price: number; market_value: number },
-): number | undefined {
-  const price = Number.isFinite(position.current_price) && position.current_price > 0
-    ? position.current_price
-    : position.qty > 0 && Number.isFinite(position.market_value) && position.market_value > 0
-      ? position.market_value / position.qty
-      : undefined;
-  return price !== undefined && Number.isFinite(order.qty) && order.qty > 0 ? order.qty * price : undefined;
-}
-
 // Default fallback config if D1 is empty
-const CRYPTO_SYMBOLS = new Set([
-  'BTCUSD','ETHUSD','SOLUSD','AVAXUSD','LINKUSD','MATICUSD','DOTUSD','UNIUSD',
-  'ATOMUSD','LTCUSD','BCHUSD','NEARUSD','AAVEUSD','XLMUSD','ALGOUSD',
-]);
-
-export const FALLBACK_CONFIG = {
+const FALLBACK_CONFIG = {
     maxPositions: 15,
     maxPositionPct: 20,
     stopLossPct: 8,
@@ -151,327 +56,39 @@ export const FALLBACK_CONFIG = {
     maxCapitalUsd: 5000,       // daytrading capital cap (~33,000 DKK)
   };
 
-export function resolveDaytradingConfig(dbConfig: Record<string, string>) {
-  const config = { ...FALLBACK_CONFIG };
-  for (const [key, value] of Object.entries(dbConfig)) {
-    if (key === 'maxCapitalUsd' || key === 'max_capital_usd') continue;
-    // D1 stores snake_case keys (e.g. min_confidence); FALLBACK_CONFIG is
-    // camelCase (minConfidence). Without normalization no D1 override ever
-    // merged and the FALLBACK default silently won — that is FINDING 1:
-    // the approved min_confidence 0.8 was ignored in favor of 0.7.
-    const camelKey = key.includes('_')
-      ? key.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase())
-      : key;
-    if (camelKey in config) {
-      const numVal = parseFloat(value);
-      if (!isNaN(numVal)) (config as any)[camelKey] = numVal;
-      else if (value === 'true') (config as any)[camelKey] = true;
-      else if (value === 'false') (config as any)[camelKey] = false;
-      else (config as any)[camelKey] = value;
-    }
-  }
-  const cap = resolveCapitalCapOverride(dbConfig, 'daytrading');
-  if (cap !== undefined) config.maxCapitalUsd = cap;
-  return config;
-}
-
-export async function positionsStrategySchemaReady(db: D1Database): Promise<boolean> {
-  try {
-    const column = await db.prepare(
-      `SELECT 1 FROM pragma_table_info('positions') WHERE name = ? LIMIT 1`
-    ).bind('strategy').first();
-    return Boolean(column);
-  } catch (error) {
-    console.error('Required positions schema check failed:', error);
-    // Fail-open on transient D1 errors: the positions.strategy migration was
-    // applied days ago and verified across hundreds of runs. Fail-closed here
-    // causes silent run loss because the fallback logSchemaBlockedRun also
-    // requires D1, which is equally unavailable under transient pressure.
-    return true;
-  }
-}
-
-async function logSchemaBlockedRun(env: Env, trigger: string): Promise<void> {
-  const skips = new SkipReasonCollector();
-  skips.add(
-    'REQUIRED_SCHEMA_MISSING',
-    'schema',
-    'Strategy cycle skipped because positions.strategy is unavailable; apply positions-strategy-column-migration.sql before enabling strategy cycles',
-    { required: 'positions.strategy', migration: 'positions-strategy-column-migration.sql', failClosed: true },
-  );
-  try {
-    await env.DB.prepare(
-      `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
-       VALUES (?, 0, 0, 0, 0, 0, ?, 'skipped')`
-    ).bind(
-      trigger,
-      serializeRunDetails([], skips),
-    ).run();
-  } catch (error) {
-    console.error('Unable to record schema-blocked strategy run:', error);
-  }
-}
-
-async function runStrategyWithSchemaGate(env: Env, trigger: string, cycle: (env: Env, trigger: string) => Promise<void>): Promise<void> {
-  if (!await positionsStrategySchemaReady(env.DB)) {
-    await logSchemaBlockedRun(env, trigger);
-    return;
-  }
-  await cycle(env, trigger);
-}
-
 export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    const cron = event.cron;
-    if (event.cron === '0 22 * * 2-6') {
-      ctx.waitUntil(runStrategyWithSchemaGate(env, 'swing_cron', runSwingCycle));
-    } else if (event.cron === '7-59/30 * * * *') {
-      ctx.waitUntil(runStrategyWithSchemaGate(env, 'crypto_cron', runCryptoCycle));
-    } else if (event.cron === '1-59/5 * * * *' || event.cron === '*/5 13-21 * * 1-5' || event.cron === '*/5 13,14,15,16,17,18,19,20,21 * * 1-5' || (cron.includes('*/5') && cron.includes('13') && cron.includes('21')) || (cron.includes('1-59/5') && !cron.includes('22'))) {
-      // Daytrading cron: 1-59/5 * * * * (every 5 min, offset to avoid */10 overlap).
-      // The internal MARKET_CLOSED check gates execution to market hours (13:30-20:00 UTC).
-      // Flexible matching handles Cloudflare cron normalization variants.
-      ctx.waitUntil(runStrategyWithSchemaGate(env, 'cron', runTradingCycleWithLease));
-    } else if (event.cron === '*/10 * * * *') {
-      ctx.waitUntil(runScheduledMaintenance(env, 'reconcile_cron'));
+    // Dual-cron routing: Cloudflare's event.cron tells us which trigger fired
+    if (event.cron === '0 22 * * 1-5') {
+      // Swing trading: once daily after market close
+      ctx.waitUntil(runSwingCycle(env, 'swing_cron'));
+    } else if (event.cron === '0 */4 * * *') {
+      // Crypto: every 4 hours, 24/7
+      ctx.waitUntil(runCryptoCycle(env, 'crypto_cron'));
     } else {
-      console.warn(`Ignoring unknown cron expression: ${cron}`);
+      // Daytrading: every 5 minutes during market hours
+      ctx.waitUntil(runTradingCycle(env, 'cron'));
     }
   },
 
-  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
-    const api = new DashboardAPI(env);
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const api = new DashboardAPI(env, ctx);
     return api.handle(request);
   },
 };
 
-/**
- * Lease-protected, read-only broker maintenance. This path deliberately does
- * not evaluate signals or submit/cancel/retry orders. It only imports recent
- * broker order state and the fee/fill ledger, then records a structured run.
- */
-export async function runScheduledMaintenance(env: Env, trigger = 'maintenance'): Promise<void> {
-  const started = Date.now();
-  const owner = `maintenance:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  const db = new Database(env.DB);
-  const leaseKey = 'maintenance';
-  const skips = new SkipReasonCollector();
-  const errors: string[] = [];
-  let ledgerDegraded = false;
-  let reconciliationDegraded = false;
-  if (!await db.acquireCycleLease(owner, undefined, leaseKey)) {
-    skips.add('CYCLE_LEASE_HELD', 'maintenance', 'Maintenance skipped because another maintenance run holds the maintenance lease', { trigger });
-    console.log(JSON.stringify({ event: 'maintenance_skipped', trigger, reason: 'cycle_lease_held' }));
-    await db.logRun({
-      trigger,
-      market_open: 0,
-      duration_ms: Date.now() - started,
-      decisions_made: 0,
-      trades_executed: 0,
-      errors: 0,
-      error_details: serializeRunDetails([], skips),
-      status: 'skipped',
-    });
-    return;
-  }
-
-  try {
-    const alpaca = new AlpacaClient({
-      apiKey: env.ALPACA_API_KEY,
-      apiSecret: env.ALPACA_API_SECRET,
-      baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
-    });
-    const reconciliation = await reconcileBrokerOrders(db, alpaca);
-    if (reconciliation.lookupFailures > 0) {
-      reconciliationDegraded = true;
-      skips.add('BROKER_ORDER_LOOKUP_DEGRADED', 'reconciliation', 'One or more broker order lookups failed; unresolved local orders remain for a later read-only pass', {
-        lookupFailures: reconciliation.lookupFailures,
-        pendingLookups: reconciliation.pendingLookups,
-      });
-    }
-    let ledger: Awaited<ReturnType<typeof syncBrokerLedger>> | null = null;
-    try {
-      ledger = await syncBrokerLedger(db, alpaca);
-    } catch (error) {
-      errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    // D1 free-tier optimization: prune old data once per day to keep table
-    // scans bounded. Uses a date watermark so it only runs on the first
-    // maintenance cycle after 00:00 UTC.
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const lastPrune = await db.getConfigValue('last_prune_date');
-      if (lastPrune !== today) {
-        const pruneResult = await db.pruneOldData();
-        await db.setConfig('last_prune_date', today);
-        console.log(JSON.stringify({ event: 'retention_prune_complete', trigger, ...pruneResult }));
-      }
-    } catch (pruneError) {
-      console.log(JSON.stringify({ event: 'retention_prune_failed', trigger, error: pruneError instanceof Error ? pruneError.message : String(pruneError) }));
-    }
-
-    // D1 read-budget optimization: refresh the cached broker fee summary at
-    // most once per hour. Crypto strategy and dashboard read the cache instead
-    // of running a full-table scan on every cycle/load. This must run AFTER
-    // syncBrokerLedger so the cache reflects fresh fees.
-    try {
-      if (!isFeeSummaryCacheFresh()) {
-        await db.getBrokerFeeSummary();
-        markFeeSummaryRefreshed();
-      }
-    } catch (feeError) {
-      console.log(JSON.stringify({ event: 'fee_summary_cache_refresh_failed', trigger, error: feeError instanceof Error ? feeError.message : String(feeError) }));
-    }
-
-    // Trading Analytics snapshots: persist daily per-strategy KPIs (once per
-    // UTC day, watermark-gated like the retention prune) so improvement over
-    // time is measurable. Read-only computation; the only write is the
-    // snapshot row itself.
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const lastAnalyticsSnapshot = await db.getConfigValue('last_analytics_snapshot_date');
-      if (lastAnalyticsSnapshot !== today) {
-        const snapshotResult = await recordDailyAnalyticsSnapshots(db, today);
-        await db.setConfig('last_analytics_snapshot_date', today);
-        console.log(JSON.stringify({ event: 'analytics_snapshots_recorded', trigger, ...snapshotResult }));
-      }
-    } catch (analyticsError) {
-      console.log(JSON.stringify({ event: 'analytics_snapshots_failed', trigger, error: analyticsError instanceof Error ? analyticsError.message : String(analyticsError) }));
-    }
-
-    if (errors.length === 0) {
-      if (ledger?.degraded) {
-        ledgerDegraded = true;
-        skips.add('BROKER_LEDGER_DEGRADED', 'reconciliation', 'Broker activity import reached its explicit page budget; the next scheduled overlap will continue convergence', {
-          pages: ledger.pages,
-          pageBudget: ledger.pageBudget,
-          activities: ledger.activities,
-        });
-      }
-      skips.add('MAINTENANCE_ONLY', 'maintenance', 'Scheduled maintenance reconciled broker state without running a trading strategy', {
-        brokerOrders: reconciliation.brokerOrders,
-        imported: reconciliation.imported,
-        pendingLookups: reconciliation.pendingLookups,
-        lookupFailures: reconciliation.lookupFailures,
-        ledgerActivities: ledger?.activities ?? 0,
-        ledgerPages: ledger?.pages ?? 0,
-        ledgerPageBudget: ledger?.pageBudget ?? 0,
-        ledgerTruncated: ledger?.truncated ?? false,
-        ledgerDegraded: ledger?.degraded ?? false,
-      });
-    }
-    console.log(JSON.stringify({ event: 'maintenance_complete', trigger, reconciliation, ledger, errors }));
-  } catch (error) {
-    errors.push(`Order reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);
-    console.error(JSON.stringify({ event: 'maintenance_error', trigger, errors }));
-  } finally {
-    try {
-      await db.logRun({
-        trigger,
-        market_open: 0,
-        duration_ms: Date.now() - started,
-        decisions_made: 0,
-        trades_executed: 0,
-        errors: errors.length,
-        error_details: serializeRunDetails(errors, skips),
-        status: errors.length > 0 ? 'error' : (ledgerDegraded || reconciliationDegraded) ? 'degraded' : 'ok',
-      });
-    } finally {
-      await db.releaseCycleLease(owner, leaseKey);
-    }
-  }
-}
-
 // ============================================================
 // Main Trading Cycle
-
-
-async function runTradingCycleWithLease(env: Env, trigger: string): Promise<void> {
-  const leaseStart = Date.now();
-  const owner = `daytrading:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  const db = new Database(env.DB);
-  const leaseKey = 'daytrading';
-  let leaseAcquired = false;
-  try {
-    leaseAcquired = await db.acquireCycleLease(owner, undefined, leaseKey);
-  } catch (leaseError) {
-    // If D1 is transiently unavailable during schema init or lease acquisition,
-    // log a degraded run rather than silently throwing inside ctx.waitUntil.
-    // Use env.DB directly (not the Database class) because db.logRun also
-    // calls ensureTradeSchema which will re-throw the same rejected Promise.
-    const errMsg = leaseError instanceof Error ? leaseError.message : String(leaseError);
-    console.error('Daytrading lease acquisition failed:', leaseError);
-    try {
-      await env.DB.prepare(
-        `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
-         VALUES (?, 0, ?, 0, 0, 1, ?, 'error')`
-      ).bind(trigger, Date.now() - leaseStart, JSON.stringify([{ type: 'error', code: 'LEASE_ACQUISITION_FAILED', scope: 'system', message: `Lease acquisition failed: ${errMsg}`, count: 1 }])).run();
-    } catch (logErr) {
-      console.error('Failed to log lease acquisition error:', logErr);
-    }
-    return;
-  }
-  if (!leaseAcquired) {
-    const skips = new SkipReasonCollector();
-    skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another daytrading cycle holds the daytrading lease', { strategy: 'daytrading', trigger });
-    console.log(`Skipping ${trigger}: another daytrading cycle holds the daytrading lease`);
-    try {
-      await db.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 0, error_details: serializeRunDetails([], skips), status: 'skipped' });
-    } catch (logErr) {
-      console.error('Failed to log CYCLE_LEASE_HELD skip:', logErr);
-    }
-    return;
-  }
-  try {
-    await runTradingCycle(env, trigger);
-  } catch (cycleError) {
-    // Catch uncaught errors from the trading cycle so they are logged as a
-    // degraded run instead of being silently swallowed by ctx.waitUntil.
-    const errMsg = cycleError instanceof Error ? cycleError.message : String(cycleError);
-    console.error('Daytrading cycle uncaught error:', cycleError);
-    try {
-      await db.logRun({ trigger, market_open: 0, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 1, error_details: serializeRunDetails([`Cycle uncaught error: ${errMsg}`], new SkipReasonCollector()), status: 'error' });
-    } catch (logErr) {
-      console.error('Failed to log cycle uncaught error:', logErr);
-    }
-  } finally {
-    await db.releaseCycleLease(owner, leaseKey);
-  }
-}
+// ============================================================
 
 async function runTradingCycle(env: Env, trigger: string): Promise<void> {
   const startTime = Date.now();
   const db = new Database(env.DB);
   const errors: string[] = [];
-  const skips = new SkipReasonCollector();
-  let ledgerDegraded = false;
   let decisionsMade = 0;
   let tradesExecuted = 0;
-  let analyzedCandidates = 0;
-  let filteredCandidates = 0;
-  const findPendingDayExit = async (symbol: string, scope: string, context: Record<string, unknown> = {}) => {
-    const pending = await db.findNonTerminalExitBySymbol('daytrading', symbol);
-    if (!pending) return undefined;
-    skips.add('PENDING_EXIT_EXISTS', scope, 'Stock exit skipped because a non-terminal sell order already exists', {
-      strategy: 'daytrading',
-      symbol,
-      tradeId: pending.tradeId,
-      status: pending.status,
-      qty: pending.qty,
-      filledQty: pending.filledQty,
-      leavesQty: pending.leavesQty,
-      alpacaOrderId: pending.alpacaOrderId,
-      clientOrderId: pending.clientOrderId,
-      brokerUpdatedAt: pending.brokerUpdatedAt,
-      lastReconciledAt: pending.lastReconciledAt,
-      ...context,
-    });
-    return pending;
-  };
 
   try {
-    await db.assertPositionsStrategySchema();
     // 1. Initialize clients
     const alpaca = new AlpacaClient({
       apiKey: env.ALPACA_API_KEY,
@@ -479,25 +96,22 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
     });
 
-    // Scheduled maintenance owns broker ledger/order reconciliation. Keeping
-    // this strategy read path out of the daytrading invocation avoids
-    // duplicating paginated broker work and reduces the subrequest/D1 budget
-    // that caused daytrading cron runs to silently throw under D1 pressure
-    // (zero daytrading runs logged on Aug 28 despite market open).
-    skips.add('RECONCILIATION_DEFERRED_TO_MAINTENANCE', 'reconciliation', 'Daytrading skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path', {
-      strategy: 'daytrading',
-      maintenanceTrigger: 'reconcile_cron',
-      maintenanceSchedule: '*/10 * * * *',
-    });
-
     // 2. Load config
     const dbConfig = await db.getConfig();
-    const config = resolveDaytradingConfig(dbConfig);
+    const config = { ...FALLBACK_CONFIG };
+    for (const [key, value] of Object.entries(dbConfig)) {
+      if (key in config) {
+        const numVal = parseFloat(value);
+        if (!isNaN(numVal)) (config as any)[key] = numVal;
+        else if (value === 'true') (config as any)[key] = true;
+        else if (value === 'false') (config as any)[key] = false;
+        else (config as any)[key] = value;
+      }
+    }
 
     // 3. Check market status
     const clock = await alpaca.getClock();
     if (!clock.is_open) {
-      skips.add('MARKET_CLOSED', 'cycle', 'Market is closed; no daytrading actions were evaluated', { nextOpen: clock.next_open });
       console.log('Market closed, skipping cycle');
       await db.logRun({
         trigger,
@@ -506,65 +120,15 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         decisions_made: 0,
         trades_executed: 0,
         errors: 0,
-        error_details: serializeRunDetails([], skips),
-        status: runStatus(errors, skips, ledgerDegraded, tradesExecuted),
+        error_details: null,
+        status: 'skipped',
       });
       return;
     }
 
-    try {
-      // D1 write-budget optimization: syncBrokerLedger runs in the 10-min
-      // maintenance cycle only. Running it here too doubled the daily upsert
-      // load (up to ~126k writes/day) against the D1 free-tier 100k limit.
-      // Maintenance already converges with a 3-day overlap window.
-      console.log(JSON.stringify({ event: 'broker_ledger_sync_skipped', trigger, reason: 'deferred_to_maintenance' }));
-    } catch (error) {
-      errors.push(`Broker ledger sync failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    // 4. Get account and stock positions only. Crypto and swing positions are
-    // owned by their respective strategies and must not enter this risk loop.
+    // 4. Get account and positions
     const account = await alpaca.getAccount();
-    const allBrokerPositions = await alpaca.getPositions();
-    const allDbPositions = await db.getOpenPositions();
-    const daySymbols = new Set(allDbPositions.filter(p =>
-      p.strategy === 'daytrading' || (!p.strategy && !CRYPTO_SYMBOLS.has(p.ticker))
-    ).map(p => p.ticker));
-    const taggedSymbols = new Set(allDbPositions.map(p => p.ticker));
-    const positions = allBrokerPositions.filter(p =>
-      !CRYPTO_SYMBOLS.has(p.symbol) && (daySymbols.has(p.symbol) || !taggedSymbols.has(p.symbol))
-    );
-
-    // Compute swing-owned symbols early: used for the BUY exclusion gate, the
-    // daytrading protective-exit / EOD-flatten / CLOSE guards below, and the
-    // final position sync. Daytrading must not BUY swing-held symbols because
-    // the broker combines them into one position tagged 'swing' in D1, so the
-    // daytrading cap check (which filters by strategy='daytrading') cannot see
-    // the daytrading portion — a cap bypass. For the same combined-book reason
-    // daytrading must ALSO NOT SELL swing-held symbols: a swing buy that fills
-    // at market open can briefly appear 'untagged' in D1 (attribution lag) and,
-    // without the guards below, the daytrading exit/EOD paths would sell it
-    // straight back out, defeating the swing entry (Control-854).
-    const swingOwnedSymbols = new Set([
-      ...allDbPositions.filter(p => p.strategy === 'swing').map(p => p.ticker),
-      ...(await db.getSwingTradeSymbols()),
-    ]);
-
-    // Restore the durable rolling equity window before appending this cycle's
-    // snapshot. RiskManager instances are recreated on every Worker run.
-    const recentEquityHistory = await db.getRecentEquityHistory();
-    const equityDirection = resolveEquityDirection(account);
-    const accountForRisk = accountWithEquityDirection(account);
-    if (equityDirection.fallbackUsed) {
-      skips.add('EQUITY_DIRECTION_FALLBACK', 'account', 'Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls', {
-        source: equityDirection.source,
-        change_today_pct: account.change_today_pct,
-        equity: account.equity,
-        last_equity: account.last_equity,
-        fallback_change_today_pct: equityDirection.changeTodayPct,
-        reason: equityDirection.reason,
-      });
-    }
+    const positions = await alpaca.getPositions();
 
     // Log performance snapshot
     await db.logSnapshot({
@@ -575,57 +139,12 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       portfolio_value: account.portfolio_value,
       long_market_value: account.long_market_value,
       short_market_value: account.short_market_value,
-      // This is an account-wide snapshot. Risk filtering above remains
-      // strategy-specific, but the snapshot count must include every
-      // broker-authoritative position.
-      positions_count: allBrokerPositions.length,
-      daily_pl: accountForRisk.change_today,
-      daily_plpc: accountForRisk.change_today_pct,
+      positions_count: positions.length,
+      daily_pl: account.change_today,
+      daily_plpc: account.change_today_pct,
       total_pl: account.equity - account.last_equity,
       total_plpc: account.last_equity > 0 ? ((account.equity - account.last_equity) / account.last_equity) * 100 : 0,
     });
-
-    // Log per-category (daytrading/swing/crypto) market value & P&L from
-    // broker-authoritative positions. Non-fatal: a failure here must not
-    // block the trading cycle itself. The summaries are kept for the entry
-    // risk guard below.
-    let categorySummaries: ReturnType<typeof summarizeByCategory> = [];
-    try {
-      const categoryProjections = projectBrokerPositions(allBrokerPositions, allDbPositions);
-      categorySummaries = summarizeByCategory(categoryProjections);
-      await db.logCategorySnapshots(categorySummaries);
-    } catch (e) {
-      console.error('Category snapshot logging failed:', e);
-    }
-
-    // Entry risk guards (Joachim-approved Sep 8, 2026): per-strategy daily
-    // loss limit in USD plus an absolute account equity floor. The legacy
-    // account-percent limits (15% daily / 10% rolling) are far too loose to
-    // trip intraday on a ~$97k account, so these USD guards are the real
-    // bleed-stop. Blocked guards pause new BUY entries only; exits,
-    // reconciliation, and the capital caps are untouched. Fail closed: if
-    // the guard itself cannot be evaluated, entries are blocked this cycle.
-    let daytradingEntryGuard: EntryGuardEvaluation;
-    try {
-      const guardConfig = resolveRiskGuardConfig(dbConfig);
-      const realizedToday = await db.getRealizedPlToday();
-      const intraday = categorySummaries.find(s => s.strategy === 'daytrading')?.unrealizedIntradayPl ?? 0;
-      daytradingEntryGuard = evaluateEntryGuards({
-        strategy: 'daytrading',
-        equityUsd: account.equity,
-        strategyDailyPlUsd: strategyDailyPlUsd(realizedToday['daytrading'] ?? 0, intraday),
-        config: guardConfig,
-      });
-    } catch (e) {
-      daytradingEntryGuard = riskGuardUnavailable('daytrading', e instanceof Error ? e.message : String(e));
-    }
-    if (daytradingEntryGuard.blocked) {
-      skips.add(daytradingEntryGuard.code ?? 'RISK_GUARD_UNAVAILABLE', 'cycle', `${daytradingEntryGuard.reason} Risk-reducing exits remain eligible`, {
-        strategy: 'daytrading',
-        ...daytradingEntryGuard.context,
-      });
-      console.warn(`Daytrading entry guard: ${daytradingEntryGuard.reason}`);
-    }
 
     // 5. Initialize risk manager with ATR-scaled parameters
     const riskConfig: RiskConfig = {
@@ -642,18 +161,15 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       targetVolatilityPct: config.targetVolatilityPct || 2.0,
       maxOrderRatePerMin: config.maxOrderRatePerMin || 10,
       minEdgeAfterCosts: config.minEdgeAfterCosts || 5,
-      observedFeeBps: 0,
       maxCapitalUsd: config.maxCapitalUsd || 0,
     };
-    const riskManager = new RiskManager(riskConfig, recentEquityHistory);
+    const riskManager = new RiskManager(riskConfig);
 
-    // Update kill switch with the current broker equity after loading durable history.
-    riskManager.updateEquitySnapshot(accountForRisk.equity);
+    // Update kill switch with equity snapshot
+    riskManager.updateEquitySnapshot(account.equity);
 
     // 5b. Reconciliation: check for position divergence
-    const dbPositions = (await db.getOpenPositions()).filter(p =>
-      p.strategy === 'daytrading' || (!p.strategy && !CRYPTO_SYMBOLS.has(p.ticker))
-    );
+    const dbPositions = await db.getOpenPositions();
     const divergence = riskManager.checkDivergence(positions, dbPositions.map(p => ({ ticker: p.ticker, qty: p.qty, side: p.side })));
     if (divergence.divergent) {
       const details = divergence.details.join('; ');
@@ -661,41 +177,14 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       // Only halt on qty mismatch (serious), not on "in broker but not internal" (fixable)
       const hasQtyMismatch = divergence.details.some(d => d.includes('qty mismatch'));
       if (hasQtyMismatch) {
-        // Keep the safety halt for this cycle, but persist the broker quantity
-        // so a stale D1 quantity does not reproduce the same halt forever.
-        try {
-          const reconciled = await reconcileBrokerQuantityMismatches(db, positions, dbPositions);
-          if (reconciled > 0) {
-            errors.push(`Broker-authoritative quantity persisted for ${reconciled} mismatched position(s)`);
-          }
-        } catch (error) {
-          errors.push(`Broker quantity reconciliation failed: ${error instanceof Error ? error.message : String(error)}`);
-        }
-        skips.add('POSITION_QTY_MISMATCH', 'cycle', 'New daytrading BUY entries blocked by broker/internal quantity mismatch; risk-reducing exits remain eligible', {
-          strategy: 'daytrading',
-          mismatchCount: divergence.details.filter(detail => detail.includes('qty mismatch')).length,
-          details: divergence.details,
-        });
-        errors.push(`Broker/internal quantity mismatch detected; new entries blocked for this cycle: ${details}`);
-        riskManager.haltTrading(`New entries blocked by broker/internal quantity mismatch: ${details}`);
-        console.error(`DIVERGENCE (new entries blocked): ${details}`);
+        errors.push(`Position divergence (qty mismatch): ${details}`);
+        riskManager.haltTrading(`Qty mismatch: ${details}`);
+        console.error(`DIVERGENCE (halted): ${details}`);
       } else {
-        // Auto-reconcile: upsert all broker positions into DB. This is a
-        // successful broker-authoritative repair, not an execution error.
-        // Exclude swing-owned and swing-trade symbols: the swing strategy owns
-        // its positions and the daytrading reconciliation must not import them
-        // as unattributed rows that the final sync would then re-tag as
-        // 'daytrading', bypassing the swing cap on the next swing_cron run.
-        const reconcileSwingSymbols = new Set([
-          ...(await db.getOpenPositions()).filter(p => p.strategy === 'swing').map(p => p.ticker),
-          ...(await db.getSwingTradeSymbols()),
-        ]);
+        // Auto-reconcile: upsert all broker positions into DB
         console.warn(`DIVERGENCE (auto-reconciling): ${details}`);
-        skips.add('BROKER_ONLY_RECONCILED', 'reconciliation', 'Broker-authoritative position divergence reconciled into D1', {
-          details: divergence.details,
-        });
+        errors.push(`Auto-reconciled: ${details}`);
         for (const pos of positions) {
-          if (reconcileSwingSymbols.has(pos.symbol)) continue;
           const existing = dbPositions.find(p => p.ticker === pos.symbol);
           await db.upsertPosition({
             ticker: pos.symbol,
@@ -714,54 +203,24 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         const brokerSymbols = new Set(positions.map(p => p.symbol));
         for (const dbPos of dbPositions) {
           if (!brokerSymbols.has(dbPos.ticker)) {
-            await db.closePosition(dbPos.ticker, null, 'auto_reconcile_not_in_broker');
+            await db.closePosition(dbPos.ticker, 0, 'auto_reconcile_not_in_broker');
           }
         }
       }
     }
 
-    // 6. Check existing positions for stop loss / take profit (ATR-based).
-    // Keep a local closed-symbol set so later EOD/signal phases cannot submit
-    // duplicate close orders against the stale broker snapshot from this cycle.
-    const closedSymbols = new Set<string>();
+    // 6. Check existing positions for stop loss / take profit (ATR-based)
     const positionActions = riskManager.checkPositions(positions, dbPositions);
     for (const action of positionActions) {
       if (action.priority === 'critical' || action.priority === 'high') {
-        // Never sell a swing-owned symbol from the daytrading lane: the broker
-        // combines daytrading + swing shares of one symbol into a single
-        // position, so daytrading cannot own/sell its portion separately and a
-        // swing-bought position could otherwise be flattened by the daytrading
-        // exit path the same cycle it fills (Control-854).
-        if (swingOwnedSymbols.has(action.symbol)) {
-          skips.add('SWING_OWNED_EXCLUDE', 'position', 'Daytrading protective exit skipped because the symbol is swing-owned and daytrading cannot sell combined swing positions', { strategy: 'daytrading', symbol: action.symbol, reason: action.reason });
-          continue;
-        }
         try {
-          const pendingExit = await findPendingDayExit(action.symbol, 'position', { exitType: 'protective' });
-          if (pendingExit) continue;
           console.log(`Closing ${action.symbol}: ${action.reason}`);
-          // Submit the exit WITHOUT synchronous getOrder polling. The submit
-          // request is what places the order; the polling that followed it only
-          // burned additional subrequests and, on a near-ceiling invocation, threw
-          // "Too many subrequests" AFTER the broker had already executed the exit —
-          // recording a false "Failed to close" error and skipping the D1 close.
-          // The bounded maintenance lane (reconcile_cron) confirms the terminal
-          // state later, matching the swing exit path (Control-901).
-          const order = await alpaca.closePosition(action.symbol, { waitForFill: false });
+          await alpaca.closePosition(action.symbol);
           const pos = positions.find(p => p.symbol === action.symbol);
-          await db.logOrderTrade(order, {
-            strategy: dbPositions.find(p => p.ticker === action.symbol)?.strategy ?? 'daytrading',
-            estimatedValue: pos ? daytradingExitEstimatedValue(order, pos) : undefined,
-          });
-          if (pos && alpaca.isOrderFullyFilled(order)) {
-            await db.closePosition(action.symbol, null, action.reason);
-            closedSymbols.add(action.symbol);
-          } else if (pos) {
-            // Not a failure: the exit was accepted and is pending broker
-            // confirmation. Reconciliation closes it once the fill lands.
-            console.log(`Exit order for ${action.symbol} pending confirmation: ${order.status}`);
+          if (pos) {
+            await db.closePosition(action.symbol, pos.unrealized_pl, action.reason);
           }
-
+          tradesExecuted++;
         } catch (e) {
           errors.push(`Failed to close ${action.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
         }
@@ -773,53 +232,22 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     const marketClose = new Date(clock.next_close);
     const minutesToClose = (marketClose.getTime() - now.getTime()) / 60000;
 
-    const noNewEntries = Boolean(config.eodFlatten) && minutesToClose <= 15;
     if (riskManager.shouldFlattenEOD(minutesToClose)) {
       console.log(`EOD flatten: ${minutesToClose.toFixed(0)} min to close. Liquidating all positions.`);
       try {
-        const closeOrders = [];
+        await alpaca.closeAllPositions();
         for (const pos of positions) {
-          if (closedSymbols.has(pos.symbol)) continue;
-          // EOD flatten must not liquidate swing-owned symbols: daytrading does
-          // not own their shares (combined broker book) and must leave them to
-          // the swing strategy (Control-854).
-          if (swingOwnedSymbols.has(pos.symbol)) continue;
-          const pendingExit = await findPendingDayExit(pos.symbol, 'cycle', { exitType: 'eod_flatten' });
-          if (pendingExit) continue;
-          // Submit de-confirmed, same rationale as the protective path above:
-          // polling for the fill burned subrequests and could throw the
-          // invocation ceiling after the broker had already executed the exit.
-          const order = await alpaca.closePosition(pos.symbol, { waitForFill: false });
-          closeOrders.push(order);
-          await db.logOrderTrade(order, {
-            strategy: 'daytrading',
-            estimatedValue: daytradingExitEstimatedValue(order, pos),
-          });
-          if (alpaca.isOrderFullyFilled(order)) {
-            await db.closePosition(pos.symbol, null, 'eod_flatten');
-            closedSymbols.add(pos.symbol);
-          } else {
-            console.log(`EOD exit for ${pos.symbol} pending confirmation: ${order.status}`);
-          }
+          await db.closePosition(pos.symbol, pos.unrealized_pl, 'eod_flatten');
         }
-
+        tradesExecuted += positions.length;
       } catch (e) {
         errors.push(`EOD flatten failed: ${e instanceof Error ? e.message : 'unknown'}`);
       }
     }
 
-    // 8. Scan universe for candidates.
-    // During the EOD no-entry window, candidate bar analysis is skipped
-    // (see section 9 below), so scanning the universe wastes 2 broker
-    // subrequests whose results are never used. Skip the scan in that
-    // window to further reduce subrequest pressure during EOD flatten.
-    let candidates: string[] = [];
-    if (!noNewEntries) {
-      const scanner = new UniverseScanner(alpaca, config.scanUniverseSize);
-      candidates = await scanner.scan();
-    } else {
-      console.log('EOD no-entry window: skipping universe scan to preserve subrequest budget');
-    }
+    // 8. Scan universe for candidates
+    const scanner = new UniverseScanner(alpaca, config.scanUniverseSize);
+    const candidates = await scanner.scan();
     console.log(`Scanned universe: ${candidates.length} candidates`);
 
     // 8b. Detect market regime using SPY (S&P 500 ETF)
@@ -865,17 +293,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     const heldPositionBarPromises = positions.map(async pos => {
       try {
         const bars = await alpaca.getBars(pos.symbol, '5Min', 200);
-        const assessment = assessIntradayBars(bars, DAYTRADING_BAR_INTERVAL_SECONDS, new Date(), DAYTRADING_MAX_BAR_STALE_INTERVALS);
-        if (assessment.quality !== 'ok') {
-          const code = assessment.quality === 'future' ? 'DAYTRADING_BARS_FUTURE' : assessment.quality === 'stale' ? 'DAYTRADING_BARS_STALE' : 'DAYTRADING_BARS_UNAVAILABLE';
-          skips.add(code, 'data', 'Daytrading signal skipped because the latest bar timestamp failed freshness validation', { strategy: 'daytrading', symbol: pos.symbol, quality: assessment.quality, latestBarAt: assessment.latestBarAt, futureBarAt: assessment.futureBarAt, ageSeconds: assessment.ageSeconds, maxStaleSeconds: assessment.maxStaleSeconds, received: assessment.received, valid: assessment.valid });
-          return null;
-        }
-        if (assessment.bars.length < 30) {
-          skips.add('DAYTRADING_BARS_SHORT', 'data', 'Daytrading signal skipped because the validated bar history is too short', { strategy: 'daytrading', symbol: pos.symbol, bars: assessment.bars.length, required: 30, latestBarAt: assessment.latestBarAt });
-          return null;
-        }
-        const indicators = analyze(assessment.bars, pos.symbol, taConfig);
+        if (bars.length < 30) return null;
+        const indicators = analyze(bars, pos.symbol, taConfig);
         return generateSignal(indicators, { rsiOversold: config.rsiOversold, rsiOverbought: config.rsiOverbought });
       } catch (e) {
         errors.push(`TA failed for ${pos.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
@@ -891,52 +310,15 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       }
     }
 
-    // Analyze new candidates (skip already analyzed) - parallel, limited per cycle.
-    // When EOD noNewEntries is active, all new BUY entries are blocked by
-    // EOD_NO_ENTRY anyway. Fetching 200 bars per candidate under EOD flatten
-    // load (which already submits closePosition orders for every held
-    // position) doubles the subrequest pressure and can exceed the Worker
-    // hard subrequest limit ("Fatal: Too many subrequests"). Skip the
-    // candidate bar fetches entirely in that window; held-position exits
-    // still get their signals from the loop above.
+    // Analyze new candidates (skip already analyzed) - parallel, limited per cycle
     const newCandidates = candidates.filter(s => !analyzedSymbols.has(s));
-    const eodEntryBlocked = noNewEntries;
-    const SUBREQUEST_BUDGET = 400; // conservative ceiling below the Worker hard limit
-    const subrequestsUsed = alpaca.getSubrequestCount();
-    let scanLimit = 0;
-    if (eodEntryBlocked) {
-      scanLimit = 0;
-      skips.add('EOD_NO_ENTRY', 'cycle', 'New candidate analysis skipped during EOD no-entry window to preserve subrequest budget; held-position exit signals are unaffected', {
-        strategy: 'daytrading',
-        candidatesAvailable: newCandidates.length,
-        minutesToClose: minutesToClose.toFixed(1),
-      });
-    } else if (subrequestsUsed >= SUBREQUEST_BUDGET) {
-      scanLimit = 0;
-      skips.add('SUBREQUEST_BUDGET_EXHAUSTED', 'cycle', 'New candidate analysis skipped because the broker subrequest budget was reached; held-position exit signals are unaffected', {
-        strategy: 'daytrading',
-        subrequestsUsed,
-        budget: SUBREQUEST_BUDGET,
-        candidatesAvailable: newCandidates.length,
-      });
-    } else {
-      scanLimit = Math.min(newCandidates.length, 20); // Reduced from 30 to avoid timeout
-    }
+    const scanLimit = Math.min(newCandidates.length, 20); // Reduced from 30 to avoid timeout
 
     const candidateBarPromises = newCandidates.slice(0, scanLimit).map(async symbol => {
       try {
         const bars = await alpaca.getBars(symbol, '5Min', 200);
-        const assessment = assessIntradayBars(bars, DAYTRADING_BAR_INTERVAL_SECONDS, new Date(), DAYTRADING_MAX_BAR_STALE_INTERVALS);
-        if (assessment.quality !== 'ok') {
-          const code = assessment.quality === 'future' ? 'DAYTRADING_BARS_FUTURE' : assessment.quality === 'stale' ? 'DAYTRADING_BARS_STALE' : 'DAYTRADING_BARS_UNAVAILABLE';
-          skips.add(code, 'data', 'Daytrading signal skipped because the latest bar timestamp failed freshness validation', { strategy: 'daytrading', symbol, quality: assessment.quality, latestBarAt: assessment.latestBarAt, futureBarAt: assessment.futureBarAt, ageSeconds: assessment.ageSeconds, maxStaleSeconds: assessment.maxStaleSeconds, received: assessment.received, valid: assessment.valid });
-          return null;
-        }
-        if (assessment.bars.length < 30) {
-          skips.add('DAYTRADING_BARS_SHORT', 'data', 'Daytrading signal skipped because the validated bar history is too short', { strategy: 'daytrading', symbol, bars: assessment.bars.length, required: 30, latestBarAt: assessment.latestBarAt });
-          return null;
-        }
-        const indicators = analyze(assessment.bars, symbol, taConfig);
+        if (bars.length < 30) return null;
+        const indicators = analyze(bars, symbol, taConfig);
         return generateSignal(indicators, { rsiOversold: config.rsiOversold, rsiOverbought: config.rsiOverbought });
       } catch (e) {
         console.error(`TA failed for ${symbol}:`, e);
@@ -950,12 +332,10 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     }
 
     // 10. Filter to actionable signals
-    analyzedCandidates = signals.length;
     const actionableSignals = signals.filter(s => s.action !== 'HOLD' || s.confidence > 0.7);
     // For held positions, also include HOLD signals (potential CLOSE)
     const heldPositionSignals = signals.filter(s => positions.some(p => p.symbol === s.indicators.symbol));
     const signalsToProcess = [...new Set([...actionableSignals, ...heldPositionSignals])];
-    filteredCandidates = signalsToProcess.length;
 
     console.log(`TA complete: ${signals.length} analyzed, ${signalsToProcess.length} to process`);
 
@@ -980,7 +360,6 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
 
     // Track trades per cycle
     let cycleTradeCount = 0;
-    let cycleEntryNotionalUsd = 0;
     const maxTradesPerCycle = config.maxTradesPerCycle || 3;
 
     // 11. AI refinement
@@ -989,7 +368,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         equity: account.equity,
         cash: account.cash,
         positionsCount: positions.length,
-        dailyPlPct: accountForRisk.change_today_pct,
+        dailyPlPct: account.change_today_pct,
       },
       marketRegime: marketRegime,
       topMovers: { gainers: [], losers: [] },
@@ -1030,7 +409,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         signal_source: config.useAiRefinement && env.LLM_API_KEY ? 'ta+ai' : 'ta',
         reason: decision.reasoning,
         ta_data: JSON.stringify(signal.indicators),
-        ai_reasoning: decision.reasoning + (decision.factors && decision.factors.length > 0 ? ' | Factors: ' + decision.factors.join('; ') : ''),
+        ai_reasoning: JSON.stringify({ factors: decision.factors, adjusted: decision.adjustedFromTA }),
         price_at_decision: signal.indicators.price,
         executed: 0,
         execution_reason: '',
@@ -1039,62 +418,30 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       // Skip HOLD
       if (decision.action === 'HOLD') {
         await db.updateDecisionStatus(decisionId, 2, 'HOLD — no action needed');
-        skips.add('DECISION_HOLD', 'decision', 'Decision was HOLD; no order was needed', { symbol: signal.indicators.symbol });
         continue;
       }
 
       // Anti-churn: max trades per cycle limit
       if (cycleTradeCount >= maxTradesPerCycle) {
         await db.updateDecisionStatus(decisionId, 2, `Max trades per cycle reached (${maxTradesPerCycle})`);
-        skips.add('MAX_TRADES_PER_CYCLE', 'decision', 'Skipped because the per-cycle trade limit was reached', { symbol: signal.indicators.symbol, limit: maxTradesPerCycle });
         continue;
       }
 
       // CLOSE: close existing position
       if (decision.action === 'CLOSE') {
-        // Never close a swing-owned symbol from the daytrading lane: the broker
-        // combines daytrading + swing shares into one position, so a freshly
-        // filled swing buy can appear untagged and be sold by this exit path
-        // the same cycle it fills, defeating the swing entry (Control-854).
-        if (swingOwnedSymbols.has(signal.indicators.symbol)) {
-          await db.updateDecisionStatus(decisionId, 2, 'Daytrading CLOSE skipped: symbol is swing-owned, daytrading must not sell swing-held positions');
-          skips.add('SWING_OWNED_EXCLUDE', 'decision', 'Daytrading CLOSE skipped because the symbol is swing-owned and daytrading cannot own/sell combined swing positions', { strategy: 'daytrading', symbol: signal.indicators.symbol, decision_id: decisionId, action: 'CLOSE' });
-          continue;
-        }
-        const existingPos = closedSymbols.has(signal.indicators.symbol) ? undefined : positions.find(p => p.symbol === signal.indicators.symbol);
+        const existingPos = positions.find(p => p.symbol === signal.indicators.symbol);
         if (existingPos) {
-          const pendingExit = await findPendingDayExit(signal.indicators.symbol, 'decision', { exitType: 'close', decisionId });
-          if (pendingExit) {
-            await db.updateDecisionStatus(decisionId, 2, `Pending exit already exists: ${pendingExit.status}`);
-            continue;
-          }
           // Anti-churn: check minimum hold time (unless stop loss was hit via checkPositions already)
           if (isWithinMinHold(signal.indicators.symbol)) {
             await db.updateDecisionStatus(decisionId, 2, `Min hold time not reached (${minHoldMin}min)`);
-            skips.add('MIN_HOLD_TIME', 'decision', 'Skipped because the position has not reached its minimum hold time', { symbol: signal.indicators.symbol, minutes: minHoldMin });
             console.log(`Skip CLOSE ${signal.indicators.symbol}: held < ${minHoldMin} min`);
             continue;
           }
-          const exitCostCheck = riskManager.checkExitCost(existingPos, signal.indicators);
-          if (!exitCostCheck.approved) {
-            await db.updateDecisionStatus(decisionId, 2, exitCostCheck.reason);
-            skips.add('EXIT_COST_GATE', 'decision', 'Daytrading discretionary close skipped because estimated exit costs consumed the gross edge', { symbol: signal.indicators.symbol, reason: exitCostCheck.reason });
-            continue;
-          }
           try {
-            const order = await alpaca.closePosition(signal.indicators.symbol, { waitForFill: false });
-            await db.logOrderTrade(order, {
-              decisionId,
-              strategy: 'daytrading',
-              estimatedValue: daytradingExitEstimatedValue(order, existingPos),
-            });
-            if (alpaca.isOrderFullyFilled(order)) {
-              await db.closePosition(signal.indicators.symbol, null, 'ai_signal');
-              await db.updateDecisionStatus(decisionId, 1, 'Position closed');
-              tradesExecuted++;
-            } else {
-              await db.updateDecisionStatus(decisionId, 0, `Exit order pending: ${order.status}`);
-            }
+            await alpaca.closePosition(signal.indicators.symbol);
+            await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
+            await db.updateDecisionStatus(decisionId, 1, 'Position closed');
+            tradesExecuted++;
             cycleTradeCount++;
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : 'unknown';
@@ -1105,153 +452,49 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         continue;
       }
 
-      // BUY: apply entry sizing and entry cost gate. SELL is an exit and must
-      // never pass through BUY-oriented sizing/cost checks.
-      let riskCheck: RiskCheckResult | null = null;
-      if (decision.action === 'BUY') {
-        if (daytradingEntryGuard.blocked) {
-          await db.updateDecisionStatus(decisionId, 2, `Daytrading BUY skipped: ${daytradingEntryGuard.reason}`);
-          skips.add(daytradingEntryGuard.code ?? 'RISK_GUARD_UNAVAILABLE', 'decision', 'New daytrading entries blocked by the entry risk guard; exits remain eligible', {
-            strategy: 'daytrading',
-            symbol: signal.indicators.symbol,
-            decision_id: decisionId,
-            ...daytradingEntryGuard.context,
-          });
-          console.log(`Skip BUY ${signal.indicators.symbol}: entry guard active (${daytradingEntryGuard.code})`);
-          continue;
-        }
-        if (swingOwnedSymbols.has(signal.indicators.symbol)) {
-          await db.updateDecisionStatus(decisionId, 2, 'Daytrading BUY skipped: symbol is swing-owned, cap tracking cannot separate combined broker positions');
-          skips.add('SWING_OWNED_EXCLUDE', 'decision', 'Daytrading BUY skipped because the symbol is swing-owned and the daytrading cap cannot track exposure on combined broker positions', { strategy: 'daytrading', symbol: signal.indicators.symbol, decision_id: decisionId, action: 'BUY' });
-          continue;
-        }
-        riskCheck = riskManager.checkTrade(decision, accountForRisk, positions, signal.indicators, cycleEntryNotionalUsd);
-        if (!riskCheck.approved) {
-          await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
-          const skipCode = daytradingRiskSkipCode(riskCheck.reason);
-          skips.add(skipCode, 'decision', 'Daytrading entry skipped by risk controls', daytradingRiskSkipContext({
-            symbol: signal.indicators.symbol,
-            decisionId,
-            action: decision.action,
-            riskCheck,
-          }));
-          console.log(`Skipped ${signal.indicators.symbol}: ${riskCheck.reason}`);
-          continue;
-        }
+      // BUY / SELL: risk check then execute
+      const riskCheck = riskManager.checkTrade(decision, account, positions, signal.indicators);
+      if (!riskCheck.approved) {
+        await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
+        console.log(`Skipped ${signal.indicators.symbol}: ${riskCheck.reason}`);
+        continue;
       }
 
       // SELL: close existing long position
       if (decision.action === 'SELL') {
-        // Never sell a swing-owned symbol from the daytrading lane: the broker
-        // combines daytrading + swing shares into one position, so a freshly
-        // filled swing buy can appear untagged and be sold by this exit path
-        // the same cycle it fills, defeating the swing entry. This SELL path
-        // was missed by the Control-854 (e36b17f) exit-guard set — it guarded
-        // protective-exit/EOD-flatten/CLOSE but not the SELL decision action,
-        // and Control-879 exposed the gap when daytrading sold 5 of the 9 fresh
-        // swing buys (ORCL/UPS/FCEL/RUN/INTU) via SELL at the Fri 13:30z open.
-        if (swingOwnedSymbols.has(signal.indicators.symbol)) {
-          await db.updateDecisionStatus(decisionId, 2, 'Daytrading SELL skipped: symbol is swing-owned, daytrading must not sell swing-held positions');
-          skips.add('SWING_OWNED_EXCLUDE', 'decision', 'Daytrading SELL skipped because the symbol is swing-owned and daytrading cannot own/sell combined swing positions', { strategy: 'daytrading', symbol: signal.indicators.symbol, decision_id: decisionId, action: 'SELL' });
-          continue;
-        }
-        const existingPos = closedSymbols.has(signal.indicators.symbol) ? undefined : positions.find(p => p.symbol === signal.indicators.symbol);
+        const existingPos = positions.find(p => p.symbol === signal.indicators.symbol);
         if (existingPos) {
-          const pendingExit = await findPendingDayExit(signal.indicators.symbol, 'decision', { exitType: 'sell', decisionId });
-          if (pendingExit) {
-            await db.updateDecisionStatus(decisionId, 2, `Pending exit already exists: ${pendingExit.status}`);
-            continue;
-          }
           // Anti-churn: check minimum hold time
           if (isWithinMinHold(signal.indicators.symbol)) {
             await db.updateDecisionStatus(decisionId, 2, `Min hold time not reached (${minHoldMin}min)`);
-            skips.add('MIN_HOLD_TIME', 'decision', 'Skipped because the position has not reached its minimum hold time', { symbol: signal.indicators.symbol, minutes: minHoldMin });
             console.log(`Skip SELL ${signal.indicators.symbol}: held < ${minHoldMin} min`);
             continue;
           }
-          const exitCostCheck = riskManager.checkExitCost(existingPos, signal.indicators);
-          if (!exitCostCheck.approved) {
-            await db.updateDecisionStatus(decisionId, 2, exitCostCheck.reason);
-            skips.add('EXIT_COST_GATE', 'decision', 'Daytrading discretionary sell skipped because estimated exit costs consumed the gross edge', { symbol: signal.indicators.symbol, reason: exitCostCheck.reason });
-            continue;
-          }
           try {
-            const order = await alpaca.closePosition(signal.indicators.symbol, { waitForFill: false });
-            await db.logOrderTrade(order, {
-              decisionId,
-              strategy: 'daytrading',
-              estimatedValue: daytradingExitEstimatedValue(order, existingPos),
-            });
-            if (alpaca.isOrderFullyFilled(order)) {
-              await db.closePosition(signal.indicators.symbol, null, 'ai_signal');
-              await db.updateDecisionStatus(decisionId, 1, 'Position closed (sell signal)');
-              tradesExecuted++;
-            } else {
-              await db.updateDecisionStatus(decisionId, 0, `Exit order pending: ${order.status}`);
-            }
+            await alpaca.closePosition(signal.indicators.symbol);
+            await db.closePosition(signal.indicators.symbol, existingPos.unrealized_pl, 'ai_signal');
+            await db.updateDecisionStatus(decisionId, 1, 'Position closed (sell signal)');
+            tradesExecuted++;
             cycleTradeCount++;
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : 'unknown';
             await db.updateDecisionStatus(decisionId, 3, `Sell failed: ${errMsg}`);
             errors.push(`Sell failed for ${signal.indicators.symbol}: ${errMsg}`);
           }
-        } else {
-          await db.updateDecisionStatus(decisionId, 0, 'No existing position to sell — skipped (long-only bot)');
-          console.log(`Skip SELL ${signal.indicators.symbol}: no position held`);
         }
         continue;
       }
 
       // BUY: submit new order
-      if (decision.action === 'BUY' && riskCheck?.adjustedQty) {
-        if (noNewEntries) {
-          await db.updateDecisionStatus(decisionId, 2, 'No new BUY entries during EOD flatten window');
-          skips.add('EOD_NO_ENTRY', 'decision', 'New entries are disabled during the end-of-day flatten window', { symbol: signal.indicators.symbol });
-          console.log(`Skip BUY ${signal.indicators.symbol}: EOD no-entry cutoff active`);
-          continue;
-        }
+      if (decision.action === 'BUY' && riskCheck.adjustedQty) {
         // Anti-churn: re-entry cooldown check
         if (recentlySold.has(signal.indicators.symbol)) {
           await db.updateDecisionStatus(decisionId, 2, `Re-entry cooldown active (${cooldownMin}min)`);
-          skips.add('REENTRY_COOLDOWN', 'decision', 'Skipped because the symbol was recently sold', { symbol: signal.indicators.symbol, minutes: cooldownMin });
           console.log(`Skip BUY ${signal.indicators.symbol}: sold within last ${cooldownMin} min`);
           continue;
         }
 
         const qty = riskCheck.adjustedQty;
-        const clientOrderId = `bot_${decisionId}_${signal.indicators.symbol}`;
-        // Deterministic client order ID lets a retry of the same decision be
-        // identified and skipped before it reaches the broker. A non-terminal
-        // existing trade means this order is already open/accepted/filled.
-        const existingTrade = await db.findNonTerminalTradeByClientOrderId(clientOrderId);
-        if (existingTrade) {
-          await db.updateDecisionStatus(decisionId, 2, `Duplicate daytrading BUY skipped: order already open (status ${existingTrade.status})`);
-          skips.add('DUPLICATE_ORDER_PREVENTED', 'decision', 'Daytrading BUY skipped because a non-terminal order with the same client order ID already exists', { symbol: signal.indicators.symbol, decisionId, tradeId: existingTrade.tradeId, status: existingTrade.status });
-          console.log(`Skip BUY ${signal.indicators.symbol}: duplicate client_order_id ${clientOrderId}`);
-          continue;
-        }
-
-        // Final read-only guard immediately before broker submission. This does
-        // not resize the strategy order and does not apply to any exit path.
-        const minimumNotionalCheck = checkDaytradingBuyMinimumNotional(qty, signal.indicators.price);
-        if (!minimumNotionalCheck.approved) {
-          const skipContext = {
-            strategy: 'daytrading',
-            symbol: signal.indicators.symbol,
-            decision_id: decisionId,
-            action: 'BUY',
-            qty,
-            reference_price: signal.indicators.price,
-            estimated_notional_usd: minimumNotionalCheck.estimatedNotionalUsd,
-            minimum_notional_usd: minimumNotionalCheck.minimumNotionalUsd,
-            reason: minimumNotionalCheck.reason,
-          };
-          await db.updateDecisionStatus(decisionId, 2, serializeDecisionSkip(minimumNotionalCheck.reason, skipContext));
-          skips.add('MIN_ORDER_SIZE', 'decision', 'Daytrading BUY skipped because estimated order notional is below the broker minimum', skipContext);
-          console.log(`Skip BUY ${signal.indicators.symbol}: ${minimumNotionalCheck.reason}`);
-          continue;
-        }
-
         try {
           // Submit market order
           const order = await alpaca.submitOrder({
@@ -1260,27 +503,41 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
             side: 'buy',
             type: 'market',
             time_in_force: 'day',
-            client_order_id: clientOrderId,
+            client_order_id: `bot_${decisionId}_${Date.now()}`,
           });
 
-          const entryNotionalUsd = qty * signal.indicators.price;
-          cycleEntryNotionalUsd += entryNotionalUsd;
-          await db.logOrderTrade(order, {
-            decisionId,
-            estimatedValue: entryNotionalUsd,
-            strategy: 'daytrading',
+          await db.logTrade({
+            alpaca_order_id: order.id,
+            ticker: signal.indicators.symbol,
+            side: 'buy',
+            qty: qty,
+            fill_price: null,
+            avg_fill_price: null,
+            status: order.status,
+            order_type: 'market',
+            limit_price: null,
+            stop_price: null,
+            estimated_value: qty * signal.indicators.price,
+            decision_id: decisionId,
+            error_message: null,
           });
 
-          // Position is deliberately not upserted here. The broker-confirmed sync
-          // below is the only source allowed to create/update current positions.
-          const terminalRejected = ['rejected', 'canceled', 'cancelled', 'expired', 'done_for_day', 'stopped'].includes(order.status);
-          const fullyFilled = alpaca.isOrderFullyFilled(order);
-          await db.updateDecisionStatus(decisionId, fullyFilled ? 1 : terminalRejected ? 2 : 0, fullyFilled
-            ? `Broker confirmed fill: ${order.filled_qty}/${order.qty} @ ${order.filled_avg_price ?? 'unknown'}`
-            : terminalRejected
-              ? `Broker order terminal status: ${order.status}`
-              : `Broker order status: ${order.status}; filled ${order.filled_qty}/${order.qty}`);
-          if (fullyFilled) tradesExecuted++;
+          // Update position in DB
+          await db.upsertPosition({
+            ticker: signal.indicators.symbol,
+            side: 'long',
+            qty: qty,
+            avg_entry_price: signal.indicators.price,
+            current_price: signal.indicators.price,
+            market_value: qty * signal.indicators.price,
+            unrealized_pl: 0,
+            unrealized_plpc: 0,
+            stop_loss_price: riskCheck.stopLossPrice || null,
+            take_profit_price: riskCheck.takeProfitPrice || null,
+          });
+
+          await db.updateDecisionStatus(decisionId, 1, `Order submitted: ${qty} shares`);
+          tradesExecuted++;
           cycleTradeCount++;
           console.log(`BUY ${signal.indicators.symbol}: ${qty} shares @ ~$${signal.indicators.price.toFixed(2)}`);
         } catch (e) {
@@ -1292,16 +549,9 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
     }
 
     // 12. Sync positions from Alpaca to DB (preserve stop/take profit from DB)
-    // Exclude swing-tagged positions: the swing strategy owns its positions and
-    // the daytrading sync must not re-attribute them. Without this exclusion the
-    // daytrading final sync would reset every swing position's strategy to
-    // 'daytrading', causing the swing cap check to see $0 exposure on the next
-    // swing run and bypass the swing_max_capital_usd cap.
+    const finalPositions = await alpaca.getPositions();
     const syncDbPositions = await db.getOpenPositions();
-    // swingOwnedSymbols was computed at the start of the cycle (line ~467) and
-    // is reused here. Swing positions do not change during a daytrading cycle.
-    const finalPositions = (await alpaca.getPositions()).filter(p => !CRYPTO_SYMBOLS.has(p.symbol) && !swingOwnedSymbols.has(p.symbol));
-    const dbPositionMap = new Map(syncDbPositions.filter(p => p.strategy === 'daytrading' || (!p.strategy && !CRYPTO_SYMBOLS.has(p.ticker))).map(p => [p.ticker, p]));
+    const dbPositionMap = new Map(syncDbPositions.map(p => [p.ticker, p]));
 
     for (const pos of finalPositions) {
       const existing = dbPositionMap.get(pos.symbol);
@@ -1316,24 +566,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         unrealized_plpc: pos.unrealized_plpc,
         stop_loss_price: existing?.stop_loss_price ?? null,
         take_profit_price: existing?.take_profit_price ?? null,
-        strategy: 'daytrading',
       });
-    }
-
-    // A complete successful broker snapshot is authoritative. Do not retain a
-    // D1-only current position unless a known order is still live and could fill.
-    // Skip swing-owned symbols: they were excluded from finalPositions and thus
-    // from finalBrokerSymbols, but they ARE at the broker and must not be closed
-    // by the daytrading sync — the swing strategy owns their lifecycle.
-    const pendingDaySymbols = new Set((await db.getTradesNeedingSync(200))
-      .filter(trade => trade.strategy === 'daytrading')
-      .map(trade => String(trade.ticker)));
-    const finalBrokerSymbols = new Set(finalPositions.map(pos => pos.symbol));
-    for (const dbPos of dbPositions) {
-      if (swingOwnedSymbols.has(dbPos.ticker)) continue;
-      if (!finalBrokerSymbols.has(dbPos.ticker) && !pendingDaySymbols.has(dbPos.ticker)) {
-        await db.closePosition(dbPos.ticker, null, 'broker_authoritative_sync_absent');
-      }
     }
 
     // 13. Log run
@@ -1344,10 +577,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       decisions_made: decisionsMade,
       trades_executed: tradesExecuted,
       errors: errors.length,
-      error_details: serializeRunDetails(errors, skips),
-      status: runStatus(errors, skips, ledgerDegraded, tradesExecuted),
-      analyzed_candidates: analyzedCandidates,
-      filtered_candidates: filteredCandidates,
+      error_details: errors.length > 0 ? JSON.stringify(errors) : null,
+      status: errors.length > 5 ? 'error' : 'ok',
     });
 
     console.log(`Cycle complete: ${decisionsMade} decisions, ${tradesExecuted} trades, ${errors.length} errors, ${Date.now() - startTime}ms`);
@@ -1363,10 +594,8 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       decisions_made: decisionsMade,
       trades_executed: tradesExecuted,
       errors: errors.length,
-      error_details: serializeRunDetails(errors, skips),
+      error_details: JSON.stringify(errors),
       status: 'error',
-      analyzed_candidates: analyzedCandidates,
-      filtered_candidates: filteredCandidates,
     });
   }
 }

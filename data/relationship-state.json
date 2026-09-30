@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "assistantId": "default",
+  "tier": 1,
+  "progressPercent": 8,
+  "facts": [],
+  "capabilities": [
+    {
+      "id": "email",
+      "name": "Email access",
+      "description": "Read, draft, and manage your email",
+      "gate": "Connect Google",
+      "ctaLabel": "Connect Google →",
+      "tier": "next-up"
+    },
+    {
+      "id": "calendar",
+      "name": "Calendar awareness",
+      "description": "Know your schedule, prep for meetings",
+      "gate": "Connect calendar",
+      "ctaLabel": "Connect Calendar →",
+      "tier": "next-up"
+    },
+    {
+      "id": "slack",
+      "name": "Slack monitoring",
+      "description": "Watch channels, surface what matters",
+      "gate": "Set up Slack app",
+      "ctaLabel": "Set up Slack →",
+      "tier": "next-up"
+    },
+    {
+      "id": "voice-writing",
+      "name": "Write in your voice",
+      "description": "Draft messages and docs that sound like you",
+      "gate": "Usage — needs conversation history",
+      "unlockHint": "I need to learn how you communicate first",
+      "tier": "earned"
+    },
+    {
+      "id": "proactive",
+      "name": "Proactive suggestions",
+      "description": "Flag things before you ask",
+      "gate": "Trust — needs priority understanding",
+      "unlockHint": "I need to understand your priorities first",
+      "tier": "earned"
+    },
+    {
+      "id": "autonomous",
+      "name": "Act on your behalf",
+      "description": "Send messages, file things, take action",
+      "gate": "Trust — deepest level",
+      "unlockHint": "We need a deeper working relationship first",
+      "tier": "earned"
+    }
+  ],
+  "conversationCount": 8,
+  "hatchedDate": "2026-08-04T05:31:40.744Z",
+  "assistantName": "Vellum",
+  "updatedAt": "2026-08-04T05:31:40.745Z"
+}

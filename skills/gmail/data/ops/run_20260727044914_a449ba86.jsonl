@@ -1,0 +1,3 @@
+{"ts":"2026-07-27T04:49:14.855Z","run_id":"run_20260727044914_a449ba86","op":"archive","chunk_index":0,"message_ids":["19fa135b7f05519e","19f9c0f599494c20","19f96e8feaaea0cc","19f9a65361a91cde","19f98397067853c3","19f97714961b124d","19f9317610823d62","19f929ec2a1050da","19f928608774e927"],"reason":"cache:no-reply@notifications.ui.com,noreply@skool.com,noreply.invitations@trustpilotmail.com,reply.newsletter@itsco.de,ebay@ebay.com,news@promo.autodoc.eu","status":"staged"}
+{"ts":"2026-07-27T04:49:15.808Z","run_id":"run_20260727044914_a449ba86","chunk_index":0,"status":"committed"}
+{"ts":"2026-07-27T04:49:15.808Z","run_id":"run_20260727044914_a449ba86","status":"completed","total_committed":1,"total_failed":0}

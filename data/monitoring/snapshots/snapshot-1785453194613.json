@@ -1,0 +1,387 @@
+{
+  "ts": 1785453194613,
+  "kind": "high-mem",
+  "sample": {
+    "ts": 1785453194613,
+    "memory": {
+      "currentBytes": 7148060672,
+      "limitBytes": 8589934592,
+      "peakBytes": 8589938688,
+      "ratio": 0.8321437835693359
+    },
+    "memoryStat": {
+      "anonBytes": 4254642176,
+      "fileBytes": 2571223040,
+      "kernelBytes": 323985408,
+      "slabReclaimableBytes": 292354784,
+      "slabUnreclaimableBytes": 14567888,
+      "unevictableBytes": 4269210064,
+      "reclaimableBytes": 2863577824
+    },
+    "reclaim": {
+      "pgscanDirect": 300807,
+      "pgstealDirect": 290660,
+      "workingsetRefaultFile": 0
+    },
+    "cpu": {
+      "usageUsec": 16885527000,
+      "userUsec": 13651180890,
+      "systemUsec": 3234346110,
+      "nrPeriods": 1029464,
+      "nrThrottled": 12660,
+      "throttledUsec": 1820942645
+    },
+    "events": {
+      "low": 0,
+      "high": 0,
+      "max": 9077,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "deltas": {
+      "events": {
+        "low": 0,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oomKill": 0
+      },
+      "reclaim": {
+        "pgscanDirect": 0,
+        "pgstealDirect": 0,
+        "workingsetRefaultFile": 0
+      },
+      "cpu": {
+        "usageUsec": 1119942,
+        "userUsec": 354919,
+        "systemUsec": 765024,
+        "nrPeriods": 2,
+        "nrThrottled": 2,
+        "throttledUsec": 315261
+      }
+    },
+    "disk": {
+      "path": "/workspace",
+      "usedMb": 12072.87,
+      "totalMb": 60386.2,
+      "freeMb": 48313.33
+    },
+    "activeConversations": [
+      {
+        "conversationId": "6b046635-d16f-4996-a524-b698e792cf50",
+        "title": "Key Database Access Status",
+        "originChannel": "vellum",
+        "originInterface": "web",
+        "processingStartedAt": 1785452356873
+      },
+      {
+        "conversationId": "019fb545-7303-7108-8f92-46c1b0c83f39",
+        "title": "Memory consolidation",
+        "originChannel": "vellum",
+        "originInterface": "web",
+        "processingStartedAt": 1785452655386
+      }
+    ]
+  },
+  "fileResidency": [
+    {
+      "path": "/workspace/data/db/assistant.db",
+      "sizeBytes": 845709312,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/db/assistant.db-wal",
+      "sizeBytes": 16315232,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/db/assistant.db-shm",
+      "sizeBytes": 32768,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/bin/qdrant",
+      "sizeBytes": 76128640,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/bin/vellum-qdrant",
+      "sizeBytes": 76128640,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/segments/c9275b55-ae28-42c9-9378-ea42e182fced/vector_index-sparse/inverted_index.dat",
+      "sizeBytes": 41341832,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory/0/wal/open-2",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory/0/wal/open-1",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/wal/closed-0",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/wal/open-2",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/wal/open-3",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory_v2_concept_pages/0/wal/open-11",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory_v2_concept_pages/0/wal/open-12",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    }
+  ],
+  "topProcesses": [
+    {
+      "pid": 119787,
+      "command": "python3 import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np import cv2, time, tempfile, os, warnings warnings.filterwarnings('ignore') from PIL import Image from scipy.ndimage import maximum_filter1d from sklearn.ensemble import GradientBoostingRegressor from sklearn.model_selection import cross_val_predict, KFold from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet # Setup SR model model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() def extract_sr_features(img_rgb, upsampler): '''Super-resolve then extract features from the 4x image.''' sr_img, _ = upsampler.enhance(img_rgb, outscale=4) gray = cv2.cvtColor(sr_img, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) if largest is None: return None vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) bp = kd.extract_bottom_profile_subpixel(gray, bbox, bxs, bxe) if len(bp) < 10: return None xs = np.array([p[0] for p in bp]) ys = np.array([p[1] for p in bp]) smooth_ys = kd.smooth_1d(ys, 8.0) # 4x larger smoothing for 4x image env = maximum_filter1d(smooth_ys, size=max(5, int(len(smooth_ys) * 0.15) | 1)) near = smooth_ys > env 8.0 if near.sum() < 3: near = np.ones(len(smooth_ys), dtype=bool) coeffs = np.polyfit(xs[near], smooth_ys[near], 1) baseline = np.polyval(coeffs, xs) residual = baseline smooth_ys blade_span = bxe vs ppi = blade_span / kd.SC1_BLADE_LENGTH pin_spacing = kd.SC1_SPACING_INCREMENT * ppi incr = kd.SC1_DEPTH_INCREMENT * ppi shoulder = vs + kd.SHOULDER_OFFSET * 4 # 4x scale pin_features = [] for pin in range(5): pos = shoulder + (pin + 1) * pin_spacing + kd.PIN_OFFSETS[pin] * 4 for offset in [-24, 0, 12, 24]: # 4x offsets target = pos + offset nearby = [residual[i] for i in range(len(xs)) if abs(xs[i] target) <= 8] pin_features.append(max(nearby) if nearby else 0.0) wider = [residual[i] for i in range(len(xs)) if abs(xs[i] pos) <= int(pin_spacing * 0.3)] if wider: pin_features.extend([max(wider), float(np.std(wider)), float(np.median(wider))]) else: pin_features.extend([0.0, 0.0, 0.0]) pin_features.append(pin_features[-3] / incr if incr > 0 else 0.0) profile_pts = np.linspace(shoulder, bxe, 30) full_profile = [] for px in profile_pts: nearby = [residual[i] for i in range(len(xs)) if abs(xs[i] px) <= 8] full_profile.append(max(nearby) if nearby else 0.0) full_profile = np.array(full_profile) / (incr if incr > 0 else 1.0) return np.array(pin_features), full_profile # Test on first 40 keys (obverse only, for speed) N_TEST = 40 print(f'SR-enhanced extraction on {N_TEST} keys (obverse only)...', flush=True) feat = []; labels = [] t_start = time.time() for i in range(N_TEST): result = extract_sr_features(data['obverse'][i], upsampler) if result is not None: pf, prof = result feat.append(np.concatenate([pf, prof])) labels.append(data['bittings'][i].tolist()) else: feat.append(np.zeros(75)) labels.append(data['bittings'][i].tolist()) if (i+1) % 10 == 0: elapsed = time.time() t_start print(f' {i+1}/{N_TEST} done ({elapsed:.0f}s, {elapsed/(i+1):.1f}s/key)', flush=True) X = np.array(feat) y = np.array(labels) print(f'Features: {X.shape}', flush=True) # Also extract baseline (non-SR) features for same 40 keys from keynet_ml_decode import extract_features as extract_base feat_base = [] with tempfile.TemporaryDirectory() as tmpdir: for i in range(N_TEST): p = os.path.join(tmpdir, f'key_{i}.png') Image.fromarray(data['obverse'][i]).save(p) # obverse only, reverse zero-padded f = extract_base(p) feat_base.append(f[:75]) # obverse features only X_base = np.array(feat_base) # Compare with simple 5-fold CV (small dataset, so accuracy will be lower) kf = KFold(n_splits=5, shuffle=True, random_state=42) gb_params = {'n_estimators':200,'learning_rate':0.05,'max_depth':2,'min_samples_leaf':1,'random_state':42} for name, X_test in [('Baseline (no SR)', X_base), ('SR 4x', X)]: all_preds = np.zeros_like(y) for pin in range(5): reg = GradientBoostingRegressor(**gb_params) y_pred = cross_val_predict(reg, X_test, y[:,pin].astype(float), cv=kf) all_preds[:,pin] = np.clip(np.round(y_pred),0,9).astype(int) pos = np.mean(all_preds == y.astype(int)) w1 = np.mean(np.abs(all_preds y.astype(int)) <= 1) exact = np.mean(np.all(all_preds == y.astype(int), axis=1)) mae = np.mean(np.abs(all_preds y.astype(int))) print(f'{name} (N={N_TEST}): pos={pos:.1%} w1={w1:.1%} exact={exact:.1%} MAE={mae:.2f}', flush=True)",
+      "rssBytes": 4093562880,
+      "pssBytes": 4093556736,
+      "pssAnonBytes": 3946434560,
+      "pssFileBytes": 147122176,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 1,
+      "command": "daemon-main",
+      "rssBytes": 424968192,
+      "pssBytes": 399151104,
+      "pssAnonBytes": 386355200,
+      "pssFileBytes": 12795904,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 804,
+      "command": "memory-worker",
+      "rssBytes": 377847808,
+      "pssBytes": 351368192,
+      "pssAnonBytes": 339152896,
+      "pssFileBytes": 12215296,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 36,
+      "command": "schedule-worker",
+      "rssBytes": 258908160,
+      "pssBytes": 243633152,
+      "pssAnonBytes": 238391296,
+      "pssFileBytes": 5241856,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 33,
+      "command": "vellum-qdrant",
+      "rssBytes": 119382016,
+      "pssBytes": 119324672,
+      "pssAnonBytes": 70004736,
+      "pssFileBytes": 49319936,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 60,
+      "command": "monitoring-worker",
+      "rssBytes": 127492096,
+      "pssBytes": 102397952,
+      "pssAnonBytes": 91185152,
+      "pssFileBytes": 11212800,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 119785,
+      "command": "bash cd /workspace/keydatabaseforthefun && timeout 280 python3 \" import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np import cv2, time, tempfile, os, warnings warnings.filterwarnings('ignore') from PIL import Image from scipy.ndimage import maximum_filter1d from sklearn.ensemble import GradientBoostingRegressor from sklearn.model_selection import cross_val_predict, KFold from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet # Setup SR model model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() def extract_sr_features(img_rgb, upsampler): '''Super-resolve then extract features from the 4x image.''' sr_img, _ = upsampler.enhance(img_rgb, outscale=4) gray = cv2.cvtColor(sr_img, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) if largest is None: return None vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) bp = kd.extract_bottom_profile_subpixel(gray, bbox, bxs, bxe) if len(bp) < 10: return None xs = np.array([p[0] for p in bp]) ys = np.array([p[1] for p in bp]) smooth_ys = kd.smooth_1d(ys, 8.0) # 4x larger smoothing for 4x image env = maximum_filter1d(smooth_ys, size=max(5, int(len(smooth_ys) * 0.15) | 1)) near = smooth_ys > env 8.0 if near.sum() < 3: near = np.ones(len(smooth_ys), dtype=bool) coeffs = np.polyfit(xs[near], smooth_ys[near], 1) baseline = np.polyval(coeffs, xs) residual = baseline smooth_ys blade_span = bxe vs ppi = blade_span / kd.SC1_BLADE_LENGTH pin_spacing = kd.SC1_SPACING_INCREMENT * ppi incr = kd.SC1_DEPTH_INCREMENT * ppi shoulder = vs + kd.SHOULDER_OFFSET * 4 # 4x scale pin_features = [] for pin in range(5): pos = shoulder + (pin + 1) * pin_spacing + kd.PIN_OFFSETS[pin] * 4 for offset in [-24, 0, 12, 24]: # 4x offsets target = pos + offset nearby = [residual[i] for i in range(len(xs)) if abs(xs[i] target) <= 8] pin_features.append(max(nearby) if nearby else 0.0) wider = [residual[i] for i in range(len(xs)) if abs(xs[i] pos) <= int(pin_spacing * 0.3)] if wider: pin_features.extend([max(wider), float(np.std(wider)), float(np.median(wider))]) else: pin_features.extend([0.0, 0.0, 0.0]) pin_features.append(pin_features[-3] / incr if incr > 0 else 0.0) profile_pts = np.linspace(shoulder, bxe, 30) full_profile = [] for px in profile_pts: nearby = [residual[i] for i in range(len(xs)) if abs(xs[i] px) <= 8] full_profile.append(max(nearby) if nearby else 0.0) full_profile = np.array(full_profile) / (incr if incr > 0 else 1.0) return np.array(pin_features), full_profile # Test on first 40 keys (obverse only, for speed) N_TEST = 40 print(f'SR-enhanced extraction on {N_TEST} keys (obverse only)...', flush=True) feat = []; labels = [] t_start = time.time() for i in range(N_TEST): result = extract_sr_features(data['obverse'][i], upsampler) if result is not None: pf, prof = result feat.append(np.concatenate([pf, prof])) labels.append(data['bittings'][i].tolist()) else: feat.append(np.zeros(75)) labels.append(data['bittings'][i].tolist()) if (i+1) % 10 == 0: elapsed = time.time() t_start print(f' {i+1}/{N_TEST} done ({elapsed:.0f}s, {elapsed/(i+1):.1f}s/key)', flush=True) X = np.array(feat) y = np.array(labels) print(f'Features: {X.shape}', flush=True) # Also extract baseline (non-SR) features for same 40 keys from keynet_ml_decode import extract_features as extract_base feat_base = [] with tempfile.TemporaryDirectory() as tmpdir: for i in range(N_TEST): p = os.path.join(tmpdir, f'key_{i}.png') Image.fromarray(data['obverse'][i]).save(p) # obverse only, reverse zero-padded f = extract_base(p) feat_base.append(f[:75]) # obverse features only X_base = np.array(feat_base) # Compare with simple 5-fold CV (small dataset, so accuracy will be lower) kf = KFold(n_splits=5, shuffle=True, random_state=42) gb_params = {'n_estimators':200,'learning_rate':0.05,'max_depth':2,'min_samples_leaf':1,'random_state':42} for name, X_test in [('Baseline (no SR)', X_base), ('SR 4x', X)]: all_preds = np.zeros_like(y) for pin in range(5): reg = GradientBoostingRegressor(**gb_params) y_pred = cross_val_predict(reg, X_test, y[:,pin].astype(float), cv=kf) all_preds[:,pin] = np.clip(np.round(y_pred),0,9).astype(int) pos = np.mean(all_preds == y.astype(int)) w1 = np.mean(np.abs(all_preds y.astype(int)) <= 1) exact = np.mean(np.all(all_preds == y.astype(int), axis=1)) mae = np.mean(np.abs(all_preds y.astype(int))) print(f'{name} (N={N_TEST}): pos={pos:.1%} w1={w1:.1%} exact={exact:.1%} MAE={mae:.2f}', flush=True) \" 2>&1",
+      "rssBytes": 1458176,
+      "pssBytes": 1454080,
+      "pssAnonBytes": 360448,
+      "pssFileBytes": 1093632,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 119786,
+      "command": "timeout",
+      "rssBytes": 163840,
+      "pssBytes": 159744,
+      "pssAnonBytes": 118784,
+      "pssFileBytes": 40960,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 120052,
+      "command": "(unknown)",
+      "rssBytes": 0,
+      "pssBytes": null,
+      "pssAnonBytes": null,
+      "pssFileBytes": null,
+      "pssShmemBytes": null
+    }
+  ],
+  "topSlabCaches": [
+    {
+      "name": "fuse_inode",
+      "activeObjs": 247417,
+      "numObjs": 247428,
+      "objSizeBytes": 896,
+      "totalBytes": 221695488
+    },
+    {
+      "name": "dentry",
+      "activeObjs": 259591,
+      "numObjs": 261471,
+      "objSizeBytes": 192,
+      "totalBytes": 50202432
+    },
+    {
+      "name": "radix_tree_node",
+      "activeObjs": 35239,
+      "numObjs": 37520,
+      "objSizeBytes": 584,
+      "totalBytes": 21911680
+    },
+    {
+      "name": "kmalloc-cg-32",
+      "activeObjs": 247807,
+      "numObjs": 247808,
+      "objSizeBytes": 32,
+      "totalBytes": 7929856
+    },
+    {
+      "name": "kmalloc-512",
+      "activeObjs": 8160,
+      "numObjs": 8288,
+      "objSizeBytes": 512,
+      "totalBytes": 4243456
+    },
+    {
+      "name": "kmalloc-192",
+      "activeObjs": 13954,
+      "numObjs": 14847,
+      "objSizeBytes": 192,
+      "totalBytes": 2850624
+    },
+    {
+      "name": "vm_area_struct",
+      "activeObjs": 13074,
+      "numObjs": 13860,
+      "objSizeBytes": 192,
+      "totalBytes": 2661120
+    },
+    {
+      "name": "kernfs_node_cache",
+      "activeObjs": 18122,
+      "numObjs": 18150,
+      "objSizeBytes": 136,
+      "totalBytes": 2468400
+    },
+    {
+      "name": "kmalloc-1k",
+      "activeObjs": 2358,
+      "numObjs": 2368,
+      "objSizeBytes": 1024,
+      "totalBytes": 2424832
+    },
+    {
+      "name": "kmalloc-4k",
+      "activeObjs": 363,
+      "numObjs": 368,
+      "objSizeBytes": 4096,
+      "totalBytes": 1507328
+    }
+  ],
+  "processTree": {
+    "pid": 1,
+    "name": "daemon-main",
+    "command": "daemon-main",
+    "origin": "workspace",
+    "children": [
+      {
+        "pid": 33,
+        "name": "vellum-qdrant",
+        "command": "vellum-qdrant",
+        "origin": "workspace",
+        "children": []
+      },
+      {
+        "pid": 36,
+        "name": "schedule-worker",
+        "command": "schedule-worker",
+        "origin": "workspace",
+        "children": []
+      },
+      {
+        "pid": 60,
+        "name": "monitoring-worker",
+        "command": "monitoring-worker",
+        "origin": "workspace",
+        "children": []
+      },
+      {
+        "pid": 804,
+        "name": "memory-worker",
+        "command": "memory-worker",
+        "origin": "plugin:default-memory",
+        "children": []
+      },
+      {
+        "pid": 119785,
+        "name": "bash cd /workspace/keydatabaseforthefun && timeout 280 python3 \" import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np import cv2, time, tempfile, os, warnings warnings.filterwarnings('ignore') from PIL import Image from scipy.ndimage import maximum_filter1d from sklearn.ensemble import GradientBoostingRegressor from sklearn.model_selection import cross_val_predict, KFold from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet # Setup SR model model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() def extract_sr_features(img_rgb, upsampler): '''Super-resolve then extract features from the 4x image.''' sr_img, _ = upsampler.enhance(img_rgb, outscale=4) gray = cv2.cvtColor(sr_img, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) if largest is None: return None vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) bp = kd.extract_bottom_profile_subpixel(gray, bbox, bxs, bxe) if len(bp) < 10: return None xs = np.array([p[0] for p in bp]) ys = np.array([p[1] for p in bp]) smooth_ys = kd.smooth_1d(ys, 8.0) # 4x larger smoothing for 4x image env = maximum_filter1d(smooth_ys, size=max(5, int(len(smooth_ys) * 0.15) | 1)) near = smooth_ys > env 8.0 if near.sum() < 3: near = np.ones(len(smooth_ys), dtype=bool) coeffs = np.polyfit(xs[near], smooth_ys[near], 1) baseline = np.polyval(coeffs, xs) residual = baseline smooth_ys blade_span = bxe vs ppi = blade_span / kd.SC1_BLADE_LENGTH pin_spacing = kd.SC1_SPACING_INCREMENT * ppi incr = kd.SC1_DEPTH_INCREMENT * ppi shoulder = vs + kd.SHOULDER_OFFSET * 4 # 4x scale pin_features = [] for pin in range(5): pos = shoulder + (pin + 1) * pin_spacing + kd.PIN_OFFSETS[pin] * 4 for offset in [-24, 0, 12, 24]: # 4x offsets target = pos + offset nearby = [residual[i] for i in range(len(xs)) if abs(xs[i] target) <= 8] pin_features.append(max(nearby) if nearby else 0.0) wider = [residual[i] for i in range(len(xs)) if abs(xs[i] pos) <= int(pin_spacing * 0.3)] if wider: pin_features.extend([max(wider), float(np.std(wider)), float(np.median(wider))]) else: pin_features.extend([0.0, 0.0, 0.0]) pin_features.append(pin_features[-3] / incr if incr > 0 else 0.0) profile_pts = np.linspace(shoulder, bxe, 30) full_profile = [] for px in profile_pts: nearby = [residual[i] for i in range(len(xs)) if abs(xs[i] px) <= 8] full_profile.append(max(nearby) if nearby else 0.0) full_profile = np.array(full_profile) / (incr if incr > 0 else 1.0) return np.array(pin_features), full_profile # Test on first 40 keys (obverse only, for speed) N_TEST = 40 print(f'SR-enhanced extraction on {N_TEST} keys (obverse only)...', flush=True) feat = []; labels = [] t_start = time.time() for i in range(N_TEST): result = extract_sr_features(data['obverse'][i], upsampler) if result is not None: pf, prof = result feat.append(np.concatenate([pf, prof])) labels.append(data['bittings'][i].tolist()) else: feat.append(np.zeros(75)) labels.append(data['bittings'][i].tolist()) if (i+1) % 10 == 0: elapsed = time.time() t_start print(f' {i+1}/{N_TEST} done ({elapsed:.0f}s, {elapsed/(i+1):.1f}s/key)', flush=True) X = np.array(feat) y = np.array(labels) print(f'Features: {X.shape}', flush=True) # Also extract baseline (non-SR) features for same 40 keys from keynet_ml_decode import extract_features as extract_base feat_base = [] with tempfile.TemporaryDirectory() as tmpdir: for i in range(N_TEST): p = os.path.join(tmpdir, f'key_{i}.png') Image.fromarray(data['obverse'][i]).save(p) # obverse only, reverse zero-padded f = extract_base(p) feat_base.append(f[:75]) # obverse features only X_base = np.array(feat_base) # Compare with simple 5-fold CV (small dataset, so accuracy will be lower) kf = KFold(n_splits=5, shuffle=True, random_state=42) gb_params = {'n_estimators':200,'learning_rate':0.05,'max_depth':2,'min_samples_leaf':1,'random_state':42} for name, X_test in [('Baseline (no SR)', X_base), ('SR 4x', X)]: all_preds = np.zeros_like(y) for pin in range(5): reg = GradientBoostingRegressor(**gb_params) y_pred = cross_val_predict(reg, X_test, y[:,pin].astype(float), cv=kf) all_preds[:,pin] = np.clip(np.round(y_pred),0,9).astype(int) pos = np.mean(all_preds == y.astype(int)) w1 = np.mean(np.abs(all_preds y.astype(int)) <= 1) exact = np.mean(np.all(all_preds == y.astype(int), axis=1)) mae = np.mean(np.abs(all_preds y.astype(int))) print(f'{name} (N={N_TEST}): pos={pos:.1%} w1={w1:.1%} exact={exact:.1%} MAE={mae:.2f}', flush=True) \" 2>&1",
+        "command": "bash cd /workspace/keydatabaseforthefun && timeout 280 python3 \" import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np import cv2, time, tempfile, os, warnings warnings.filterwarnings('ignore') from PIL import Image from scipy.ndimage import maximum_filter1d from sklearn.ensemble import GradientBoostingRegressor from sklearn.model_selection import cross_val_predict, KFold from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet # Setup SR model model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() def extract_sr_features(img_rgb, upsampler): '''Super-resolve then extract features from the 4x image.''' sr_img, _ = upsampler.enhance(img_rgb, outscale=4) gray = cv2.cvtColor(sr_img, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) if largest is None: return None vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) bp = kd.extract_bottom_profile_subpixel(gray, bbox, bxs, bxe) if len(bp) < 10: return None xs = np.array([p[0] for p in bp]) ys = np.array([p[1] for p in bp]) smooth_ys = kd.smooth_1d(ys, 8.0) # 4x larger smoothing for 4x image env = maximum_filter1d(smooth_ys, size=max(5, int(len(smooth_ys) * 0.15) | 1)) near = smooth_ys > env 8.0 if near.sum() < 3: near = np.ones(len(smooth_ys), dtype=bool) coeffs = np.polyfit(xs[near], smooth_ys[near], 1) baseline = np.polyval(coeffs, xs) residual = baseline smooth_ys blade_span = bxe vs ppi = blade_span / kd.SC1_BLADE_LENGTH pin_spacing = kd.SC1_SPACING_INCREMENT * ppi incr = kd.SC1_DEPTH_INCREMENT * ppi shoulder = vs + kd.SHOULDER_OFFSET * 4 # 4x scale pin_features = [] for pin in range(5): pos = shoulder + (pin + 1) * pin_spacing + kd.PIN_OFFSETS[pin] * 4 for offset in [-24, 0, 12, 24]: # 4x offsets target = pos + offset nearby = [residual[i] for i in range(len(xs)) if abs(xs[i] target) <= 8] pin_features.append(max(nearby) if nearby else 0.0) wider = [residual[i] for i in range(len(xs)) if abs(xs[i] pos) <= int(pin_spacing * 0.3)] if wider: pin_features.extend([max(wider), float(np.std(wider)), float(np.median(wider))]) else: pin_features.extend([0.0, 0.0, 0.0]) pin_features.append(pin_features[-3] / incr if incr > 0 else 0.0) profile_pts = np.linspace(shoulder, bxe, 30) full_profile = [] for px in profile_pts: nearby = [residual[i] for i in range(len(xs)) if abs(xs[i] px) <= 8] full_profile.append(max(nearby) if nearby else 0.0) full_profile = np.array(full_profile) / (incr if incr > 0 else 1.0) return np.array(pin_features), full_profile # Test on first 40 keys (obverse only, for speed) N_TEST = 40 print(f'SR-enhanced extraction on {N_TEST} keys (obverse only)...', flush=True) feat = []; labels = [] t_start = time.time() for i in range(N_TEST): result = extract_sr_features(data['obverse'][i], upsampler) if result is not None: pf, prof = result feat.append(np.concatenate([pf, prof])) labels.append(data['bittings'][i].tolist()) else: feat.append(np.zeros(75)) labels.append(data['bittings'][i].tolist()) if (i+1) % 10 == 0: elapsed = time.time() t_start print(f' {i+1}/{N_TEST} done ({elapsed:.0f}s, {elapsed/(i+1):.1f}s/key)', flush=True) X = np.array(feat) y = np.array(labels) print(f'Features: {X.shape}', flush=True) # Also extract baseline (non-SR) features for same 40 keys from keynet_ml_decode import extract_features as extract_base feat_base = [] with tempfile.TemporaryDirectory() as tmpdir: for i in range(N_TEST): p = os.path.join(tmpdir, f'key_{i}.png') Image.fromarray(data['obverse'][i]).save(p) # obverse only, reverse zero-padded f = extract_base(p) feat_base.append(f[:75]) # obverse features only X_base = np.array(feat_base) # Compare with simple 5-fold CV (small dataset, so accuracy will be lower) kf = KFold(n_splits=5, shuffle=True, random_state=42) gb_params = {'n_estimators':200,'learning_rate':0.05,'max_depth':2,'min_samples_leaf':1,'random_state':42} for name, X_test in [('Baseline (no SR)', X_base), ('SR 4x', X)]: all_preds = np.zeros_like(y) for pin in range(5): reg = GradientBoostingRegressor(**gb_params) y_pred = cross_val_predict(reg, X_test, y[:,pin].astype(float), cv=kf) all_preds[:,pin] = np.clip(np.round(y_pred),0,9).astype(int) pos = np.mean(all_preds == y.astype(int)) w1 = np.mean(np.abs(all_preds y.astype(int)) <= 1) exact = np.mean(np.all(all_preds == y.astype(int), axis=1)) mae = np.mean(np.abs(all_preds y.astype(int))) print(f'{name} (N={N_TEST}): pos={pos:.1%} w1={w1:.1%} exact={exact:.1%} MAE={mae:.2f}', flush=True) \" 2>&1",
+        "origin": "workspace",
+        "children": [
+          {
+            "pid": 119786,
+            "name": "timeout",
+            "command": "timeout",
+            "origin": "workspace",
+            "children": [
+              {
+                "pid": 119787,
+                "name": "python3 import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np import cv2, time, tempfile, os, warnings warnings.filterwarnings('ignore') from PIL import Image from scipy.ndimage import maximum_filter1d from sklearn.ensemble import GradientBoostingRegressor from sklearn.model_selection import cross_val_predict, KFold from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet # Setup SR model model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() def extract_sr_features(img_rgb, upsampler): '''Super-resolve then extract features from the 4x image.''' sr_img, _ = upsampler.enhance(img_rgb, outscale=4) gray = cv2.cvtColor(sr_img, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) if largest is None: return None vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) bp = kd.extract_bottom_profile_subpixel(gray, bbox, bxs, bxe) if len(bp) < 10: return None xs = np.array([p[0] for p in bp]) ys = np.array([p[1] for p in bp]) smooth_ys = kd.smooth_1d(ys, 8.0) # 4x larger smoothing for 4x image env = maximum_filter1d(smooth_ys, size=max(5, int(len(smooth_ys) * 0.15) | 1)) near = smooth_ys > env 8.0 if near.sum() < 3: near = np.ones(len(smooth_ys), dtype=bool) coeffs = np.polyfit(xs[near], smooth_ys[near], 1) baseline = np.polyval(coeffs, xs) residual = baseline smooth_ys blade_span = bxe vs ppi = blade_span / kd.SC1_BLADE_LENGTH pin_spacing = kd.SC1_SPACING_INCREMENT * ppi incr = kd.SC1_DEPTH_INCREMENT * ppi shoulder = vs + kd.SHOULDER_OFFSET * 4 # 4x scale pin_features = [] for pin in range(5): pos = shoulder + (pin + 1) * pin_spacing + kd.PIN_OFFSETS[pin] * 4 for offset in [-24, 0, 12, 24]: # 4x offsets target = pos + offset nearby = [residual[i] for i in range(len(xs)) if abs(xs[i] target) <= 8] pin_features.append(max(nearby) if nearby else 0.0) wider = [residual[i] for i in range(len(xs)) if abs(xs[i] pos) <= int(pin_spacing * 0.3)] if wider: pin_features.extend([max(wider), float(np.std(wider)), float(np.median(wider))]) else: pin_features.extend([0.0, 0.0, 0.0]) pin_features.append(pin_features[-3] / incr if incr > 0 else 0.0) profile_pts = np.linspace(shoulder, bxe, 30) full_profile = [] for px in profile_pts: nearby = [residual[i] for i in range(len(xs)) if abs(xs[i] px) <= 8] full_profile.append(max(nearby) if nearby else 0.0) full_profile = np.array(full_profile) / (incr if incr > 0 else 1.0) return np.array(pin_features), full_profile # Test on first 40 keys (obverse only, for speed) N_TEST = 40 print(f'SR-enhanced extraction on {N_TEST} keys (obverse only)...', flush=True) feat = []; labels = [] t_start = time.time() for i in range(N_TEST): result = extract_sr_features(data['obverse'][i], upsampler) if result is not None: pf, prof = result feat.append(np.concatenate([pf, prof])) labels.append(data['bittings'][i].tolist()) else: feat.append(np.zeros(75)) labels.append(data['bittings'][i].tolist()) if (i+1) % 10 == 0: elapsed = time.time() t_start print(f' {i+1}/{N_TEST} done ({elapsed:.0f}s, {elapsed/(i+1):.1f}s/key)', flush=True) X = np.array(feat) y = np.array(labels) print(f'Features: {X.shape}', flush=True) # Also extract baseline (non-SR) features for same 40 keys from keynet_ml_decode import extract_features as extract_base feat_base = [] with tempfile.TemporaryDirectory() as tmpdir: for i in range(N_TEST): p = os.path.join(tmpdir, f'key_{i}.png') Image.fromarray(data['obverse'][i]).save(p) # obverse only, reverse zero-padded f = extract_base(p) feat_base.append(f[:75]) # obverse features only X_base = np.array(feat_base) # Compare with simple 5-fold CV (small dataset, so accuracy will be lower) kf = KFold(n_splits=5, shuffle=True, random_state=42) gb_params = {'n_estimators':200,'learning_rate':0.05,'max_depth':2,'min_samples_leaf':1,'random_state':42} for name, X_test in [('Baseline (no SR)', X_base), ('SR 4x', X)]: all_preds = np.zeros_like(y) for pin in range(5): reg = GradientBoostingRegressor(**gb_params) y_pred = cross_val_predict(reg, X_test, y[:,pin].astype(float), cv=kf) all_preds[:,pin] = np.clip(np.round(y_pred),0,9).astype(int) pos = np.mean(all_preds == y.astype(int)) w1 = np.mean(np.abs(all_preds y.astype(int)) <= 1) exact = np.mean(np.all(all_preds == y.astype(int), axis=1)) mae = np.mean(np.abs(all_preds y.astype(int))) print(f'{name} (N={N_TEST}): pos={pos:.1%} w1={w1:.1%} exact={exact:.1%} MAE={mae:.2f}', flush=True)",
+                "command": "python3 import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np import cv2, time, tempfile, os, warnings warnings.filterwarnings('ignore') from PIL import Image from scipy.ndimage import maximum_filter1d from sklearn.ensemble import GradientBoostingRegressor from sklearn.model_selection import cross_val_predict, KFold from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet # Setup SR model model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() def extract_sr_features(img_rgb, upsampler): '''Super-resolve then extract features from the 4x image.''' sr_img, _ = upsampler.enhance(img_rgb, outscale=4) gray = cv2.cvtColor(sr_img, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) if largest is None: return None vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) bp = kd.extract_bottom_profile_subpixel(gray, bbox, bxs, bxe) if len(bp) < 10: return None xs = np.array([p[0] for p in bp]) ys = np.array([p[1] for p in bp]) smooth_ys = kd.smooth_1d(ys, 8.0) # 4x larger smoothing for 4x image env = maximum_filter1d(smooth_ys, size=max(5, int(len(smooth_ys) * 0.15) | 1)) near = smooth_ys > env 8.0 if near.sum() < 3: near = np.ones(len(smooth_ys), dtype=bool) coeffs = np.polyfit(xs[near], smooth_ys[near], 1) baseline = np.polyval(coeffs, xs) residual = baseline smooth_ys blade_span = bxe vs ppi = blade_span / kd.SC1_BLADE_LENGTH pin_spacing = kd.SC1_SPACING_INCREMENT * ppi incr = kd.SC1_DEPTH_INCREMENT * ppi shoulder = vs + kd.SHOULDER_OFFSET * 4 # 4x scale pin_features = [] for pin in range(5): pos = shoulder + (pin + 1) * pin_spacing + kd.PIN_OFFSETS[pin] * 4 for offset in [-24, 0, 12, 24]: # 4x offsets target = pos + offset nearby = [residual[i] for i in range(len(xs)) if abs(xs[i] target) <= 8] pin_features.append(max(nearby) if nearby else 0.0) wider = [residual[i] for i in range(len(xs)) if abs(xs[i] pos) <= int(pin_spacing * 0.3)] if wider: pin_features.extend([max(wider), float(np.std(wider)), float(np.median(wider))]) else: pin_features.extend([0.0, 0.0, 0.0]) pin_features.append(pin_features[-3] / incr if incr > 0 else 0.0) profile_pts = np.linspace(shoulder, bxe, 30) full_profile = [] for px in profile_pts: nearby = [residual[i] for i in range(len(xs)) if abs(xs[i] px) <= 8] full_profile.append(max(nearby) if nearby else 0.0) full_profile = np.array(full_profile) / (incr if incr > 0 else 1.0) return np.array(pin_features), full_profile # Test on first 40 keys (obverse only, for speed) N_TEST = 40 print(f'SR-enhanced extraction on {N_TEST} keys (obverse only)...', flush=True) feat = []; labels = [] t_start = time.time() for i in range(N_TEST): result = extract_sr_features(data['obverse'][i], upsampler) if result is not None: pf, prof = result feat.append(np.concatenate([pf, prof])) labels.append(data['bittings'][i].tolist()) else: feat.append(np.zeros(75)) labels.append(data['bittings'][i].tolist()) if (i+1) % 10 == 0: elapsed = time.time() t_start print(f' {i+1}/{N_TEST} done ({elapsed:.0f}s, {elapsed/(i+1):.1f}s/key)', flush=True) X = np.array(feat) y = np.array(labels) print(f'Features: {X.shape}', flush=True) # Also extract baseline (non-SR) features for same 40 keys from keynet_ml_decode import extract_features as extract_base feat_base = [] with tempfile.TemporaryDirectory() as tmpdir: for i in range(N_TEST): p = os.path.join(tmpdir, f'key_{i}.png') Image.fromarray(data['obverse'][i]).save(p) # obverse only, reverse zero-padded f = extract_base(p) feat_base.append(f[:75]) # obverse features only X_base = np.array(feat_base) # Compare with simple 5-fold CV (small dataset, so accuracy will be lower) kf = KFold(n_splits=5, shuffle=True, random_state=42) gb_params = {'n_estimators':200,'learning_rate':0.05,'max_depth':2,'min_samples_leaf':1,'random_state':42} for name, X_test in [('Baseline (no SR)', X_base), ('SR 4x', X)]: all_preds = np.zeros_like(y) for pin in range(5): reg = GradientBoostingRegressor(**gb_params) y_pred = cross_val_predict(reg, X_test, y[:,pin].astype(float), cv=kf) all_preds[:,pin] = np.clip(np.round(y_pred),0,9).astype(int) pos = np.mean(all_preds == y.astype(int)) w1 = np.mean(np.abs(all_preds y.astype(int)) <= 1) exact = np.mean(np.all(all_preds == y.astype(int), axis=1)) mae = np.mean(np.abs(all_preds y.astype(int))) print(f'{name} (N={N_TEST}): pos={pos:.1%} w1={w1:.1%} exact={exact:.1%} MAE={mae:.2f}', flush=True)",
+                "origin": "workspace",
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "pid": 120052,
+        "name": "git",
+        "command": "git",
+        "origin": "workspace",
+        "children": []
+      }
+    ]
+  }
+}

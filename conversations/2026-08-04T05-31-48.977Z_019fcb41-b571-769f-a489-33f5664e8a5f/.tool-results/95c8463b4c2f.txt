@@ -1,0 +1,225 @@
+     1  -- Alpaca AI Trading Bot — D1 Schema
+     2  -- Run: wrangler d1 execute alpaca-trading-bot --file=schema.sql
+     3  
+     4  -- ============================================================
+     5  -- Decisions: every AI/TA decision the bot makes
+     6  -- ============================================================
+     7  CREATE TABLE IF NOT EXISTS decisions (
+     8    id INTEGER PRIMARY KEY AUTOINCREMENT,
+     9    timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+    10    ticker TEXT NOT NULL,
+    11    action TEXT NOT NULL CHECK(action IN ('BUY','SELL','HOLD','CLOSE')),
+    12    confidence REAL NOT NULL DEFAULT 0,        -- 0.0 to 1.0
+    13    signal_source TEXT NOT NULL DEFAULT 'ta',  -- 'ta', 'ai', 'ta+ai'
+    14    reason TEXT,                                -- human-readable explanation
+    15    ta_data TEXT,                               -- JSON: full technical analysis snapshot
+    16    ai_reasoning TEXT,                          -- JSON: LLM reasoning if used
+    17    price_at_decision REAL,
+    18    executed INTEGER NOT NULL DEFAULT 0,        -- 0=pending, 1=executed, 2=skipped(risk), 3=failed
+    19    execution_reason TEXT,                      -- why skipped/failed
+    20    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    21  );
+    22  
+    23  CREATE INDEX IF NOT EXISTS idx_decisions_timestamp ON decisions(timestamp);
+    24  CREATE INDEX IF NOT EXISTS idx_decisions_ticker ON decisions(ticker);
+    25  CREATE INDEX IF NOT EXISTS idx_decisions_action ON decisions(action);
+    26  CREATE INDEX IF NOT EXISTS idx_decisions_executed ON decisions(executed);
+    27  
+    28  -- ============================================================
+    29  -- Trades: executed orders
+    30  -- ============================================================
+    31  CREATE TABLE IF NOT EXISTS trades (
+    32    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    33    timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+    34    alpaca_order_id TEXT,
+    35    ticker TEXT NOT NULL,
+    36    side TEXT NOT NULL CHECK(side IN ('buy','sell')),
+    37    qty REAL NOT NULL,
+    38    fill_price REAL,
+    39    avg_fill_price REAL,
+    40    status TEXT NOT NULL DEFAULT 'submitted',   -- submitted, filled, partial, canceled, rejected
+    41    order_type TEXT NOT NULL DEFAULT 'market',  -- market, limit, stop, stop_limit
+    42    limit_price REAL,
+    43    stop_price REAL,
+    44    time_in_force TEXT NOT NULL DEFAULT 'day',
+    45    estimated_value REAL,
+    46    decision_id INTEGER REFERENCES decisions(id),
+    47    error_message TEXT,
+    48    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    49  );
+    50  
+    51  CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp);
+    52  CREATE INDEX IF NOT EXISTS idx_trades_ticker ON trades(ticker);
+    53  CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
+    54  CREATE INDEX IF NOT EXISTS idx_trades_alpaca_id ON trades(alpaca_order_id);
+    55  
+    56  -- ============================================================
+    57  -- Positions: current and closed positions tracked by the bot
+    58  -- ============================================================
+    59  CREATE TABLE IF NOT EXISTS positions (
+    60    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    61    ticker TEXT NOT NULL UNIQUE,
+    62    side TEXT NOT NULL CHECK(side IN ('long','short')),
+    63    qty REAL NOT NULL,
+    64    avg_entry_price REAL NOT NULL,
+    65    current_price REAL,
+    66    market_value REAL,
+    67    unrealized_pl REAL,
+    68    unrealized_plpc REAL,                       -- percentage
+    69    stop_loss_price REAL,
+    70    take_profit_price REAL,
+    71    trailing_stop_enabled INTEGER NOT NULL DEFAULT 1,
+    72    opened_at TEXT NOT NULL DEFAULT (datetime('now')),
+    73    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    74    closed_at TEXT,
+    75    closed_pl REAL,                             -- realized P&L when closed
+    76    close_reason TEXT                           -- 'stop_loss', 'take_profit', 'signal', 'manual', 'eod'
+    77  );
+    78  
+    79  CREATE INDEX IF NOT EXISTS idx_positions_ticker ON positions(ticker);
+    80  CREATE INDEX IF NOT EXISTS idx_positions_open ON positions(closed_at);
+    81  
+    82  -- ============================================================
+    83  -- Performance snapshots: taken each run cycle
+    84  -- ============================================================
+    85  CREATE TABLE IF NOT EXISTS performance_snapshots (
+    86    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    87    timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+    88    account_id TEXT,
+    89    equity REAL,
+    90    cash REAL,
+    91    buying_power REAL,
+    92    portfolio_value REAL,
+    93    long_market_value REAL,
+    94    short_market_value REAL,
+    95    positions_count INTEGER DEFAULT 0,
+    96    daily_pl REAL,
+    97    daily_plpc REAL,
+    98    total_pl REAL,
+    99    total_plpc REAL,
+   100    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   101  );
+   102  
+   103  CREATE INDEX IF NOT EXISTS idx_snapshots_timestamp ON performance_snapshots(timestamp);
+   104  
+   105  -- ============================================================
+   106  -- Run log: every cron invocation
+   107  -- ============================================================
+   108  CREATE TABLE IF NOT EXISTS run_log (
+   109    id INTEGER PRIMARY KEY AUTOINCREMENT,
+   110    timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+   111    trigger TEXT NOT NULL DEFAULT 'cron',       -- 'cron', 'manual', 'api'
+   112    market_open INTEGER NOT NULL DEFAULT 0,
+   113    duration_ms INTEGER,
+   114    decisions_made INTEGER DEFAULT 0,
+   115    trades_executed INTEGER DEFAULT 0,
+   116    errors INTEGER DEFAULT 0,
+   117    error_details TEXT,                         -- JSON array of error messages
+   118    status TEXT NOT NULL DEFAULT 'ok',          -- ok, error, skipped
+   119    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   120  );
+   121  
+   122  CREATE INDEX IF NOT EXISTS idx_runlog_timestamp ON run_log(timestamp);
+   123  
+   124  -- ============================================================
+   125  -- Config: key-value store for bot settings
+   126  -- ============================================================
+   127  CREATE TABLE IF NOT EXISTS bot_config (
+   128    key TEXT PRIMARY KEY,
+   129    value TEXT NOT NULL,
+   130    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+   131  );
+   132  
+   133  -- Default config values
+   134  INSERT OR IGNORE INTO bot_config (key, value) VALUES
+   135    ('max_positions', '15'),
+   136    ('max_position_pct', '20'),           -- max % of portfolio per position (hard cap)
+   137    ('stop_loss_atr_multiplier', '1.5'),  -- stop loss = entry - 1.5 * ATR
+   138    ('take_profit_atr_multiplier', '2.0'),-- take profit = entry + 2.0 * ATR
+   139    ('trailing_stop_pct', '5'),           -- 5% trailing stop
+   140    ('daily_loss_limit_pct', '15'),       -- stop trading if down 15% on the day
+   141    ('rolling_drawdown_limit_pct', '10'), -- stop if 20-period drawdown exceeds 10%
+   142    ('min_confidence', '0.6'),            -- minimum AI confidence to act
+   143    ('min_edge_after_costs', '5'),        -- minimum expected edge after costs (bps)
+   144    ('target_volatility_pct', '2.0'),     -- target daily portfolio vol for sizing
+   145    ('max_order_rate_per_min', '10'),     -- kill switch: max orders per minute
+   146    ('scan_universe_size', '100'),        -- number of tickers to scan
+   147    ('rsi_oversold', '30'),
+   148    ('rsi_overbought', '70'),
+   149    ('ema_fast', '9'),
+   150    ('ema_slow', '21'),
+   151    ('macd_fast', '12'),
+   152    ('macd_slow', '26'),
+   153    ('macd_signal', '9'),
+   154    ('atr_period', '14'),
+   155    ('volume_avg_period', '20'),
+   156    ('use_ai_refinement', 'true'),
+   157    ('llm_model', 'accounts/fireworks/models/glm-5p2'),
+   158    ('llm_temperature', '0.3'),
+   159    ('enable_margin', 'true'),
+   160    ('eod_flatten', 'true'),              -- daytrading: close all before EOD
+   161    ('min_hold_minutes', '15'),           -- anti-churn: min hold time before sell
+   162    ('reentry_cooldown_minutes', '30'),   -- anti-churn: cooldown after selling before re-buy
+   163    ('max_trades_per_cycle', '3'),        -- anti-churn: max new trades per 5-min cycle
+   164    ('min_confidence', '0.7'),            -- raised from 0.6 to reduce low-conviction trades
+   165    ('max_capital_usd', '5000'),          -- daytrading capital cap (~33,000 DKK)
+   166  -- ============================================================
+   167  -- Swing trading config (swing_ prefixed keys)
+   168  -- ============================================================
+   169  INSERT OR IGNORE INTO bot_config (key, value) VALUES
+   170    ('swing_reversal_weight', '0.35'),
+   171    ('swing_momentum_weight', '0.15'),
+   172    ('swing_proximity_weight', '0.20'),
+   173    ('swing_volume_weight', '0.10'),
+   174    ('swing_quality_weight', '0.20'),
+   175    ('swing_reversal_lookback', '5'),
+   176    ('swing_reversal_threshold', '2.0'),
+   177    ('swing_min_price', '5'),
+   178    ('swing_min_dollar_volume', '2000000'),
+   179    ('swing_min_history', '252'),
+   180    ('swing_max_positions', '30'),
+   181    ('swing_top_percentile', '20'),
+   182    ('swing_bottom_percentile', '80'),
+   183    ('swing_earnings_blackout_days', '3'),
+   184    ('swing_max_position_pct', '5'),
+   185    ('swing_target_position_pct', '3.33'),
+   186    ('swing_max_gross_exposure', '100'),
+   187    ('swing_stop_loss_pct', '15'),
+   188    ('swing_trailing_stop_pct', '8'),
+   189    ('swing_daily_loss_limit_pct', '5'),
+   190    ('swing_rolling_drawdown_limit_pct', '15'),
+   191    ('swing_min_confidence', '0.5'),
+   192    ('swing_exit_zscore', '-0.5'),
+   193    ('swing_enable_margin', 'false'),
+   194    ('swing_max_turnover_pct', '30'),
+   195    ('swing_min_trade_size', '0.25'),
+   196    ('swing_max_order_rate_per_min', '15'),
+   197    ('swing_scan_universe_size', '150'),
+   198    ('swing_max_capital_usd', '3700'),   -- ~25,000 DKK cap for private person use
+   199  -- ============================================================
+   200  -- Crypto trading config (crypto_ prefixed keys)
+   201  -- ============================================================
+   202  INSERT OR IGNORE INTO bot_config (key, value) VALUES
+   203      ('crypto_max_positions', '5'),
+   204      ('crypto_max_position_pct', '25'),
+   205      ('crypto_stop_loss_pct', '12'),
+   206      ('crypto_take_profit_pct', '25'),
+   207      ('crypto_trailing_stop_pct', '8'),
+   208      ('crypto_daily_loss_limit_pct', '15'),
+   209      ('crypto_rolling_drawdown_limit_pct', '20'),
+   210      ('crypto_min_confidence', '0.7'),
+   211      ('crypto_stop_loss_atr_multiplier', '2.0'),
+   212      ('crypto_take_profit_atr_multiplier', '3.0'),
+   213      ('crypto_target_volatility_pct', '3.0'),
+   214      ('crypto_max_order_rate_per_min', '5'),
+   215      ('crypto_min_edge_after_costs', '8'),
+   216      ('crypto_enable_margin', 'false'),
+   217      ('crypto_min_hold_minutes', '30'),
+   218      ('crypto_reentry_cooldown_minutes', '60'),
+   219      ('crypto_max_trades_per_cycle', '2'),
+   220      ('crypto_max_capital_usd', '2000'),
+   221      ('crypto_use_ai_refinement', 'true'),
+   222      ('crypto_scan_universe_size', '15'),
+   223      ('version', '2.4.0');
+   224    ('version', '2.0.0');
+   225  

@@ -1,0 +1,50 @@
+ 773 |  AAVEUSD |  HOLD | src=crypto+ai  | exec=2 | json=False | think=False | 
+ 772 |   LTCUSD |  HOLD | src=crypto+ai  | exec=2 | json=False | think=False | 
+ 771 |   DOTUSD |  HOLD | src=crypto+ai  | exec=2 | json=True | think=False | {"factors":["MACD histogram bearish at -0.0012 with no crossover reversal","ADX 19.5 indicates weak trend with no direct
+ 770 |   SOLUSD |  SELL | src=crypto+ai  | exec=0 | json=True | think=False | {"factors":["RSI is extremely overbought at 82.2","MACD histogram is negative indicating bearish momentum","Strong uptre
+ 769 |    CMCSA |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 768 |      DAL |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["Price at 90% of range near resistance $91.56 with stochastic overbought at 85.7","OBV trending down indicat
+ 767 |     LCID |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 766 |     SNOW |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["MACD histogram bullish (+0.1107) but MACD still negative and ADX at 11.6 indicates no trend","OBV trending 
+ 765 |      RUN |   BUY | src=ta+ai      | exec=1 | json=True | think=False | {"factors":["ADX 6.2 shows essentially no trend strength despite EMA crossover","Stochastic %K 82.4 is overbought with r
+ 764 |     AFRM |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 763 |      NOW |  SELL | src=ta+ai      | exec=0 | json=True | think=False | {"factors":["MACD histogram negative with bearish crossover confirms downside momentum","OBV trending up signals accumul
+ 762 |      LUV |   BUY | src=ta+ai      | exec=1 | json=True | think=False | {"factors":["EMA9/21 bullish crossover with ADX 60.0 confirms strong uptrend","Volume 2.03x average validates bullish pr
+ 761 |     MSFT |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["MACD histogram negative (-0.1933) with OBV trending down indicates distribution pressure","EMA9 and EMA21 a
+ 760 |     ORCL |   BUY | src=ta+ai      | exec=1 | json=True | think=False | {"factors":["EMA9/21 bullish crossover with uptrend confirmed","ADX 48.2 shows very strong trend strength","Volume 1.20x
+ 759 |      NOW |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 758 |     LCID |  SELL | src=ta+ai      | exec=0 | json=True | think=False | {"factors":["MACD histogram is negative (-0.0048) indicating bearish momentum","OBV is trending up suggesting underlying
+ 757 |      DAL |   BUY | src=ta+ai      | exec=1 | json=True | think=False | {"factors":["Price near resistance ($91.56) with limited upside in choppy regime","OBV trending down signals distributio
+ 756 |     AFRM |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["MACD histogram negative and OBV trending down indicate distribution pressure","ADX at 0.5 and flat EMAs con
+ 755 |    GOOGL |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["MACD histogram is negative and OBV is trending down","EMA9 and EMA21 are flat with weak ADX of 11.0 indicat
+ 754 |     SOFI |  SELL | src=ta+ai      | exec=0 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 753 |     HOOD |  SELL | src=ta+ai      | exec=0 | json=True | think=False | {"factors":["EMA9/21 bearish crossover with ADX 44.8 confirming strong downtrend","MACD bearish with histogram -0.0933 a
+ 752 |     MSFT |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["MACD histogram negative and bearish momentum","ADX 19 and flat EMAs show no strong trend","Choppy market re
+ 751 |     SNOW |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 750 |     SEDG |   BUY | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["Low volume (0.62x average) fails to confirm the bullish signal","Price near resistance at $44.60 (74% of ra
+ 749 |    GOOGL |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 748 |     LCID |  SELL | src=ta+ai      | exec=0 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 747 |      RUN |  SELL | src=ta+ai      | exec=0 | json=True | think=False | {"factors":["MACD histogram bearish with 1.69x volume confirmation","OBV trending up signals accumulation, contradicting
+ 746 |     SEDG |   BUY | src=ta+ai      | exec=1 | json=True | think=False | {"factors":["Volume is 0.84x average, failing to confirm the bullish signal","Price is near resistance at $44.60 and Bol
+ 745 |      DAL |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 744 |      NOW |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 743 |     SNOW |   BUY | src=ta+ai      | exec=1 | json=True | think=False | {"factors":["MACD histogram bullish at +0.1523 with rising momentum","Volume 1.51x average confirms bullish move with OB
+ 742 |     HOOD |  SELL | src=ta+ai      | exec=0 | json=True | think=False | {"factors":["EMA9/21 bearish crossover with ADX 49.7 confirming strong downtrend","MACD histogram -0.0995 and OBV trendi
+ 741 |     MSFT |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["ADX 3.7 shows no trend strength — classic choppy/no-trade conditions","EMAs flat and tightly clustered (489
+ 740 |      AAL |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["ADX at 2.6 shows no meaningful trend strength","EMA9 and EMA21 are flat and nearly identical at ~16.00","Ch
+ 739 |     NCLH |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 738 |     SNOW |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["ADX 17.7 indicates weak trend strength in choppy market regime","Flat EMAs with price below both EMA9 and E
+ 737 |    GOOGL |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 736 |     MSFT |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["MACD histogram negative and OBV trending down indicate bearish undertone","ADX at 10.4 and flat EMAs show n
+ 735 |     LCID |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["MACD histogram negative and OBV trending down indicate distribution pressure","ADX of 8.6 and flat EMAs con
+ 734 |      RUN |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["MACD histogram is bearish at -0.0041 indicating downward momentum","OBV trending up suggests underlying acc
+ 733 |      UAL |   BUY | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 732 |      DAL |   BUY | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["EMA9/21 bullish crossover confirms uptrend","MACD bullish with positive histogram","High volume at 1.6x ave
+ 731 |      AAL |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["ADX 2.8 shows zero trend strength","EMAs flat and converged at 15.99 with price pinned to them","MACD histo
+ 730 |     NVDA |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}
+ 729 |     MSFT |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["MACD bearish with negative histogram and OBV trending down (distribution)","ADX 10.4 shows no meaningful tr
+ 728 |     NVDA |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["MACD histogram bearish at -0.0728 with price below EMA9","OBV trending up indicating underlying accumulatio
+ 727 |      UAL |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["MACD histogram bullish but momentum weak (+0.0116)","OBV trending down indicating distribution despite pric
+ 726 |    GOOGL |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["MACD bearish with negative histogram and OBV trending down indicate distribution","EMA9 and EMA21 are flat 
+ 725 |      RUN |  HOLD | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["MACD bearish with negative histogram (-0.0056) and ADX 29 indicating strong but downward momentum","OBV tre
+ 724 |      AAL |   BUY | src=ta+ai      | exec=2 | json=True | think=False | {"factors":["LLM text response (JSON parse failed)"],"adjusted":false}

@@ -1,0 +1,306 @@
+{
+  "ts": 1785824048691,
+  "kind": "baseline",
+  "sample": {
+    "ts": 1785824048691,
+    "memory": {
+      "currentBytes": 2377326592,
+      "limitBytes": 8589934592,
+      "peakBytes": 4496306176,
+      "ratio": 0.27675724029541016
+    },
+    "memoryStat": {
+      "anonBytes": 1112690688,
+      "fileBytes": 1141841920,
+      "kernelBytes": 121958400,
+      "slabReclaimableBytes": 87118784,
+      "slabUnreclaimableBytes": 6148408,
+      "unevictableBytes": 1118839096,
+      "reclaimableBytes": 1228960704
+    },
+    "reclaim": {
+      "pgscanDirect": 0,
+      "pgstealDirect": 0,
+      "workingsetRefaultFile": 0
+    },
+    "cpu": {
+      "usageUsec": 20094584242,
+      "userUsec": 13370046367,
+      "systemUsec": 6724537875,
+      "nrPeriods": 3137946,
+      "nrThrottled": 191,
+      "throttledUsec": 14107232
+    },
+    "events": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "deltas": {
+      "events": {
+        "low": 0,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oomKill": 0
+      },
+      "reclaim": {
+        "pgscanDirect": 0,
+        "pgstealDirect": 0,
+        "workingsetRefaultFile": 0
+      },
+      "cpu": {
+        "usageUsec": 12073,
+        "userUsec": 2175,
+        "systemUsec": 9899,
+        "nrPeriods": 2,
+        "nrThrottled": 0,
+        "throttledUsec": 0
+      }
+    },
+    "disk": {
+      "path": "/workspace",
+      "usedMb": 12892.77,
+      "totalMb": 60386.2,
+      "freeMb": 47493.43
+    },
+    "activeConversations": null
+  },
+  "fileResidency": [
+    {
+      "path": "/workspace/data/db/assistant.db",
+      "sizeBytes": 845709312,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/db/assistant.db-wal",
+      "sizeBytes": 4177712,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/db/assistant.db-shm",
+      "sizeBytes": 32768,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/bin/qdrant",
+      "sizeBytes": 76128640,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/bin/vellum-qdrant",
+      "sizeBytes": 76128640,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/segments/c9275b55-ae28-42c9-9378-ea42e182fced/vector_index-sparse/inverted_index.dat",
+      "sizeBytes": 41341832,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory/0/wal/open-2",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory/0/wal/open-1",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/wal/open-3",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/wal/open-4",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/wal/closed-91",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory_v2_concept_pages/0/wal/closed-19833",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory_v2_concept_pages/0/wal/open-13",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    }
+  ],
+  "topProcesses": [
+    {
+      "pid": 782,
+      "command": "memory-worker",
+      "rssBytes": 545689600,
+      "pssBytes": 522514432,
+      "pssAnonBytes": 509251584,
+      "pssFileBytes": 13262848,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 1,
+      "command": "daemon-main",
+      "rssBytes": 465100800,
+      "pssBytes": 441397248,
+      "pssAnonBytes": 426885120,
+      "pssFileBytes": 14512128,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 763,
+      "command": "monitoring-worker",
+      "rssBytes": 130666496,
+      "pssBytes": 109031424,
+      "pssAnonBytes": 96817152,
+      "pssFileBytes": 12214272,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 30,
+      "command": "vellum-qdrant",
+      "rssBytes": 103235584,
+      "pssBytes": 103178240,
+      "pssAnonBytes": 80297984,
+      "pssFileBytes": 22880256,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 284022,
+      "command": "(unknown)",
+      "rssBytes": 0,
+      "pssBytes": null,
+      "pssAnonBytes": null,
+      "pssFileBytes": null,
+      "pssShmemBytes": null
+    }
+  ],
+  "topSlabCaches": [
+    {
+      "name": "fuse_inode",
+      "activeObjs": 76895,
+      "numObjs": 76932,
+      "objSizeBytes": 896,
+      "totalBytes": 68931072
+    },
+    {
+      "name": "dentry",
+      "activeObjs": 79854,
+      "numObjs": 80115,
+      "objSizeBytes": 192,
+      "totalBytes": 15382080
+    },
+    {
+      "name": "radix_tree_node",
+      "activeObjs": 12025,
+      "numObjs": 15652,
+      "objSizeBytes": 584,
+      "totalBytes": 9140768
+    },
+    {
+      "name": "vm_area_struct",
+      "activeObjs": 9335,
+      "numObjs": 13293,
+      "objSizeBytes": 192,
+      "totalBytes": 2552256
+    },
+    {
+      "name": "kmalloc-cg-32",
+      "activeObjs": 77416,
+      "numObjs": 78208,
+      "objSizeBytes": 32,
+      "totalBytes": 2502656
+    },
+    {
+      "name": "kernfs_node_cache",
+      "activeObjs": 18147,
+      "numObjs": 18240,
+      "objSizeBytes": 136,
+      "totalBytes": 2480640
+    },
+    {
+      "name": "kmalloc-512",
+      "activeObjs": 3254,
+      "numObjs": 3392,
+      "objSizeBytes": 512,
+      "totalBytes": 1736704
+    },
+    {
+      "name": "kmalloc-4k",
+      "activeObjs": 326,
+      "numObjs": 368,
+      "objSizeBytes": 4096,
+      "totalBytes": 1507328
+    },
+    {
+      "name": "task_struct",
+      "activeObjs": 217,
+      "numObjs": 230,
+      "objSizeBytes": 5568,
+      "totalBytes": 1280640
+    },
+    {
+      "name": "kmalloc-2k",
+      "activeObjs": 527,
+      "numObjs": 544,
+      "objSizeBytes": 2048,
+      "totalBytes": 1114112
+    }
+  ],
+  "processTree": {
+    "pid": 1,
+    "name": "daemon-main",
+    "command": "daemon-main",
+    "origin": "workspace",
+    "children": [
+      {
+        "pid": 30,
+        "name": "vellum-qdrant",
+        "command": "vellum-qdrant",
+        "origin": "workspace",
+        "children": []
+      },
+      {
+        "pid": 763,
+        "name": "monitoring-worker",
+        "command": "monitoring-worker",
+        "origin": "workspace",
+        "children": []
+      },
+      {
+        "pid": 782,
+        "name": "memory-worker",
+        "command": "memory-worker",
+        "origin": "plugin:default-memory",
+        "children": []
+      },
+      {
+        "pid": 284022,
+        "name": "git",
+        "command": "git",
+        "origin": "workspace",
+        "children": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,364 @@
+{
+  "ts": 1785454313521,
+  "kind": "high-mem",
+  "sample": {
+    "ts": 1785454313521,
+    "memory": {
+      "currentBytes": 7447379968,
+      "limitBytes": 8589934592,
+      "peakBytes": 8589938688,
+      "ratio": 0.8669891357421875
+    },
+    "memoryStat": {
+      "anonBytes": 4568006656,
+      "fileBytes": 2555195392,
+      "kernelBytes": 324333568,
+      "slabReclaimableBytes": 292278216,
+      "slabUnreclaimableBytes": 14452792,
+      "unevictableBytes": 4582459448,
+      "reclaimableBytes": 2847473608
+    },
+    "reclaim": {
+      "pgscanDirect": 300807,
+      "pgstealDirect": 290660,
+      "workingsetRefaultFile": 4
+    },
+    "cpu": {
+      "usageUsec": 19798546995,
+      "userUsec": 15679749403,
+      "systemUsec": 4118797591,
+      "nrPeriods": 1040652,
+      "nrThrottled": 19681,
+      "throttledUsec": 2759191292
+    },
+    "events": {
+      "low": 0,
+      "high": 0,
+      "max": 9077,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "deltas": {
+      "events": {
+        "low": 0,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oomKill": 0
+      },
+      "reclaim": {
+        "pgscanDirect": 0,
+        "pgstealDirect": 0,
+        "workingsetRefaultFile": 0
+      },
+      "cpu": {
+        "usageUsec": 1102645,
+        "userUsec": 369874,
+        "systemUsec": 732771,
+        "nrPeriods": 2,
+        "nrThrottled": 2,
+        "throttledUsec": 347250
+      }
+    },
+    "disk": {
+      "path": "/workspace",
+      "usedMb": 12048.84,
+      "totalMb": 60386.2,
+      "freeMb": 48337.36
+    },
+    "activeConversations": [
+      {
+        "conversationId": "6b046635-d16f-4996-a524-b698e792cf50",
+        "title": "Key Database Access Status",
+        "originChannel": "vellum",
+        "originInterface": "web",
+        "processingStartedAt": 1785452356873
+      }
+    ]
+  },
+  "fileResidency": [
+    {
+      "path": "/workspace/data/db/assistant.db",
+      "sizeBytes": 845709312,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/db/assistant.db-wal",
+      "sizeBytes": 16315232,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/db/assistant.db-shm",
+      "sizeBytes": 32768,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/bin/qdrant",
+      "sizeBytes": 76128640,
+      "residentBytes": 1818624,
+      "residentRatio": 0.023888828172945163
+    },
+    {
+      "path": "/workspace/data/qdrant/bin/vellum-qdrant",
+      "sizeBytes": 76128640,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/segments/c9275b55-ae28-42c9-9378-ea42e182fced/vector_index-sparse/inverted_index.dat",
+      "sizeBytes": 41341832,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory/0/wal/open-2",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory/0/wal/open-1",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/wal/closed-0",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/wal/open-2",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/messages_lexical/0/wal/open-3",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory_v2_concept_pages/0/wal/open-13",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    },
+    {
+      "path": "/workspace/data/qdrant/collections/memory_v2_concept_pages/0/wal/open-12",
+      "sizeBytes": 33554432,
+      "residentBytes": 0,
+      "residentRatio": 0
+    }
+  ],
+  "topProcesses": [
+    {
+      "pid": 121081,
+      "command": "python3 import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np, cv2, time, warnings warnings.filterwarnings('ignore') from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() # Test: crop blade region first, then SR only the crop (much smaller input) img = data['obverse'][0] gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) # Crop with padding pad = 20 x1 = max(0, bbox[0]-pad); y1 = max(0, bbox[1]-pad) x2 = min(img.shape[1], bbox[0]+bbox[2]+pad); y2 = min(img.shape[0], bbox[1]+bbox[3]+pad) crop = img[y1:y2, x1:x2] print(f'Full image: {img.shape}, Crop: {crop.shape}', flush=True) # SR the crop only t0 = time.time() sr_crop, _ = upsampler.enhance(crop, outscale=4) t1 = time.time() print(f'SR crop: {crop.shape} {sr_crop.shape} in {t1-t0:.1f}s', flush=True) # Compare with full image SR time t0 = time.time() sr_full, _ = upsampler.enhance(img, outscale=4) t1 = time.time() print(f'SR full: {img.shape} {sr_full.shape} in {t1-t0:.1f}s', flush=True) print(f'Speedup: {(t1-t0) / ((t1-t0)):.1f}x (crop is {crop.shape[0]*crop.shape[1] / (img.shape[0]*img.shape[1]):.1%} of full)', flush=True) # Try 2x instead of 4x t0 = time.time() sr2, _ = upsampler.enhance(crop, outscale=2) t1 = time.time() print(f'SR crop 2x: {crop.shape} {sr2.shape} in {t1-t0:.1f}s', flush=True)",
+      "rssBytes": 4255158272,
+      "pssBytes": 4255152128,
+      "pssAnonBytes": 4113788928,
+      "pssFileBytes": 141363200,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 1,
+      "command": "daemon-main",
+      "rssBytes": 428642304,
+      "pssBytes": 402154496,
+      "pssAnonBytes": 389033984,
+      "pssFileBytes": 13120512,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 804,
+      "command": "memory-worker",
+      "rssBytes": 368107520,
+      "pssBytes": 341507072,
+      "pssAnonBytes": 329486336,
+      "pssFileBytes": 12020736,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 36,
+      "command": "schedule-worker",
+      "rssBytes": 258740224,
+      "pssBytes": 243586048,
+      "pssAnonBytes": 238415872,
+      "pssFileBytes": 5170176,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 60,
+      "command": "monitoring-worker",
+      "rssBytes": 127537152,
+      "pssBytes": 102223872,
+      "pssAnonBytes": 91074560,
+      "pssFileBytes": 11149312,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 33,
+      "command": "vellum-qdrant",
+      "rssBytes": 78786560,
+      "pssBytes": 78782464,
+      "pssAnonBytes": 70631424,
+      "pssFileBytes": 8151040,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 121079,
+      "command": "bash cd /workspace/keydatabaseforthefun && timeout 120 python3 \" import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np, cv2, time, warnings warnings.filterwarnings('ignore') from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() # Test: crop blade region first, then SR only the crop (much smaller input) img = data['obverse'][0] gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) # Crop with padding pad = 20 x1 = max(0, bbox[0]-pad); y1 = max(0, bbox[1]-pad) x2 = min(img.shape[1], bbox[0]+bbox[2]+pad); y2 = min(img.shape[0], bbox[1]+bbox[3]+pad) crop = img[y1:y2, x1:x2] print(f'Full image: {img.shape}, Crop: {crop.shape}', flush=True) # SR the crop only t0 = time.time() sr_crop, _ = upsampler.enhance(crop, outscale=4) t1 = time.time() print(f'SR crop: {crop.shape} {sr_crop.shape} in {t1-t0:.1f}s', flush=True) # Compare with full image SR time t0 = time.time() sr_full, _ = upsampler.enhance(img, outscale=4) t1 = time.time() print(f'SR full: {img.shape} {sr_full.shape} in {t1-t0:.1f}s', flush=True) print(f'Speedup: {(t1-t0) / ((t1-t0)):.1f}x (crop is {crop.shape[0]*crop.shape[1] / (img.shape[0]*img.shape[1]):.1%} of full)', flush=True) # Try 2x instead of 4x t0 = time.time() sr2, _ = upsampler.enhance(crop, outscale=2) t1 = time.time() print(f'SR crop 2x: {crop.shape} {sr2.shape} in {t1-t0:.1f}s', flush=True) \" 2>&1",
+      "rssBytes": 1404928,
+      "pssBytes": 1400832,
+      "pssAnonBytes": 307200,
+      "pssFileBytes": 1093632,
+      "pssShmemBytes": 0
+    },
+    {
+      "pid": 121080,
+      "command": "timeout",
+      "rssBytes": 155648,
+      "pssBytes": 151552,
+      "pssAnonBytes": 110592,
+      "pssFileBytes": 40960,
+      "pssShmemBytes": 0
+    }
+  ],
+  "topSlabCaches": [
+    {
+      "name": "fuse_inode",
+      "activeObjs": 247417,
+      "numObjs": 247428,
+      "objSizeBytes": 896,
+      "totalBytes": 221695488
+    },
+    {
+      "name": "dentry",
+      "activeObjs": 259585,
+      "numObjs": 261471,
+      "objSizeBytes": 192,
+      "totalBytes": 50202432
+    },
+    {
+      "name": "radix_tree_node",
+      "activeObjs": 35108,
+      "numObjs": 37436,
+      "objSizeBytes": 584,
+      "totalBytes": 21862624
+    },
+    {
+      "name": "kmalloc-cg-32",
+      "activeObjs": 247906,
+      "numObjs": 247936,
+      "objSizeBytes": 32,
+      "totalBytes": 7933952
+    },
+    {
+      "name": "kmalloc-512",
+      "activeObjs": 8164,
+      "numObjs": 8256,
+      "objSizeBytes": 512,
+      "totalBytes": 4227072
+    },
+    {
+      "name": "kmalloc-192",
+      "activeObjs": 13965,
+      "numObjs": 14847,
+      "objSizeBytes": 192,
+      "totalBytes": 2850624
+    },
+    {
+      "name": "vm_area_struct",
+      "activeObjs": 12955,
+      "numObjs": 13860,
+      "objSizeBytes": 192,
+      "totalBytes": 2661120
+    },
+    {
+      "name": "kernfs_node_cache",
+      "activeObjs": 18122,
+      "numObjs": 18150,
+      "objSizeBytes": 136,
+      "totalBytes": 2468400
+    },
+    {
+      "name": "kmalloc-1k",
+      "activeObjs": 2358,
+      "numObjs": 2368,
+      "objSizeBytes": 1024,
+      "totalBytes": 2424832
+    },
+    {
+      "name": "kmalloc-4k",
+      "activeObjs": 326,
+      "numObjs": 368,
+      "objSizeBytes": 4096,
+      "totalBytes": 1507328
+    }
+  ],
+  "processTree": {
+    "pid": 1,
+    "name": "daemon-main",
+    "command": "daemon-main",
+    "origin": "workspace",
+    "children": [
+      {
+        "pid": 33,
+        "name": "vellum-qdrant",
+        "command": "vellum-qdrant",
+        "origin": "workspace",
+        "children": []
+      },
+      {
+        "pid": 36,
+        "name": "schedule-worker",
+        "command": "schedule-worker",
+        "origin": "workspace",
+        "children": []
+      },
+      {
+        "pid": 60,
+        "name": "monitoring-worker",
+        "command": "monitoring-worker",
+        "origin": "workspace",
+        "children": []
+      },
+      {
+        "pid": 804,
+        "name": "memory-worker",
+        "command": "memory-worker",
+        "origin": "plugin:default-memory",
+        "children": []
+      },
+      {
+        "pid": 121079,
+        "name": "bash cd /workspace/keydatabaseforthefun && timeout 120 python3 \" import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np, cv2, time, warnings warnings.filterwarnings('ignore') from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() # Test: crop blade region first, then SR only the crop (much smaller input) img = data['obverse'][0] gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) # Crop with padding pad = 20 x1 = max(0, bbox[0]-pad); y1 = max(0, bbox[1]-pad) x2 = min(img.shape[1], bbox[0]+bbox[2]+pad); y2 = min(img.shape[0], bbox[1]+bbox[3]+pad) crop = img[y1:y2, x1:x2] print(f'Full image: {img.shape}, Crop: {crop.shape}', flush=True) # SR the crop only t0 = time.time() sr_crop, _ = upsampler.enhance(crop, outscale=4) t1 = time.time() print(f'SR crop: {crop.shape} {sr_crop.shape} in {t1-t0:.1f}s', flush=True) # Compare with full image SR time t0 = time.time() sr_full, _ = upsampler.enhance(img, outscale=4) t1 = time.time() print(f'SR full: {img.shape} {sr_full.shape} in {t1-t0:.1f}s', flush=True) print(f'Speedup: {(t1-t0) / ((t1-t0)):.1f}x (crop is {crop.shape[0]*crop.shape[1] / (img.shape[0]*img.shape[1]):.1%} of full)', flush=True) # Try 2x instead of 4x t0 = time.time() sr2, _ = upsampler.enhance(crop, outscale=2) t1 = time.time() print(f'SR crop 2x: {crop.shape} {sr2.shape} in {t1-t0:.1f}s', flush=True) \" 2>&1",
+        "command": "bash cd /workspace/keydatabaseforthefun && timeout 120 python3 \" import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np, cv2, time, warnings warnings.filterwarnings('ignore') from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() # Test: crop blade region first, then SR only the crop (much smaller input) img = data['obverse'][0] gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) # Crop with padding pad = 20 x1 = max(0, bbox[0]-pad); y1 = max(0, bbox[1]-pad) x2 = min(img.shape[1], bbox[0]+bbox[2]+pad); y2 = min(img.shape[0], bbox[1]+bbox[3]+pad) crop = img[y1:y2, x1:x2] print(f'Full image: {img.shape}, Crop: {crop.shape}', flush=True) # SR the crop only t0 = time.time() sr_crop, _ = upsampler.enhance(crop, outscale=4) t1 = time.time() print(f'SR crop: {crop.shape} {sr_crop.shape} in {t1-t0:.1f}s', flush=True) # Compare with full image SR time t0 = time.time() sr_full, _ = upsampler.enhance(img, outscale=4) t1 = time.time() print(f'SR full: {img.shape} {sr_full.shape} in {t1-t0:.1f}s', flush=True) print(f'Speedup: {(t1-t0) / ((t1-t0)):.1f}x (crop is {crop.shape[0]*crop.shape[1] / (img.shape[0]*img.shape[1]):.1%} of full)', flush=True) # Try 2x instead of 4x t0 = time.time() sr2, _ = upsampler.enhance(crop, outscale=2) t1 = time.time() print(f'SR crop 2x: {crop.shape} {sr2.shape} in {t1-t0:.1f}s', flush=True) \" 2>&1",
+        "origin": "workspace",
+        "children": [
+          {
+            "pid": 121080,
+            "name": "timeout",
+            "command": "timeout",
+            "origin": "workspace",
+            "children": [
+              {
+                "pid": 121081,
+                "name": "python3 import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np, cv2, time, warnings warnings.filterwarnings('ignore') from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() # Test: crop blade region first, then SR only the crop (much smaller input) img = data['obverse'][0] gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) # Crop with padding pad = 20 x1 = max(0, bbox[0]-pad); y1 = max(0, bbox[1]-pad) x2 = min(img.shape[1], bbox[0]+bbox[2]+pad); y2 = min(img.shape[0], bbox[1]+bbox[3]+pad) crop = img[y1:y2, x1:x2] print(f'Full image: {img.shape}, Crop: {crop.shape}', flush=True) # SR the crop only t0 = time.time() sr_crop, _ = upsampler.enhance(crop, outscale=4) t1 = time.time() print(f'SR crop: {crop.shape} {sr_crop.shape} in {t1-t0:.1f}s', flush=True) # Compare with full image SR time t0 = time.time() sr_full, _ = upsampler.enhance(img, outscale=4) t1 = time.time() print(f'SR full: {img.shape} {sr_full.shape} in {t1-t0:.1f}s', flush=True) print(f'Speedup: {(t1-t0) / ((t1-t0)):.1f}x (crop is {crop.shape[0]*crop.shape[1] / (img.shape[0]*img.shape[1]):.1%} of full)', flush=True) # Try 2x instead of 4x t0 = time.time() sr2, _ = upsampler.enhance(crop, outscale=2) t1 = time.time() print(f'SR crop 2x: {crop.shape} {sr2.shape} in {t1-t0:.1f}s', flush=True)",
+                "command": "python3 import sys sys.path.insert(0, '/tmp/BasicSR') sys.path.insert(0, '/tmp/Real-ESRGAN') sys.path.insert(0, 'tools') import setuptools, distutils import numpy as np, cv2, time, warnings warnings.filterwarnings('ignore') from basicsr.archs.rrdbnet_arch import RRDBNet from realesrgan import RealESRGANer import keynet_decode as kd from keynet_loader import load_keynet model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=4) upsampler = RealESRGANer(scale=4, model_path='/workspace/scratch/models/RealESRGAN_x4plus.pth', model=model, tile=0, tile_pad=10, pre_pad=0, half=False, device='cpu') data = load_keynet() # Test: crop blade region first, then SR only the crop (much smaller input) img = data['obverse'][0] gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) mask, contours, largest = kd.segment_key(gray) vs, bxs, bxe, bbox, mask = kd.find_blade_region(largest, gray.shape[1]) # Crop with padding pad = 20 x1 = max(0, bbox[0]-pad); y1 = max(0, bbox[1]-pad) x2 = min(img.shape[1], bbox[0]+bbox[2]+pad); y2 = min(img.shape[0], bbox[1]+bbox[3]+pad) crop = img[y1:y2, x1:x2] print(f'Full image: {img.shape}, Crop: {crop.shape}', flush=True) # SR the crop only t0 = time.time() sr_crop, _ = upsampler.enhance(crop, outscale=4) t1 = time.time() print(f'SR crop: {crop.shape} {sr_crop.shape} in {t1-t0:.1f}s', flush=True) # Compare with full image SR time t0 = time.time() sr_full, _ = upsampler.enhance(img, outscale=4) t1 = time.time() print(f'SR full: {img.shape} {sr_full.shape} in {t1-t0:.1f}s', flush=True) print(f'Speedup: {(t1-t0) / ((t1-t0)):.1f}x (crop is {crop.shape[0]*crop.shape[1] / (img.shape[0]*img.shape[1]):.1%} of full)', flush=True) # Try 2x instead of 4x t0 = time.time() sr2, _ = upsampler.enhance(crop, outscale=2) t1 = time.time() print(f'SR crop 2x: {crop.shape} {sr2.shape} in {t1-t0:.1f}s', flush=True)",
+                "origin": "workspace",
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

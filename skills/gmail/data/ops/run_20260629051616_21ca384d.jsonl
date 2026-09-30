@@ -1,0 +1,3 @@
+{"ts":"2026-06-29T05:16:16.007Z","run_id":"run_20260629051616_21ca384d","op":"archive","chunk_index":0,"message_ids":["19f03de0b32b60bc","19f031c875b3f8c8","19f0277dc03540d6","19f006903787c698","19eff49d0c4e3e49"],"reason":"batch:5 messages","status":"staged"}
+{"ts":"2026-06-29T05:16:17.798Z","run_id":"run_20260629051616_21ca384d","chunk_index":0,"status":"committed"}
+{"ts":"2026-06-29T05:16:17.798Z","run_id":"run_20260629051616_21ca384d","status":"completed","total_committed":1,"total_failed":0}

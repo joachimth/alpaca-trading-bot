@@ -1,0 +1,3 @@
+{"ts":"2026-06-03T04:48:46.335Z","run_id":"run_20260603044845_2739ded6","op":"archive","chunk_index":0,"message_ids":["19e88981b0adb535","19e8886ada5e9dae","19e87982d4e743cc","19e88cf1df8ddf47","19e87e3e4034b21f","19e89fa3c227d75f"],"reason":"cache:noreply@skool.com,reply.newsletter@itsco.de,no-reply@mailer.alpaca.markets,info@post.cancer.dk,noreply@discord.com","status":"staged"}
+{"ts":"2026-06-03T04:48:47.633Z","run_id":"run_20260603044845_2739ded6","chunk_index":0,"status":"committed"}
+{"ts":"2026-06-03T04:48:47.633Z","run_id":"run_20260603044845_2739ded6","status":"completed","total_committed":1,"total_failed":0}

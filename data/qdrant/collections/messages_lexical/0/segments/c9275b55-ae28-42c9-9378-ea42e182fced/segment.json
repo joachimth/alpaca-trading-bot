@@ -1,0 +1,1 @@
+{"version":10462,"config":{"vector_data":{},"sparse_vector_data":{"sparse":{"index":{"full_scan_threshold":null,"index_type":"Mmap"},"storage_type":"mmap"}},"payload_storage_type":{"type":"mmap"}}}
