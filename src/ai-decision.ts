@@ -12,6 +12,8 @@ export interface AIDecision {
   factors: string[];
   adjustedFromTA: boolean; // true if AI changed the TA signal
   taSignal: TASignal;
+  /** Optional calibrated gross edge in basis points; never inferred from confidence. */
+  rawEdgeBps?: number;
 }
 
 export interface AIMarketContext {
@@ -28,7 +30,6 @@ export interface AIMarketContext {
   }
 
 export interface AIRefinementConfig {
-  marketRegime?: string;
   apiKey: string;
   model: string;
   temperature: number;
@@ -74,6 +75,7 @@ export async function refineWithLLM(
         factors: signal.reasons,
         adjustedFromTA: false,
         taSignal: signal,
+        ...(signal.rawEdgeBps !== undefined ? { rawEdgeBps: signal.rawEdgeBps } : {}),
       };
     }
 
@@ -110,6 +112,7 @@ export async function refineWithLLM(
       factors: parsed.factors,
       adjustedFromTA: adjusted,
       taSignal: signal,
+      ...(signal.rawEdgeBps !== undefined ? { rawEdgeBps: signal.rawEdgeBps } : {}),
     };
   } catch (error) {
     // Any error → fall back to TA
@@ -121,6 +124,7 @@ export async function refineWithLLM(
       factors: signal.reasons,
       adjustedFromTA: false,
       taSignal: signal,
+      ...(signal.rawEdgeBps !== undefined ? { rawEdgeBps: signal.rawEdgeBps } : {}),
     };
   }
 }
@@ -217,52 +221,128 @@ async function callLLM(prompt: string, config: AIRefinementConfig): Promise<stri
   }
 }
 
+function normalizeReasoningValue(value: unknown, fallback = 'No reasoning provided'): string {
+  if (typeof value === 'string') {
+    const text = value.trim();
+    if (!text) return fallback;
+    // Some models occasionally put a second decision JSON object inside reasoning.
+    if (text.startsWith('{') && text.endsWith('}')) {
+      try {
+        const nested = JSON.parse(text) as Record<string, unknown>;
+        const nestedReason = nested.reasoning ?? nested.reason ?? nested.text ?? nested.content;
+        if (nestedReason !== undefined) return normalizeReasoningValue(nestedReason, fallback);
+        if (Array.isArray(nested.factors)) {
+          const factors = nested.factors.map(item => normalizeReasoningValue(item, '')).filter(Boolean);
+          if (factors.length > 0) return factors.join('; ');
+        }
+        if (nested.action) {
+          const confidence = typeof nested.confidence === 'number' ? ` (${nested.confidence.toFixed(2)})` : '';
+          return `${String(nested.action).toUpperCase()} decision${confidence}`;
+        }
+      } catch { /* keep the original text */ }
+    }
+    return text;
+  }
+  if (Array.isArray(value)) {
+    const items = value.map(item => normalizeReasoningValue(item, '')).filter(Boolean);
+    return items.length > 0 ? items.join('; ') : fallback;
+  }
+  if (value && typeof value === 'object') {
+    const objectValue = value as Record<string, unknown>;
+    return normalizeReasoningValue(objectValue.reasoning ?? objectValue.reason ?? objectValue.text ?? objectValue.content, fallback);
+  }
+  return fallback;
+}
+
+function normalizeParsedDecision(parsed: Record<string, unknown>): {
+  action: 'BUY' | 'SELL' | 'HOLD' | 'CLOSE';
+  confidence: number;
+  reasoning: string;
+  factors: string[];
+} {
+  const reasoning = normalizeReasoningValue(parsed.reasoning ?? parsed.reason);
+  const factors = Array.isArray(parsed.factors)
+    ? parsed.factors.map(item => normalizeReasoningValue(item, '')).filter(Boolean)
+    : [reasoning];
+  return {
+    action: String(parsed.action || 'HOLD').toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
+    confidence: Math.max(0, Math.min(1, parseFloat(String(parsed.confidence ?? '0.5')) || 0.5)),
+    reasoning,
+    factors: factors.length > 0 ? factors : [reasoning],
+  };
+}
+
 function parseLLMResponse(response: string): {
     action: 'BUY' | 'SELL' | 'HOLD' | 'CLOSE';
     confidence: number;
     reasoning: string;
     factors: string[];
   } {
-    // Strategy 1: Direct JSON parse
+
     try {
       let jsonStr = response.trim();
       if (jsonStr.includes('```')) {
         const match = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
         if (match) jsonStr = match[1].trim();
       }
-      const parsed = JSON.parse(jsonStr);
-      return {
-        action: (parsed.action || 'HOLD').toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
-        confidence: Math.max(0, Math.min(1, parseFloat(parsed.confidence) || 0.5)),
-        reasoning: parsed.reasoning || 'No reasoning provided',
-        factors: Array.isArray(parsed.factors) ? parsed.factors : [parsed.reasoning || 'No reasoning'],
-      };
+      const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
+      return normalizeParsedDecision(parsed);
     } catch { /* fall through */ }
+
+    // Strategy 1b: Strip <think> tags and other prefix/suffix, then try JSON.parse
+    const cleaned = response.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    if (cleaned !== response.trim()) {
+      try {
+        const parsed = JSON.parse(cleaned) as Record<string, unknown>;
+        return normalizeParsedDecision(parsed);
+      } catch { /* fall through */ }
+    }
+
+    // Strategy 1c: Find first { and last } — extract substring and try parsing
+    const firstBrace = response.indexOf('{');
+    const lastBrace = response.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      const jsonCandidate = response.substring(firstBrace, lastBrace + 1);
+      try {
+        const parsed = JSON.parse(jsonCandidate) as Record<string, unknown>;
+        return normalizeParsedDecision(parsed);
+      } catch { /* fall through */ }
+    }
 
     // Strategy 2: Extract JSON object from thinking/model output
     // GLM-5p2 and DeepSeek sometimes wrap JSON in their thinking process
     const jsonMatch = response.match(/\{[^{}]*"action"[^{}]*\}/s);
     if (jsonMatch) {
       try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          action: (parsed.action || 'HOLD').toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
-          confidence: Math.max(0, Math.min(1, parseFloat(parsed.confidence) || 0.5)),
-          reasoning: parsed.reasoning || 'No reasoning provided',
-          factors: Array.isArray(parsed.factors) ? parsed.factors : [parsed.reasoning || 'No reasoning'],
-        };
+        const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+        return normalizeParsedDecision(parsed);
       } catch { /* fall through */ }
     }
 
     // Strategy 3: Multi-line JSON extraction (action + confidence + reasoning across lines)
     const multilineMatch = response.match(/\{\s*"action"\s*:\s*"(\w+)"[\s\S]*?"confidence"\s*:\s*([\d.]+)[\s\S]*?"reasoning"\s*:\s*"([^"]*)"[\s\S]*?\}/s);
     if (multilineMatch) {
-      const [, action, conf, reasoning] = multilineMatch;
+      const [, action, conf, rawReasoning] = multilineMatch;
+      const reasoning = normalizeReasoningValue(rawReasoning);
       return {
         action: action.toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
         confidence: Math.max(0, Math.min(1, parseFloat(conf) || 0.5)),
-        reasoning: reasoning || 'No reasoning provided',
+        reasoning,
         factors: [reasoning],
+      };
+    }
+
+    // Strategy 3b: Extract action, confidence, and reasoning with flexible quoting
+    const actionMatch = response.match(/"action"\s*:\s*"(\w+)"/i);
+    const confMatch = response.match(/"confidence"\s*:\s*([\d.]+)/i);
+    const reasoningMatch = response.match(/"reasoning"\s*:\s*"([^"]+)"/i);
+    if (actionMatch) {
+      const reasoning = normalizeReasoningValue(reasoningMatch?.[1]);
+      return {
+        action: actionMatch[1].toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
+        confidence: Math.max(0, Math.min(1, parseFloat(confMatch?.[1] || '0.5'))),
+        reasoning,
+        factors: reasoningMatch ? [reasoning] : ['LLM response partially parsed'],
       };
     }
 

@@ -3,19 +3,35 @@
 
 import type { Env } from './index';
 import { Database } from './database';
-import { AlpacaClient, type Position } from './alpaca';
+import { AlpacaClient } from './alpaca';
 import { runSwingCycle } from './swing-strategy';
 import { runCryptoCycle } from './crypto-strategy';
 import { getCryptoSentiment } from './crypto-sentiment';
 import { analyze } from './technical-analysis';
+import { projectBrokerPositions } from './position-projection';
+import { resolveCapitalCaps } from './capital-caps';
+import { accountWithEquityDirection } from './equity-observability';
+import { RELEASE_VERSION } from './version';
+import {
+  buildAnalytics,
+  computeKpis,
+  computeCalibration,
+  calibrationVerdict,
+  type ClosedPositionRow,
+  type TradeRow,
+  type DecisionRow,
+} from './analytics';
+
+const RUN_TRIGGER_ALIASES: Record<string, string> = {
+  daytrading_cron: 'cron',
+  reconciliation_cron: 'reconcile_cron',
+};
 
 export class DashboardAPI {
     private env: Env;
-    private ctx: ExecutionContext | undefined;
 
-    constructor(env: Env, ctx?: ExecutionContext) {
+    constructor(env: Env) {
       this.env = env;
-      this.ctx = ctx;
     }
 
   async handle(request: Request): Promise<Response> {
@@ -37,7 +53,7 @@ export class DashboardAPI {
     try {
       // Routes
       if (path === '/' || path === '/health') {
-        return this.json({ status: 'ok', service: 'alpaca-trading-bot', version: '1.0.0' }, corsHeaders);
+        return this.json({ status: 'ok', service: 'alpaca-trading-bot', version: RELEASE_VERSION }, corsHeaders);
       }
 
       if (path === '/api/dashboard') {
@@ -65,11 +81,19 @@ export class DashboardAPI {
       }
 
       if (path === '/api/runs') {
-        return await this.getRuns(corsHeaders);
+        return await this.getRuns(url, corsHeaders);
       }
 
       if (path === '/api/stats') {
         return await this.getStats(corsHeaders);
+      }
+
+      if (path === '/api/strategy-comparison') {
+        return await this.getStrategyComparison(corsHeaders);
+      }
+
+      if (path === '/api/analytics') {
+        return await this.getAnalytics(url, corsHeaders);
       }
 
       if (path === '/api/config') {
@@ -156,35 +180,130 @@ export class DashboardAPI {
       status,
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, max-age=0',
         ...corsHeaders,
       },
     });
   }
 
   private async getDashboard(cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
-    const [stats, recentDecisions, recentTrades, runs, snapshots, positions] = await Promise.all([
+    const db = new Database(this.env.DB, { readOnly: true });
+    // Keep the dashboard read-only. Order reconciliation can fan out into many
+    // Alpaca/D1 requests and must run from trading cycles or explicit trade APIs,
+    // not on every browser refresh.
+    const [stats, recentDecisions, recentTrades, runs, snapshots, dbPositions, dbConfig] = await Promise.all([
       db.getStats(),
       db.getRecentDecisions(20),
       db.getRecentTrades(20),
       db.getRecentRuns(10),
-      db.getRecentSnapshots(500),
+      db.getRecentSnapshots(90),
       db.getOpenPositions(),
+      db.getConfig(),
     ]);
 
-    const latestSnapshot = snapshots[0] || null;
-    const account = await this.tryGetAccount();
+    let latestSnapshot = snapshots[0] || null;
+    const capitalCaps = resolveCapitalCaps(dbConfig);
+    let account = await this.tryGetAccount();
+    let positions: ReturnType<typeof projectBrokerPositions> = [];
+    let brokerPositions: import('./alpaca').Position[] | null = null;
+    let positionsAvailable = true;
+    let positionsError: string | null = null;
+    try {
+      brokerPositions = await this.getBrokerPositions();
+      positions = projectBrokerPositions(brokerPositions, dbPositions);
+    } catch (e) {
+      positionsAvailable = false;
+      positionsError = e instanceof Error ? e.message : 'Broker positions unavailable';
+      console.error('Broker position projection failed:', e);
+    }
+
+    // Dashboard aggregates describe the broker positions in this same response.
+    // D1 may provide metadata, but never substitutes for a failed broker read.
+    if (account && !account.error) {
+      account = accountWithEquityDirection({
+        ...account,
+        market_value: brokerPositions
+          ? brokerPositions.reduce((total, position) => total + position.market_value, 0)
+          : null,
+      });
+    }
+    if (latestSnapshot) {
+      latestSnapshot = {
+        ...latestSnapshot,
+        positions_count: brokerPositions ? brokerPositions.length : null,
+      };
+    }
+
+    const strategyComparison = positionsAvailable
+      ? await db.getStrategyComparison(positions)
+      : null;
+    const categoryHistory = await this.getCategoryHistory(db);
+    const freshness = this.positionFreshness(positions);
 
     return this.json({
       stats,
       account,
       latestSnapshot,
       positions,
+      positionsAvailable,
+      positionsError,
+      freshness,
       recentDecisions,
       recentTrades,
       recentRuns: runs,
       performanceHistory: snapshots.reverse(), // chronological for charting
+      strategyComparison,
+      capitalCaps,
+      categoryHistory: categoryHistory.series,
+      categoryHistoryAvailable: categoryHistory.available,
     }, cors);
+  }
+
+  /**
+   * Per-category (daytrading/swing/crypto) market-value/P&L history from
+   * category_snapshots, chronological. This table only accumulates rows
+   * going forward from each trading cycle — it is never backfilled from
+   * account-level snapshots or current ownership, so a category with fewer
+   * than 2 recorded points is explicitly reported as unavailable rather
+   * than rendered as a fabricated trend.
+   */
+  private positionFreshness(
+    positions: ReturnType<typeof projectBrokerPositions>,
+  ): {
+    current_state_source: 'alpaca';
+    current_state_observed_at: string;
+    metadata_source: 'd1' | 'none';
+    metadata_updated_at: string | null;
+    semantics: string;
+  } {
+    const metadataUpdatedAt = positions.reduce<string | null>((latest, position) => {
+      const updated = position.metadata_updated_at;
+      if (!updated) return latest;
+      return !latest || Date.parse(updated) > Date.parse(latest) ? updated : latest;
+    }, null);
+    return {
+      current_state_source: 'alpaca',
+      current_state_observed_at: new Date().toISOString(),
+      metadata_source: positions.some(position => position.metadata_source === 'd1') ? 'd1' : 'none',
+      metadata_updated_at: metadataUpdatedAt,
+      semantics: 'Broker position quantities, prices, values, and P&L are current-state evidence; D1 fields are metadata only and may be stale.',
+    };
+  }
+
+  private async getCategoryHistory(db: Database): Promise<{
+    series: Record<string, any[]>;
+    available: Record<string, boolean>;
+  }> {
+    const strategies = ['daytrading', 'swing', 'crypto'] as const;
+    const rows = await Promise.all(strategies.map(s => db.getCategorySnapshots(s, 90)));
+    const series: Record<string, any[]> = {};
+    const available: Record<string, boolean> = {};
+    strategies.forEach((s, i) => {
+      const chronological = rows[i].slice().reverse();
+      series[s] = chronological;
+      available[s] = chronological.length >= 2;
+    });
+    return { series, available };
   }
 
   private async getAccount(cors: Record<string, string>): Promise<Response> {
@@ -193,58 +312,152 @@ export class DashboardAPI {
   }
 
   private async getPositions(cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
-    const dbPositions = await db.getOpenPositions();
-
-    // Also get live positions from Alpaca
-    const alpaca = this.getAlpacaClient();
-    let livePositions: Position[] = [];
     try {
-      livePositions = await alpaca.getPositions();
+      // Broker positions are authoritative. Do not even read D1 metadata until
+      // the broker snapshot succeeds, so a provider 503 cannot look like a D1
+      // fallback or trigger unnecessary database work.
+      const livePositions = await this.getBrokerPositions();
+      const db = new Database(this.env.DB, { readOnly: true });
+      const dbPositions = await db.getOpenPositions();
+      const positions = projectBrokerPositions(livePositions, dbPositions);
+      return this.json({
+        positions,
+        positionsAvailable: true,
+        source: 'alpaca',
+        freshness: this.positionFreshness(positions),
+      }, cors);
     } catch (e) {
-      // Fallback to DB only
+      const error = e instanceof Error ? e.message : 'Broker positions unavailable';
+      return this.json({ positions: [], positionsAvailable: false, source: 'alpaca', error }, cors, 503);
     }
-
-    return this.json({ dbPositions, livePositions }, cors);
   }
 
   private async getDecisions(url: URL, cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
+    const db = new Database(this.env.DB, { readOnly: true });
     const limit = parseInt(url.searchParams.get('limit') || '50');
     const decisions = await db.getRecentDecisions(limit);
     return this.json({ decisions }, cors);
   }
 
   private async getTrades(url: URL, cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
-    const limit = parseInt(url.searchParams.get('limit') || '50');
-    const trades = await db.getRecentTrades(limit);
-    return this.json({ trades }, cors);
+    const db = new Database(this.env.DB, { readOnly: true });
+    const parseNonNegativeInt = (value: string | null, fallback: number): number => {
+      if (value == null || value.trim() === '') return fallback;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : fallback;
+    };
+    const limit = Math.min(parseNonNegativeInt(url.searchParams.get('limit'), 50), 500);
+    const requestedPage = parseNonNegativeInt(url.searchParams.get('page'), 1);
+    const offsetSupplied = url.searchParams.has('offset');
+    const offset = offsetSupplied
+      ? parseNonNegativeInt(url.searchParams.get('offset'), 0)
+      : Math.max(0, requestedPage - 1) * limit;
+    const page = offsetSupplied ? Math.floor(offset / limit) + 1 : requestedPage;
+    const requestedStrategy = url.searchParams.get('strategy');
+    if (requestedStrategy != null && requestedStrategy !== 'daytrading' && requestedStrategy !== 'swing' && requestedStrategy !== 'crypto') {
+      return this.json({ error: 'Invalid strategy filter', allowed: ['daytrading', 'swing', 'crypto'] }, cors, 400);
+    }
+    const strategy = requestedStrategy as 'daytrading' | 'swing' | 'crypto' | undefined;
+    const status = url.searchParams.get('status') || undefined;
+    const trades = await db.getRecentTrades(limit, strategy, offset, status);
+    return this.json({
+      trades,
+      limit,
+      offset,
+      page,
+      ...(strategy ? { strategy } : {}),
+      ...(status ? { status } : {}),
+    }, cors);
   }
 
   private async getPerformance(url: URL, cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
+    const db = new Database(this.env.DB, { readOnly: true });
     const limit = parseInt(url.searchParams.get('limit') || '100');
     const snapshots = await db.getRecentSnapshots(limit);
     return this.json({ performance: snapshots.reverse() }, cors);
   }
 
-  private async getRuns(cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
-    const runs = await db.getRecentRuns(30);
-    return this.json({ runs }, cors);
+  private async getRuns(url: URL, cors: Record<string, string>): Promise<Response> {
+    const db = new Database(this.env.DB, { readOnly: true });
+    const parseNonNegativeInt = (value: string | null, fallback: number): number => {
+      if (value == null || value.trim() === '') return fallback;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : fallback;
+    };
+    const limit = Math.min(parseNonNegativeInt(url.searchParams.get('limit'), 30), 500);
+    const requestedPage = parseNonNegativeInt(url.searchParams.get('page'), 1);
+    const offsetSupplied = url.searchParams.has('offset');
+    const offset = offsetSupplied
+      ? parseNonNegativeInt(url.searchParams.get('offset'), 0)
+      : Math.max(0, requestedPage - 1) * limit;
+    const page = offsetSupplied ? Math.floor(offset / limit) + 1 : requestedPage;
+    const requestedStrategy = url.searchParams.get('strategy');
+    if (requestedStrategy != null && requestedStrategy !== 'daytrading' && requestedStrategy !== 'swing' && requestedStrategy !== 'crypto') {
+      return this.json({ error: 'Invalid strategy filter', allowed: ['daytrading', 'swing', 'crypto'] }, cors, 400);
+    }
+    const strategy = requestedStrategy as 'daytrading' | 'swing' | 'crypto' | null;
+    const requestedTrigger = url.searchParams.get('trigger') || undefined;
+    // Stored run_log trigger values are historical canonical values. Keep the
+    // alias translation at this read-only API boundary so storage and scheduler
+    // dispatch remain unchanged.
+    const trigger = requestedTrigger ? (RUN_TRIGGER_ALIASES[requestedTrigger] ?? requestedTrigger) : undefined;
+    const code = url.searchParams.get('code') || undefined;
+    const search = url.searchParams.get('search') || undefined;
+    const runs = await db.getRecentRuns({
+      limit,
+      offset,
+      strategy: strategy === 'daytrading' || strategy === 'swing' || strategy === 'crypto' ? strategy : undefined,
+      trigger,
+      status: url.searchParams.get('status') || undefined,
+      code,
+      search,
+    });
+    const annotatedRuns = requestedTrigger && RUN_TRIGGER_ALIASES[requestedTrigger]
+      ? runs.map(run => ({ ...run, trigger_alias: requestedTrigger }))
+      : runs;
+    return this.json({
+      runs: annotatedRuns,
+      limit,
+      offset,
+      page,
+      ...(code ? { code } : {}),
+      ...(search ? { search } : {}),
+    }, cors);
   }
 
   private async getStats(cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
+    const db = new Database(this.env.DB, { readOnly: true });
     const stats = await db.getStats();
     return this.json({ stats }, cors);
   }
 
+  private async getStrategyComparison(cors: Record<string, string>): Promise<Response> {
+    const db = new Database(this.env.DB, { readOnly: true });
+    try {
+      const dbPositions = await db.getOpenPositions();
+      const livePositions = await this.getBrokerPositions();
+      const positions = projectBrokerPositions(livePositions, dbPositions);
+      const comparison = await db.getStrategyComparison(positions);
+      const categoryHistory = await this.getCategoryHistory(db);
+      return this.json({
+        ...comparison,
+        positionsAvailable: true,
+        categoryHistory: categoryHistory.series,
+        categoryHistoryAvailable: categoryHistory.available,
+      }, cors);
+    } catch (e) {
+      const error = e instanceof Error ? e.message : 'Broker positions unavailable';
+      return this.json({ strategies: [], timeSeries: {}, positionsAvailable: false, error }, cors, 503);
+    }
+  }
+
   private async getConfig(cors: Record<string, string>): Promise<Response> {
-    const db = new Database(this.env.DB);
+    const db = new Database(this.env.DB, { readOnly: true });
     const config = await db.getConfig();
-    return this.json({ config }, cors);
+    // Keep persisted D1 config.version separate from the active Worker artifact
+    // identity. This is observability-only and avoids treating a stale database
+    // seed as proof of which release is serving requests.
+    return this.json({ config, release_version: RELEASE_VERSION }, cors);
   }
 
   private async triggerCycle(cors: Record<string, string>): Promise<Response> {
@@ -261,15 +474,10 @@ export class DashboardAPI {
 
   private async triggerSwingCycle(cors: Record<string, string>): Promise<Response> {
     try {
-      const ctx = this.ctx;
-      if (ctx) {
-        ctx.waitUntil(runSwingCycle(this.env, 'manual_swing'));
-      } else {
-        runSwingCycle(this.env, 'manual_swing');
-      }
+      await runSwingCycle(this.env, 'manual_swing');
       return this.json({
-        message: 'Swing cycle triggered. Running now.',
-        status: 'running'
+        message: 'Swing cycle completed.',
+        status: 'completed'
       }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);
@@ -278,16 +486,10 @@ export class DashboardAPI {
 
   private async triggerCryptoCycle(cors: Record<string, string>): Promise<Response> {
     try {
-      if (this.ctx) {
-        this.ctx.waitUntil(runCryptoCycle(this.env, 'manual_crypto').catch(e => {
-          console.error('Crypto cycle error:', e);
-        }));
-      } else {
-        await runCryptoCycle(this.env, 'manual_crypto');
-      }
+      await runCryptoCycle(this.env, 'manual_crypto');
       return this.json({
-        message: 'Crypto cycle triggered. Running now.',
-        status: 'running'
+        message: 'Crypto cycle completed.',
+        status: 'completed'
       }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);
@@ -303,12 +505,14 @@ export class DashboardAPI {
     try {
       // Get position info before closing
       const pos = await alpaca.getPosition(symbol.toUpperCase());
+      const dbPos = (await db.getOpenPositions()).find(p => p.ticker === symbol.toUpperCase());
       const order = await alpaca.closePosition(symbol.toUpperCase());
-      // Mark position as closed in DB
-      if (pos) {
-        await db.closePosition(symbol.toUpperCase(), pos.unrealized_pl, 'manual_close');
+      await db.logOrderTrade(order, { strategy: dbPos?.strategy ?? null });
+      // Mark position closed only after a confirmed full broker fill.
+      if (pos && alpaca.isOrderFullyFilled(order)) {
+        await db.closePosition(symbol.toUpperCase(), null, 'manual_close');
       }
-      return this.json({ success: true, order, message: `Closed position for ${symbol}` }, cors);
+      return this.json({ success: true, order, filled: alpaca.isOrderFullyFilled(order), message: `Close order submitted for ${symbol}` }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);
     }
@@ -316,12 +520,119 @@ export class DashboardAPI {
 
   private async closeAllPositions(cors: Record<string, string>): Promise<Response> {
     const alpaca = this.getAlpacaClient();
+    const db = new Database(this.env.DB);
     try {
-      await alpaca.closeAllPositions();
-      return this.json({ success: true, message: 'All positions closed' }, cors);
+      const positions = await alpaca.getPositions();
+      const dbPositions = await db.getOpenPositions();
+      const orders = await alpaca.closeAllPositions();
+      for (const order of orders) {
+        const dbPos = dbPositions.find(p => p.ticker === order.symbol);
+        await db.logOrderTrade(order, { strategy: dbPos?.strategy ?? null });
+        const pos = positions.find(p => p.symbol === order.symbol);
+        if (pos && alpaca.isOrderFullyFilled(order)) {
+          await db.closePosition(pos.symbol, null, 'manual_close_all');
+        }
+      }
+      return this.json({ success: true, orders, message: 'All positions closed' }, cors);
     } catch (e) {
       return this.json({ error: e instanceof Error ? e.message : 'unknown' }, cors, 500);
     }
+  }
+
+  /**
+   * Trading Analytics & Review. Strictly read-only: computation happens from
+   * stored D1 data; no writes, no broker mutations. Unknown/underivable
+   * datapoints surface as null ("Insufficient data" in the UI), never as
+   * fabricated numbers.
+   */
+  private async getAnalytics(url: URL, cors: Record<string, string>): Promise<Response> {
+    const db = new Database(this.env.DB, { readOnly: true });
+
+    // ---- Period resolution (UTC, matching D1 datetime strings) ----
+    const period = url.searchParams.get('period') || 'all';
+    const now = new Date();
+    const fmt = (d: Date) => d.toISOString().slice(0, 19).replace('T', ' ');
+    let since: string | null = null;
+    let until: string | null = null;
+    if (period === '7' || period === '30' || period === '90') {
+      const days = parseInt(period);
+      since = fmt(new Date(now.getTime() - days * 86400_000));
+    } else if (period === 'ytd') {
+      since = fmt(new Date(Date.UTC(now.getUTCFullYear(), 0, 1)));
+    } else if (period === 'custom') {
+      const start = url.searchParams.get('start');
+      const end = url.searchParams.get('end');
+      if (start) since = `${start} 00:00:00`;
+      if (end) until = `${end} 23:59:59`;
+    }
+
+    const strategyParam = url.searchParams.get('strategy');
+    const strategyScope = strategyParam === 'daytrading' || strategyParam === 'swing' || strategyParam === 'crypto'
+      ? strategyParam
+      : undefined;
+
+    // ---- Data fetch (bounded by period) ----
+    const [positionsAll, tradesAll] = await Promise.all([
+      db.getClosedPositionsInWindow(since, until, strategyScope),
+      db.getFilledTradesInWindow(since, strategyScope),
+    ]);
+    const decisionIds = Array.from(new Set(tradesAll.map(t => t.decision_id).filter((id): id is number => id != null)));
+    const decisions = await db.getDecisionsByIds(decisionIds);
+    const orderIds = Array.from(new Set(tradesAll.map(t => t.alpaca_order_id).filter((id): id is string => id != null)));
+    const feeMap = await db.getBrokerFeesByOrders(orderIds);
+
+    const comparisonPositions = {
+      daytrading: await db.getClosedPositionsInWindow(since, until, 'daytrading'),
+      swing: await db.getClosedPositionsInWindow(since, until, 'swing'),
+      crypto: await db.getClosedPositionsInWindow(since, until, 'crypto'),
+    };
+
+    // Data-level filters applied before analysis.
+    const symbol = url.searchParams.get('symbol');
+    const side = url.searchParams.get('side');
+    let positions = positionsAll.filter(p =>
+      (!symbol || p.ticker === symbol.toUpperCase()) &&
+      (!side || p.side === side)
+    );
+
+    let result = buildAnalytics({
+      positions: positions as ClosedPositionRow[],
+      trades: tradesAll as TradeRow[],
+      decisions: decisions as DecisionRow[],
+      fees: Array.from(feeMap.entries()).map(([order_id, usd_value]) => ({ order_id, usd_value, strategy: null, fee_type: null })),
+      periodStart: since,
+      periodEnd: until,
+      comparisonPositions,
+    });
+
+    // ---- Analysis-level filters (regime / confidence / result): refilter perTrade ----
+    const regime = url.searchParams.get('regime');
+    const confMin = parseFloat(url.searchParams.get('conf_min') ?? '');
+    const confMax = parseFloat(url.searchParams.get('conf_max') ?? '');
+    const resultFilter = url.searchParams.get('result'); // win | loss
+    const filteredPerTrade = result.perTrade.filter(a =>
+      (!regime || a.marketRegime === regime) &&
+      (Number.isFinite(confMin) ? a.confidence != null && a.confidence >= confMin : true) &&
+      (Number.isFinite(confMax) ? a.confidence != null && a.confidence < confMax : true) &&
+      (!resultFilter || (resultFilter === 'win' ? (a.pl ?? 0) > 0 : (a.pl ?? 0) <= 0))
+    );
+
+    if (filteredPerTrade.length !== result.perTrade.length) {
+      result = {
+        ...result,
+        kpis: computeKpis(filteredPerTrade),
+        calibration: computeCalibration(filteredPerTrade),
+        perTrade: filteredPerTrade,
+        equityCurve: (() => {
+          let c = 0;
+          return filteredPerTrade.slice().sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''))
+            .filter(a => a.pl != null).map(a => { c += a.pl!; return { timestamp: a.closed_at!, cumulativePL: Math.round(c * 100) / 100 }; });
+        })(),
+      };
+      result.calibrationVerdict = calibrationVerdict(result.calibration);
+    }
+
+    return this.json(result, cors);
   }
 
   private getAlpacaClient(): AlpacaClient {
@@ -332,10 +643,14 @@ export class DashboardAPI {
     });
   }
 
+  private async getBrokerPositions(): Promise<import('./alpaca').Position[]> {
+    return await this.getAlpacaClient().getPositions();
+  }
+
   private async tryGetAccount(): Promise<any> {
     try {
       const alpaca = this.getAlpacaClient();
-      return await alpaca.getAccount();
+      return accountWithEquityDirection(await alpaca.getAccount());
     } catch (e) {
       return { error: e instanceof Error ? e.message : 'Failed to get account' };
     }

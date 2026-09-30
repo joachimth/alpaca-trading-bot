@@ -1,0 +1,135 @@
+/** Structured, backward-compatible explanations for actions/cycles that were skipped.
+ *
+ * Run-log error_details remains a JSON array so legacy string entries and real
+ * errors continue to round-trip unchanged. New entries are objects with type=skip.
+ */
+export interface SkipReason {
+  type: 'skip';
+  code: string;
+  scope: string;
+  message: string;
+  context?: Record<string, unknown>;
+  count?: number;
+}
+
+export type RunDetail = string | SkipReason;
+
+/**
+ * Decision skip reasons are persisted in the legacy execution_reason TEXT
+ * column. A small self-describing envelope lets read-only consumers expose
+ * truthful structured context without adding a schema migration or changing
+ * the existing decision response field.
+ */
+export interface StructuredDecisionSkip {
+  type: 'skip';
+  message: string;
+  context: Record<string, unknown>;
+}
+
+export function serializeDecisionSkip(message: string, context?: Record<string, unknown>): string {
+  const compact = compactContext(context);
+  return compact
+    ? JSON.stringify({ type: 'skip', message, context: compact })
+    : message;
+}
+
+export function parseDecisionSkip(value: unknown): StructuredDecisionSkip | null {
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || (parsed as any).type !== 'skip' || typeof (parsed as any).message !== 'string') return null;
+    const context = (parsed as any).context;
+    return {
+      type: 'skip',
+      message: (parsed as any).message,
+      context: context && typeof context === 'object' && !Array.isArray(context) ? context as Record<string, unknown> : {},
+    };
+  } catch {
+    return null;
+  }
+}
+
+const MAX_REASONS = 50;
+const MAX_CONTEXT_KEYS = 12;
+const MAX_CONTEXT_VALUE_LENGTH = 240;
+
+function compactContext(context?: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (!context) return undefined;
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(context).slice(0, MAX_CONTEXT_KEYS)) {
+    const value = context[key];
+    if (value === undefined) continue;
+    if (typeof value === 'string') out[key] = value.slice(0, MAX_CONTEXT_VALUE_LENGTH);
+    else if (typeof value === 'number' || typeof value === 'boolean' || value === null) out[key] = value;
+    else out[key] = JSON.stringify(value).slice(0, MAX_CONTEXT_VALUE_LENGTH);
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+export class SkipReasonCollector {
+  private readonly reasons = new Map<string, SkipReason>();
+
+  add(code: string, scope: string, message: string, context?: Record<string, unknown>): void {
+    const key = `${code}|${scope}|${message}`;
+    const existing = this.reasons.get(key);
+    if (existing) {
+      existing.count = (existing.count || 1) + 1;
+      return;
+    }
+    if (this.reasons.size >= MAX_REASONS) return;
+    const compact = compactContext(context);
+    this.reasons.set(key, {
+      type: 'skip', code, scope, message,
+      ...(compact ? { context: compact } : {}),
+      count: 1,
+    });
+  }
+
+  toArray(): SkipReason[] { return Array.from(this.reasons.values()); }
+  get size(): number { return this.reasons.size; }
+}
+
+export function serializeRunDetails(errors: readonly string[] = [], skips?: SkipReasonCollector): string | null {
+  const details: RunDetail[] = [...errors, ...(skips?.toArray() || [])];
+  return details.length ? JSON.stringify(details) : null;
+}
+
+export function parseRunDetails(value: unknown): RunDetail[] {
+  if (value == null || value === '') return [];
+  if (Array.isArray(value)) return value as RunDetail[];
+  if (typeof value !== 'string') return [String(value)];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed as RunDetail[];
+    return [value];
+  } catch {
+    return [value];
+  }
+}
+
+export function hasSkipDetails(value: unknown): boolean {
+  return parseRunDetails(value).some(item => typeof item === 'object' && item !== null && (item as SkipReason).type === 'skip');
+}
+
+const INFORMATIONAL_SKIP_CODES = new Set([
+  'MAINTENANCE_ONLY',
+  'RECONCILIATION_DEFERRED_TO_MAINTENANCE',
+  'BROKER_ONLY_RECONCILED',
+  'EQUITY_DIRECTION_FALLBACK',
+  'DECISION_HOLD',
+  'HELD_POSITION',
+  'HELD_NO_SCORE',
+  'HELD_DEGRADED_DATA',
+  'NO_POSITION_TO_EXIT',
+]);
+
+export function runStatus(errors: readonly string[], skips: SkipReasonCollector, degraded = false, tradesExecuted = 0): string {
+  if (errors.length > 0) return 'error';
+  if (degraded) return 'degraded';
+  // Informational details describe work that completed or was intentionally
+  // delegated; they do not mean the evaluated cycle was blocked. Preserve
+  // true blocking skips such as lease-held, market-closed, or stale data.
+  const hasBlockingSkip = skips.toArray().some(skip => !INFORMATIONAL_SKIP_CODES.has(skip.code));
+  if (hasBlockingSkip && tradesExecuted === 0) return 'skipped';
+  return 'ok';
+}

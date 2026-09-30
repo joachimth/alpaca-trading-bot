@@ -1,21 +1,30 @@
 {
   "name": "alpaca-trading-bot",
-  "version": "1.0.0",
+  "version": "2.8.2",
   "description": "AI-powered autonomous daytrading bot using Alpaca API",
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "db:create": "wrangler d1 create trading-bot",
-    "db:migrate": "wrangler d1 execute trading-bot --file=schema.sql",
-    "db:migrate:remote": "wrangler d1 execute trading-bot --remote --file=schema.sql",
+    "db:create": "wrangler d1 create alpaca-trading-bot",
+    "db:migrate": "wrangler d1 execute alpaca-trading-bot --file=schema.sql",
+    "db:migrate:remote": "wrangler d1 execute alpaca-trading-bot --remote --file=schema.sql",
+    "db:migrate:crypto-reservations": "wrangler d1 execute alpaca-trading-bot --local --file=crypto-entry-reservations-migration.sql",
+    "db:migrate:crypto-reservations:remote": "wrangler d1 execute alpaca-trading-bot --remote --file=crypto-entry-reservations-migration.sql",
+    "db:migrate:positions-strategy": "wrangler d1 execute alpaca-trading-bot --local --file=positions-strategy-column-migration.sql",
+    "db:migrate:positions-strategy:remote": "wrangler d1 execute alpaca-trading-bot --remote --file=positions-strategy-column-migration.sql",
+    "db:migrate:trade-lifecycle": "wrangler d1 execute alpaca-trading-bot --local --file=trade-lifecycle-columns-migration.sql",
+    "db:migrate:trade-lifecycle:remote": "wrangler d1 execute alpaca-trading-bot --remote --file=trade-lifecycle-columns-migration.sql",
+    "db:verify:crypto-reservations:remote": "wrangler d1 execute alpaca-trading-bot --remote --command=\"SELECT type, name, tbl_name FROM sqlite_master WHERE name IN ('crypto_entry_reservations', 'idx_crypto_entry_reservations_expiry') ORDER BY name;\"",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:migrate:trade-intent:remote": "wrangler d1 execute alpaca-trading-bot --remote --file=trade-intent-columns-migration.sql",
+    "db:verify:trade-intent:remote": "wrangler d1 execute alpaca-trading-bot --remote --command=\"SELECT name, type FROM pragma_table_info('trades') WHERE name IN ('intent_stop_loss_price', 'intent_take_profit_price') ORDER BY name;\""
   },
   "dependencies": {},
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240620.0",
     "typescript": "^5.5.0",
-    "wrangler": "^3.60.0"
+    "wrangler": "^4.118.0"
   }
 }

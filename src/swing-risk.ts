@@ -20,6 +20,9 @@ export interface SwingRiskConfig {
   dailyLossLimitPct: number;       // stop trading if down this much on the day
   rollingDrawdownLimitPct: number; // stop if drawdown from peak exceeds this
   minConfidence: number;           // min composite z-score to buy
+  minEdgeAfterCosts: number;        // minimum expected edge after estimated costs (bps)
+  expectedEdgeBps?: number;         // calibrated expected edge; 0 disables BUY cost rejection
+  observedFeeBps?: number;          // broker-observed fee rate
   exitZScore: number;              // sell if z-score drops below this (hysteresis)
   enableMargin: boolean;
   earningsBlackoutDays: number;    // don't enter within N days of earnings
@@ -36,6 +39,7 @@ export interface SwingRiskCheckResult {
   adjustedValue?: number;
   stopLossPrice?: number;
   estimatedCosts?: number;
+  edgeAfterCosts?: number;
   isHysteresisSkip?: boolean;      // true = position retained despite lower rank
 }
 
@@ -65,6 +69,12 @@ export class SwingRiskManager {
   // ============================================================
   // Kill switch management (shared pattern with daytrading)
   // ============================================================
+
+  setEquityHistory(equities: number[]): void {
+    this.killState.equityHistory = equities
+      .filter(equity => Number.isFinite(equity))
+      .slice(-20);
+  }
 
   updateEquitySnapshot(equity: number): void {
     this.killState.equityHistory.push(equity);
@@ -102,16 +112,22 @@ export class SwingRiskManager {
     return this.killState.tradingHalted;
   }
 
+  getKillState(): SwingKillSwitchState {
+    return { ...this.killState };
+  }
+
   // ============================================================
   // Pre-trade checks for swing entries
   // ============================================================
 
   checkEntry(
-  score: SwingScore,
-  account: AccountInfo,
-  positions: Position[],
-  price: number
-): SwingRiskCheckResult {
+    score: SwingScore,
+    account: AccountInfo,
+    positions: Position[],
+    price: number,
+    reservedNotionalUsd = 0,
+    unattributedExposureUsd = 0,
+  ): SwingRiskCheckResult {
   // Kill switch
   if (this.killState.tradingHalted) {
     return { approved: false, reason: `Trading halted: ${this.killState.reason}` };
@@ -146,12 +162,27 @@ export class SwingRiskManager {
     return { approved: false, reason: `Max positions (${currentLongs}/${this.config.maxPositions})` };
   }
 
-  // Gross exposure check — against swing capital, not full account
+  // Gross exposure check — against swing capital, not full account. Include
+  // approved entries from this cycle because broker positions do not change
+  // between each proposal check.
   const currentGross = positions.reduce((s, p) => s + Math.abs(p.market_value), 0);
-  // If we have a capital cap, check how much of it is already deployed
+  const safeReservedNotional = Number.isFinite(reservedNotionalUsd)
+    ? Math.max(0, reservedNotionalUsd)
+    : 0;
+  const safeUnattributedExposure = Number.isFinite(unattributedExposureUsd)
+    ? Math.max(0, unattributedExposureUsd)
+    : 0;
+  const cycleReservedNotional = this.config.maxCapitalUsd > 0 ? safeReservedNotional : 0;
+  const conservativeGross = currentGross + (this.config.maxCapitalUsd > 0 ? safeUnattributedExposure : 0);
+  if (this.config.maxCapitalUsd > 0 && conservativeGross + cycleReservedNotional >= this.config.maxCapitalUsd) {
+    return {
+      approved: false,
+      reason: `Swing capital cap exhausted: $${(conservativeGross + cycleReservedNotional).toFixed(2)} allocated against $${this.config.maxCapitalUsd.toFixed(2)}`,
+    };
+  }
   const swingGrossUsed = this.config.maxCapitalUsd > 0
-    ? Math.min(currentGross, this.config.maxCapitalUsd)
-    : currentGross;
+    ? Math.min(conservativeGross + cycleReservedNotional, this.config.maxCapitalUsd)
+    : conservativeGross;
   const swingGrossPct = swingCapital > 0 ? (swingGrossUsed / swingCapital) * 100 : 0;
   if (swingGrossPct >= this.config.maxGrossExposure) {
     return { approved: false, reason: `Swing gross exposure ${swingGrossPct.toFixed(1)}% >= max ${this.config.maxGrossExposure}%` };
@@ -174,8 +205,15 @@ export class SwingRiskManager {
   const maxValue = swingCapital * (this.config.maxPositionPct / 100);
   // Available cash: respect the swing capital cap
   const availableForSwing = this.config.maxCapitalUsd > 0
-    ? Math.min(this.config.maxCapitalUsd - swingGrossUsed, account.cash)
+    ? Math.min(Math.max(0, this.config.maxCapitalUsd - conservativeGross - cycleReservedNotional), account.cash)
     : (this.config.enableMargin ? account.buying_power : account.cash);
+
+  if (this.config.maxCapitalUsd > 0 && availableForSwing <= 0) {
+    return {
+      approved: false,
+      reason: `Swing capital cap exhausted: $${(conservativeGross + cycleReservedNotional).toFixed(2)} allocated against $${this.config.maxCapitalUsd.toFixed(2)}`,
+    };
+  }
 
   const positionValue = Math.min(gapBasedValue, targetValue, maxValue, availableForSwing * 0.95);
 
@@ -194,11 +232,25 @@ export class SwingRiskManager {
     // Set wider than daytrading since swings tolerate more volatility
     const stopLossPrice = price * (1 - this.config.stopLossPct / 100);
 
-    // Transaction cost estimate
-    const spreadBps = Math.min(15, Math.max(2, worstCaseGapPct * 2));
-    const slippageBps = 3; // daily horizon = more liquid, less slippage
-    const totalBps = spreadBps + slippageBps;
+    // Transaction cost estimate. worstCaseGapPct is percentage points,
+    // so convert explicitly to bps before using it in the round-trip model.
+    const gapBps = worstCaseGapPct * 100;
+    const spreadBps = gapBps;
+    const slippageBps = 3;
+    const regulatoryBps = 0.1;
+    const observedFeeBps = this.config.observedFeeBps ?? 0;
+    const totalBps = (2 * spreadBps) + (2 * slippageBps) + regulatoryBps + observedFeeBps;
     const estimatedCosts = positionValue * (totalBps / 10000);
+    const expectedEdgeBps = this.config.expectedEdgeBps ?? 0;
+    const edgeAfterCosts = expectedEdgeBps > 0 ? expectedEdgeBps - totalBps : undefined;
+    if (edgeAfterCosts != null && edgeAfterCosts < this.config.minEdgeAfterCosts) {
+      return {
+        approved: false,
+        reason: `Edge after costs insufficient: ${edgeAfterCosts.toFixed(1)}bps < ${this.config.minEdgeAfterCosts}bps (est. costs: ${totalBps.toFixed(1)}bps)`,
+        estimatedCosts,
+        edgeAfterCosts,
+      };
+    }
 
     // Order rate
     if (!this.recordOrder()) {
@@ -207,11 +259,12 @@ export class SwingRiskManager {
 
     return {
       approved: true,
-      reason: `Approved (gap-aware size: $${positionValue.toFixed(0)}, worst-case gap: ${worstCaseGapPct.toFixed(1)}%, costs: ${totalBps}bps)`,
+      reason: `Approved (gap-aware size: $${positionValue.toFixed(0)}, worst-case gap: ${worstCaseGapPct.toFixed(1)}%, costs: ${totalBps.toFixed(1)}bps${expectedEdgeBps > 0 ? `, edge after costs: ${edgeAfterCosts?.toFixed(1)}bps` : ', edge gate not calibrated'})`,
       adjustedQty: finalQty,
       adjustedValue: positionValue,
       stopLossPrice,
       estimatedCosts,
+      edgeAfterCosts,
     };
   }
 
@@ -221,16 +274,43 @@ export class SwingRiskManager {
 
   checkExit(
     score: SwingScore,
-    position: Position,
-    _allScores: SwingScore[]
-  ): { shouldExit: boolean; reason: string; isHysteresisSkip: boolean } {
+    position: Position
+  ): { shouldExit: boolean; reason: string; isHysteresisSkip: boolean; exitType: 'protective' | 'discretionary' | 'none' } {
+    // Protective exits are evaluated before signal exits and always bypass the
+    // discretionary fee gate. A true trailing stop needs peak-price state,
+    // which is not present in the current broker/D1 position contract.
+    if (position.unrealized_pl < 0 && Math.abs(position.unrealized_plpc) >= this.config.stopLossPct / 100) {
+      return {
+        shouldExit: true,
+        reason: `Stop loss: ${(position.unrealized_plpc * 100).toFixed(1)}% loss`,
+        isHysteresisSkip: false,
+        exitType: 'protective',
+      };
+    }
+
+    const dailyVol = (score.indicators.vol20d > 0 ? score.indicators.vol20d : 0.3) / Math.sqrt(252);
+    const worstCaseGapPct = 3 * dailyVol * 100;
+    const spreadBps = worstCaseGapPct * 100;
+    const exitCostBps = spreadBps + 3 + 0.1 + (this.config.observedFeeBps ?? 0);
+    const estimatedExitCosts = Math.abs(position.market_value) * (exitCostBps / 10000);
+    const discretionaryExitBlocked = position.unrealized_pl > 0 && position.unrealized_pl <= estimatedExitCosts;
+
     // Hysteresis: don't exit just because stock dropped slightly below entry threshold
     // Only exit if z-score drops below exitZScore (lower than entry threshold)
     if (score.compositeScore < this.config.exitZScore) {
+      if (discretionaryExitBlocked) {
+        return {
+          shouldExit: false,
+          reason: `Exit held: gross P&L $${position.unrealized_pl.toFixed(2)} does not cover estimated exit costs $${estimatedExitCosts.toFixed(2)}`,
+          isHysteresisSkip: true,
+          exitType: 'discretionary',
+        };
+      }
       return {
         shouldExit: true,
-        reason: `Z-score ${score.compositeScore.toFixed(2)} below exit threshold ${this.config.exitZScore}`,
+        reason: `Z-score ${score.compositeScore.toFixed(2)} below exit threshold ${this.config.exitZScore}; estimated exit costs $${estimatedExitCosts.toFixed(2)}`,
         isHysteresisSkip: false,
+        exitType: 'discretionary',
       };
     }
 
@@ -240,28 +320,11 @@ export class SwingRiskManager {
         shouldExit: false,
         reason: `Hysteresis: z-score ${score.compositeScore.toFixed(2)} in hold zone (between exit ${this.config.exitZScore} and entry ${this.config.minConfidence})`,
         isHysteresisSkip: true,
+        exitType: 'none',
       };
     }
 
-    // Trailing stop: position was profitable but giving back gains
-    if (position.unrealized_pl > 0 && position.unrealized_plpc < -this.config.trailingStopPct / 100) {
-      return {
-        shouldExit: true,
-        reason: `Trailing stop: giving back ${(position.unrealized_plpc * 100).toFixed(1)}%`,
-        isHysteresisSkip: false,
-      };
-    }
-
-    // Hard stop loss (emergency gap protection)
-    if (position.unrealized_pl < 0 && Math.abs(position.unrealized_plpc) >= this.config.stopLossPct / 100) {
-      return {
-        shouldExit: true,
-        reason: `Stop loss: ${(position.unrealized_plpc * 100).toFixed(1)}% loss`,
-        isHysteresisSkip: false,
-      };
-    }
-
-    return { shouldExit: false, reason: 'Position retained', isHysteresisSkip: false };
+    return { shouldExit: false, reason: 'Position retained', isHysteresisSkip: false, exitType: 'none' };
   }
 
   // ============================================================
@@ -344,14 +407,16 @@ export class SwingRiskManager {
   // Portfolio heat
   // ============================================================
 
-  getPortfolioHeat(positions: Position[], account: AccountInfo): number {
+  getPortfolioHeat(positions: Position[], account: AccountInfo, unattributedExposureUsd = 0): number {
     const swingCapital = this.config.maxCapitalUsd > 0
       ? Math.min(this.config.maxCapitalUsd, account.portfolio_value)
       : account.portfolio_value;
     const totalExposure = positions.reduce((sum, p) => sum + Math.abs(p.market_value), 0);
+    const safeUnattributedExposure = Number.isFinite(unattributedExposureUsd) ? Math.max(0, unattributedExposureUsd) : 0;
+    const conservativeExposure = totalExposure + (this.config.maxCapitalUsd > 0 ? safeUnattributedExposure : 0);
     const cappedExposure = this.config.maxCapitalUsd > 0
-      ? Math.min(totalExposure, this.config.maxCapitalUsd)
-      : totalExposure;
+      ? Math.min(conservativeExposure, this.config.maxCapitalUsd)
+      : conservativeExposure;
     return swingCapital > 0 ? (cappedExposure / swingCapital) * 100 : 0;
   }
 

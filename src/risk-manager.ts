@@ -26,6 +26,11 @@ export interface RiskConfig {
   targetVolatilityPct: number;    // target daily portfolio vol (for position sizing)
   maxOrderRatePerMin: number;     // kill switch: max orders per minute
   minEdgeAfterCosts: number;      // minimum expected return after estimated costs (bps)
+  observedFeeBps?: number;         // broker-observed fee rate added to estimated costs
+  feeTelemetryStatus?: 'available' | 'insufficient' | 'unavailable';
+  requireFeeTelemetry?: boolean;   // fail closed for discretionary entries when true
+  requireCalibratedEdge?: boolean; // crypto-only fail-closed gate when minEdgeAfterCosts is enabled
+  rawEdgeBps?: number;              // calibrated/telemetry input only; never inferred from confidence
   maxCapitalUsd: number;          // hard cap on total daytrading capital (0 = use full account)
 }
 
@@ -37,7 +42,9 @@ export interface RiskCheckResult {
   takeProfitPrice?: number;
   trailingStopPct?: number;
   estimatedCosts?: number;        // estimated transaction costs in $
-  edgeAfterCosts?: number;        // expected edge after costs in $
+  estimatedCostBps?: number;       // estimated transaction cost rate in basis points
+  rawEdgeBps?: number;              // calibrated edge input; never confidence-derived
+  edgeAfterCosts?: number;        // calibrated/telemetry edge after costs; not confidence-derived
 }
 
 export interface KillSwitchState {
@@ -53,13 +60,18 @@ export class RiskManager {
   private config: RiskConfig;
   private killState: KillSwitchState;
 
-  constructor(config: RiskConfig) {
+  constructor(config: RiskConfig, initialEquityHistory: readonly number[] = []) {
     this.config = config;
     this.killState = {
       tradingHalted: false,
       reason: '',
       triggeredAt: null,
-      equityHistory: [],
+      // Restore the durable rolling window before this invocation's snapshot
+      // is appended. Invalid values are ignored so a malformed historical row
+      // cannot corrupt the drawdown calculation.
+      equityHistory: initialEquityHistory
+        .filter(equity => Number.isFinite(equity))
+        .slice(-20),
       orderTimestamps: [],
     };
   }
@@ -67,6 +79,12 @@ export class RiskManager {
   // ============================================================
   // Kill switch management
   // ============================================================
+
+  setEquityHistory(equities: number[]): void {
+    this.killState.equityHistory = equities
+      .filter(equity => Number.isFinite(equity))
+      .slice(-20);
+  }
 
   updateEquitySnapshot(equity: number): void {
     this.killState.equityHistory.push(equity);
@@ -127,7 +145,8 @@ export class RiskManager {
     decision: AIDecision,
     account: AccountInfo,
     positions: Position[],
-    indicators: TAIndicators
+    indicators: TAIndicators,
+    reservedNotionalUsd = 0
   ): RiskCheckResult {
     const price = indicators.price;
 
@@ -147,12 +166,17 @@ export class RiskManager {
       return { approved: false, reason: `Daily loss limit reached (${account.change_today_pct.toFixed(2)}%)` };
     }
 
-    // 3. Confidence threshold
+    // 3. Confidence threshold. Confidence is a gate, not an expected-return estimate.
     if (decision.confidence < this.config.minConfidence) {
       return { approved: false, reason: `Confidence ${decision.confidence.toFixed(2)} below minimum ${this.config.minConfidence}` };
     }
 
-    // 4. Position count limit (for new buys)
+    // 4. Fee-sensitive crypto entries fail closed when telemetry is unavailable.
+    if (decision.action === 'BUY' && this.config.requireFeeTelemetry && this.config.feeTelemetryStatus !== 'available') {
+      return { approved: false, reason: `Fee telemetry unavailable (${this.config.feeTelemetryStatus ?? 'unavailable'})` };
+    }
+
+    // 5. Position count limit (for new buys)
     if (decision.action === 'BUY') {
       const currentLongs = positions.filter(p => p.side === 'long' && p.qty > 0).length;
       const existingPosition = positions.find(p => p.symbol === indicators.symbol);
@@ -162,21 +186,44 @@ export class RiskManager {
       }
     }
 
-    // 5. Transaction cost estimation
-    const estimatedCosts = this.estimateTransactionCosts(price, indicators);
-    const edgeBps = decision.confidence * 100; // rough: confidence as bps expected edge
-    const edgeAfterCosts = edgeBps - estimatedCosts.bps;
+    // 6. Transaction cost estimation. Only a real calibrated raw edge may
+    // activate the edge gate; confidence is intentionally not converted to bps.
+    const costRate = this.estimateTransactionCosts(price, indicators, 1);
+    const decisionEdgeBps = decision.rawEdgeBps;
+    const edgeBps = Number.isFinite(decisionEdgeBps)
+      ? decisionEdgeBps
+      : this.config.rawEdgeBps;
+    const edgeAfterCosts = edgeBps === undefined ? undefined : edgeBps - costRate.bps;
 
-    if (edgeAfterCosts < this.config.minEdgeAfterCosts) {
+    // Crypto enables this explicitly because its positive configured minimum
+    // must never become an inert gate when calibration is absent. Stock and
+    // daytrading callers keep their existing behavior unless they opt in.
+    if (
+      decision.action === 'BUY' &&
+      this.config.requireCalibratedEdge === true &&
+      this.config.minEdgeAfterCosts > 0 &&
+      edgeBps === undefined
+    ) {
       return {
         approved: false,
-        reason: `Edge after costs insufficient: ${edgeAfterCosts.toFixed(1)}bps < ${this.config.minEdgeAfterCosts}bps (est. costs: ${estimatedCosts.bps}bps)`,
-        estimatedCosts: estimatedCosts.dollar,
-        edgeAfterCosts: edgeAfterCosts,
+        reason: `Calibrated raw edge unavailable for configured minimum edge after costs (${this.config.minEdgeAfterCosts}bps)`,
+        estimatedCosts: costRate.dollar,
+        estimatedCostBps: costRate.bps,
       };
     }
 
-    // 6. Volatility-targeting position sizing
+    if (edgeAfterCosts !== undefined && edgeAfterCosts < this.config.minEdgeAfterCosts) {
+      return {
+        approved: false,
+        reason: `Edge after costs insufficient: ${edgeAfterCosts.toFixed(1)}bps < ${this.config.minEdgeAfterCosts}bps (est. costs: ${costRate.bps}bps)`,
+        estimatedCosts: costRate.dollar,
+        estimatedCostBps: costRate.bps,
+        rawEdgeBps: edgeBps,
+        edgeAfterCosts,
+      };
+    }
+
+    // 7. Volatility-targeting position sizing
     // Determine trading capital: use maxCapitalUsd if set, otherwise full account
     const tradingCapital = this.config.maxCapitalUsd > 0
       ? Math.min(this.config.maxCapitalUsd, account.portfolio_value)
@@ -185,8 +232,9 @@ export class RiskManager {
     const maxPositionValue = tradingCapital * (this.config.maxPositionPct / 100);
     // Available cash: respect the capital cap
     const currentGross = positions.reduce((s, p) => s + Math.abs(p.market_value), 0);
+    const safeReservedNotional = Number.isFinite(reservedNotionalUsd) ? Math.max(0, reservedNotionalUsd) : 0;
     const capRemaining = this.config.maxCapitalUsd > 0
-      ? Math.max(0, this.config.maxCapitalUsd - currentGross)
+      ? Math.max(0, this.config.maxCapitalUsd - currentGross - safeReservedNotional)
       : Infinity;
     const availableCash = this.config.enableMargin
       ? Math.min(account.buying_power, capRemaining)
@@ -228,6 +276,8 @@ export class RiskManager {
       ? price + (this.config.takeProfitATRMultiplier * atrValue)
       : undefined;
 
+    const estimatedCosts = this.estimateTransactionCosts(price, indicators, finalQty);
+
     // 8. Order rate check
     if (!this.recordOrder()) {
       return { approved: false, reason: 'Order rate limit exceeded' };
@@ -235,13 +285,39 @@ export class RiskManager {
 
     return {
       approved: true,
-      reason: `Approved (vol-scaled ${(volScale * 100).toFixed(0)}%, ATR stop ${this.config.stopLossATRMultiplier}x, costs ${estimatedCosts.bps}bps)`,
+      reason: `Approved (vol-scaled ${(volScale * 100).toFixed(0)}%, ATR stop ${this.config.stopLossATRMultiplier}x, costs ${estimatedCosts.bps.toFixed(1)}bps / $${estimatedCosts.dollar.toFixed(2)})`,
       adjustedQty: finalQty,
       stopLossPrice,
       takeProfitPrice,
       trailingStopPct: this.config.trailingStopPct,
       estimatedCosts: estimatedCosts.dollar,
-      edgeAfterCosts: edgeAfterCosts,
+      estimatedCostBps: estimatedCosts.bps,
+      rawEdgeBps: edgeBps,
+      edgeAfterCosts,
+    };
+  }
+
+  /**
+   * Evaluate a discretionary exit against the estimated exit cost. Losing
+   * positions remain eligible for risk reduction; profitable exits are not
+   * approved when the expected exit fee/slippage consumes the gross profit.
+   */
+  checkExitCost(position: Position, indicators: TAIndicators, protective = false): RiskCheckResult {
+    const estimatedCosts = this.estimateTransactionCosts(indicators.price, indicators, position.qty);
+    const edgeAfterCosts = position.unrealized_pl - estimatedCosts.dollar;
+    if (!protective && position.unrealized_pl > 0 && edgeAfterCosts <= 0) {
+      return {
+        approved: false,
+        reason: `Exit skipped: gross P&L $${position.unrealized_pl.toFixed(2)} does not cover estimated exit costs $${estimatedCosts.dollar.toFixed(2)}`,
+        estimatedCosts: estimatedCosts.dollar,
+        edgeAfterCosts,
+      };
+    }
+    return {
+      approved: true,
+      reason: `${protective ? 'Protective' : 'Discretionary'} exit cost check: est. $${estimatedCosts.dollar.toFixed(2)}, net mark $${edgeAfterCosts.toFixed(2)}`,
+      estimatedCosts: estimatedCosts.dollar,
+      edgeAfterCosts,
     };
   }
 
@@ -249,7 +325,7 @@ export class RiskManager {
   // Transaction cost estimation
   // ============================================================
 
-  private estimateTransactionCosts(price: number, indicators: TAIndicators): { bps: number; dollar: number } {
+  private estimateTransactionCosts(price: number, indicators: TAIndicators, qty = 1): { bps: number; dollar: number } {
     // Spread cost: estimate from ATR (higher vol = wider spread)
     // Typical US large cap spread: 1-5 bps. Scale with volatility.
     const spreadBps = Math.min(10, Math.max(1, indicators.atrPct * 1.5));
@@ -263,14 +339,15 @@ export class RiskManager {
 
     // SEC/FINRA fees: ~$0.01 per $10k traded = ~0.1 bps
     const regulatoryBps = 0.1;
+    const observedFeeBps = this.config.observedFeeBps ?? 0;
 
-    // Total in basis points
-    const totalBps = spreadBps + slippageBps + commissionBps + regulatoryBps;
+    // Include broker-observed fees in addition to spread/slippage assumptions.
+    const totalBps = spreadBps + slippageBps + commissionBps + regulatoryBps + observedFeeBps;
 
-    // Convert to dollar amount (per share)
-    const dollarPerShare = price * (totalBps / 10000);
+    // Convert the rate into the total estimated order cost.
+    const dollar = Math.abs(price * qty) * (totalBps / 10000);
 
-    return { bps: totalBps, dollar: dollarPerShare };
+    return { bps: totalBps, dollar };
   }
 
   // ============================================================
