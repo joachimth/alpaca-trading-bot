@@ -73,7 +73,7 @@
 
 # Alpaca deployable reference header (mandatory, top-of-file)
 
-**Repo HEAD (updated Control-976, Sep 30 07:08z):** `f007d0b` == `origin/main`, worktree clean; deployed src is the content-hash-verified 2.8.2 bundle (see C-968 identity block). NOTE (C-974): the three runbook commits `18181ce`/`97e65eb`/`5f7dea7` (reference-header relocation + notes) carried no control entry, so the docs surfaces lagged HEAD for three commits - documentation lag only, no content drift; corrected by the C-974 entry.
+**Repo HEAD (updated Control-976, Sep 30 07:08z):** `56dd34a` == `origin/main`, worktree clean; deployed src is the content-hash-verified 2.8.2 bundle (see C-968 identity block). NOTE (C-974): the three runbook commits `18181ce`/`97e65eb`/`5f7dea7` (reference-header relocation + notes) carried no control entry, so the docs surfaces lagged HEAD for three commits - documentation lag only, no content drift; corrected by the C-974 entry.
 Deployed src remains the 2.8.2 release `092b84b` PLUS the committed Control-901 reliability delta.
 
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
