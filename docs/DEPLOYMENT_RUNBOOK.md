@@ -1,3 +1,17 @@
+# Alpaca deployment runbook
+
+> **Reference header (mandatory reading before any control):**
+>
+> **Deployment identity (content-hash method, mandatory since Control-911).** The ONLY valid deployment-identity claim is a byte comparison of the live module against a local `bun build src/index.ts`: fetch `GET .../workers/scripts/alpaca-trading-bot/content/v2` with `Accept: */*` (headerless GET returns `1001 method_not_allowed`), HTTP 200 / 364,403 B multipart, strip the multipart envelope, and `cmp`/sha256 the extracted `index.js` part (currently **364,154 B, sha256 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad`**). `git diff <deployed-commit> -- src` is NOT a valid identity check (it compares against the working tree and self-confirms un-deployed edits - Control-911). `wrangler deploy --dry-run` produces a DIFFERENT bundle and must never be used as the identity anchor. `content/v2` is NOT version-pinned; `versions/{id}/content` returns metadata, not script bytes.
+>
+> **Cloudflare API prefix.** Always call `https://api.cloudflare.com/client/v4/...`; a bare-host path returns `10404 No route for that URI` and is a PATH error, never a credential failure (Control-952).
+>
+> **Schedules.** `PUT /accounts/{id}/workers/scripts/{name}/schedules` takes an ARRAY `[{"cron":"..."}]` (an object returns 400); `PUT /content` does NOT update cron triggers. Four live schedules: daytrading `1-59/5 * * * *`, swing `0 22 * * 2-6`, crypto `7-59/30 * * * *`, reconcile `*/10 * * * *`. CF cron DOW: 1=Sunday..7=Saturday.
+>
+> **Control numbering / collisions.** A heartbeat must NOT re-run the routine hourly control or claim its Control-NNN slot (C-874 class); fold results into the next routine control or run off-hour.
+
+---
+
 ## Control-972 (Sep 30 08:00+02 / 06:00 UTC Wed) - strict read-only control: **OPEN DEGRADED - dispatch suppression occurrence-candidate 27 STANDS (not cleared); Sep 29 22:00z DOW=2 swing fire STILL NEVER RAN (third consecutive confirmation)**, NO deploy, no code/config/cap change, docs-only update. **Exact current repo HEAD is `0d39032`** (the Control-970 commit) == `origin/main`, worktree clean.
 
 **Suppression re-confirmed by whole-window paging, not a single page:** `/api/runs?limit=500` returned **500 distinct rows**, ids `18671 -> 19170`, **ID-CONTIGUOUS with ZERO id gaps**, window `2026-09-28T23:46:57z -> 2026-09-30T05:56:58z`. Exactly **one** time-gap >10 min exists in that window: `19050 2026-09-29T18:41:01z -> 19051 2026-09-30T00:01:12z` (**320.2 min**, all-trigger) - the occ-27 stall, ending one minute after the `00:00z` D1 quota reset (C-840/C-960 signature). Trigger split `cron` 299 / `reconcile_cron` 151 / `crypto_cron` 50; status `skipped` 341 / `ok` 152 / `error` 7.
@@ -9,9 +23,6 @@
 **Run observability (structured codes, not free text):** `MARKET_CLOSED` 237, `SWING_OWNED_EXCLUDE` 61, `CRYPTO_DISABLED_BY_CONFIG` 50, `NO_ENTRY_RISK` 42, `CAPITAL_CAP` 7, `POSITION_QTY_MISMATCH` 7 - every suppression path carries a concrete, auditable reason, and the F1 `SWING_OWNED_EXCLUDE` guard is still firing on the live daytrading lane.
 
 **Error-class runs (7, all benign and pre-existing, none causal):** `18958`/`18971`/`19008`/`19027`/`19031`/`19034`/`19041` `POSITION_QTY_MISMATCH` (CMCSA internal-vs-broker drift 15/46 -> 137/139, LCID 220/224, NFLX 40/42, SOFI 53/55, plus MS/RUN "in broker but not internal"); each states `Broker-authoritative quantity persisted` with `new entries blocked for this cycle`, so the fail-safe held and no D1 row was passed off as broker state - and the run log is id-contiguous around every one of them, so no write was hidden. No new error runs on Sep 30.
-
-**Deployment identity (content-hash method, mandatory since Control-911): PASS.** `GET .../workers/scripts/alpaca-trading-bot/content/v2` with `Accept: */*` returned HTTP 200 / 364,403 B multipart; the extracted `index.js` part is **364,154 B, sha256 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad`**, **byte-identical (`cmp`) to the local `bun build src/index.ts`** output. CF active version `4c96049f` @100% (deployment `62a32206`, `2026-09-28T20:04:24.862538Z`); all **four schedules** verified through the `/client/v4` prefix, each `modified_on 2026-09-28T20:04:34.219701Z`: daytrading `1-59/5 * * * *`, swing `0 22 * * 2-6`, crypto `7-59/30 * * * *`, reconcile `*/10 * * * *`.
-
 **Crypto edge-gate wiring re-verified statically:** `src/crypto-strategy.ts:37` `prepareCryptoRiskDecision` (consumed at `:52`/`:590`/`:610`), `:73` `edgeGateEvaluated` keyed on `EDGE_CALIBRATION_UNAVAILABLE`/`INSUFFICIENT_NET_EDGE`, disable code at `:284`/`:325` - intact in both source and the live bundle, still never exercised live because `CRYPTO_DISABLED_BY_CONFIG` short-circuits earlier.
 
 **C-864 STILL OPEN (decision-gated, NO auto-fix):** `src/risk-manager.ts:234` `currentGross = Sum|market_value|` with `:237` `capRemaining = maxCapitalUsd - currentGross - reserved`, and `src/swing-risk.ts:169`/`:176` `conservativeGross = currentGross + unattributedExposure` - the "conservative" branch **inherits** the market-value basis rather than correcting it. Measured live: swing cost basis $3,647.88 tagged + $246.82 unattributed = **$3,894.70 vs the $3,700 cap = +$194.70 OVER on cost basis**, while the code's MV basis reads ~$3,599 = ~$101 under. **F** remains the selldown candidate (cost $2,256.81, unrealized **-$273.29**, larger than the whole overage).
