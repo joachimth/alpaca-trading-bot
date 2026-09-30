@@ -9,6 +9,10 @@
 > **Schedules.** `PUT /accounts/{id}/workers/scripts/{name}/schedules` takes an ARRAY `[{"cron":"..."}]` (an object returns 400); `PUT /content` does NOT update cron triggers. Four live schedules: daytrading `1-59/5 * * * *`, swing `0 22 * * 2-6`, crypto `7-59/30 * * * *`, reconcile `*/10 * * * *`. CF cron DOW: 1=Sunday..7=Saturday.
 >
 > **Control numbering / collisions.** A heartbeat must NOT re-run the routine hourly control or claim its Control-NNN slot (C-874 class); fold results into the next routine control or run off-hour.
+>
+> **Reliability delta (Control-901, live, unversioned).** The live 2.8.2 bundle also carries a reliability-only change committed after the 2.8.2 tag: `waitForOrder` bounded poll budget default `5000 -> 2000` ms with max 3 polls (`src/alpaca.ts`), and `closePosition {waitForFill:false}` on four daytrading exit paths (`src/index.ts`, now at ~lines 800/1080/1101/1131) so an accepted exit cannot throw the subrequest ceiling. No cap, guard, confidence or trading-behavior change; `092b84b` remains the 2.8.2 release-version anchor but is NOT a content-identity anchor (Control-911).
+>
+> **Identity-anchor drift discipline.** Every time the identity anchor hash changes (currently `7e8d4507...`, 364,154 B, since the 2026-09-28T20:04:24z deploy), sweep the WHOLE repo, not just the docs surfaces: `grep -rn '<old-hash-prefix>' --include='*.md' --include='*.ts' --include='*.py' --include='*.json' .` then update. Anchors were found stale in `docs/OPERATIONS.md`, `docs/DEPLOYMENT_RUNBOOK.md`, `.github/workflows/*.yml`, `bin/*.sh`, `scripts/*.ts`, `scripts/*.py` and `skills/*` on Sep 30; the CI workflow's `DEPLOYED_COMMIT`/sha values are usually the newest and are a good cross-check source.
 
 ---
 
