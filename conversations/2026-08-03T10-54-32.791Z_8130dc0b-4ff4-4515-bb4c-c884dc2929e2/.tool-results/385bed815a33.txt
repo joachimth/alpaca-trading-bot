@@ -1,0 +1,305 @@
+     1  // AI Decision Layer
+     2  // Takes TA signals and refines them using LLM reasoning
+     3  // Falls back to pure TA if LLM is unavailable or fails
+     4  
+     5  import type { TASignal, TAIndicators } from './technical-analysis';
+     6  import type { Position } from './alpaca';
+     7  
+     8  export interface AIDecision {
+     9    action: 'BUY' | 'SELL' | 'HOLD' | 'CLOSE';
+    10    confidence: number;     // 0.0 to 1.0
+    11    reasoning: string;
+    12    factors: string[];
+    13    adjustedFromTA: boolean; // true if AI changed the TA signal
+    14    taSignal: TASignal;
+    15  }
+    16  
+    17  export interface AIMarketContext {
+    18      account: {
+    19        equity: number;
+    20        cash: number;
+    21        positionsCount: number;
+    22        dailyPlPct: number;
+    23      };
+    24      marketRegime: string;    // e.g. "bullish", "bearish", "volatile", "choppy"
+    25      topMovers: { gainers: string[]; losers: string[] };
+    26      positions: Position[];
+    27      sentiment?: string;      // market sentiment text (Fear & Greed, trending, etc.)
+    28    }
+    29  
+    30  export interface AIRefinementConfig {
+    31    apiKey: string;
+    32    model: string;
+    33    temperature: number;
+    34    minConfidence: number;
+    35  }
+    36  
+    37  // ============================================================
+    38  // Market regime detection
+    39  // ============================================================
+    40  
+    41  export function detectMarketRegime(
+    42    snapshots: { spyTrend: number; vixLevel: number; breadth: number }
+    43  ): string {
+    44    if (snapshots.vixLevel > 30) return 'volatile';
+    45    if (snapshots.vixLevel > 20) return 'cautious';
+    46    if (snapshots.spyTrend > 0.5 && snapshots.breadth > 0.6) return 'bullish';
+    47    if (snapshots.spyTrend < -0.5 && snapshots.breadth < 0.4) return 'bearish';
+    48    return 'choppy';
+    49  }
+    50  
+    51  // ============================================================
+    52  // LLM Refinement
+    53  // ============================================================
+    54  
+    55  export async function refineWithLLM(
+    56    signal: TASignal,
+    57    context: AIMarketContext,
+    58    config: AIRefinementConfig
+    59  ): Promise<AIDecision> {
+    60    const taAction = signal.action;
+    61    const taConfidence = signal.confidence;
+    62  
+    63    try {
+    64      const prompt = buildPrompt(signal, context);
+    65      const llmResponse = await callLLM(prompt, config);
+    66  
+    67      if (!llmResponse) {
+    68        // Fallback to pure TA
+    69        return {
+    70          action: taAction,
+    71          confidence: taConfidence,
+    72          reasoning: 'LLM unavailable — using pure TA signal',
+    73          factors: signal.reasons,
+    74          adjustedFromTA: false,
+    75          taSignal: signal,
+    76        };
+    77      }
+    78  
+    79      const parsed = parseLLMResponse(llmResponse);
+    80  
+    81      // Validate AI doesn't go against strong TA signals without good reason
+    82      let finalAction = parsed.action;
+    83      let finalConfidence = parsed.confidence;
+    84      let adjusted = false;
+    85  
+    86      if (finalAction !== taAction) {
+    87        // AI wants to change the TA signal
+    88        // Only allow if AI confidence is high enough
+    89        if (parsed.confidence < 0.7) {
+    90          // Not confident enough to override TA
+    91          finalAction = taAction;
+    92          finalConfidence = taConfidence;
+    93        } else {
+    94          adjusted = true;
+    95        }
+    96      }
+    97  
+    98      // Ensure confidence meets minimum threshold
+    99      if (finalConfidence < config.minConfidence && finalAction !== 'HOLD') {
+   100        finalAction = 'HOLD';
+   101        finalConfidence = finalConfidence;
+   102        parsed.reasoning += ' [Downgraded to HOLD: confidence below threshold]';
+   103      }
+   104  
+   105      return {
+   106        action: finalAction,
+   107        confidence: finalConfidence,
+   108        reasoning: parsed.reasoning,
+   109        factors: parsed.factors,
+   110        adjustedFromTA: adjusted,
+   111        taSignal: signal,
+   112      };
+   113    } catch (error) {
+   114      // Any error → fall back to TA
+   115      console.error('LLM refinement error:', error);
+   116      return {
+   117        action: taAction,
+   118        confidence: taConfidence,
+   119        reasoning: `LLM error: ${error instanceof Error ? error.message : 'unknown'} — using pure TA signal`,
+   120        factors: signal.reasons,
+   121        adjustedFromTA: false,
+   122        taSignal: signal,
+   123      };
+   124    }
+   125  }
+   126  
+   127  function buildPrompt(signal: TASignal, context: AIMarketContext): string {
+   128    const ind = signal.indicators;
+   129    const positions = context.positions.map(p =>
+   130      `${p.symbol}: ${p.qty} shares, P&L ${p.unrealized_plpc * 100 >= 0 ? '+' : ''}${(p.unrealized_plpc * 100).toFixed(1)}%`
+   131    ).join('; ') || 'None';
+   132  
+   133    return `You are an expert daytrading analyst. Analyze this stock and decide: BUY, SELL, HOLD, or CLOSE (close existing position).
+   134  
+   135  STOCK: ${ind.symbol}
+   136  CURRENT PRICE: $${ind.price.toFixed(2)}
+   137  TA SIGNAL: ${signal.action} (confidence ${(signal.confidence * 100).toFixed(0)}%)
+   138  
+   139  TECHNICAL INDICATORS:
+   140  - RSI: ${ind.rsi.toFixed(1)} (oversold <30, overbought >70)
+   141  - EMA9: ${ind.emaFast.toFixed(2)}, EMA21: ${ind.emaSlow.toFixed(2)}, Trend: ${ind.emaTrend}
+   142  - MACD: ${ind.macd.toFixed(4)}, Signal: ${ind.macdSignal.toFixed(4)}, Histogram: ${ind.macdHistogram.toFixed(4)} (${ind.macdTrend})
+   143  - ATR: ${ind.atr.toFixed(2)} (${ind.atrPct.toFixed(2)}% of price — volatility)
+   144  - Volume: ${ind.volumeRatio.toFixed(2)}x average
+   145  - Stochastic: %K=${ind.stochK.toFixed(1)}, %D=${ind.stochD.toFixed(1)}
+   146  - Bollinger Bands: position ${(ind.bbPosition * 100).toFixed(0)}% (0=lower, 100=upper)
+   147  - ADX: ${ind.adx.toFixed(1)} (trend strength, >25 = strong)
+   148  - OBV trend: ${ind.obvTrend}
+   149  - Support: $${ind.support.toFixed(2)}, Resistance: $${ind.resistance.toFixed(2)}
+   150  - Price in range: ${(ind.pricePosition * 100).toFixed(0)}% (0%=support, 100%=resistance)
+   151  
+   152  TA REASONS: ${signal.reasons.join('; ')}
+   153  
+   154  MARKET CONTEXT:
+   155  - Market regime: ${context.marketRegime}
+   156  - Account equity: $${context.account.equity.toFixed(2)}, Cash: $${context.account.cash.toFixed(2)}
+   157  - Open positions: ${context.account.positionsCount}/15
+   158  - Daily P&L: ${context.account.dailyPlPct >= 0 ? '+' : ''}${context.account.dailyPlPct.toFixed(2)}%
+   159    - Current positions: ${positions}
+   160    ${context.sentiment ? `\nMARKET SENTIMENT:\n${context.sentiment}` : ''}
+   161  
+   162  Respond in EXACTLY this JSON format (no other text):
+   163  {
+   164    "action": "BUY|SELL|HOLD|CLOSE",
+   165    "confidence": 0.0-1.0,
+   166    "reasoning": "one clear sentence explaining the decision",
+   167    "factors": ["factor 1", "factor 2", "factor 3"]
+   168  }
+   169  
+   170  Rules:
+   171  - BUY only if multiple bullish indicators align with volume confirmation
+   172  - SELL only if multiple bearish indicators align
+   173  - CLOSE if existing position has hit stop/target or signals reversed
+   174  - HOLD when signals are mixed or unclear
+   175  - In volatile regime, require higher confidence (0.7+)
+   176  - Consider the full picture: trend, momentum, volume, volatility, market regime
+   177  - Be decisive but not reckless — better to HOLD than force a trade`;
+   178  }
+   179  
+   180  async function callLLM(prompt: string, config: AIRefinementConfig): Promise<string | null> {
+   181    // Using Fireworks AI API (compatible with OpenAI format)
+   182    const apiUrl = 'https://api.fireworks.ai/inference/v1/chat/completions';
+   183  
+   184    try {
+   185      const resp = await fetch(apiUrl, {
+   186        method: 'POST',
+   187        headers: {
+   188          'Content-Type': 'application/json',
+   189          'Authorization': `Bearer ${config.apiKey}`,
+   190        },
+   191        body: JSON.stringify({
+   192          model: config.model,
+   193          messages: [
+   194            { role: 'system', content: 'You are an expert quantitative daytrading analyst. Respond only in the requested JSON format.' },
+   195            { role: 'user', content: prompt },
+   196          ],
+   197          temperature: config.temperature,
+   198          max_tokens: 500,
+   199          response_format: { type: 'json_object' },
+   200        }),
+   201      });
+   202  
+   203      if (!resp.ok) {
+   204        console.error(`LLM API error: ${resp.status}`);
+   205        return null;
+   206      }
+   207  
+   208      const data = await resp.json() as any;
+   209      const content = data.choices?.[0]?.message?.content;
+   210      if (!content) return null;
+   211  
+   212      return content;
+   213    } catch (error) {
+   214      console.error('LLM call failed:', error);
+   215      return null;
+   216    }
+   217  }
+   218  
+   219  function parseLLMResponse(response: string): {
+   220      action: 'BUY' | 'SELL' | 'HOLD' | 'CLOSE';
+   221      confidence: number;
+   222      reasoning: string;
+   223      factors: string[];
+   224    } {
+   225      // Strategy 1: Direct JSON parse
+   226      try {
+   227        let jsonStr = response.trim();
+   228        if (jsonStr.includes('```')) {
+   229          const match = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+   230          if (match) jsonStr = match[1].trim();
+   231        }
+   232        const parsed = JSON.parse(jsonStr);
+   233        return {
+   234          action: (parsed.action || 'HOLD').toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
+   235          confidence: Math.max(0, Math.min(1, parseFloat(parsed.confidence) || 0.5)),
+   236          reasoning: parsed.reasoning || 'No reasoning provided',
+   237          factors: Array.isArray(parsed.factors) ? parsed.factors : [reasoning],
+   238        };
+   239      } catch { /* fall through */ }
+   240  
+   241      // Strategy 2: Extract JSON object from thinking/model output
+   242      // GLM-5p2 and DeepSeek sometimes wrap JSON in their thinking process
+   243      const jsonMatch = response.match(/\{[^{}]*"action"[^{}]*\}/s);
+   244      if (jsonMatch) {
+   245        try {
+   246          const parsed = JSON.parse(jsonMatch[0]);
+   247          return {
+   248            action: (parsed.action || 'HOLD').toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
+   249            confidence: Math.max(0, Math.min(1, parseFloat(parsed.confidence) || 0.5)),
+   250            reasoning: parsed.reasoning || 'No reasoning provided',
+   251            factors: Array.isArray(parsed.factors) ? parsed.factors : [reasoning],
+   252          };
+   253        } catch { /* fall through */ }
+   254      }
+   255  
+   256      // Strategy 3: Multi-line JSON extraction (action + confidence + reasoning across lines)
+   257      const multilineMatch = response.match(/\{\s*"action"\s*:\s*"(\w+)"[\s\S]*?"confidence"\s*:\s*([\d.]+)[\s\S]*?"reasoning"\s*:\s*"([^"]*)"[\s\S]*?\}/s);
+   258      if (multilineMatch) {
+   259        const [, action, conf, reasoning] = multilineMatch;
+   260        return {
+   261          action: action.toUpperCase() as 'BUY' | 'SELL' | 'HOLD' | 'CLOSE',
+   262          confidence: Math.max(0, Math.min(1, parseFloat(conf) || 0.5)),
+   263          reasoning: reasoning || 'No reasoning provided',
+   264          factors: [reasoning],
+   265        };
+   266      }
+   267  
+   268      // Strategy 4: Last resort — extract action keyword from text
+   269      const upper = response.toUpperCase();
+   270      // Check for the last occurrence of each action (models often conclude at the end)
+   271      const actions: Array<'BUY' | 'SELL' | 'HOLD' | 'CLOSE'> = ['BUY', 'SELL', 'HOLD', 'CLOSE'];
+   272      let lastAction: 'BUY' | 'SELL' | 'HOLD' | 'CLOSE' = 'HOLD';
+   273      let lastPos = -1;
+   274      for (const a of actions) {
+   275        const pos = upper.lastIndexOf(a);
+   276        if (pos > lastPos) { lastPos = pos; lastAction = a; }
+   277      }
+   278      return {
+   279        action: lastAction,
+   280        confidence: 0.5,
+   281        reasoning: response.slice(0, 200).replace(/\n/g, ' '),
+   282        factors: ['LLM text response (JSON parse failed)'],
+   283      };
+   284    }
+   285  
+   286  // ============================================================
+   287  // Batch refinement: process multiple TA signals
+   288  // ============================================================
+   289  
+   290  export async function batchRefine(
+   291    signals: TASignal[],
+   292    context: AIMarketContext,
+   293    config: AIRefinementConfig
+   294  ): Promise<AIDecision[]> {
+   295    // Process sequentially to respect rate limits
+   296    const results: AIDecision[] = [];
+   297  
+   298    for (const signal of signals) {
+   299      const decision = await refineWithLLM(signal, context, config);
+   300      results.push(decision);
+   301    }
+   302  
+   303    return results;
+   304  }
+   305  

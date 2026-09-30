@@ -1,0 +1,3 @@
+{"ts":"2026-07-03T04:47:35.087Z","run_id":"run_20260703044734_f787a486","op":"archive","chunk_index":0,"message_ids":["19f259d16a324619","19f21ffa482c9836","19f22fac48b02d54","19f2257ebf49f810","19f2402da4b0b3f4","19f249193b3d4cab","19f247da4f475a7a","19f2317d19bf91ac"],"reason":"cache:no-reply@notifications.ui.com,noreply@skool.com,kontakt@nemlig.com,no-reply@email.ok.dk,donotreply@instantink.hpsmart.com,no-reply@mailer.alpaca.markets,em@em1.cloudflare.com","status":"staged"}
+{"ts":"2026-07-03T04:47:36.584Z","run_id":"run_20260703044734_f787a486","chunk_index":0,"status":"committed"}
+{"ts":"2026-07-03T04:47:36.584Z","run_id":"run_20260703044734_f787a486","status":"completed","total_committed":1,"total_failed":0}

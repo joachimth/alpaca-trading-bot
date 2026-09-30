@@ -1,0 +1,28 @@
+{
+  "ts": 1784614505781,
+  "daemonPid": 1,
+  "heartbeatAgeMs": 27156,
+  "kernelStack": null,
+  "processState": "S",
+  "sample": {
+    "ts": 1784614505781,
+    "memory": {
+      "currentBytes": 1048645632,
+      "limitBytes": 3221225472,
+      "peakBytes": null,
+      "ratio": 0.3255424499511719
+    },
+    "memoryStat": null,
+    "reclaim": null,
+    "cpu": null,
+    "events": null,
+    "deltas": null,
+    "disk": {
+      "path": "/workspace",
+      "usedMb": 7823.91,
+      "totalMb": 9997.34,
+      "freeMb": 2173.43
+    },
+    "activeConversations": null
+  }
+}

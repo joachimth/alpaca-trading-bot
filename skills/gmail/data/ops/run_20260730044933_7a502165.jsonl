@@ -1,0 +1,3 @@
+{"ts":"2026-07-30T04:49:33.806Z","run_id":"run_20260730044933_7a502165","op":"archive","chunk_index":0,"message_ids":["19fb0be71e3846e3","19f988e75e6bea3b","19f94da1e2027843"],"reason":"cache:no-reply@notifications.ui.com,no-reply@paxport.net,no-reply@sendcloud.com","status":"staged"}
+{"ts":"2026-07-30T04:49:35.061Z","run_id":"run_20260730044933_7a502165","chunk_index":0,"status":"committed"}
+{"ts":"2026-07-30T04:49:35.061Z","run_id":"run_20260730044933_7a502165","status":"completed","total_committed":1,"total_failed":0}

@@ -2,103 +2,20 @@
 // 24/7 operation, no market hours, no gap risk, no PDT rule
 // Reuses TA engine (RSI, MACD, EMA, ATR, Bollinger) on crypto bars
 // Key differences from daytrading:
-// - Runs every 30 min at :07/:37 UTC (24/7 cadence)
+// - Runs every 15 min (crypto moves fast but 24/7 = more cycles)
 // - No EOD flatten (crypto never closes)
 // - No gap risk (continuous market)
 // - Wider stops (crypto is more volatile)
 // - Smaller universe (~15 major coins)
 // - Separate capital cap
 
-import { AlpacaClient, type AccountInfo, type Position } from './alpaca';
-import { analyze, generateSignal, type TAIndicators } from './technical-analysis';
-import { refineWithLLM, type AIDecision } from './ai-decision';
+import { AlpacaClient } from './alpaca';
+import { analyze, generateSignal } from './technical-analysis';
+import { refineWithLLM } from './ai-decision';
 import { getCryptoSentiment, formatSentimentForPrompt } from './crypto-sentiment';
-import { RiskManager, type RiskConfig, type RiskCheckResult } from './risk-manager';
+import { RiskManager, type RiskConfig } from './risk-manager';
 import { Database } from './database';
-import { projectBrokerPositions, summarizeByCategory } from './position-projection';
 import type { Env } from './index';
-import { SkipReasonCollector, serializeDecisionSkip, serializeRunDetails, runStatus } from './skip-reasons';
-import { classifyCryptoOrder, classifyCryptoSkip, classifyCryptoSubmitError, createCycleExposure, cryptoBudgetDecision, cryptoClientOrderId, cryptoMinimumOrderCheck, cryptoReservationNotional, evaluateCryptoProtectiveExit, feeTelemetryFromAggregate, hasPendingCryptoExit, projectedPositions, rankCryptoCandidates, reserveEntry, resolveCryptoConfig, shouldFinalizeCryptoPosition, type FeeTelemetry } from './crypto-runtime';
-import { assessIntradayBars, CRYPTO_BAR_INTERVAL_SECONDS, CRYPTO_MAX_BAR_STALE_INTERVALS } from './market-data-quality';
-import { accountWithEquityDirection, resolveEquityDirection } from './equity-observability';
-import {
-  cryptoTradingEnabled,
-  evaluateEntryGuards,
-  resolveRiskGuardConfig,
-  riskGuardUnavailable,
-  strategyDailyPlUsd,
-  type EntryGuardEvaluation,
-} from './risk-guards';
-
-/**
- * Apply the crypto strategy's explicit calibrated edge to a decision without
- * deriving an edge from confidence or any other uncalibrated signal.
- */
-export function prepareCryptoRiskDecision(signal: AIDecision, calibratedRawEdgeBps = signal.rawEdgeBps ?? signal.taSignal.rawEdgeBps): AIDecision {
-  return Number.isFinite(calibratedRawEdgeBps)
-    ? { ...signal, rawEdgeBps: calibratedRawEdgeBps }
-    : { ...signal, rawEdgeBps: undefined };
-}
-
-export function checkCryptoEntryRisk(
-  riskManager: RiskManager,
-  decision: AIDecision,
-  account: AccountInfo,
-  positions: Position[],
-  indicators: TAIndicators,
-  reservedNotionalUsd = 0,
-): RiskCheckResult {
-  return riskManager.checkTrade(
-    prepareCryptoRiskDecision(decision),
-    account,
-    positions,
-    indicators,
-    reservedNotionalUsd,
-  );
-}
-
-/**
- * Keep crypto edge-gate evidence structured and bounded in run details. Unavailable
- * edge values are omitted and described by explicit status/reason fields; they
- * are never replaced with a confidence- or fee-derived estimate.
- */
-export function cryptoRiskSkipContext(input: {
-  symbol: string;
-  decisionId: number;
-  skipCode: string;
-  riskCheck: RiskCheckResult;
-  minEdgeAfterCostsBps: number;
-  feeTelemetryStatus: FeeTelemetry['status'];
-}): Record<string, unknown> {
-  const edgeGateEvaluated = input.skipCode === 'EDGE_CALIBRATION_UNAVAILABLE' || input.skipCode === 'INSUFFICIENT_NET_EDGE';
-  const rawEdgeAvailable = Number.isFinite(input.riskCheck.rawEdgeBps);
-  const edgeAfterCostsAvailable = Number.isFinite(input.riskCheck.edgeAfterCosts);
-  const edgeSource = rawEdgeAvailable ? 'calibrated_raw_edge_bps' : 'unavailable';
-  const edgeStatus = !edgeGateEvaluated
-    ? 'not_evaluated'
-    : rawEdgeAvailable && edgeAfterCostsAvailable
-      ? 'available'
-      : 'unavailable';
-  const context: Record<string, unknown> = {
-    symbol: input.symbol,
-    reason: input.riskCheck.reason,
-    decision_id: input.decisionId,
-    edge_gate_evaluated: edgeGateEvaluated,
-    min_edge_after_costs_bps: input.minEdgeAfterCostsBps,
-    edge_source: edgeSource,
-    edge_status: edgeStatus,
-    fee_telemetry_status: input.feeTelemetryStatus,
-    ...(edgeStatus === 'unavailable' ? { edge_status_reason: input.riskCheck.reason } : {}),
-  };
-  // Only serialize numeric evidence that RiskManager actually produced. In
-  // particular, unavailable edge/cost inputs are represented by status/reason,
-  // not null placeholders that could be mistaken for measured values.
-  if (rawEdgeAvailable) context.raw_edge_bps = input.riskCheck.rawEdgeBps;
-  if (Number.isFinite(input.riskCheck.estimatedCostBps)) context.estimated_cost_bps = input.riskCheck.estimatedCostBps;
-  if (Number.isFinite(input.riskCheck.estimatedCosts)) context.estimated_cost_usd = input.riskCheck.estimatedCosts;
-  if (edgeAfterCostsAvailable) context.edgeAfterCosts = input.riskCheck.edgeAfterCosts;
-  return context;
-}
 
 // Curated crypto universe — major liquid coins on Alpaca
 const CRYPTO_UNIVERSE = [
@@ -133,9 +50,7 @@ const CRYPTO_FALLBACK_CONFIG = {
   takeProfitATRMultiplier: 3.0,
   targetVolatilityPct: 3.0,    // higher target vol for crypto
   maxOrderRatePerMin: 5,
-  maxEntriesPerCycle: 1,       // conservative while net-edge calibration is pending
-  maxDiscretionaryExitsPerCycle: 2,
-  minEdgeAfterCosts: 8,        // telemetry/config gate; no confidence-to-edge conversion
+  minEdgeAfterCosts: 8,        // higher bar — crypto has wider spreads
   useAiRefinement: true,
   llmModel: 'accounts/fireworks/models/glm-5p2',
   llmTemperature: 0.3,
@@ -143,42 +58,16 @@ const CRYPTO_FALLBACK_CONFIG = {
   eodFlatten: false,           // crypto never closes
   minHoldMinutes: 30,          // 30 min min hold (2 cycles)
   reentryCooldownMinutes: 60,  // 1 hour cooldown after selling
-  maxTradesPerCycle: 2,        // max 2 trades per 30-min cycle
+  maxTradesPerCycle: 2,        // max 2 trades per 15-min cycle
   maxCapitalUsd: 2000,         // ~13,000 DKK cap for crypto
 };
 
-export async function runCryptoCycle(env: Env, trigger: string): Promise<void> {
-  const leaseStart = Date.now();
-  const owner = `crypto:${trigger}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  const leaseDb = new Database(env.DB);
-  const leaseKey = 'crypto';
-  if (!await leaseDb.acquireCycleLease(owner, undefined, leaseKey)) {
-    const skips = new SkipReasonCollector();
-    skips.add('CYCLE_LEASE_HELD', 'cycle', 'Skipped because another crypto cycle holds the crypto lease', { strategy: 'crypto', trigger });
-    console.log(`Skipping ${trigger}: another crypto cycle holds the crypto lease`);
-    try {
-      await leaseDb.logRun({ trigger, market_open: 1, duration_ms: Date.now() - leaseStart, decisions_made: 0, trades_executed: 0, errors: 0, error_details: serializeRunDetails([], skips), status: 'skipped' });
-    } catch (logErr) {
-      console.error('Failed to log crypto CYCLE_LEASE_HELD skip:', logErr);
-    }
-    return;
-  }
-  try {
-    await runCryptoCycleInner(env, trigger, owner);
-  } finally {
-    await leaseDb.releaseCycleLease(owner, leaseKey);
-  }
-}
-
-async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Promise<void> {
+export async function runCryptoCycle(env: Env, _trigger: string): Promise<void> {
   const startTime = Date.now();
   const db = new Database(env.DB);
   const errors: string[] = [];
-  const skips = new SkipReasonCollector();
   let decisionsMade = 0;
   let tradesExecuted = 0;
-  let analyzedCandidates = 0;
-  let filteredCandidates = 0;
 
   try {
     const alpaca = new AlpacaClient({
@@ -187,25 +76,28 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
       baseUrl: env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets',
     });
 
-    // Scheduled maintenance owns broker ledger/order reconciliation. Keeping
-    // this strategy read path out of the crypto invocation avoids duplicating
-    // paginated broker work and preserves the maintenance lease boundary.
-    skips.add('RECONCILIATION_DEFERRED_TO_MAINTENANCE', 'reconciliation', 'Crypto skipped duplicated broker ledger/order reconciliation; scheduled maintenance remains the authoritative read-only reconciliation path', {
-      strategy: 'crypto',
-      maintenanceTrigger: 'reconcile_cron',
-      maintenanceSchedule: '*/10 * * * *',
-    });
-
     // Load crypto config from D1 (crypto_ prefixed keys)
     const dbConfig = await db.getConfig();
-    const config = resolveCryptoConfig(dbConfig, CRYPTO_FALLBACK_CONFIG);
+    const config = { ...CRYPTO_FALLBACK_CONFIG };
+    for (const [key, value] of Object.entries(dbConfig)) {
+      if (key.startsWith('crypto_')) {
+        const cleanKey = key.replace('crypto_', '');
+        const numVal = parseFloat(value);
+        if (!isNaN(numVal) && cleanKey in config) {
+          (config as any)[cleanKey] = numVal;
+        } else if (value === 'true' && cleanKey in config) {
+          (config as any)[cleanKey] = true;
+        } else if (value === 'false' && cleanKey in config) {
+          (config as any)[cleanKey] = false;
+        }
+      }
+    }
 
-    // No market hours check — crypto trades 24/7.
+    // No market hours check — crypto trades 24/7
 
-    // Get account and crypto positions
+    // Get account and positions
     const account = await alpaca.getAccount();
     const positions = await alpaca.getPositions();
-    const allDbPositions = await db.getOpenPositions();
 
     // Only filter crypto positions (symbols ending in USD that aren't stock symbols)
     // Alpaca returns crypto positions with same format as stock positions
@@ -226,23 +118,6 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
       console.error('Crypto sentiment failed (non-fatal):', e);
     }
 
-    // Restore the durable rolling equity window before appending this cycle's
-    // snapshot. RiskManager instances are recreated on every Worker run.
-    const recentEquityHistory = await db.getRecentEquityHistory();
-    const equityDirection = resolveEquityDirection(account);
-    const accountForRisk = accountWithEquityDirection(account);
-    if (equityDirection.fallbackUsed) {
-      skips.add('EQUITY_DIRECTION_FALLBACK', 'account', 'Broker daily change was zero or unavailable; equity delta is exposed for observability without weakening risk controls', {
-        strategy: 'crypto',
-        source: equityDirection.source,
-        change_today_pct: account.change_today_pct,
-        equity: account.equity,
-        last_equity: account.last_equity,
-        fallback_change_today_pct: equityDirection.changeTodayPct,
-        reason: equityDirection.reason,
-      });
-    }
-
     // Log snapshot
     await db.logSnapshot({
       account_id: account.id,
@@ -252,221 +127,104 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
       portfolio_value: account.portfolio_value,
       long_market_value: account.long_market_value,
       short_market_value: account.short_market_value,
-      // Shared account snapshot: crypto filtering remains for strategy
-      // logic, but the account count includes every broker position.
       positions_count: positions.length,
-      daily_pl: accountForRisk.change_today,
-      daily_plpc: accountForRisk.change_today_pct,
+      daily_pl: account.change_today,
+      daily_plpc: account.change_today_pct,
       total_pl: account.equity - account.last_equity,
       total_plpc: account.last_equity > 0 ? ((account.equity - account.last_equity) / account.last_equity) * 100 : 0,
     });
 
-    // Log per-category market value & P&L from broker-authoritative
-    // positions (non-fatal — must not block the crypto cycle itself). The
-    // summaries feed the entry risk guard below.
-    let categorySummaries: ReturnType<typeof summarizeByCategory> = [];
-    try {
-      const categoryProjections = projectBrokerPositions(positions, allDbPositions);
-      categorySummaries = summarizeByCategory(categoryProjections);
-      await db.logCategorySnapshots(categorySummaries);
-    } catch (e) {
-      console.error('Category snapshot logging failed:', e);
-    }
-
-    // Crypto formal disable (Joachim decision Sep 8, 2026): crypto stays off
-    // until fee telemetry is fresh AND a backtested edge exists. Fail closed —
-    // only the explicit config value 'true' re-enables it. With no open crypto
-    // positions the cycle ends here with an auditable skip instead of the
-    // opaque CRYPTO_BARS_STALE skips; with open positions it continues in
-    // exits-only mode so held exposure can still be reduced.
-    const cryptoEnabled = cryptoTradingEnabled(dbConfig);
-    if (!cryptoEnabled) {
-      skips.add('CRYPTO_DISABLED_BY_CONFIG', 'cycle', 'Crypto trading is disabled by configuration pending fee-telemetry freshness and a backtested edge (Joachim decision Sep 8, 2026); exits for held positions remain eligible', {
-        strategy: 'crypto',
-        openCryptoPositions: cryptoPositions.length,
-      });
-      if (cryptoPositions.length === 0) {
-        console.log('Crypto disabled by config and no open crypto positions; skipping cycle');
-        await db.logRun({
-          trigger,
-          market_open: 1,
-          duration_ms: Date.now() - startTime,
-          decisions_made: 0,
-          trades_executed: 0,
-          errors: 0,
-          error_details: serializeRunDetails(errors, skips),
-          status: 'skipped',
-        });
-        return;
-      }
-      console.warn('Crypto disabled by config but open crypto positions exist; running exits-only');
-    }
-
-    // Entry risk guards (Joachim-approved Sep 8, 2026): crypto daily loss
-    // limit in USD plus the absolute account equity floor, and the formal
-    // disable above blocks entries entirely. Fail closed on evaluation.
-    let cryptoEntryGuard: EntryGuardEvaluation;
-    try {
-      const guardConfig = resolveRiskGuardConfig(dbConfig);
-      const realizedToday = await db.getRealizedPlToday();
-      const intraday = categorySummaries.find(s => s.strategy === 'crypto')?.unrealizedIntradayPl ?? 0;
-      cryptoEntryGuard = evaluateEntryGuards({
-        strategy: 'crypto',
-        equityUsd: account.equity,
-        strategyDailyPlUsd: strategyDailyPlUsd(realizedToday['crypto'] ?? 0, intraday),
-        config: guardConfig,
-      });
-    } catch (e) {
-      cryptoEntryGuard = riskGuardUnavailable('crypto', e instanceof Error ? e.message : String(e));
-    }
-    if (!cryptoEnabled) {
-      cryptoEntryGuard = {
-        blocked: true,
-        code: 'CRYPTO_DISABLED_BY_CONFIG',
-        reason: 'Crypto trading is disabled by configuration pending fee-telemetry freshness and a backtested edge',
-        context: { strategy: 'crypto', openCryptoPositions: cryptoPositions.length },
-      };
-    }
-    if (cryptoEntryGuard.blocked && cryptoEntryGuard.code !== 'CRYPTO_DISABLED_BY_CONFIG') {
-      skips.add(cryptoEntryGuard.code ?? 'RISK_GUARD_UNAVAILABLE', 'cycle', `${cryptoEntryGuard.reason} Risk-reducing exits remain eligible`, {
-        strategy: 'crypto',
-        ...cryptoEntryGuard.context,
-      });
-      console.warn(`Crypto entry guard: ${cryptoEntryGuard.reason}`);
-    }
-
     // Initialize risk manager with crypto-specific config
-    // D1 read-budget optimization: use cached fee summary (refreshed by
-    // maintenance every 10 min) instead of running a full-table scan on
-    // every crypto cycle (48x/day). Fall back to live computation if cache
-    // is empty (cold start) so fail-closed semantics are preserved.
-    let feeSummary: Awaited<ReturnType<Database['getBrokerFeeSummary']>> | null = null;
-    try {
-      feeSummary = await db.getCachedBrokerFeeSummary();
-      if (!feeSummary) {
-        feeSummary = await db.getBrokerFeeSummary();
-      }
-    } catch (error) {
-      errors.push(`Broker fee summary failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-    // Crypto fee telemetry is routed through the canonical aggregate gate. It
-    // fails closed when the maintenance-fed summary is unavailable or stale:
-    // an asOf older than maxAgeMs (60s), or a missing asOf, returns unavailable,
-    // and a sub-threshold sample count returns insufficient. An unproven rate
-    // is never treated as safe for new-entry cost estimation.
-    const feeTelemetry: FeeTelemetry = !feeSummary
-      ? { status: 'unavailable', reason: 'broker fee summary unavailable' }
-      : feeTelemetryFromAggregate({
-          feeUsd: feeSummary.cryptoUsdRecent,
-          notionalUsd: feeSummary.cryptoTradedNotionalUsd,
-          sampleCount: feeSummary.cryptoFeeSampleCount,
-          minSamples: 3,
-          asOf: feeSummary.cryptoFeeAsOf ?? null,
-          maxAgeMs: 60_000,
-          nowMs: Date.now(),
-        });
     const riskConfig: RiskConfig = {
       maxPositions: config.maxPositions,
       maxPositionPct: config.maxPositionPct,
-      stopLossATRMultiplier: config.stopLossATRMultiplier ?? 2.0,
-      takeProfitATRMultiplier: config.takeProfitATRMultiplier ?? 3.0,
+      stopLossATRMultiplier: config.stopLossATRMultiplier || 2.0,
+      takeProfitATRMultiplier: config.takeProfitATRMultiplier || 3.0,
       trailingStopPct: config.trailingStopPct,
       dailyLossLimitPct: config.dailyLossLimitPct,
-      rollingDrawdownLimitPct: config.rollingDrawdownLimitPct ?? 20,
+      rollingDrawdownLimitPct: config.rollingDrawdownLimitPct || 20,
       minConfidence: config.minConfidence,
       enableMargin: config.enableMargin,
       eodFlatten: config.eodFlatten,
-      targetVolatilityPct: config.targetVolatilityPct ?? 3.0,
-      maxOrderRatePerMin: config.maxOrderRatePerMin ?? 5,
-      minEdgeAfterCosts: config.minEdgeAfterCosts ?? 8,
-      observedFeeBps: feeTelemetry.status === 'available' ? feeTelemetry.rateBps : undefined,
-      feeTelemetryStatus: feeTelemetry.status,
-      requireFeeTelemetry: true,
-      requireCalibratedEdge: true,
-      maxCapitalUsd: config.maxCapitalUsd ?? 0,
+      targetVolatilityPct: config.targetVolatilityPct || 3.0,
+      maxOrderRatePerMin: config.maxOrderRatePerMin || 5,
+      minEdgeAfterCosts: config.minEdgeAfterCosts || 8,
+      maxCapitalUsd: config.maxCapitalUsd || 0,
     };
-    const riskManager = new RiskManager(riskConfig, recentEquityHistory);
-    riskManager.updateEquitySnapshot(accountForRisk.equity);
+    const riskManager = new RiskManager(riskConfig);
+    riskManager.updateEquitySnapshot(account.equity);
 
-    // Protective exits are evaluated before discretionary risk halts. A halt
-    // blocks new exposure, but must never leave an existing loss unmanaged.
-    const dbCryptoPositions = allDbPositions.filter(position => position.strategy === 'crypto');
-    const dbCryptoPositionMap = new Map(dbCryptoPositions.map(position => [position.ticker, position]));
-    const recentCryptoTrades = await db.getRecentTradesByStrategy('crypto', 200);
+    if (riskManager.isTradingHalted()) {
+      console.error(`Crypto: trading halted — ${riskManager.isTradingHalted()}`);
+      await db.logRun({
+        trigger: 'crypto_cron',
+        market_open: 1, // crypto always "open"
+        duration_ms: Date.now() - startTime,
+        decisions_made: 0,
+        trades_executed: 0,
+        errors: 0,
+        error_details: null,
+        status: 'error',
+      });
+      return;
+    }
+
+    // Check stop losses on existing crypto positions
     for (const pos of cryptoPositions) {
-      const protectiveExit = evaluateCryptoProtectiveExit(
-        pos,
-        dbCryptoPositionMap.get(pos.symbol),
-        config.stopLossPct,
-        config.trailingStopPct,
-      );
-      if (!protectiveExit) continue;
-      if (hasPendingCryptoExit(pos.symbol, recentCryptoTrades)) {
-        console.log(`Crypto ${protectiveExit.kind.toUpperCase()} ${pos.symbol}: existing protective exit remains pending broker confirmation`);
-        continue;
-      }
+      const stopLoss = -config.stopLossPct / 100;
+      const trailingStop = -config.trailingStopPct / 100;
 
-      try {
-        const order = await alpaca.closePosition(pos.symbol);
-        await db.logOrderTrade(order, { strategy: 'crypto' });
-        if (shouldFinalizeCryptoPosition(order)) {
-          await db.closePosition(pos.symbol, null, `crypto_${protectiveExit.kind}`);
+      if (pos.unrealized_pl < 0 && pos.unrealized_plpc <= stopLoss) {
+        try {
+          await alpaca.closePosition(pos.symbol);
+          await db.closePosition(pos.symbol, pos.unrealized_pl, 'crypto_stop_loss');
           await db.logDecision({
             ticker: pos.symbol,
             action: 'CLOSE',
             confidence: 1.0,
             signal_source: 'crypto',
-            reason: protectiveExit.reason,
+            reason: `Stop loss: ${(pos.unrealized_plpc * 100).toFixed(1)}% loss`,
             ta_data: '{}',
             ai_reasoning: '{}',
             price_at_decision: pos.current_price,
             executed: 1,
-            execution_reason: `crypto_${protectiveExit.kind}`,
+            execution_reason: 'crypto_stop_loss',
           });
           tradesExecuted++;
-        } else {
-          errors.push(`Crypto ${protectiveExit.kind} exit not fully filled ${pos.symbol}: ${order.status}`);
+          console.log(`Crypto STOP LOSS ${pos.symbol}: ${(pos.unrealized_plpc * 100).toFixed(1)}%`);
+        } catch (e) {
+          errors.push(`Crypto stop loss failed ${pos.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
         }
-        console.log(`Crypto ${protectiveExit.kind.toUpperCase()} ${pos.symbol}: ${protectiveExit.reason}`);
-      } catch (e) {
-        errors.push(`Crypto ${protectiveExit.kind} failed ${pos.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
+        continue;
+      }
+
+      if (pos.unrealized_pl > 0 && pos.unrealized_plpc <= trailingStop) {
+        try {
+          await alpaca.closePosition(pos.symbol);
+          await db.closePosition(pos.symbol, pos.unrealized_pl, 'crypto_trailing_stop');
+          await db.logDecision({
+            ticker: pos.symbol,
+            action: 'CLOSE',
+            confidence: 0.8,
+            signal_source: 'crypto',
+            reason: `Trailing stop: giving back ${(pos.unrealized_plpc * 100).toFixed(1)}%`,
+            ta_data: '{}',
+            ai_reasoning: '{}',
+            price_at_decision: pos.current_price,
+            executed: 1,
+            execution_reason: 'crypto_trailing_stop',
+          });
+          tradesExecuted++;
+          console.log(`Crypto TRAILING STOP ${pos.symbol}: ${(pos.unrealized_plpc * 100).toFixed(1)}%`);
+        } catch (e) {
+          errors.push(`Crypto trailing stop failed ${pos.symbol}: ${e instanceof Error ? e.message : 'unknown'}`);
+        }
       }
     }
 
-    const riskHaltReason = riskManager.isTradingHalted() ? riskManager.getKillState().reason : null;
-    if (riskHaltReason) {
-      skips.add('RISK_HALTED', 'cycle', 'Crypto discretionary trading is halted by risk controls after protective exits were processed', { reason: riskHaltReason });
-      console.error(`Crypto: discretionary trading halted — ${riskHaltReason}`);
-      await db.logRun({
-        trigger,
-        market_open: 1,
-        duration_ms: Date.now() - startTime,
-        decisions_made: 0,
-        trades_executed: tradesExecuted,
-        errors: errors.length,
-        error_details: serializeRunDetails(errors, skips),
-        status: runStatus(errors, skips, false, tradesExecuted),
-        analyzed_candidates: analyzedCandidates,
-        filtered_candidates: filteredCandidates,
-      });
-      return;
-    }
-
-    // Refresh positions after stops. Broker state is authoritative; the cycle
-    // projection below additionally reserves submitted entries conservatively.
+    // Refresh positions after stops
     const updatedPositions = await alpaca.getPositions();
     const updatedCryptoPositions = updatedPositions.filter(p => CRYPTO_UNIVERSE.includes(p.symbol));
-    let persistedReservations: Awaited<ReturnType<Database['getCryptoEntryReservations']>>;
-    let reservationExposureAvailable = true;
-    try {
-      persistedReservations = await db.getCryptoEntryReservations();
-    } catch (error) {
-      reservationExposureAvailable = false;
-      errors.push(`Crypto reservation exposure unavailable: ${error instanceof Error ? error.message : String(error)}`);
-      persistedReservations = [];
-    }
-    const exposure = createCycleExposure(updatedCryptoPositions, persistedReservations);
-    const persistedReservationKeys = new Set(persistedReservations.map(reservation => reservation.reservationKey));
 
     // Scan crypto universe — get 15-min bars and compute TA
     const symbolsToScan = CRYPTO_UNIVERSE.slice(0, config.scanUniverseSize);
@@ -475,17 +233,8 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
     const taPromises = symbolsToScan.map(async symbol => {
       try {
         const bars = await alpaca.getCryptoBars(symbol, '15Min', 200);
-        const assessment = assessIntradayBars(bars, CRYPTO_BAR_INTERVAL_SECONDS, new Date(), CRYPTO_MAX_BAR_STALE_INTERVALS);
-        if (assessment.quality !== 'ok') {
-          const code = assessment.quality === 'future' ? 'CRYPTO_BARS_FUTURE' : assessment.quality === 'stale' ? 'CRYPTO_BARS_STALE' : 'CRYPTO_BARS_UNAVAILABLE';
-          skips.add(code, 'data', 'Crypto signal skipped because the latest bar timestamp failed freshness validation', { strategy: 'crypto', symbol, quality: assessment.quality, latestBarAt: assessment.latestBarAt, futureBarAt: assessment.futureBarAt, ageSeconds: assessment.ageSeconds, maxStaleSeconds: assessment.maxStaleSeconds, received: assessment.received, valid: assessment.valid });
-          return null;
-        }
-        if (assessment.bars.length < 50) {
-          skips.add('CRYPTO_BARS_SHORT', 'data', 'Crypto signal skipped because the validated bar history is too short', { strategy: 'crypto', symbol, bars: assessment.bars.length, required: 50, latestBarAt: assessment.latestBarAt });
-          return null;
-        }
-        const indicators = analyze(assessment.bars, symbol, {
+        if (bars.length < 50) return null;
+        const indicators = analyze(bars, symbol, {
           rsiPeriod: 14, rsiOversold: 30, rsiOverbought: 70,
           emaFast: 9, emaSlow: 21,
           macdFast: 12, macdSlow: 26, macdSignal: 9,
@@ -501,23 +250,19 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
 
     const taResults = await Promise.all(taPromises);
     const validTA = taResults.filter((r): r is NonNullable<typeof r> => r !== null);
-    analyzedCandidates = validTA.length;
     console.log(`Crypto: ${validTA.length} coins with valid TA`);
 
     if (validTA.length < 3) {
-      skips.add('CRYPTO_DATA_INSUFFICIENT', 'cycle', 'Crypto decision cycle skipped because too few coins had valid technical analysis', { validTA: validTA.length, required: 3 });
-
+      errors.push(`Too few crypto coins with valid TA: ${validTA.length}`);
       await db.logRun({
-        trigger,
+        trigger: 'crypto_cron',
         market_open: 1,
         duration_ms: Date.now() - startTime,
         decisions_made: 0,
         trades_executed: 0,
         errors: errors.length,
-        error_details: serializeRunDetails(errors, skips),
-        status: runStatus(errors, skips, false, tradesExecuted),
-        analyzed_candidates: validTA.length,
-        filtered_candidates: 0,
+        error_details: JSON.stringify(errors),
+        status: 'error',
       });
       return;
     }
@@ -534,29 +279,18 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
     const actionable = signals.filter(s => s.signal.action !== 'HOLD' || s.signal.confidence > 0.7);
     const heldCryptoSymbols = new Set(updatedCryptoPositions.map(p => p.symbol));
     const heldSignals = signals.filter(s => heldCryptoSymbols.has(s.symbol));
-    const signalsToProcess = rankCryptoCandidates(
-      [...new Map([...actionable, ...heldSignals].map(candidate => [candidate.symbol, candidate])).values()]
-        .map(candidate => ({
-          ...candidate,
-          feeTelemetryStatus: feeTelemetry.status,
-          // Preserve only an explicitly calibrated signal edge. The TA engine
-          // does not infer expected return from confidence, so missing edge
-          // remains fail-closed at RiskManager.
-          rawEdgeBps: candidate.signal.rawEdgeBps,
-        }))
-    );
+    const signalsToProcess = [...new Set([...actionable, ...heldSignals])];
 
-    filteredCandidates = signalsToProcess.length;
     console.log(`Crypto: ${signals.length} analyzed, ${signalsToProcess.length} to process`);
 
     // Anti-churn: recently sold symbols
-    const cooldownMin = config.reentryCooldownMinutes ?? 60;
+    const cooldownMin = config.reentryCooldownMinutes || 60;
     const recentlySold = await db.getRecentlyClosedSymbols(cooldownMin);
 
     // Min hold time check
     const dbPositions = await db.getOpenPositions();
     const dbPosMap = new Map(dbPositions.map(p => [p.ticker, p]));
-    const minHoldMin = config.minHoldMinutes ?? 30;
+    const minHoldMin = config.minHoldMinutes || 30;
     const nowMs = Date.now();
     const isWithinMinHold = (symbol: string): boolean => {
       const dbPos = dbPosMap.get(symbol);
@@ -566,28 +300,12 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
     };
 
     let cycleTradeCount = 0;
-    const maxEntriesPerCycle = config.maxEntriesPerCycle ?? 1;
-    const maxDiscretionaryExitsPerCycle = config.maxDiscretionaryExitsPerCycle ?? config.maxTradesPerCycle ?? 2;
-    let entryCount = 0;
-    let discretionaryExitCount = 0;
-    const maxTradesPerCycle = config.maxTradesPerCycle ?? 2;
-    // Process signals in deterministic ranked order. No uncalibrated edge is
-    // invented from confidence; ranking falls back to fee status, confidence,
-    // and symbol order.
+    const maxTradesPerCycle = config.maxTradesPerCycle || 2;
+
     // Process signals
     for (const { symbol, indicators, signal } of signalsToProcess) {
-      // Preserve only an explicitly calibrated edge from the TA signal. The
-      // crypto gate never derives basis points from confidence.
-      const taDecision: AIDecision = {
-        action: signal.action,
-        confidence: signal.confidence,
-        reasoning: signal.reasons.join('; '),
-        factors: signal.reasons,
-        adjustedFromTA: false,
-        taSignal: signal,
-      };
       // AI refinement
-        let decision: AIDecision = prepareCryptoRiskDecision(taDecision);
+        let decision: any = signal;
         if (config.useAiRefinement && signal.action !== 'HOLD' && signal.confidence > 0.5 && env.LLM_API_KEY) {
           try {
             const refined = await refineWithLLM(signal, {
@@ -595,7 +313,7 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
                 equity: account.equity,
                 cash: account.cash,
                 positionsCount: cryptoPositions.length,
-                dailyPlPct: accountForRisk.change_today_pct,
+                dailyPlPct: account.change_today_pct || 0,
               },
               marketRegime: 'crypto',
               topMovers: { gainers: [], losers: [] },
@@ -606,8 +324,9 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
               model: config.llmModel,
               temperature: config.llmTemperature,
               minConfidence: config.minConfidence,
+              marketRegime: 'crypto',
             });
-            if (refined) decision = prepareCryptoRiskDecision(refined);
+            if (refined) decision = { ...signal, ...refined, reason: refined.reasoning };
           } catch (e) {
             console.error(`Crypto AI refinement failed for ${symbol}:`, e);
           }
@@ -619,9 +338,9 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
         action: decision.action,
         confidence: decision.confidence,
         signal_source: env.LLM_API_KEY ? 'crypto+ai' : 'crypto',
-        reason: decision.reasoning || (signal.reasons ? signal.reasons.join('; ') : ''),
+        reason: decision.reason || decision.reasoning || (signal.reasons ? signal.reasons.join('; ') : ''),
         ta_data: JSON.stringify(indicators),
-        ai_reasoning: decision.reasoning || (decision.factors ? decision.factors.join('; ') : ''),
+        ai_reasoning: decision.factors ? JSON.stringify({ factors: decision.factors, adjusted: decision.adjustedFromTA }) : '',
         price_at_decision: indicators.price,
         executed: 0,
         execution_reason: '',
@@ -629,32 +348,11 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
 
       if (decision.action === 'HOLD') {
         await db.updateDecisionStatus(decisionId, 2, 'HOLD');
-        skips.add('DECISION_HOLD', 'decision', 'Crypto decision was HOLD; no order was needed', { symbol });
         continue;
       }
 
       if (cycleTradeCount >= maxTradesPerCycle) {
-        await db.updateDecisionStatus(decisionId, 2, `Max crypto trades per cycle reached (${maxTradesPerCycle})`);
-        skips.add('MAX_TRADES_PER_CYCLE', 'decision', 'Crypto decision skipped because the total per-cycle trade limit was reached', { symbol, limit: maxTradesPerCycle });
-        continue;
-      }
-
-      // Protective exits ran before this loop and never consume either
-      // discretionary budget. Entries and discretionary exits have separate
-      // limits so one class cannot starve the other.
-      const budget = cryptoBudgetDecision({
-        action: decision.action,
-        entryCount,
-        maxEntriesPerCycle,
-        discretionaryExitCount,
-        maxDiscretionaryExitsPerCycle,
-        totalTradeCount: cycleTradeCount,
-        maxTradesPerCycle,
-      });
-      if (!budget.allowed) {
-        const limit = decision.action === 'BUY' ? maxEntriesPerCycle : maxDiscretionaryExitsPerCycle;
-        await db.updateDecisionStatus(decisionId, 2, `${budget.reasonCode} (${limit})`);
-        skips.add(budget.reasonCode ?? 'BUDGET_LIMIT', 'decision', 'Crypto decision skipped because its independent cycle budget was reached', { symbol, limit });
+        await db.updateDecisionStatus(decisionId, 2, `Max trades per cycle (${maxTradesPerCycle})`);
         continue;
       }
 
@@ -664,135 +362,37 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
         if (existingPos) {
           if (isWithinMinHold(symbol)) {
             await db.updateDecisionStatus(decisionId, 2, `Min hold time not reached (${minHoldMin}min)`);
-            skips.add('MIN_HOLD_TIME', 'decision', 'Crypto exit skipped because the position has not reached its minimum hold time', { symbol, minutes: minHoldMin });
-            continue;
-          }
-          const exitCostCheck = riskManager.checkExitCost(existingPos, indicators);
-          if (!exitCostCheck.approved) {
-            await db.updateDecisionStatus(decisionId, 2, exitCostCheck.reason);
-            skips.add('EXIT_COST_GATE', 'decision', 'Crypto discretionary exit skipped because estimated exit costs consumed the gross edge', { symbol, reason: exitCostCheck.reason });
             continue;
           }
           try {
-            const order = await alpaca.closePosition(symbol);
-            await db.logOrderTrade(order, { decisionId, strategy: 'crypto' });
-            if (shouldFinalizeCryptoPosition(order)) {
-              await db.closePosition(symbol, null, 'crypto_signal');
-              await db.updateDecisionStatus(decisionId, 1, 'Position closed');
-              tradesExecuted++;
-              cycleTradeCount++;
-              discretionaryExitCount++;
-            } else {
-              await db.updateDecisionStatus(decisionId, 0, `Exit order pending: ${order.status}`);
-            }
+            await alpaca.closePosition(symbol);
+            await db.closePosition(symbol, existingPos.unrealized_pl, 'crypto_signal');
+            await db.updateDecisionStatus(decisionId, 1, 'Position closed');
+            tradesExecuted++;
+            cycleTradeCount++;
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : 'unknown';
             await db.updateDecisionStatus(decisionId, 3, `Close failed: ${errMsg}`);
             errors.push(`Crypto close failed ${symbol}: ${errMsg}`);
           }
-        } else {
-          await db.updateDecisionStatus(decisionId, 0, 'No existing position to sell — skipped');
-          skips.add('NO_POSITION_TO_EXIT', 'decision', 'Crypto exit skipped because no existing position was found', { symbol });
         }
         continue;
       }
 
       // BUY: risk check then execute
       if (decision.action === 'BUY') {
-        if (cryptoEntryGuard.blocked) {
-          await db.updateDecisionStatus(decisionId, 2, `Crypto BUY skipped: ${cryptoEntryGuard.reason}`);
-          skips.add(cryptoEntryGuard.code ?? 'RISK_GUARD_UNAVAILABLE', 'decision', 'New crypto entries blocked by the entry risk guard; exits remain eligible', {
-            strategy: 'crypto',
-            symbol,
-            ...cryptoEntryGuard.context,
-          });
-          console.log(`Skip crypto BUY ${symbol}: entry guard active (${cryptoEntryGuard.code})`);
-          continue;
-        }
         if (recentlySold.has(symbol)) {
           await db.updateDecisionStatus(decisionId, 2, `Re-entry cooldown (${cooldownMin}min)`);
-          skips.add('REENTRY_COOLDOWN', 'decision', 'Crypto entry skipped because the symbol was recently sold', { symbol, minutes: cooldownMin });
           continue;
         }
 
-        const projected = projectedPositions(exposure);
-        if (!reservationExposureAvailable) {
-          await db.updateDecisionStatus(decisionId, 2, 'Crypto reservation exposure unavailable');
-          skips.add('ORDER_RATE_STATE_UNAVAILABLE', 'decision', 'Crypto entry skipped because cross-cycle reservation exposure could not be verified', { symbol, decisionId });
-          continue;
-        }
-        const reservedNotionalUsd = exposure.reservedNotionalUsd;
-        const riskCheck = checkCryptoEntryRisk(
-          riskManager,
-          decision,
-          accountForRisk,
-          projected,
-          indicators,
-          reservedNotionalUsd,
-        );
+        const riskCheck = riskManager.checkTrade(decision, account, updatedCryptoPositions, indicators);
         if (!riskCheck.approved) {
-          const skipCode = classifyCryptoSkip(riskCheck.reason);
-          const skipContext = cryptoRiskSkipContext({
-            symbol,
-            decisionId,
-            skipCode,
-            riskCheck,
-            minEdgeAfterCostsBps: config.minEdgeAfterCosts,
-            feeTelemetryStatus: feeTelemetry.status,
-          });
-          await db.updateDecisionStatus(decisionId, 2, serializeDecisionSkip(riskCheck.reason, skipContext));
-          skips.add(skipCode, 'decision', 'Crypto entry skipped by risk controls', skipContext);
+          await db.updateDecisionStatus(decisionId, 2, riskCheck.reason);
           continue;
         }
 
         if (riskCheck.adjustedQty) {
-          const estimatedNotionalUsd = riskCheck.adjustedQty * indicators.price;
-          const minimumOrderCheck = cryptoMinimumOrderCheck(estimatedNotionalUsd);
-          if (!minimumOrderCheck.allowed) {
-            await db.updateDecisionStatus(decisionId, 2, minimumOrderCheck.reason ?? 'Crypto order below broker minimum notional');
-            skips.add('MIN_ORDER_NOTIONAL', 'decision', 'Crypto entry skipped because the estimated order notional is below the broker minimum', {
-              symbol,
-              notionalUsd: estimatedNotionalUsd,
-              decisionId,
-            });
-            continue;
-          }
-
-          const reservationKey = cryptoClientOrderId(decisionId, symbol);
-          const existingTrade = await db.findNonTerminalTradeByClientOrderId(reservationKey);
-          if (existingTrade) {
-            await db.updateDecisionStatus(decisionId, 2, `Duplicate crypto BUY skipped: order already exists (status ${existingTrade.status}, filled ${existingTrade.filledQty})`);
-            skips.add('DUPLICATE_ORDER_PREVENTED', 'decision', 'Crypto BUY skipped because a matching non-terminal or filled trade already exists for the deterministic client order ID', {
-              symbol,
-              decisionId,
-              tradeId: existingTrade.tradeId,
-              status: existingTrade.status,
-              side: existingTrade.side,
-              ticker: existingTrade.ticker,
-              filledQty: existingTrade.filledQty,
-              leavesQty: existingTrade.leavesQty,
-              alpacaOrderId: existingTrade.alpacaOrderId,
-              clientOrderId: existingTrade.clientOrderId,
-              matchedStrategy: existingTrade.strategy,
-            });
-            continue;
-          }
-          const reservation = await db.reserveCryptoEntry({
-            reservationKey,
-            owner,
-            symbol,
-            notionalUsd: estimatedNotionalUsd,
-            maxOrdersPerWindow: config.maxOrderRatePerMin,
-            windowMs: 60_000,
-            ttlMs: 120_000,
-          });
-          if (!reservation.reserved) {
-            await db.updateDecisionStatus(decisionId, 2, reservation.reason ?? 'Persistent crypto entry reservation unavailable');
-            skips.add(reservation.reason?.includes('unavailable') ? 'ORDER_RATE_STATE_UNAVAILABLE' : 'ORDER_RATE_LIMIT', 'decision', 'Crypto entry skipped by persistent atomic reservation protection', { symbol, reason: reservation.reason ?? 'unknown' });
-            continue;
-          }
-
-          let brokerOrderAccepted = false;
           try {
             const order = await alpaca.submitOrder({
               symbol,
@@ -800,61 +400,45 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
               side: 'buy',
               type: 'market',
               time_in_force: 'gtc', // GTC for crypto (24/7 market)
-              client_order_id: cryptoClientOrderId(decisionId, symbol),
+              client_order_id: `crypto_${Date.now()}_${symbol}`,
             });
 
-            brokerOrderAccepted = true;
-            const outcome = classifyCryptoOrder(order);
-            const terminalRejected = outcome === 'rejected' || outcome === 'canceled' || outcome === 'expired';
-            const terminalPartialFill = terminalRejected && order.filled_qty > 0 && order.filled_qty < order.qty * 0.999;
-            const reservationNotional = cryptoReservationNotional(order, indicators.price);
-            if (reservationNotional > 0 && !persistedReservationKeys.has(reservationKey)) {
-              // Accepted/pending orders reserve the requested amount. A terminal
-              // order with a partial fill reserves only the broker-confirmed fill.
-              // Do not add the same persisted reservation a second time.
-              reserveEntry(exposure, symbol, reservationNotional);
-            }
-
-            await db.logOrderTrade(order, {
-              decisionId,
-              estimatedValue: estimatedNotionalUsd,
-              strategy: 'crypto',
-              intentStopLossPrice: riskCheck.stopLossPrice ?? null,
-              intentTakeProfitPrice: riskCheck.takeProfitPrice ?? null,
+            await db.logTrade({
+              alpaca_order_id: order.id,
+              ticker: symbol,
+              side: 'buy',
+              qty: riskCheck.adjustedQty,
+              fill_price: null,
+              avg_fill_price: null,
+              status: order.status,
+              order_type: 'market',
+              limit_price: null,
+              stop_price: riskCheck.stopLossPrice ?? null,
+              estimated_value: riskCheck.adjustedQty * indicators.price,
+              decision_id: decisionId,
+              error_message: null,
             });
-            await db.finalizeCryptoEntryReservation(reservationKey, owner, !terminalRejected || terminalPartialFill);
 
-            const accepted = !terminalRejected;
-            const fullyFilled = outcome === 'filled';
-            await db.updateDecisionStatus(decisionId, fullyFilled ? 1 : terminalRejected ? 2 : 0, fullyFilled
-              ? `Broker confirmed fill: ${order.filled_qty}/${order.qty} @ ${order.filled_avg_price ?? 'unknown'}`
-              : terminalRejected
-                ? `Order not accepted: ${order.status}`
-                : `Order submitted: ${riskCheck.adjustedQty} units; broker status ${order.status}`);
-            if (accepted) {
-              if (fullyFilled) tradesExecuted++;
-              cycleTradeCount++;
-              entryCount++;
-            }
+            await db.upsertPosition({
+              ticker: symbol,
+              side: 'long',
+              qty: riskCheck.adjustedQty,
+              avg_entry_price: indicators.price,
+              current_price: indicators.price,
+              market_value: riskCheck.adjustedQty * indicators.price,
+              unrealized_pl: 0,
+              unrealized_plpc: 0,
+              stop_loss_price: riskCheck.stopLossPrice ?? null,
+              take_profit_price: riskCheck.takeProfitPrice ?? null,
+            });
+
+            await db.updateDecisionStatus(decisionId, 1, `Order: ${riskCheck.adjustedQty} units`);
+            tradesExecuted++;
+            cycleTradeCount++;
             console.log(`Crypto BUY ${symbol}: ${riskCheck.adjustedQty} @ ~$${indicators.price.toFixed(2)}`);
           } catch (e) {
             const errMsg = e instanceof Error ? e.message : 'unknown';
             await db.updateDecisionStatus(decisionId, 3, `Buy failed: ${errMsg}`);
-            // A thrown submit has no returned broker order. Release only when
-            // the error conclusively proves the request was rejected before
-            // acceptance; unknown/network/timeout/408/409/429/5xx failures
-            // retain the reservation fail-closed because the broker may have
-            // accepted the order despite the missing response.
-            const ambiguousSubmit = classifyCryptoSubmitError(e) === 'ambiguous';
-            if (!brokerOrderAccepted && !ambiguousSubmit) {
-              await db.finalizeCryptoEntryReservation(reservationKey, owner, false).catch(finalizeError => {
-                errors.push(`Crypto reservation release failed ${symbol}: ${finalizeError instanceof Error ? finalizeError.message : String(finalizeError)}`);
-              });
-            } else {
-              await db.finalizeCryptoEntryReservation(reservationKey, owner, true).catch(finalizeError => {
-                errors.push(`Crypto reservation retention failed ${symbol}: ${finalizeError instanceof Error ? finalizeError.message : String(finalizeError)}`);
-              });
-            }
             errors.push(`Crypto buy failed ${symbol}: ${errMsg}`);
           }
         }
@@ -862,14 +446,11 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
     }
 
     // Sync positions
-    const finalPositions = (await alpaca.getPositions()).filter(p => CRYPTO_UNIVERSE.includes(p.symbol));
+    const finalPositions = await alpaca.getPositions();
     const syncDbPositions = await db.getOpenPositions();
-    const dbPositionMap = new Map(syncDbPositions.filter(p => p.strategy === 'crypto').map(p => [p.ticker, p]));
+    const dbPositionMap = new Map(syncDbPositions.map(p => [p.ticker, p]));
     for (const pos of finalPositions) {
       const existing = dbPositionMap.get(pos.symbol);
-      const protection = existing?.stop_loss_price != null && existing?.take_profit_price != null
-        ? null
-        : await db.getLatestCryptoEntryProtection(pos.symbol);
       await db.upsertPosition({
         ticker: pos.symbol,
         side: pos.side,
@@ -879,33 +460,20 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
         market_value: pos.market_value,
         unrealized_pl: pos.unrealized_pl,
         unrealized_plpc: pos.unrealized_plpc,
-        stop_loss_price: existing?.stop_loss_price ?? protection?.stop_loss_price ?? null,
-        take_profit_price: existing?.take_profit_price ?? protection?.take_profit_price ?? null,
-        strategy: 'crypto',
+        stop_loss_price: existing?.stop_loss_price ?? null,
+        take_profit_price: existing?.take_profit_price ?? null,
       });
     }
 
-    const pendingCryptoSymbols = new Set((await db.getTradesNeedingSync(200))
-      .filter(trade => trade.strategy === 'crypto')
-      .map(trade => String(trade.ticker)));
-    const finalBrokerSymbols = new Set(finalPositions.map(pos => pos.symbol));
-    for (const dbPos of syncDbPositions.filter(position => position.strategy === 'crypto')) {
-      if (!finalBrokerSymbols.has(dbPos.ticker) && !pendingCryptoSymbols.has(dbPos.ticker)) {
-        await db.closePosition(dbPos.ticker, null, 'broker_authoritative_sync_absent');
-      }
-    }
-
     await db.logRun({
-      trigger,
+      trigger: 'crypto_cron',
       market_open: 1,
       duration_ms: Date.now() - startTime,
       decisions_made: decisionsMade,
       trades_executed: tradesExecuted,
       errors: errors.length,
-      error_details: serializeRunDetails(errors, skips),
-      status: runStatus(errors, skips, false, tradesExecuted),
-      analyzed_candidates: analyzedCandidates,
-      filtered_candidates: filteredCandidates,
+      error_details: errors.length > 0 ? JSON.stringify(errors) : null,
+      status: errors.length > 5 ? 'error' : 'ok',
     });
 
     console.log(`Crypto cycle: ${decisionsMade} decisions, ${tradesExecuted} trades, ${errors.length} errors, ${Date.now() - startTime}ms`);
@@ -914,16 +482,14 @@ async function runCryptoCycleInner(env: Env, trigger: string, owner: string): Pr
     errors.push(`Fatal: ${errMsg}`);
     console.error('Crypto cycle failed:', error);
     await db.logRun({
-      trigger,
+      trigger: 'crypto_cron',
       market_open: 1,
       duration_ms: Date.now() - startTime,
       decisions_made: decisionsMade,
       trades_executed: tradesExecuted,
       errors: errors.length,
-      error_details: serializeRunDetails(errors, skips),
+      error_details: JSON.stringify(errors),
       status: 'error',
-      analyzed_candidates: analyzedCandidates,
-      filtered_candidates: filteredCandidates,
     });
   }
 }

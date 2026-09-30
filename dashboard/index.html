@@ -1,4 +1,3 @@
-<!-- canonical-release-version: 2.8.2 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -86,11 +85,6 @@
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
       padding: 20px; margin-bottom: 24px; overflow-x: auto;
     }
-    .run-history-note {
-      color: var(--text-muted); font-size: 11px; line-height: 1.5;
-      margin: -8px 0 14px; padding: 8px 10px;
-      border-left: 2px solid var(--orange); background: rgba(255, 145, 0, 0.06);
-    }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th {
       text-align: left; padding: 8px 12px; color: var(--text-muted); font-weight: 500;
@@ -148,8 +142,6 @@
       max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted);
     }
     .reason-text:hover { white-space: normal; color: var(--text); }
-    .strategy-summary-scroll { width: 100%; min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .strategy-summary-scroll table { min-width: 980px; }
     .danger-btn {
       padding: 6px 16px; background: var(--red-bg); border: 1px solid rgba(255, 23, 68, 0.3);
       border-radius: 6px; color: var(--red); cursor: pointer; font-family: inherit;
@@ -193,44 +185,6 @@
     .range-btn { padding: 3px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); cursor: pointer; font-family: inherit; font-size: 10px; font-weight: 600; transition: all 0.2s; }
     .range-btn:hover { color: var(--text); border-color: var(--blue); }
     .range-btn.active { background: var(--blue-bg); color: var(--blue); border-color: rgba(41, 121, 255, 0.4); }
-    /* ===== Trading Analytics & Review ===== */
-    .an-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:24px; }
-    .an-controls select, .an-controls input[type=date] { background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-family:inherit; font-size:11px; }
-    .an-controls label { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); }
-    .an-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
-    @media (max-width: 900px) { .an-grid2 { grid-template-columns:1fr; } }
-    .an-verdict { padding:10px 14px; border-radius:8px; font-size:12px; margin-bottom:16px; }
-    .an-verdict.ok { background:var(--green-bg); color:var(--green); border:1px solid rgba(0,200,83,0.3); }
-    .an-verdict.warn { background:rgba(255,145,0,0.08); color:var(--orange); border:1px solid rgba(255,145,0,0.3); }
-    .an-verdict.nodata { background:var(--bg-card); color:var(--text-muted); border:1px solid var(--border); }
-    .dq-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; }
-    .dq-strong { background:var(--green-bg); color:var(--green); }
-    .dq-good { background:var(--blue-bg); color:var(--blue); }
-    .dq-questionable { background:rgba(255,145,0,0.12); color:var(--orange); }
-    .dq-weak { background:var(--red-bg); color:var(--red); }
-    .an-detail { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin:8px 0 16px; font-size:12px; }
-    .an-detail h4 { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); margin:10px 0 4px; }
-    .an-detail h4:first-child { margin-top:0; }
-    .evidence-pill { font-size:10px; padding:1px 8px; border-radius:8px; border:1px solid var(--border); color:var(--text-muted); }
-    /* ===== A4 report (screen preview + print) ===== */
-    .a4-sheet { background:#ffffff; color:#111111; width:210mm; max-width:100%; margin:16px auto; padding:14mm 12mm; border-radius:6px; box-shadow:0 2px 16px rgba(0,0,0,0.4); font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:10.5px; line-height:1.45; }
-    .a4-sheet h1 { font-size:20px; font-weight:700; letter-spacing:-0.4px; margin:0; color:#111; }
-    .a4-sheet h2 { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:1.2px; color:#555; margin:14px 0 6px; border-bottom:1px solid #ddd; padding-bottom:3px; }
-    .a4-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:8px; }
-    .a4-kpi { border:1px solid #e2e2e2; border-radius:6px; padding:6px 8px; }
-    .a4-kpi .k { font-size:8.5px; text-transform:uppercase; letter-spacing:0.8px; color:#666; }
-    .a4-kpi .v { font-size:14px; font-weight:700; color:#111; }
-    .a4-finding { margin:6px 0; padding-left:16px; text-indent:-16px; }
-    .a4-finding .sym { font-weight:700; margin-right:4px; }
-    .a4-bottomline { border:1.5px solid #111; border-radius:6px; padding:8px 12px; margin-top:12px; }
-    .a4-bottomline .t { font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
-    @media print {
-      body { background:#fff; }
-      .tab-bar-wrap, .an-controls, header, .footer, .chart-section, .table-section, .metrics-grid, .info-card, .an-grid2, .an-verdict, .export-btns { display:none !important; }
-      #contentAnalytics { display:block !important; }
-      .a4-sheet { box-shadow:none; border-radius:0; margin:0; width:auto; padding:10mm 8mm; }
-      @page { size:A4 portrait; margin:8mm; }
-    }
   </style>
 </head>
 <body>
@@ -254,24 +208,21 @@
         <div class="tab active" id="tabOverview" onclick="switchTab('overview')">Overview <span class="tab-badge day">ALL</span></div>
         <div class="tab" id="tabDaytrading" onclick="switchTab('daytrading')">Daytrading <span class="tab-badge day">5min</span></div>
         <div class="tab tab-swing" id="tabSwing" onclick="switchTab('swing')">Swing <span class="tab-badge swing">Daily</span></div>
-        <div class="tab tab-crypto" id="tabCrypto" onclick="switchTab('crypto')">Crypto <span class="tab-badge crypto">30min</span></div>
-        <div class="tab" id="tabAnalytics" onclick="switchTab('analytics')">Analytics <span class="tab-badge day">REVIEW</span></div>
+        <div class="tab tab-crypto" id="tabCrypto" onclick="switchTab('crypto')">Crypto <span class="tab-badge crypto">4h</span></div>
       </div>
     </div>
 
     <div class="tab-content active" id="contentOverview">
       <div class="info-card">
         <strong>Three strategies on the same account:</strong>
-                  <span style="display:block;color:var(--text-muted);margin:6px 0 8px">Current positions come from Alpaca through the Worker API. If the broker is unavailable, stale D1 positions are not shown.</span>
-                  <span class="strategy-badge strategy-day">Daytrading</span>
+        <span class="strategy-badge strategy-day">Daytrading</span> TA + AI, 5-min bars, EOD flatten.
         <span class="strategy-badge strategy-swing">Swing</span> Cross-sectional ranking, daily bars, 2-30 day holds.
-        <span class="strategy-badge strategy-crypto">Crypto</span> 24/7, 15-min bars, :07/:37 UTC cycles, no gap risk.<br><span style="color:var(--text-muted)">Current positions come from Alpaca through the Worker API. If the broker is unavailable, stale D1 positions are not shown.</span>
+        <span class="strategy-badge strategy-crypto">Crypto</span> 24/7, 15-min bars, 4h cycles, no gap risk.
       </div>
       <div class="metrics-grid" id="metricsGrid">
         <div class="metric-card"><div class="metric-label">Portfolio Value</div><div class="metric-value neutral" id="mPortfolio">-</div><div class="metric-sub" id="mPortfolioSub">Loading...</div></div>
         <div class="metric-card"><div class="metric-label">Cash Available</div><div class="metric-value neutral" id="mCash">-</div><div class="metric-sub" id="mCashSub">Buying power: -</div></div>
-        <div class="metric-card"><div class="metric-label">Daily P&L</div><div class="metric-value neutral" id="mDailyPL">-</div><div class="metric-sub" id="mDailyPLSub">Broker-reported intraday</div></div>
-        <div class="metric-card"><div class="metric-label">Net P&L after fees</div><div class="metric-value neutral" id="mNetPL">-</div><div class="metric-sub" id="mNetPLSub">Model P&L minus recorded fees</div></div>
+        <div class="metric-card"><div class="metric-label">Daily P&L</div><div class="metric-value neutral" id="mDailyPL">-</div><div class="metric-sub" id="mDailyPLSub">-</div></div>
         <div class="metric-card"><div class="metric-label">Open Positions</div><div class="metric-value neutral" id="mPositions">-</div><div class="metric-sub" id="mPositionsSub">-</div></div>
         <div class="metric-card"><div class="metric-label">Win Rate</div><div class="metric-value neutral" id="mWinRate">-</div><div class="metric-sub" id="mWinRateSub">-</div></div>
         <div class="metric-card"><div class="metric-label">Total Trades</div><div class="metric-value neutral" id="mTrades">-</div><div class="metric-sub" id="mTradesSub">-</div></div>
@@ -287,16 +238,6 @@
         </div>
         <div class="chart-container"><canvas id="equityChart"></canvas></div>
       </div>
-        <div class="chart-section">
-          <div class="section-title"><span>Strategy Comparison</span>
-            <div style="display:flex;gap:6px;align-items:center;">
-              <button class="range-btn active" id="cmpViewBars" onclick="setCmpView('bars')">P&L Bars</button>
-              <button class="range-btn" id="cmpViewLine" onclick="setCmpView('line')">Cumulative gross P&L</button>
-            </div>
-          </div>
-          <div class="chart-container" style="height:220px"><canvas id="strategyChart"></canvas></div>
-          <div id="strategySummary" style="margin-top:16px;"></div>
-        </div>
       <div class="grid-2col">
         <div class="table-section">
           <div class="section-title"><span>All Open Positions</span><button class="danger-btn" onclick="closeAllPositions()">Close All</button></div>
@@ -307,8 +248,8 @@
           <div id="decisionsTableAll"><div class="loading">Loading decisions...</div></div>
         </div>
       </div>
-      <div class="table-section"><div class="section-title"><span>Recent Trades (All)</span></div><div class="run-history-note">Estimated value = order-time estimate. Filled notional and estimate delta are shown only when broker fill data is available; they do not change order or accounting semantics.</div><div id="tradesTableAll"><div class="loading">Loading trades...</div></div></div>
-      <div class="table-section"><div class="section-title"><span>Run History (All)</span></div><div class="run-history-note">trades_executed = broker-confirmed full fills. Orders in trades may be submitted, accepted, pending, rejected, canceled, partially filled, or filled; only full fills count.</div><div id="runsTableAll"><div class="loading">Loading runs...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Recent Trades (All)</span></div><div id="tradesTableAll"><div class="loading">Loading trades...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Run History (All)</span></div><div id="runsTableAll"><div class="loading">Loading runs...</div></div></div>
     </div>
 
     <div class="tab-content" id="contentDaytrading">
@@ -316,24 +257,12 @@
         <span class="strategy-badge strategy-day">Daytrading</span>
         <strong>TA + AI strategy:</strong> RSI, MACD, EMA, ATR, Bollinger + Fireworks GLM LLM. Every 5 min during market hours. EOD flatten. Max 15 positions, 20% each.
       </div>
-      <div class="metrics-grid">
-        <div class="metric-card"><div class="metric-label">Capital cap</div><div class="metric-value neutral" id="mDayCapitalCap">Unavailable</div><div class="metric-sub" id="mDayCapitalCapSub">Server-resolved USD limit</div></div>
-        <div class="metric-card"><div class="metric-label">Daytrading Daily P&L</div><div class="metric-value neutral" id="mDayCatDailyPL">-</div><div class="metric-sub" id="mDayCatDailyPLSub">Loading...</div></div>
-        <div class="metric-card"><div class="metric-label">Daytrading Portfolio Value</div><div class="metric-value neutral" id="mDayCatPortfolio">-</div><div class="metric-sub" id="mDayCatPortfolioSub">Loading...</div></div>
-        <div class="metric-card"><div class="metric-label">Daytrading Gross P&L</div><div class="metric-value neutral" id="mDayCatGrossPL">-</div><div class="metric-sub" id="mDayCatGrossPLSub">Realized + unrealized</div></div>
-        <div class="metric-card"><div class="metric-label">Daytrading Recorded Fees</div><div class="metric-value negative" id="mDayCatFees">-</div><div class="metric-sub" id="mDayCatFeesSub">Attribution pending where needed</div></div>
-        <div class="metric-card"><div class="metric-label">Daytrading Net P&L</div><div class="metric-value neutral" id="mDayCatNetPL">-</div><div class="metric-sub" id="mDayCatNetPLSub">Gross P&L minus attributable fees</div></div>
-      </div>
-      <div class="chart-section">
-        <div class="section-title"><span>Daytrading Portfolio Value History</span><span style="font-size:11px;color:var(--text-muted)" id="catChartNoteDaytrading"></span></div>
-        <div class="chart-container" style="height:180px"><canvas id="categoryChartDaytrading"></canvas></div>
-      </div>
       <div class="grid-2col">
         <div class="table-section"><div class="section-title"><span>Daytrading Positions</span></div><div id="positionsTableDay"><div class="loading">Loading...</div></div></div>
         <div class="table-section"><div class="section-title"><span>Daytrading Decisions</span></div><div id="decisionsTableDay"><div class="loading">Loading...</div></div></div>
       </div>
-      <div class="table-section"><div class="section-title"><span>Daytrading Trades</span></div><div class="run-history-note">Estimated value = order-time estimate. Filled notional and estimate delta are shown only when broker fill data is available; they do not change order or accounting semantics.</div><div id="tradesTableDay"><div class="loading">Loading...</div></div></div>
-      <div class="table-section"><div class="section-title"><span>Daytrading Run History</span></div><div class="run-history-note">trades_executed = broker-confirmed full fills. Orders in trades may be submitted, accepted, pending, rejected, canceled, partially filled, or filled; only full fills count.</div><div id="runsTableDay"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Daytrading Trades</span></div><div id="tradesTableDay"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Daytrading Run History</span></div><div id="runsTableDay"><div class="loading">Loading...</div></div></div>
     </div>
 
     <div class="tab-content" id="contentSwing">
@@ -342,158 +271,41 @@
         <strong>Cross-sectional ranking:</strong> Reversal (Jegadeesh), momentum (12-1), 52w high (George & Hwang), volume, quality (low-vol, anti-lottery). Daily at 22:00 UTC. 2-30 day holds. No margin. Gap-aware sizing. Max 30 positions, 5% each. Hysteresis exits.
         <div style="margin-top: 8px;"><button class="trigger-btn" onclick="triggerSwing()">Trigger Swing Cycle</button></div>
       </div>
-      <div class="metrics-grid">
-        <div class="metric-card"><div class="metric-label">Capital cap</div><div class="metric-value neutral" id="mSwingCapitalCap">Unavailable</div><div class="metric-sub" id="mSwingCapitalCapSub">Server-resolved USD limit</div></div>
-        <div class="metric-card"><div class="metric-label">Swing Daily P&L</div><div class="metric-value neutral" id="mSwingCatDailyPL">-</div><div class="metric-sub" id="mSwingCatDailyPLSub">Loading...</div></div>
-        <div class="metric-card"><div class="metric-label">Swing Portfolio Value</div><div class="metric-value neutral" id="mSwingCatPortfolio">-</div><div class="metric-sub" id="mSwingCatPortfolioSub">Loading...</div></div>
-        <div class="metric-card"><div class="metric-label">Swing Gross P&L</div><div class="metric-value neutral" id="mSwingCatGrossPL">-</div><div class="metric-sub" id="mSwingCatGrossPLSub">Realized + unrealized</div></div>
-        <div class="metric-card"><div class="metric-label">Swing Recorded Fees</div><div class="metric-value negative" id="mSwingCatFees">-</div><div class="metric-sub" id="mSwingCatFeesSub">Account-level fees stay unattributed</div></div>
-        <div class="metric-card"><div class="metric-label">Swing Net P&L</div><div class="metric-value neutral" id="mSwingCatNetPL">-</div><div class="metric-sub" id="mSwingCatNetPLSub">Gross P&L minus attributable fees</div></div>
-      </div>
-      <div class="chart-section">
-        <div class="section-title"><span>Swing Portfolio Value History</span><span style="font-size:11px;color:var(--text-muted)" id="catChartNoteSwing"></span></div>
-        <div class="chart-container" style="height:180px"><canvas id="categoryChartSwing"></canvas></div>
-      </div>
       <div class="grid-2col">
         <div class="table-section"><div class="section-title"><span>Swing Positions</span></div><div id="positionsTableSwing"><div class="loading">Loading...</div></div></div>
         <div class="table-section"><div class="section-title"><span>Swing Decisions (Ranking)</span></div><div id="decisionsTableSwing"><div class="loading">Loading...</div></div></div>
       </div>
-      <div class="table-section"><div class="section-title"><span>Swing Trades</span></div><div class="run-history-note">Estimated value = order-time estimate. Filled notional and estimate delta are shown only when broker fill data is available; they do not change order or accounting semantics.</div><div id="tradesTableSwing"><div class="loading">Loading...</div></div></div>
-      <div class="table-section"><div class="section-title"><span>Swing Run History</span></div><div class="run-history-note">trades_executed = broker-confirmed full fills. Orders in trades may be submitted, accepted, pending, rejected, canceled, partially filled, or filled; only full fills count.</div><div id="runsTableSwing"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Swing Trades</span></div><div id="tradesTableSwing"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Swing Run History</span></div><div id="runsTableSwing"><div class="loading">Loading...</div></div></div>
     </div>
 
     <div class="tab-content" id="contentCrypto">
       <div class="info-card">
         <span class="strategy-badge strategy-crypto">Crypto</span>
-        <strong>24/7 crypto trading:</strong> BTC, ETH, SOL, AVAX, LINK + 10 more. 15-min bars, TA + AI. Every 30 minutes. No gap risk (continuous market). No margin. Wider stops (2x ATR). GTC orders. $2,000 cap (~13,000 DKK).
+        <strong>24/7 crypto trading:</strong> BTC, ETH, SOL, AVAX, LINK + 10 more. 15-min bars, TA + AI. Every 4 hours. No gap risk (continuous market). No margin. Wider stops (2x ATR). GTC orders. $2,000 cap (~13,000 DKK).
         <div style="margin-top: 8px;"><button class="trigger-btn" onclick="triggerCrypto()">Trigger Crypto Cycle</button></div>
-      </div>
-      <div class="metrics-grid">
-        <div class="metric-card"><div class="metric-label">Capital cap</div><div class="metric-value neutral" id="mCryptoCapitalCap">Unavailable</div><div class="metric-sub" id="mCryptoCapitalCapSub">Server-resolved USD limit</div></div>
-        <div class="metric-card"><div class="metric-label">Crypto Daily P&L</div><div class="metric-value neutral" id="mCryptoCatDailyPL">-</div><div class="metric-sub" id="mCryptoCatDailyPLSub">Loading...</div></div>
-        <div class="metric-card"><div class="metric-label">Crypto Portfolio Value</div><div class="metric-value neutral" id="mCryptoCatPortfolio">-</div><div class="metric-sub" id="mCryptoCatPortfolioSub">Loading...</div></div>
-        <div class="metric-card"><div class="metric-label">Crypto Gross P&L</div><div class="metric-value neutral" id="mCryptoCatGrossPL">-</div><div class="metric-sub" id="mCryptoCatGrossPLSub">Realized + unrealized</div></div>
-        <div class="metric-card"><div class="metric-label">Crypto Recorded Fees</div><div class="metric-value negative" id="mCryptoCatFees">-</div><div class="metric-sub" id="mCryptoCatFeesSub">Broker-attributed CFEE</div></div>
-        <div class="metric-card"><div class="metric-label">Crypto Net P&L</div><div class="metric-value neutral" id="mCryptoCatNetPL">-</div><div class="metric-sub" id="mCryptoCatNetPLSub">Gross P&L minus attributable fees</div></div>
-      </div>
-      <div class="chart-section">
-        <div class="section-title"><span>Crypto Portfolio Value History</span><span style="font-size:11px;color:var(--text-muted)" id="catChartNoteCrypto"></span></div>
-        <div class="chart-container" style="height:180px"><canvas id="categoryChartCrypto"></canvas></div>
       </div>
       <div class="grid-2col">
         <div class="table-section"><div class="section-title"><span>Crypto Positions</span></div><div id="positionsTableCrypto"><div class="loading">Loading...</div></div></div>
         <div class="table-section"><div class="section-title"><span>Crypto Decisions</span></div><div id="decisionsTableCrypto"><div class="loading">Loading...</div></div></div>
       </div>
-      <div class="table-section"><div class="section-title"><span>Crypto Trades</span></div><div class="run-history-note">Estimated value = order-time estimate. Filled notional and estimate delta are shown only when broker fill data is available; they do not change order or accounting semantics.</div><div id="tradesTableCrypto"><div class="loading">Loading...</div></div></div>
-      <div class="table-section"><div class="section-title"><span>Crypto Run History</span></div><div class="run-history-note">trades_executed = broker-confirmed full fills. Orders in trades may be submitted, accepted, pending, rejected, canceled, partially filled, or filled; only full fills count.</div><div id="runsTableCrypto"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Crypto Trades</span></div><div id="tradesTableCrypto"><div class="loading">Loading...</div></div></div>
+      <div class="table-section"><div class="section-title"><span>Crypto Run History</span></div><div id="runsTableCrypto"><div class="loading">Loading...</div></div></div>
     </div>
 
-    <div class="tab-content" id="contentAnalytics">
-      <div class="an-controls">
-        <label>Period</label>
-        <button class="range-btn active" id="anP-all" onclick="setAnPeriod('all')">All Time</button>
-        <button class="range-btn" id="anP-7" onclick="setAnPeriod('7')">7d</button>
-        <button class="range-btn" id="anP-30" onclick="setAnPeriod('30')">30d</button>
-        <button class="range-btn" id="anP-90" onclick="setAnPeriod('90')">90d</button>
-        <button class="range-btn" id="anP-ytd" onclick="setAnPeriod('ytd')">YTD</button>
-        <input type="date" id="anStart" onchange="setAnPeriod('custom')">
-        <input type="date" id="anEnd" onchange="setAnPeriod('custom')">
-        <label>Strategy</label>
-        <select id="anStrategy" onchange="loadAnalytics()">
-          <option value="">All strategies</option>
-          <option value="daytrading">Day Trading</option>
-          <option value="swing">Swing Trading</option>
-          <option value="crypto">Crypto</option>
-        </select>
-        <label>Symbol</label>
-        <input type="text" id="anSymbol" placeholder="e.g. AAPL" style="width:70px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-family:inherit;font-size:11px" onchange="loadAnalytics()">
-        <label>Side</label>
-        <select id="anSide" onchange="loadAnalytics()">
-          <option value="">All</option>
-          <option value="long">Long</option>
-          <option value="short">Short</option>
-        </select>
-        <label>Result</label>
-        <select id="anResult" onchange="loadAnalytics()">
-          <option value="">All</option>
-          <option value="win">Wins</option>
-          <option value="loss">Losses</option>
-        </select>
-        <button class="refresh-btn" onclick="loadAnalytics()">Apply</button>
-      </div>
-
-      <div class="an-verdict nodata" id="anVerdict">Loading analytics…</div>
-
-      <div class="metrics-grid" id="anKpis"></div>
-
-      <div class="chart-section">
-        <div class="section-title"><span>Cumulative P/L (realized, per closed trade)</span><span style="font-size:11px;color:var(--text-muted)" id="anEquityNote"></span></div>
-        <div class="chart-container"><canvas id="anEquityChart"></canvas></div>
-      </div>
-      <div class="chart-section">
-        <div class="section-title"><span>Drawdown (from cumulative realized P/L peak)</span></div>
-        <div class="chart-container" style="height:160px"><canvas id="anDrawdownChart"></canvas></div>
-      </div>
-
-      <div class="an-grid2">
-        <div class="table-section"><div class="section-title"><span>Confidence Calibration</span></div><div id="anCalibration"></div></div>
-        <div class="table-section"><div class="section-title"><span>Long vs Short &amp; Costs</span></div><div id="anSideSplit"></div></div>
-      </div>
-
-      <div class="an-grid2">
-        <div class="table-section"><div class="section-title"><span>What Works (patterns)</span></div><div id="anWorks"></div></div>
-        <div class="table-section"><div class="section-title"><span>What Needs Attention (patterns)</span></div><div id="anAttention"></div></div>
-      </div>
-
-      <div class="table-section"><div class="section-title"><span>Strategy Comparison (Day / Swing / Crypto)</span></div><div id="anComparison"></div></div>
-
-      <div class="table-section"><div class="section-title"><span>Research Backlog (hypotheses to backtest — not strategy changes)</span></div><div id="anBacklog"></div></div>
-
-      <div class="table-section">
-        <div class="section-title"><span>Trade-by-Trade Analysis</span><span style="font-size:11px;color:var(--text-muted)" id="anTradeCount"></span></div>
-        <div class="run-history-note">Decision Quality uses only entry-time information (no outcome, no hindsight). Fields that cannot be derived from stored data show "Insufficient data" — nothing is estimated.</div>
-        <div id="anTrades"></div>
-      </div>
-
-      <div class="export-btns" style="margin-bottom:24px;text-align:center">
-        <button class="trigger-btn" onclick="exportA4('daytrading')">Export Day Trading Report (PDF)</button>
-        <button class="trigger-btn" onclick="exportA4('swing')">Export Swing Trading Report (PDF)</button>
-        <button class="trigger-btn" onclick="exportA4('crypto')">Export Crypto Trading Report (PDF)</button>
-        <span style="display:block;color:var(--text-muted);font-size:11px;margin-top:6px">Opens the print dialog — choose "Save as PDF". The report is exactly one A4 page.</span>
-      </div>
-
-      <div id="a4ReportHost"></div>
-    </div>
-
-    <div class="footer">Alpaca AI Trading Bot v2.8.2 - Cloudflare Worker + D1 - Paper Trading<br>Daytrading: 5-min cron | Swing: daily 22:00 UTC | Crypto: every 30min 24/7 | Auto-refresh 30s</div>
+    <div class="footer">Alpaca AI Trading Bot v2.4.0 - Cloudflare Worker + D1 - Paper Trading<br>Daytrading: 5-min cron | Swing: daily 22:00 UTC | Crypto: every 4h 24/7 | Auto-refresh 30s</div>
   </div>
   <script>
     const API_BASE = 'https://alpaca-trading-bot.joachim-763.workers.dev';
     let currentTab = 'overview';
     let dashboardData = null;
-    let dashboardRefreshInFlight = false;
     let chartRangeMode = 'recent'; // 'recent' or 'all'
     let allTimeHistory = null; // cached all-time performance data
-    let cmpViewMode = 'bars'; // 'bars' or 'line'
     async function fetchAPI(path) {
-      let lastError;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12000);
-        try {
-          const r = await fetch(API_BASE + path, { signal: controller.signal });
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          return await r.json();
-        } catch (e) {
-          lastError = e;
-          if (attempt === 0) console.warn('Retrying API request for ' + path, e);
-        } finally { clearTimeout(timeout); }
-      }
-      console.error('API error for ' + path, lastError);
-      return null;
+      try { const r = await fetch(API_BASE + path); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.json(); }
+      catch (e) { console.error('API error for ' + path, e); return null; }
     }
     function fmtMoney(v, d = 2) { if (v == null || isNaN(v)) return '-'; return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }); }
-    function fmtSignedMoney(v, d = 2) { if (v == null || isNaN(v)) return '-'; const n = Number(v); return (n >= 0 ? '+' : '-') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }); }
     function fmtPct(v, s = true) { if (v == null || isNaN(v)) return '-'; return (s && v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%'; }
     function fmtTime(ts) { if (!ts) return '-'; const d = new Date(ts.includes('T') ? ts + 'Z' : ts); return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); }
     function fmtDateTime(ts) { if (!ts) return '-'; const d = new Date(ts.includes('T') ? ts + 'Z' : ts); return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
@@ -504,31 +316,17 @@
       document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
       document.getElementById('content' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
       renderTab(tab);
-      if (tab === 'analytics') loadAnalytics();
     }
     async function loadDashboard() {
-      if (dashboardRefreshInFlight) return;
-      dashboardRefreshInFlight = true;
-      document.getElementById('statusBadge').innerHTML = '<div class="pulse" style="background:var(--orange)"></div><span>Refreshing...</span>';
-      try {
-        const data = await fetchAPI('/api/dashboard');
-        if (!data) {
-          const b = document.getElementById('statusBadge');
-          b.className = 'status-badge offline';
-          b.innerHTML = '<div class="pulse" style="background:var(--orange)"></div><span>' + (dashboardData ? 'Refresh failed - showing last update' : 'Unable to connect - retrying') + '</span>';
-          return;
-        }
-        dashboardData = data;
-          const hasAcc = data.account && !data.account.error;
+      const data = await fetchAPI('/api/dashboard');
+      if (!data) { const b = document.getElementById('statusBadge'); b.className = 'status-badge offline'; b.innerHTML = '<div class="pulse" style="background:var(--red)"></div><span>Connection Error</span>'; return; }
+      dashboardData = data;
+      const hasAcc = data.account && !data.account.error;
       const badge = document.getElementById('statusBadge');
       if (hasAcc) { const open = !data.account.trading_blocked; badge.className = 'status-badge ' + (open ? 'live' : 'offline'); badge.innerHTML = '<div class="pulse" style="background:var(--' + (open ? 'green' : 'red') + ')"></div><span>' + (open ? 'Live - Paper Trading' : 'Account Blocked') + '</span>'; }
       else { badge.className = 'status-badge offline'; badge.innerHTML = '<div class="pulse" style="background:var(--red)"></div><span>Account Error</span>'; }
       if (hasAcc) {
         const a = data.account;
-        if (data.positionsAvailable === false) {
-          document.getElementById('mPositions').textContent = '—';
-          document.getElementById('mPositionsSub').textContent = 'Broker positions unavailable';
-        }
         document.getElementById('mPortfolio').textContent = fmtMoney(a.portfolio_value);
         document.getElementById('mPortfolio').className = 'metric-value ' + (a.change_today >= 0 ? 'positive' : 'negative');
         document.getElementById('mPortfolioSub').textContent = 'Equity: ' + fmtMoney(a.equity);
@@ -536,24 +334,10 @@
         document.getElementById('mCashSub').textContent = 'Buying power: ' + fmtMoney(a.buying_power);
         document.getElementById('mDailyPL').textContent = fmtMoney(a.change_today);
         document.getElementById('mDailyPL').className = 'metric-value ' + (a.change_today >= 0 ? 'positive' : 'negative');
-        document.getElementById('mDailyPLSub').textContent = fmtPct(a.change_today_pct) + ' broker-reported';
-        const netPl = data.strategyComparison && data.strategyComparison.netTotalPl != null ? data.strategyComparison.netTotalPl : null;
-        const netPlEl = document.getElementById('mNetPL');
-        const netPlSubEl = document.getElementById('mNetPLSub');
-        if (netPl != null) {
-          netPlEl.textContent = fmtMoney(netPl);
-          netPlEl.className = 'metric-value ' + (netPl >= 0 ? 'positive' : 'negative');
-          const feeTotal = data.strategyComparison.fees ? data.strategyComparison.fees.totalUsd : 0;
-          netPlSubEl.textContent = 'Recorded fees: ' + fmtMoney(feeTotal);
-        } else {
-          netPlEl.textContent = '—';
-          netPlSubEl.textContent = 'Fee-aware model unavailable';
-        }
-        if (data.positionsAvailable !== false) {
-          document.getElementById('mPositions').textContent = data.positions ? data.positions.length : 0;
-          const lv = data.positions ? data.positions.reduce((s, p) => s + Math.abs(p.market_value || 0), 0) : 0;
-          document.getElementById('mPositionsSub').textContent = 'Exposure: ' + fmtMoney(lv);
-        }
+        document.getElementById('mDailyPLSub').textContent = fmtPct(a.change_today_pct);
+        document.getElementById('mPositions').textContent = data.positions ? data.positions.length : 0;
+        const lv = data.positions ? data.positions.reduce((s, p) => s + Math.abs(p.market_value || 0), 0) : 0;
+        document.getElementById('mPositionsSub').textContent = 'Exposure: ' + fmtMoney(lv);
       }
       if (data.stats) {
         document.getElementById('mWinRate').textContent = data.stats.winRate.toFixed(1) + '%';
@@ -561,18 +345,8 @@
         document.getElementById('mTrades').textContent = data.stats.totalTrades;
         document.getElementById('mTradesSub').textContent = data.stats.totalDecisions + ' decisions';
       }
-        if (data.performanceHistory && data.performanceHistory.length > 0) updateEquityChart();
-        drawStrategyChart();
-        renderStrategySummary();
-        renderTab(currentTab);
-      } catch (e) {
-        console.error('Dashboard refresh failed', e);
-        const b = document.getElementById('statusBadge');
-        b.className = 'status-badge offline';
-        b.innerHTML = '<div class="pulse" style="background:var(--orange)"></div><span>' + (dashboardData ? 'Refresh failed - showing last update' : 'Unable to load dashboard - retrying') + '</span>';
-      } finally {
-        dashboardRefreshInFlight = false;
-      }
+      if (data.performanceHistory && data.performanceHistory.length > 0) updateEquityChart();
+      renderTab(currentTab);
     }
     async function setChartRange(mode) {
       chartRangeMode = mode;
@@ -604,184 +378,33 @@
       const allDec = dashboardData.recentDecisions || [];
       const allTr = dashboardData.recentTrades || [];
       const allRun = dashboardData.recentRuns || [];
-      const strategyForDecision = d => {
-        const source = (d.signal_source || '').toLowerCase();
-        if (source === 'swing') return 'swing';
-        if (source.startsWith('crypto')) return 'crypto';
-        return 'daytrading';
-      };
-      const strategyPos = strategy => allPos.filter(p => p.strategy === strategy);
-      const strategyTrades = strategy => allTr.filter(t => {
-        if (t.strategy) return t.strategy === strategy;
-        const decision = allDec.find(d => d.id === t.decision_id);
-        return decision ? strategyForDecision(decision) === strategy : false;
-      });
       if (tab === 'overview') {
         renderPositions(allPos, 'positionsTableAll', true);
         renderDecisions(allDec, 'decisionsTableAll');
         renderTrades(allTr, 'tradesTableAll');
         renderRuns(allRun, 'runsTableAll');
       } else if (tab === 'daytrading') {
-        const dayDec = allDec.filter(d => strategyForDecision(d) === 'daytrading');
-        const dayRun = allRun.filter(r => r.trigger !== 'swing_cron' && r.trigger !== 'crypto_cron' && r.trigger !== 'manual_crypto');
-        renderPositions(strategyPos('daytrading'), 'positionsTableDay', false);
+        const dayDec = allDec.filter(d => d.signal_source !== 'swing');
+        const dayRun = allRun.filter(r => r.trigger !== 'swing_cron');
+        renderPositions(allPos, 'positionsTableDay', false);
         renderDecisions(dayDec, 'decisionsTableDay');
-        renderTrades(strategyTrades('daytrading'), 'tradesTableDay');
+        renderTrades(allTr, 'tradesTableDay');
         renderRuns(dayRun, 'runsTableDay');
-        renderCategoryPanel('daytrading');
       } else if (tab === 'swing') {
-        const swDec = allDec.filter(d => strategyForDecision(d) === 'swing');
-        const swRun = allRun.filter(r => r.trigger === 'swing_cron' || r.trigger === 'manual_swing');
-        renderPositions(strategyPos('swing'), 'positionsTableSwing', false);
+        const swDec = allDec.filter(d => d.signal_source === 'swing');
+        const swRun = allRun.filter(r => r.trigger === 'swing_cron');
+        renderPositions(allPos, 'positionsTableSwing', false);
         renderSwingDecisions(swDec, 'decisionsTableSwing');
-        renderTrades(strategyTrades('swing'), 'tradesTableSwing');
+        renderTrades(allTr, 'tradesTableSwing');
         renderRuns(swRun, 'runsTableSwing');
-        renderCategoryPanel('swing');
       } else if (tab === 'crypto') {
-        const crDec = allDec.filter(d => strategyForDecision(d) === 'crypto');
-        const crRun = allRun.filter(r => r.trigger === 'crypto_cron' || r.trigger === 'manual_crypto');
-        renderPositions(strategyPos('crypto'), 'positionsTableCrypto', false);
+        const crDec = allDec.filter(d => d.signal_source === 'crypto');
+        const crRun = allRun.filter(r => r.trigger === 'crypto_cron');
+        renderPositions(allPos, 'positionsTableCrypto', false);
         renderDecisions(crDec, 'decisionsTableCrypto');
-        renderTrades(strategyTrades('crypto'), 'tradesTableCrypto');
+        renderTrades(allTr, 'tradesTableCrypto');
         renderRuns(crRun, 'runsTableCrypto');
-        renderCategoryPanel('crypto');
       }
-    }
-    const CATEGORY_TAB_IDS = {
-      daytrading: { capitalCap: 'mDayCapitalCap', capitalCapSub: 'mDayCapitalCapSub', dailyPl: 'mDayCatDailyPL', dailyPlSub: 'mDayCatDailyPLSub', portfolio: 'mDayCatPortfolio', portfolioSub: 'mDayCatPortfolioSub', grossPl: 'mDayCatGrossPL', grossPlSub: 'mDayCatGrossPLSub', fees: 'mDayCatFees', feesSub: 'mDayCatFeesSub', netPl: 'mDayCatNetPL', netPlSub: 'mDayCatNetPLSub', canvas: 'categoryChartDaytrading', note: 'catChartNoteDaytrading' },
-      swing: { capitalCap: 'mSwingCapitalCap', capitalCapSub: 'mSwingCapitalCapSub', dailyPl: 'mSwingCatDailyPL', dailyPlSub: 'mSwingCatDailyPLSub', portfolio: 'mSwingCatPortfolio', portfolioSub: 'mSwingCatPortfolioSub', grossPl: 'mSwingCatGrossPL', grossPlSub: 'mSwingCatGrossPLSub', fees: 'mSwingCatFees', feesSub: 'mSwingCatFeesSub', netPl: 'mSwingCatNetPL', netPlSub: 'mSwingCatNetPLSub', canvas: 'categoryChartSwing', note: 'catChartNoteSwing' },
-      crypto: { capitalCap: 'mCryptoCapitalCap', capitalCapSub: 'mCryptoCapitalCapSub', dailyPl: 'mCryptoCatDailyPL', dailyPlSub: 'mCryptoCatDailyPLSub', portfolio: 'mCryptoCatPortfolio', portfolioSub: 'mCryptoCatPortfolioSub', grossPl: 'mCryptoCatGrossPL', grossPlSub: 'mCryptoCatGrossPLSub', fees: 'mCryptoCatFees', feesSub: 'mCryptoCatFeesSub', netPl: 'mCryptoCatNetPL', netPlSub: 'mCryptoCatNetPLSub', canvas: 'categoryChartCrypto', note: 'catChartNoteCrypto' },
-    };
-    // Category daily P&L / portfolio value: broker-marked market value and
-    // today's intraday unrealized + realized-today P&L for that category's
-    // *currently owned* broker positions only — never account equity split
-    // by strategy, and never a D1-only position shown as live.
-    function renderCategoryPanel(strategy) {
-      const ids = CATEGORY_TAB_IDS[strategy];
-      if (!ids || !dashboardData) return;
-      const cmp = dashboardData.strategyComparison;
-      const entry = cmp && cmp.strategies ? cmp.strategies.find(s => s.strategy === strategy) : null;
-      const capEl = document.getElementById(ids.capitalCap);
-      const capSubEl = document.getElementById(ids.capitalCapSub);
-      const capValue = dashboardData.capitalCaps && dashboardData.capitalCaps[strategy];
-      const numericCap = capValue == null ? null : Number(capValue);
-      if (numericCap == null || !Number.isFinite(numericCap) || numericCap < 0) {
-        capEl.textContent = 'Unavailable';
-        capEl.className = 'metric-value neutral';
-        capSubEl.textContent = 'Runtime configuration unavailable';
-      } else if (numericCap === 0) {
-        capEl.textContent = 'Uncapped';
-        capEl.className = 'metric-value neutral';
-        capSubEl.textContent = 'Full account; display-only ceiling';
-      } else {
-        capEl.textContent = fmtMoney(numericCap, 0);
-        capEl.className = 'metric-value neutral';
-        if (!cmp || cmp.positionsAvailable === false || !entry) {
-          capSubEl.textContent = 'Deployed unavailable; broker positions unavailable';
-        } else {
-          const deployed = Number(entry.marketValue || 0);
-          const utilization = (deployed / numericCap) * 100;
-          capSubEl.textContent = 'Deployed ' + fmtMoney(deployed, 0) + ' · ' + utilization.toFixed(1) + '%';
-        }
-      }
-      const dailyPlEl = document.getElementById(ids.dailyPl);
-      const dailyPlSubEl = document.getElementById(ids.dailyPlSub);
-      const pvEl = document.getElementById(ids.portfolio);
-      const pvSubEl = document.getElementById(ids.portfolioSub);
-      const grossEl = document.getElementById(ids.grossPl);
-      const grossSubEl = document.getElementById(ids.grossPlSub);
-      const feesEl = document.getElementById(ids.fees);
-      const feesSubEl = document.getElementById(ids.feesSub);
-      const netEl = document.getElementById(ids.netPl);
-      const netSubEl = document.getElementById(ids.netPlSub);
-      if (!cmp || cmp.positionsAvailable === false) {
-        dailyPlEl.textContent = '—'; dailyPlEl.className = 'metric-value neutral';
-        dailyPlSubEl.textContent = 'Broker positions unavailable';
-        pvEl.textContent = '—'; pvSubEl.textContent = 'Broker positions unavailable';
-        [grossEl, feesEl, netEl].forEach(el => { if (el) { el.textContent = '—'; el.className = 'metric-value neutral'; } });
-        if (grossSubEl) grossSubEl.textContent = 'Broker positions unavailable';
-        if (feesSubEl) feesSubEl.textContent = 'Broker positions unavailable';
-        if (netSubEl) netSubEl.textContent = 'Broker positions unavailable';
-      } else {
-        const dailyPl = entry && entry.dailyPl != null ? entry.dailyPl : 0;
-        const portfolioValue = entry && entry.portfolioValue != null ? entry.portfolioValue : (entry ? entry.marketValue : 0);
-        dailyPlEl.textContent = fmtMoney(dailyPl);
-        dailyPlEl.className = 'metric-value ' + (dailyPl > 0 ? 'positive' : dailyPl < 0 ? 'negative' : 'neutral');
-        dailyPlSubEl.textContent = 'Intraday unrealized + realized today';
-        pvEl.textContent = fmtMoney(portfolioValue);
-        pvSubEl.textContent = (entry ? (entry.openPositions || 0) : 0) + ' open broker position' + ((entry && entry.openPositions === 1) ? '' : 's');
-        const grossPl = entry ? (entry.grossTotalPl != null ? entry.grossTotalPl : ((entry.realizedPl || 0) + (entry.unrealizedPl || 0))) : 0;
-        const fees = entry ? (entry.feesUsd || 0) : 0;
-        const netPl = entry ? (entry.netTotalPl != null ? entry.netTotalPl : grossPl - fees) : 0;
-        if (grossEl) { grossEl.textContent = fmtMoney(grossPl); grossEl.className = 'metric-value ' + (grossPl > 0 ? 'positive' : grossPl < 0 ? 'negative' : 'neutral'); }
-        if (grossSubEl) grossSubEl.textContent = 'Realized + unrealized';
-        if (feesEl) { feesEl.textContent = '-' + fmtMoney(fees); feesEl.className = 'metric-value ' + (fees > 0 ? 'negative' : 'neutral'); }
-        if (feesSubEl) feesSubEl.textContent = entry && entry.feeAttribution === 'account-level-unattributed' ? 'Account-level, not assigned to this strategy' : (entry && entry.feeAttribution === 'broker-attributed' ? 'Broker-attributed to this strategy' : 'No attributable fees recorded');
-        if (netEl) { netEl.textContent = fmtMoney(netPl); netEl.className = 'metric-value ' + (netPl > 0 ? 'positive' : netPl < 0 ? 'negative' : 'neutral'); }
-        if (netSubEl) netSubEl.textContent = 'Gross P&L minus attributable fees';
-      }
-      const catHistory = dashboardData.categoryHistory || {};
-      const catAvailable = dashboardData.categoryHistoryAvailable || {};
-      const histSeries = catHistory[strategy] || [];
-      const available = !!catAvailable[strategy];
-      const note = document.getElementById(ids.note);
-      if (note) note.textContent = available ? (histSeries.length + ' snapshots') : ' — insufficient history yet';
-      drawCategoryChart(ids.canvas, histSeries, STRATEGY_COLORS[strategy] || '#e0e6f0');
-    }
-    function drawCategoryChart(canvasId, hist, color) {
-      const c = document.getElementById(canvasId);
-      if (!c) return;
-      const ctx = c.getContext('2d');
-      const r = c.getBoundingClientRect(); c.width = r.width * devicePixelRatio; c.height = r.height * devicePixelRatio;
-      ctx.scale(devicePixelRatio, devicePixelRatio);
-      const w = r.width, h = r.height, p = { t: 10, r: 10, b: 22, l: 60 };
-      const cw = w - p.l - p.r, ch = h - p.t - p.b;
-      ctx.clearRect(0, 0, w, h);
-      if (!hist || hist.length < 2) {
-        ctx.fillStyle = '#6b7689'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
-        ctx.fillText('Insufficient history — accumulates from each trading cycle going forward', w / 2, h / 2);
-        return;
-      }
-      const vals = hist.map(s => s.market_value || 0);
-      const pls = hist.map(s => s.daily_pl || 0);
-      const min = Math.min(...vals, 0), max = Math.max(...vals);
-      const range = (max - min) || 1, pad = range * 0.15, yMin = min - pad, yMax = max + pad;
-      ctx.strokeStyle = '#1e2638'; ctx.lineWidth = 1;
-      for (let i = 0; i <= 3; i++) {
-        const y = p.t + (ch / 3) * i;
-        ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(p.l + cw, y); ctx.stroke();
-        const v = yMax - ((yMax - yMin) / 3) * i;
-        ctx.fillStyle = '#6b7689'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
-        ctx.fillText('$' + v.toFixed(0), p.l - 8, y + 3);
-      }
-      ctx.beginPath();
-      vals.forEach((v, i) => {
-        const x = p.l + (cw / (vals.length - 1)) * i;
-        const y = p.t + ch - ((v - yMin) / (yMax - yMin)) * ch;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      });
-      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
-      const maxAbsPl = Math.max(...pls.map(v => Math.abs(v)), 1);
-      vals.forEach((v, i) => {
-        const x = p.l + (cw / (vals.length - 1)) * i;
-        const y = p.t + ch - ((v - yMin) / (yMax - yMin)) * ch;
-        const pl = pls[i];
-        const radius = 2 + (Math.abs(pl) / maxAbsPl) * 4;
-        ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = pl >= 0 ? '#00c853' : '#ff1744';
-        ctx.fill();
-      });
-      ctx.fillStyle = '#6b7689'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
-      const labelCount = Math.min(4, hist.length);
-      for (let i = 0; i < labelCount; i++) {
-        const idx = Math.floor((hist.length - 1) * (i / (labelCount - 1 || 1)));
-        const x = p.l + (cw / (vals.length - 1)) * idx;
-        const ts = hist[idx].timestamp;
-        const d = new Date(ts.includes('T') ? ts + 'Z' : ts);
-        ctx.fillText(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), x, h - 6);
-      }
-      ctx.fillStyle = '#6b7689'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
-      ctx.fillText("dot = that snapshot's daily P&L (size/color)", p.l, p.t + 10);
     }
     function drawEquityChart(snaps) {
       const c = document.getElementById('equityChart'); const ctx = c.getContext('2d');
@@ -815,275 +438,12 @@
         ctx.fillText(label, x, h - 8);
       }
     }
-    const STRATEGY_COLORS = { daytrading: '#2979ff', swing: '#ff9100', crypto: '#aa00ff', unattributed: '#6b7689' };
-    const STRATEGY_LABELS = { daytrading: 'Daytrading', swing: 'Swing', crypto: 'Crypto', unattributed: 'Unattributed' };
-    function setCmpView(mode) {
-      cmpViewMode = mode;
-      document.getElementById('cmpViewBars').classList.toggle('active', mode === 'bars');
-      document.getElementById('cmpViewLine').classList.toggle('active', mode === 'line');
-      drawStrategyChart();
-    }
-    function drawStrategyChart() {
-      const c = document.getElementById('strategyChart');
-      if (!c) return;
-      const cmp = dashboardData ? dashboardData.strategyComparison : null;
-      if (!cmp || !cmp.strategies) { return; }
-      const ctx = c.getContext('2d');
-      const r = c.getBoundingClientRect(); c.width = r.width * devicePixelRatio; c.height = r.height * devicePixelRatio;
-      ctx.scale(devicePixelRatio, devicePixelRatio);
-      const w = r.width, h = r.height, p = { t: 10, r: 10, b: 30, l: 70 };
-      const cw = w - p.l - p.r, ch = h - p.t - p.b;
-      ctx.clearRect(0, 0, w, h);
-      if (cmpViewMode === 'bars') {
-        drawStrategyBars(ctx, w, h, p, cw, ch, cmp.strategies);
-      } else {
-        drawStrategyLines(ctx, w, h, p, cw, ch, cmp);
-      }
-    }
-    function drawStrategyBars(ctx, w, h, p, cw, ch, strategies) {
-      const allStrats = ['daytrading', 'swing', 'crypto', 'unattributed'];
-      const metrics = ['realizedPl', 'unrealizedPl', 'grossTotalPl'];
-      const metricLabels = ['Realized', 'Unrealized', 'Gross'];
-      const metricColors = ['#00c853', '#ff9100', '#2979ff'];
-      // Find max abs value for scaling
-      let maxAbs = 0;
-      for (const s of strategies) { for (const m of metrics) { maxAbs = Math.max(maxAbs, Math.abs(s[m] || 0)); } }
-      if (maxAbs === 0) { ctx.fillStyle = '#6b7689'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillText('No P&L data yet', w / 2, h / 2); return; }
-      const yRange = maxAbs * 1.2, yMin = -yRange, yMax = yRange;
-      const zeroY = p.t + ch - ((0 - yMin) / (yMax - yMin)) * ch;
-      // Y-axis grid
-      ctx.strokeStyle = '#1e2638'; ctx.lineWidth = 1;
-      for (let i = 0; i <= 4; i++) {
-        const y = p.t + (ch / 4) * i;
-        ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(p.l + cw, y); ctx.stroke();
-        const v = yMax - ((yMax - yMin) / 4) * i;
-        ctx.fillStyle = '#6b7689'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
-        ctx.fillText((v >= 0 ? '$' : '-$') + Math.abs(v).toFixed(0), p.l - 8, y + 3);
-      }
-      // Zero line
-      ctx.strokeStyle = '#2a3548'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(p.l, zeroY); ctx.lineTo(p.l + cw, zeroY); ctx.stroke();
-      // Draw grouped bars
-      const groupW = cw / allStrats.length;
-      const barW = groupW / (metrics.length + 1) * 0.85;
-      const groupPad = (groupW - barW * metrics.length) / 2;
-      for (let si = 0; si < allStrats.length; si++) {
-        const strat = allStrats[si];
-        const data = strategies.find(s => s.strategy === strat) || { strategy: strat, realizedPl: 0, unrealizedPl: 0, grossTotalPl: 0 };
-        const gx = p.l + si * groupW + groupPad;
-        for (let mi = 0; mi < metrics.length; mi++) {
-          const val = data[metrics[mi]] || 0;
-          const barH = Math.abs(val) / yRange * (ch / 2);
-          const bx = gx + mi * barW;
-          const by = val >= 0 ? zeroY - barH : zeroY;
-          ctx.fillStyle = metricColors[mi];
-          ctx.globalAlpha = 0.85;
-          ctx.fillRect(bx, by, barW * 0.9, barH);
-          ctx.globalAlpha = 1;
-          // Value label on top/bottom
-          ctx.fillStyle = val >= 0 ? '#00c853' : '#ff1744';
-          ctx.font = '9px monospace'; ctx.textAlign = 'center';
-          const labelY = val >= 0 ? by - 4 : by + barH + 10;
-          ctx.fillText((val >= 0 ? '+' : '') + val.toFixed(0), bx + barW * 0.45, labelY);
-        }
-        // Strategy label
-        ctx.fillStyle = STRATEGY_COLORS[strat] || '#e0e6f0';
-        ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-        ctx.fillText(STRATEGY_LABELS[strat] || strat, gx + (barW * metrics.length) / 2, h - 8);
-      }
-      // Legend
-      ctx.font = '9px monospace'; ctx.textAlign = 'left';
-      for (let mi = 0; mi < metrics.length; mi++) {
-        const lx = p.l + 4 + mi * 65;
-        ctx.fillStyle = metricColors[mi];
-        ctx.fillRect(lx, p.t + 2, 8, 8);
-        ctx.fillStyle = '#6b7689';
-        ctx.fillText(metricLabels[mi], lx + 12, p.t + 10);
-      }
-    }
-    function drawStrategyLines(ctx, w, h, p, cw, ch, cmp) {
-      const ts = cmp.timeSeries || {};
-      const allStrats = ['daytrading', 'swing', 'crypto', 'unattributed'];
-      // Check if any data
-      let totalPoints = 0;
-      for (const s of allStrats) { totalPoints += (ts[s] || []).length; }
-      if (totalPoints === 0) { ctx.fillStyle = '#6b7689'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillText('No closed positions yet', w / 2, h / 2); return; }
-      // Find global y range
-      let yMin = 0, yMax = 0;
-      for (const s of allStrats) {
-        for (const pt of (ts[s] || [])) {
-          yMin = Math.min(yMin, pt.cumulativePl);
-          yMax = Math.max(yMax, pt.cumulativePl);
-        }
-      }
-      const yRange = (yMax - yMin) || 1, pr = yRange * 0.15;
-      yMin -= pr; yMax += pr;
-      // Find global x range (timestamps)
-      let xMin = Infinity, xMax = -Infinity;
-      for (const s of allStrats) {
-        for (const pt of (ts[s] || [])) {
-          const t = new Date(pt.timestamp.includes('T') ? pt.timestamp + 'Z' : pt.timestamp).getTime();
-          xMin = Math.min(xMin, t); xMax = Math.max(xMax, t);
-        }
-      }
-      if (xMin === xMax) { xMin -= 3600000; xMax += 3600000; }
-      // Y-axis grid
-      ctx.strokeStyle = '#1e2638'; ctx.lineWidth = 1;
-      for (let i = 0; i <= 4; i++) {
-        const y = p.t + (ch / 4) * i;
-        ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(p.l + cw, y); ctx.stroke();
-        const v = yMax - ((yMax - yMin) / 4) * i;
-        ctx.fillStyle = '#6b7689'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
-        ctx.fillText((v >= 0 ? '$' : '-$') + Math.abs(v).toFixed(0), p.l - 8, y + 3);
-      }
-      // Zero line
-      const zeroY = p.t + ch - ((0 - yMin) / (yMax - yMin)) * ch;
-      ctx.strokeStyle = '#2a3548'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(p.l, zeroY); ctx.lineTo(p.l + cw, zeroY); ctx.stroke();
-      // Draw lines per strategy
-      for (const s of allStrats) {
-        const points = ts[s] || [];
-        if (points.length === 0) continue;
-        ctx.strokeStyle = STRATEGY_COLORS[s] || '#e0e6f0';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        // Start from zero
-        const firstT = new Date(points[0].timestamp.includes('T') ? points[0].timestamp + 'Z' : points[0].timestamp).getTime();
-        const startX = p.l + ((firstT - xMin) / (xMax - xMin)) * cw;
-        const startY = p.t + ch - ((0 - yMin) / (yMax - yMin)) * ch;
-        ctx.moveTo(startX, startY);
-        for (const pt of points) {
-          const t = new Date(pt.timestamp.includes('T') ? pt.timestamp + 'Z' : pt.timestamp).getTime();
-          const x = p.l + ((t - xMin) / (xMax - xMin)) * cw;
-          const y = p.t + ch - ((pt.cumulativePl - yMin) / (yMax - yMin)) * ch;
-          ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        // End dot
-        if (points.length > 0) {
-          const last = points[points.length - 1];
-          const t = new Date(last.timestamp.includes('T') ? last.timestamp + 'Z' : last.timestamp).getTime();
-          const x = p.l + ((t - xMin) / (xMax - xMin)) * cw;
-          const y = p.t + ch - ((last.cumulativePl - yMin) / (yMax - yMin)) * ch;
-          ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
-          ctx.fillStyle = STRATEGY_COLORS[s] || '#e0e6f0'; ctx.fill();
-        }
-      }
-      // Legend
-      ctx.font = '9px monospace'; ctx.textAlign = 'left';
-      for (let si = 0; si < allStrats.length; si++) {
-        const s = allStrats[si];
-        const lx = p.l + 4 + si * 75;
-        ctx.fillStyle = STRATEGY_COLORS[s];
-        ctx.fillRect(lx, p.t + 2, 8, 8);
-        ctx.fillStyle = '#6b7689';
-        ctx.fillText(STRATEGY_LABELS[s], lx + 12, p.t + 10);
-      }
-      // X-axis labels
-      ctx.fillStyle = '#6b7689'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
-      for (let i = 0; i <= 4; i++) {
-        const t = xMin + (xMax - xMin) * (i / 4);
-        const x = p.l + (cw / 4) * i;
-        const d = new Date(t);
-        ctx.fillText(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), x, h - 8);
-      }
-    }
-    function renderStrategySummary() {
-      const el = document.getElementById('strategySummary');
-      if (!el) return;
-      const cmp = dashboardData ? dashboardData.strategyComparison : null;
-      if (cmp && cmp.positionsAvailable === false) { el.innerHTML = '<div class="loading">Current positions unavailable from broker API</div>'; return; }
-      if (!cmp || !cmp.strategies || cmp.strategies.length === 0) { el.innerHTML = ''; return; }
-      const order = ['daytrading', 'swing', 'crypto', 'unattributed'];
-      const sorted = order.map(o => cmp.strategies.find(s => s.strategy === o)).filter(Boolean);
-      let h = '<div class="strategy-summary-scroll"><table><thead><tr><th>Strategy</th><th>Decisions</th><th>Trades</th><th>Open Pos</th><th>Realized P&L</th><th>Unrealized P&L</th><th>Fees</th><th>Net P&L</th><th>Win Rate</th><th>Mkt Value</th></tr></thead><tbody>';
-      for (const s of sorted) {
-        const tp = s.netTotalPl != null ? s.netTotalPl : (s.totalPl || 0);
-        const fee = s.feesUsd || 0;
-        const tc = tp >= 0 ? 'positive' : 'negative';
-        const rc = (s.realizedPl || 0) >= 0 ? 'positive' : 'negative';
-        const uc = (s.unrealizedPl || 0) >= 0 ? 'positive' : 'negative';
-        const color = STRATEGY_COLORS[s.strategy] || '#e0e6f0';
-        h += '<tr><td><strong style="color:' + color + '">' + (STRATEGY_LABELS[s.strategy] || s.strategy) + '</strong></td>';
-        h += '<td>' + (s.totalDecisions || 0) + ' <span style="color:var(--text-muted)">(' + (s.executedDecisions || 0) + ' exec)</span></td>';
-        h += '<td>' + (s.filledTrades || 0) + ' / ' + (s.totalTrades || 0) + '</td>';
-        h += '<td>' + (s.openPositions || 0) + '</td>';
-        h += '<td class="' + rc + '">' + fmtMoney(s.realizedPl || 0) + '</td>';
-        h += '<td class="' + uc + '">' + fmtMoney(s.unrealizedPl || 0) + '</td>';
-        h += '<td class="negative">' + (fee > 0 ? '-' : '') + fmtMoney(fee, 2) + '</td>';
-        h += '<td class="' + tc + '">' + (tp >= 0 ? '+' : '') + fmtMoney(tp, 2) + '</td>';
-        h += '<td>' + (s.winRate || 0).toFixed(0) + '% <span style="color:var(--text-muted)">(' + (s.wins || 0) + 'W ' + (s.losses || 0) + 'L)</span></td>';
-        h += '<td>' + fmtMoney(s.marketValue || 0, 0) + '</td>';
-        h += '</tr>';
-      }
-      h += '</tbody></table></div>';
-      el.innerHTML = h;
-    }
     function renderPositions(ps, elId, showClose) {
       const el = document.getElementById(elId);
       if (!ps || !ps.length) { el.innerHTML = '<div class="loading">No open positions</div>'; return; }
       let h = '<table><thead><tr><th>Symbol</th><th>Qty</th><th>Entry</th><th>Current</th><th>Mkt Value</th><th>Unrealized P&L</th><th>P&L %</th>' + (showClose ? '<th></th>' : '') + '</tr></thead><tbody>';
       for (const p of ps) { const pc = p.unrealized_pl >= 0 ? 'positive' : 'negative'; h += '<tr><td><strong>' + p.ticker + '</strong></td><td>' + p.qty + '</td><td>$' + (p.avg_entry_price||0).toFixed(2) + '</td><td>$' + (p.current_price||0).toFixed(2) + '</td><td>' + fmtMoney(p.market_value) + '</td><td class="' + pc + '">' + fmtMoney(p.unrealized_pl) + '</td><td class="' + pc + '">' + ((p.unrealized_plpc||0) >= 0 ? '+' : '') + ((p.unrealized_plpc||0)*100).toFixed(2) + '%</td>' + (showClose ? '<td><button class="danger-btn" onclick="closePosition(\'' + p.ticker + '\')">Close</button></td>' : '') + '</tr>'; }
       h += '</tbody></table>'; el.innerHTML = h;
-    }
-    function escapeHtml(value) {
-      return String(value == null ? '' : value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
-    function readableDecisionReason(value) {
-      let text = String(value == null ? '' : value).trim();
-      if (!text) return '-';
-      for (let i = 0; i < 2; i++) {
-        const candidate = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-        try {
-          const parsed = JSON.parse(candidate);
-          if (typeof parsed === 'string') { text = parsed.trim(); continue; }
-          if (parsed && typeof parsed === 'object') {
-            const reason = parsed.reasoning || parsed.reason || parsed.text || parsed.content;
-            if (typeof reason === 'string' && reason.trim()) { text = reason.trim(); continue; }
-            if (Array.isArray(parsed.factors) && parsed.factors.length) return parsed.factors.join('; ');
-            if (parsed.action) return String(parsed.action).toUpperCase() + (parsed.confidence != null ? ' decision (' + Number(parsed.confidence).toFixed(2) + ')' : ' decision');
-          }
-        } catch (e) { /* legacy plain text or truncated JSON */ }
-        const rawReasoning = candidate.match(/"reasoning"\s*:\s*"([\s\S]*?)(?:"\s*(?:,|}|$)|$)/i);
-        if (rawReasoning && rawReasoning[1].trim()) {
-          return rawReasoning[1]
-            .replace(/\\"/g, '"')
-            .replace(/\\n/g, ' ')
-            .replace(/\\r/g, ' ')
-            .replace(/\\t/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-        }
-        break;
-      }
-      return text.replace(/\s+/g, ' ').trim() || '-';
-    }
-    function parseRunDetails(value) {
-      if (Array.isArray(value)) return value;
-      if (value == null || value === '') return [];
-      if (typeof value !== 'string') return [String(value)];
-      try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : [value]; } catch (e) { return [value]; }
-    }
-    function readableRunDetail(detail) {
-      if (typeof detail === 'string') return detail;
-      if (!detail || typeof detail !== 'object') return String(detail);
-      const count = detail.count && detail.count > 1 ? ' (x' + detail.count + ')' : '';
-      const context = detail.context && Object.keys(detail.context).length
-        ? ' — ' + Object.entries(detail.context).map(([k, v]) => k + '=' + v).join(', ')
-        : '';
-      return (detail.type === 'skip' ? 'Skipped: ' : '') + (detail.message || detail.code || 'Detail') + count + context;
-    }
-    function runDetails(r) {
-      const details = parseRunDetails(r.run_details != null ? r.run_details : r.error_details);
-      return details.map(readableRunDetail).filter(Boolean).join(' | ');
-    }
-    function decisionExecutionReason(d) {
-      return readableDecisionReason(d.execution_reason || d.reason || '-');
     }
     function renderDecisions(ds, elId) {
       const el = document.getElementById(elId);
@@ -1092,9 +452,8 @@
       for (const d of ds.slice(0, 15)) {
         const cc = d.confidence >= 0.7 ? '#00c853' : d.confidence >= 0.5 ? '#ff9100' : d.confidence >= 0 ? '#546e7a' : '#ff1744';
         const st = d.executed === 1 ? '<span style="color:var(--green)">Executed</span>' : d.executed === 2 ? '<span style="color:var(--text-muted)">Skipped</span>' : d.executed === 3 ? '<span style="color:var(--red)">Failed</span>' : '<span style="color:var(--yellow)">Pending</span>';
-        let src; if (d.signal_source === 'swing') src = '<span class="signal-source signal-swing">SWING</span>'; else if ((d.signal_source || '').startsWith('crypto')) src = '<span class="signal-source signal-crypto">CRYPTO+AI</span>'; else if (d.signal_source === 'ta+ai') src = '<span class="signal-source signal-ai">TA+AI</span>'; else if (d.signal_source === 'ai') src = '<span class="signal-source signal-ai">AI</span>'; else src = '<span class="signal-source signal-ta">TA</span>';
-        const reason = decisionExecutionReason(d);
-        h += '<tr><td>' + escapeHtml(fmtTime(d.timestamp)) + '</td><td><strong>' + escapeHtml(d.ticker) + '</strong></td><td><span class="action-badge action-' + escapeHtml(d.action) + '">' + escapeHtml(d.action) + '</span></td><td><span class="conf-bar"><span class="conf-fill" style="width:' + Math.abs(d.confidence)*50 + '%;background:' + cc + '"></span></span>' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + src + '</td><td class="reason-text" title="' + escapeHtml(reason) + '">' + escapeHtml(reason) + '</td><td>' + st + '</td></tr>';
+        let src; if (d.signal_source === 'swing') src = '<span class="signal-source signal-swing">SWING</span>'; else if (d.signal_source === 'crypto') src = '<span class="signal-source signal-crypto">CRYPTO</span>'; else if (d.signal_source === 'ta+ai') src = '<span class="signal-source signal-ai">TA+AI</span>'; else if (d.signal_source === 'ai') src = '<span class="signal-source signal-ai">AI</span>'; else src = '<span class="signal-source signal-ta">TA</span>';
+        h += '<tr><td>' + fmtTime(d.timestamp) + '</td><td><strong>' + d.ticker + '</strong></td><td><span class="action-badge action-' + d.action + '">' + d.action + '</span></td><td><span class="conf-bar"><span class="conf-fill" style="width:' + Math.abs(d.confidence)*50 + '%;background:' + cc + '"></span></span>' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + src + '</td><td class="reason-text" title="' + (d.reason||'').replace(/"/g,'&quot;') + '">' + (d.reason||'-') + '</td><td>' + st + '</td></tr>';
       }
       h += '</tbody></table>'; el.innerHTML = h;
     }
@@ -1106,345 +465,28 @@
         const st = d.executed === 1 ? '<span style="color:var(--green)">Executed</span>' : d.executed === 2 ? '<span style="color:var(--text-muted)">Skipped</span>' : d.executed === 3 ? '<span style="color:var(--red)">Failed</span>' : '<span style="color:var(--yellow)">Pending</span>';
         let rank = '-', signals = '-'; try { const ai = JSON.parse(d.ai_reasoning||'{}'); if (ai.rank) rank = '#' + ai.rank; if (ai.signals) signals = ai.signals.join(', '); } catch(e) {}
         const zColor = d.confidence >= 1 ? 'var(--green)' : d.confidence >= 0.5 ? 'var(--blue)' : d.confidence >= 0 ? 'var(--text-muted)' : 'var(--red)';
-        const swingReason = decisionExecutionReason(d) || readableDecisionReason(signals || d.reason);
-        h += '<tr><td>' + escapeHtml(fmtDateTime(d.timestamp)) + '</td><td><strong>' + escapeHtml(d.ticker) + '</strong></td><td><span class="action-badge action-' + escapeHtml(d.action) + '">' + escapeHtml(d.action) + '</span></td><td style="color:' + zColor + '">' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + escapeHtml(rank) + '</td><td class="reason-text" title="' + escapeHtml(swingReason) + '">' + escapeHtml(swingReason) + '</td><td>' + st + '</td></tr>';
+        h += '<tr><td>' + fmtDateTime(d.timestamp) + '</td><td><strong>' + d.ticker + '</strong></td><td><span class="action-badge action-' + d.action + '">' + d.action + '</span></td><td style="color:' + zColor + '">' + (d.confidence>=0?'+':'') + d.confidence.toFixed(2) + '</td><td>' + rank + '</td><td class="reason-text" title="' + (d.reason||'').replace(/"/g,'&quot;') + '">' + (signals||d.reason||'-') + '</td><td>' + st + '</td></tr>';
       }
       h += '</tbody></table>'; el.innerHTML = h;
     }
     function renderTrades(ts, elId) {
       const el = document.getElementById(elId);
-      if (!ts || !ts.length) { el.innerHTML = '<div class="loading">No persisted trade records yet</div>'; return; }
-      let h = '<table><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Fill Price</th><th title="Estimate captured when the order was recorded">Est. Value<br><small>(order-time)</small></th><th>Filled Notional</th><th>Est. vs Filled Δ</th><th>Gross</th><th>Fee</th><th>Net</th><th>Accounting</th><th>Status</th></tr></thead><tbody>';
-      for (const t of ts.slice(0, 20)) { const sc = t.side === 'buy' ? 'positive' : 'negative'; const stc = t.status === 'filled' ? 'var(--green)' : t.status === 'rejected' || t.status === 'canceled' ? 'var(--red)' : 'var(--yellow)'; const deltaClass = t.estimated_vs_filled_delta == null || isNaN(t.estimated_vs_filled_delta) ? '' : t.estimated_vs_filled_delta >= 0 ? 'positive' : 'negative'; const accounting = t.accounting_status || (t.filled_qty > 0 ? 'unavailable' : 'not filled'); const accountingTitle = t.fee_attribution ? accounting + ' (' + t.fee_attribution + ')' : accounting; h += '<tr><td>' + fmtTime(t.timestamp) + '</td><td><strong>' + escapeHtml(t.ticker) + '</strong></td><td class="' + sc + '">' + escapeHtml(String(t.side).toUpperCase()) + '</td><td>' + t.qty + '</td><td>' + (t.avg_fill_price ? '$' + t.avg_fill_price.toFixed(2) : '-') + '</td><td>' + fmtMoney(t.estimated_value) + '</td><td>' + fmtMoney(t.filled_notional) + '</td><td class="' + deltaClass + '">' + fmtSignedMoney(t.estimated_vs_filled_delta) + '</td><td>' + fmtSignedMoney(t.gross) + '</td><td>' + fmtSignedMoney(t.fee) + '</td><td>' + fmtSignedMoney(t.net) + '</td><td class="reason-text" title="' + escapeHtml(accountingTitle) + '">' + escapeHtml(accounting) + '</td><td style="color:' + stc + '">' + escapeHtml(t.status) + '</td></tr>'; }
+      if (!ts || !ts.length) { el.innerHTML = '<div class="loading">No trades executed yet</div>'; return; }
+      let h = '<table><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Fill Price</th><th>Est. Value</th><th>Status</th></tr></thead><tbody>';
+      for (const t of ts.slice(0, 20)) { const sc = t.side === 'buy' ? 'positive' : 'negative'; const stc = t.status === 'filled' ? 'var(--green)' : t.status === 'rejected' || t.status === 'canceled' ? 'var(--red)' : 'var(--yellow)'; h += '<tr><td>' + fmtTime(t.timestamp) + '</td><td><strong>' + t.ticker + '</strong></td><td class="' + sc + '">' + t.side.toUpperCase() + '</td><td>' + t.qty + '</td><td>' + (t.avg_fill_price ? '$' + t.avg_fill_price.toFixed(2) : '-') + '</td><td>' + fmtMoney(t.estimated_value) + '</td><td style="color:' + stc + '">' + t.status + '</td></tr>'; }
       h += '</tbody></table>'; el.innerHTML = h;
     }
     function renderRuns(rs, elId) {
       const el = document.getElementById(elId);
       if (!rs || !rs.length) { el.innerHTML = '<div class="loading">No runs yet</div>'; return; }
-      let h = '<table><thead><tr><th>Time</th><th>Trigger</th><th>Alias</th><th>Market</th><th>Analyzed</th><th>Filtered</th><th>Decisions</th><th>Full fills</th><th>Errors</th><th>Duration</th><th>Status</th><th>Reason / details</th></tr></thead><tbody>';
-      for (const r of rs.slice(0, 15)) {
-        const sc = r.status === 'ok' ? 'var(--green)' : r.status === 'error' ? 'var(--red)' : r.status === 'degraded' ? 'var(--orange)' : 'var(--text-muted)';
-        const tl = r.trigger === 'swing_cron' ? '<span style="color:var(--teal)">swing_cron</span>' : escapeHtml(r.trigger);
-        const alias = r.trigger_alias ? escapeHtml(r.trigger_alias) : '-';
-        const analyzed = r.analyzed_candidates == null ? '-' : escapeHtml(String(r.analyzed_candidates));
-        const filtered = r.filtered_candidates == null ? '-' : escapeHtml(String(r.filtered_candidates));
-        const details = runDetails(r) || '-';
-        h += '<tr><td>' + fmtDateTime(r.timestamp) + '</td><td>' + tl + '</td><td>' + alias + '</td><td>' + (r.market_open?'Open':'Closed') + '</td><td>' + analyzed + '</td><td>' + filtered + '</td><td>' + r.decisions_made + '</td><td>' + r.trades_executed + '</td><td style="color:' + (r.errors>0?'var(--red)':'var(--text-muted)') + '">' + r.errors + '</td><td>' + (r.duration_ms?(r.duration_ms/1000).toFixed(1)+'s':'-') + '</td><td style="color:' + sc + '">' + escapeHtml(r.status || 'unknown') + '</td><td class="reason-text" title="' + escapeHtml(details) + '">' + escapeHtml(details) + '</td></tr>';
-      }
+      let h = '<table><thead><tr><th>Time</th><th>Trigger</th><th>Market</th><th>Decisions</th><th>Trades</th><th>Errors</th><th>Duration</th><th>Status</th></tr></thead><tbody>';
+      for (const r of rs.slice(0, 15)) { const sc = r.status === 'ok' ? 'var(--green)' : r.status === 'error' ? 'var(--red)' : 'var(--text-muted)'; const tl = r.trigger === 'swing_cron' ? '<span style="color:var(--teal)">swing_cron</span>' : r.trigger; h += '<tr><td>' + fmtDateTime(r.timestamp) + '</td><td>' + tl + '</td><td>' + (r.market_open?'Open':'Closed') + '</td><td>' + r.decisions_made + '</td><td>' + r.trades_executed + '</td><td style="color:' + (r.errors>0?'var(--red)':'var(--text-muted)') + '">' + r.errors + '</td><td>' + (r.duration_ms?(r.duration_ms/1000).toFixed(1)+'s':'-') + '</td><td style="color:' + sc + '">' + r.status + '</td></tr>'; }
       h += '</tbody></table>'; el.innerHTML = h;
     }
     async function closePosition(s) { if (!confirm('Close position for ' + s + '?')) return; const r = await fetch(API_BASE + '/api/positions/close?symbol=' + s, { method: 'POST' }); if (r.ok) { alert('Closed ' + s); loadDashboard(); } else alert('Failed'); }
     async function closeAllPositions() { if (!confirm('Close ALL positions?')) return; const r = await fetch(API_BASE + '/api/positions/close-all', { method: 'POST' }); if (r.ok) { alert('All positions closed'); loadDashboard(); } else alert('Failed'); }
-    async function triggerSwing() { if (!confirm('Trigger swing cycle now? This calls the Worker API and runs immediately.')) return; const r = await fetch(API_BASE + '/api/trigger-swing', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
-    async function triggerCrypto() { if (!confirm('Trigger crypto cycle now? This calls the Worker API and runs immediately.')) return; const r = await fetch(API_BASE + '/api/trigger-crypto', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
-    // ============================================================
-    // Trading Analytics & Review
-    // ============================================================
-    let anPeriod = 'all';
-    let anData = null;
-    let anInFlight = false;
-    const INSUF = 'Insufficient data';
-
-    function setAnPeriod(p) {
-      anPeriod = p;
-      document.querySelectorAll('[id^="anP-"]').forEach(b => b.classList.remove('active'));
-      const btn = document.getElementById('anP-' + p);
-      if (btn) btn.classList.add('active');
-      loadAnalytics();
-    }
-    function anQuery(extra) {
-      const symbol = document.getElementById('anSymbol').value.trim();
-      const params = new URLSearchParams({ period: anPeriod });
-      const strategy = document.getElementById('anStrategy').value;
-      const side = document.getElementById('anSide').value;
-      const result = document.getElementById('anResult').value;
-      if (strategy) params.set('strategy', strategy);
-      if (side) params.set('side', side);
-      if (result) params.set('result', result);
-      if (symbol) params.set('symbol', symbol.toUpperCase());
-      if (anPeriod === 'custom') {
-        const s = document.getElementById('anStart').value, e = document.getElementById('anEnd').value;
-        if (s) params.set('start', s);
-        if (e) params.set('end', e);
-      }
-      return '/api/analytics?' + params.toString();
-    }
-    async function loadAnalytics() {
-      if (anInFlight) return;
-      anInFlight = true;
-      try {
-        const data = await fetchAPI(anQuery());
-        anData = data;
-        renderAnalytics();
-      } finally { anInFlight = false; }
-    }
-    function fmtDur(min) {
-      if (min == null) return INSUF;
-      if (min < 120) return min + ' min';
-      if (min < 60 * 48) return (min / 60).toFixed(1) + ' h';
-      return (min / 1440).toFixed(1) + ' d';
-    }
-    function fmtNum(v, d = 2, suffix = '') { return v == null || isNaN(v) ? INSUF : Number(v).toFixed(d) + suffix; }
-    function kpiCard(label, value, cls, sub) {
-      return '<div class="metric-card"><div class="metric-label">' + label + '</div><div class="metric-value ' + (cls || 'neutral') + '">' + value + '</div>' + (sub ? '<div class="metric-sub">' + sub + '</div>' : '') + '</div>';
-    }
-    function renderAnalytics() {
-      if (!anData) { document.getElementById('anVerdict').textContent = 'Analytics unavailable (API error).'; return; }
-      const k = anData.kpis;
-      const verdictEl = document.getElementById('anVerdict');
-      const ev = anData.robustness;
-      if (!k.trades) {
-        verdictEl.className = 'an-verdict nodata';
-        verdictEl.textContent = 'No closed trades in the selected period/filters. ' + ev.inSampleNote;
-      } else {
-        const calibOff = anData.calibrationVerdict.includes('NOT');
-        verdictEl.className = 'an-verdict ' + (k.netPL >= 0 ? 'ok' : 'warn');
-        verdictEl.textContent = 'Net P/L ' + fmtSignedMoney(k.netPL) + ' over ' + k.trades + ' closed trades · evidence: ' + ev.evidence
-          + ' (sample ' + ev.sampleSize + ') · ' + anData.calibrationVerdict + ' Losses: ' + anData.acceptableLosses + ' acceptable / ' + anData.avoidableLosses + ' avoidable. ' + ev.inSampleNote;
-      }
-      // KPI grid
-      document.getElementById('anKpis').innerHTML = [
-        kpiCard('Net P/L', fmtSignedMoney(k.netPL), k.netPL >= 0 ? 'positive' : 'negative'),
-        kpiCard('Trades', k.trades, 'neutral', ev.evidence + ' evidence'),
-        kpiCard('Win Rate', k.winRate != null ? k.winRate + '%' : INSUF, k.winRate != null && k.winRate >= 50 ? 'positive' : k.winRate != null ? 'negative' : 'neutral'),
-        kpiCard('Profit Factor', k.profitFactor != null ? k.profitFactor.toFixed(2) : INSUF, k.profitFactor != null && k.profitFactor >= 1 ? 'positive' : 'negative'),
-        kpiCard('Expectancy', k.expectancy != null ? fmtSignedMoney(k.expectancy) : INSUF, 'neutral'),
-        kpiCard('Expectancy (R)', k.expectancyR != null ? fmtSignedMoney(k.expectancyR, 2) : INSUF, 'neutral'),
-        kpiCard('Avg Win', k.avgWin != null ? fmtMoney(k.avgWin) : INSUF, 'positive'),
-        kpiCard('Avg Loss', k.avgLoss != null ? fmtMoney(k.avgLoss) : INSUF, 'negative'),
-        kpiCard('Avg Planned R:R', k.avgRR != null ? k.avgRR.toFixed(2) : INSUF, 'neutral'),
-        kpiCard('Max Drawdown', k.maxDrawdown != null ? fmtMoney(k.maxDrawdown) : INSUF, 'negative'),
-        kpiCard('Avg Duration', fmtDur(k.avgDurationMinutes), 'neutral'),
-        kpiCard('Fees (attributed)', k.fees != null ? fmtMoney(k.fees) : INSUF, 'negative', 'MFE/MAE: not recorded · Funding: n/a'),
-        kpiCard('Long P/L (' + k.longTrades + ')', k.longPL != null ? fmtSignedMoney(k.longPL) : INSUF, k.longPL >= 0 ? 'positive' : 'negative'),
-        kpiCard('Short P/L (' + k.shortTrades + ')', k.shortPL != null ? fmtSignedMoney(k.shortPL) : INSUF, k.shortPL >= 0 ? 'positive' : 'negative'),
-        kpiCard('Avg Decision Quality', k.avgDecisionQuality != null ? k.avgDecisionQuality.toFixed(1) + ' / 100' : INSUF, 'neutral', 'Entry-time info only'),
-        kpiCard('Avg Realized R', k.avgRealizedR != null ? k.avgRealizedR.toFixed(2) : INSUF, 'neutral'),
-      ].join('');
-      document.getElementById('anEquityNote').textContent = (anData.equityCurve.length) + ' closed trades' + (anData.periodStart ? ' · ' + anData.periodStart.slice(0, 10) + ' → ' + (anData.periodEnd ? anData.periodEnd.slice(0, 10) : 'now') : ' · all time');
-      drawAnLine('anEquityChart', anData.equityCurve.map(p => ({ ts: p.timestamp, v: p.cumulativePL })), v => '$' + v.toFixed(0));
-      drawAnLine('anDrawdownChart', anData.drawdownCurve.map(p => ({ ts: p.timestamp, v: -p.drawdownPct })), v => v.toFixed(0) + '%', true);
-      renderCalibration(anData.calibration);
-      renderPatterns(anData.patterns);
-      renderComparison(anData.comparison);
-      renderBacklog(anData.researchBacklog);
-      renderTradesAnalysis(anData.perTrade);
-    }
-    function drawAnLine(canvasId, points, fmt, redAlways) {
-      const c = document.getElementById(canvasId);
-      if (!c) return;
-      const ctx = c.getContext('2d');
-      const r = c.getBoundingClientRect(); c.width = r.width * devicePixelRatio; c.height = r.height * devicePixelRatio;
-      ctx.scale(devicePixelRatio, devicePixelRatio);
-      const w = r.width, h = r.height, p = { t: 10, r: 10, b: 26, l: 64 };
-      const cw = w - p.l - p.r, ch = h - p.t - p.b;
-      ctx.clearRect(0, 0, w, h);
-      if (!points || points.length < 2) { ctx.fillStyle = '#6b7689'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillText(INSUF, w / 2, h / 2); return; }
-      const vals = points.map(pt => pt.v);
-      const min = Math.min(0, ...vals), max = Math.max(...vals);
-      const range = (max - min) || 1, pr = range * 0.1, yMin = min - pr, yMax = max + pr;
-      ctx.strokeStyle = '#1e2638'; ctx.lineWidth = 1;
-      for (let i = 0; i <= 4; i++) {
-        const y = p.t + (ch / 4) * i;
-        ctx.beginPath(); ctx.moveTo(p.l, y); ctx.lineTo(p.l + cw, y); ctx.stroke();
-        const v = yMax - ((yMax - yMin) / 4) * i;
-        ctx.fillStyle = '#6b7689'; ctx.font = '10px monospace'; ctx.textAlign = 'right'; ctx.fillText(fmt(v), p.l - 8, y + 3);
-      }
-      ctx.beginPath();
-      points.forEach((pt, i) => {
-        const x = p.l + (cw / (points.length - 1)) * i;
-        const y = p.t + ch - ((pt.v - yMin) / (yMax - yMin)) * ch;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      });
-      const up = redAlways ? false : vals[vals.length - 1] >= 0;
-      ctx.strokeStyle = redAlways ? '#ff1744' : (up ? '#00c853' : '#ff1744');
-      ctx.lineWidth = 2; ctx.stroke();
-      ctx.fillStyle = '#6b7689'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
-      const labelCount = Math.min(5, points.length);
-      for (let i = 0; i < labelCount; i++) {
-        const idx = Math.floor((points.length - 1) * (i / (labelCount - 1 || 1)));
-        const x = p.l + (cw / (points.length - 1)) * idx;
-        const d = new Date(points[idx].ts.includes('T') ? points[idx].ts + 'Z' : points[idx].ts);
-        ctx.fillText(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), x, h - 8);
-      }
-    }
-    function dqBadge(label) {
-      if (!label) return '<span class="dq-badge" style="background:var(--bg-card);color:var(--text-muted)">n/a</span>';
-      const cls = label === 'Strong' ? 'dq-strong' : label === 'Good' ? 'dq-good' : label === 'Questionable' ? 'dq-questionable' : 'dq-weak';
-      return '<span class="dq-badge ' + cls + '">' + label + '</span>';
-    }
-    function renderCalibration(cal) {
-      const verdict = anData.calibrationVerdict;
-      const off = verdict.includes('NOT');
-      let html = '<div class="an-verdict ' + (off ? 'warn' : 'ok') + '" style="margin-bottom:10px">' + verdict + '</div>';
-      html += '<table><thead><tr><th>Confidence</th><th>Trades</th><th>Win rate</th><th>Expectancy</th><th>PF</th><th>Net P/L</th></tr></thead><tbody>';
-      for (const b of cal) {
-        html += '<tr><td>' + b.band + '</td><td>' + b.trades + '</td><td>' + (b.winRate != null ? b.winRate + '%' : INSUF) + '</td><td>' + (b.expectancy != null ? fmtSignedMoney(b.expectancy) : INSUF) + '</td><td>' + (b.profitFactor != null ? b.profitFactor.toFixed(2) : INSUF) + '</td><td class="' + (b.netPL >= 0 ? 'positive' : 'negative') + '">' + fmtSignedMoney(b.netPL) + '</td></tr>';
-      }
-      html += '</tbody></table>';
-      document.getElementById('anCalibration').innerHTML = html;
-      const k = anData.kpis;
-      document.getElementById('anSideSplit').innerHTML = '<table><thead><tr><th>Metric</th><th>Long</th><th>Short</th></tr></thead><tbody>'
-        + '<tr><td>Trades</td><td>' + k.longTrades + '</td><td>' + k.shortTrades + '</td></tr>'
-        + '<tr><td>Net P/L</td><td class="' + (k.longPL >= 0 ? 'positive' : 'negative') + '">' + fmtSignedMoney(k.longPL) + '</td><td class="' + (k.shortPL >= 0 ? 'positive' : 'negative') + '">' + fmtSignedMoney(k.shortPL) + '</td></tr>'
-        + '<tr><td>Fees (attributed)</td><td colspan="2">' + (k.fees != null ? fmtMoney(k.fees) : INSUF) + '</td></tr>'
-        + '<tr><td>Funding</td><td colspan="2">Not recorded (equities; crypto disabled) — ' + INSUF + '</td></tr>'
-        + '<tr><td>Avg Decision Quality</td><td colspan="2">' + (k.avgDecisionQuality != null ? k.avgDecisionQuality.toFixed(1) : INSUF) + '</td></tr>'
-        + '</tbody></table>';
-    }
-    function patternRow(f) {
-      const oos = f.outOfSampleHolds == null ? '' : f.outOfSampleHolds ? ' · holds out-of-sample' : ' · does NOT hold out-of-sample';
-      return '<div style="margin:8px 0"><strong style="font-size:12px">' + f.factorCombo + '</strong><br>'
-        + '<span style="color:var(--text-muted)">Expectancy ' + fmtSignedMoney(f.expectancy) + ' · net ' + fmtSignedMoney(f.netPL) + ' · win rate ' + (f.winRate != null ? f.winRate + '%' : INSUF) + ' · n=' + f.trades + oos + '</span> '
-        + '<span class="evidence-pill">' + f.evidence + '</span></div>';
-    }
-    function renderPatterns(patterns) {
-      document.getElementById('anWorks').innerHTML = patterns.works.length
-        ? patterns.works.map(patternRow).join('')
-        : '<div class="loading">No positive pattern with n>=3 in this period. ' + INSUF + '</div>';
-      document.getElementById('anAttention').innerHTML = patterns.needsAttention.length
-        ? patterns.needsAttention.map(patternRow).join('')
-        : '<div class="loading">No negative pattern with n>=3 in this period.</div>';
-    }
-    function renderComparison(cmp) {
-      if (!cmp) { document.getElementById('anComparison').innerHTML = '<div class="loading">Insufficient data</div>'; return; }
-      let html = '<table><thead><tr><th>Dimension</th><th>Day Trading</th><th>Swing Trading</th><th>Crypto</th><th>Note</th></tr></thead><tbody>';
-      for (const d of cmp.differences) {
-        html += '<tr><td>' + d.dimension + '</td><td>' + d.daytrading + '</td><td>' + d.swing + '</td><td>' + (d.crypto || 'Insufficient data') + '</td><td style="color:var(--text-muted)">' + d.note + '</td></tr>';
-      }
-      html += '</tbody></table><div class="run-history-note" style="margin-top:10px">KPI basis — Day: ' + cmp.dayTrading.kpis.trades + ' closed trades · Swing: ' + cmp.swingTrading.kpis.trades + ' closed trades · Crypto: ' + ((cmp.cryptoTrading && cmp.cryptoTrading.kpis.trades) || 0) + ' closed trades. Neither strategy is called "best": they carry different risk, holding time and cost structures by design.</div>';
-      document.getElementById('anComparison').innerHTML = html;
-    }
-    function renderBacklog(items) {
-      if (!items.length) { document.getElementById('anBacklog').innerHTML = '<div class="loading">No hypothesis-worthy patterns in this period.</div>'; return; }
-      let html = '<table><thead><tr><th>Title</th><th>Observation</th><th>Evidence</th><th>n</th><th>Hypothesis &amp; Test</th><th>Status</th></tr></thead><tbody>';
-      for (const it of items) {
-        html += '<tr><td><strong>' + it.title + '</strong></td><td>' + it.observation + '</td><td>' + it.evidence + '</td><td>' + it.sampleSize + '</td><td>' + it.hypothesis + ' <em style="color:var(--text-muted)">' + it.proposedTest + ' ' + it.successCriteria + '</em></td><td><span class="evidence-pill">' + it.status + '</span></td></tr>';
-      }
-      html += '</tbody></table>';
-      document.getElementById('anBacklog').innerHTML = html;
-    }
-    function renderTradesAnalysis(trades) {
-      document.getElementById('anTradeCount').textContent = trades.length + ' closed trades';
-      if (!trades.length) { document.getElementById('anTrades').innerHTML = '<div class="loading">No closed trades in this period/filters.</div>'; return; }
-      let html = '<table><thead><tr><th>Closed</th><th>Symbol</th><th>Side</th><th>Strategy</th><th>Outcome</th><th>P/L</th><th>R</th><th>Decision</th><th>Loss class</th><th></th></tr></thead><tbody>';
-      trades.forEach((t, i) => {
-        html += '<tr><td>' + fmtDateTime(t.closed_at) + '</td><td><strong>' + t.ticker + '</strong></td><td>' + t.side + '</td><td>' + t.strategy + '</td>'
-          + '<td>' + (t.close_reason || 'n/a') + '</td>'
-          + '<td class="' + ((t.pl ?? 0) >= 0 ? 'positive' : 'negative') + '">' + fmtSignedMoney(t.pl) + '</td>'
-          + '<td>' + (t.realizedR != null ? t.realizedR.toFixed(2) : INSUF) + '</td>'
-          + '<td>' + dqBadge(t.decisionQualityLabel) + '</td>'
-          + '<td>' + (t.pl < 0 ? (t.lossClassification || INSUF) : '-') + '</td>'
-          + '<td><button class="refresh-btn" onclick="toggleTradeDetail(' + t.position_id + ')">Detail</button></td></tr>';
-        html += '<tr><td colspan="10" style="padding:0;border:none"><div class="an-detail" id="anDetail-' + t.position_id + '" style="display:none">' + tradeDetailHtml(t) + '</div></td></tr>';
-      });
-      html += '</tbody></table>';
-      document.getElementById('anTrades').innerHTML = html;
-    }
-    function tradeDetailHtml(t) {
-      const regime = t.marketRegime.replace(/_/g, ' ');
-      const vol = t.volatilityBucket || INSUF, vol2 = t.volumeRegime || INSUF;
-      return '<h4>Market Context (at entry)</h4>'
-        + 'Regime: <strong>' + regime + '</strong> · Volatility (ATR%): ' + vol + ' · Volume: ' + vol2 + ' · AI confidence: ' + (t.confidence != null ? (t.confidence * 100).toFixed(0) + '%' : INSUF)
-        + '<h4>Original AI Thesis (unchanged, entry-time)</h4>'
-        + '<div style="white-space:pre-wrap;font-style:italic">' + (t.originalThesis ? t.originalThesis : 'Not recorded (decision was TA-only or unlinked).') + '</div>'
-        + '<h4>Entry Review</h4>'
-        + 'Decision quality: ' + dqBadge(t.decisionQualityLabel) + ' (score ' + (t.decisionQualityScore != null ? t.decisionQualityScore + '/100' : INSUF) + ', entry-time info only) · Strategy-compliant: ' + (t.strategyCompliant == null ? INSUF : t.strategyCompliant ? 'Yes' : 'No')
-        + '<h4>Execution</h4>'
-        + 'Slippage (fill vs decision price): ' + (t.slippagePct != null ? t.slippagePct.toFixed(2) + '%' : INSUF) + ' · Execution score: ' + (t.executionQualityScore != null ? t.executionQualityScore + '/100' : INSUF)
-        + '<h4>Trade Management &amp; Exit</h4>'
-        + 'Management score: ' + (t.tradeManagementScore != null ? t.tradeManagementScore + '/100' : INSUF) + ' · Exit quality: ' + (t.exitQualityScore != null ? t.exitQualityScore + '/100' : INSUF) + ' · Exit reason: ' + (t.close_reason || 'n/a') + ' · Duration: ' + fmtDur(t.durationMinutes)
-        + '<h4>Outcome</h4>'
-        + 'P/L: ' + fmtSignedMoney(t.pl) + ' · P/L %: ' + (t.plPct != null ? t.plPct.toFixed(2) + '%' : INSUF) + ' · R: ' + (t.realizedR != null ? t.realizedR.toFixed(2) : INSUF) + ' (initial risk ' + (t.initialRisk != null ? '$' + t.initialRisk.toFixed(2) : INSUF) + ') · Fees: ' + (t.fees != null ? fmtMoney(t.fees) : INSUF) + ' · MFE/MAE: not recorded · Funding: n/a'
-        + '<h4>What Was Done Well</h4><div>' + (t.whatWorked || INSUF) + '</div>'
-        + '<h4>What Could Be Improved</h4><div>' + (t.whatCouldImprove || INSUF) + '</div>'
-        + '<h4>Learning</h4><div>' + (t.learningPoint || INSUF) + '</div>'
-        + (t.dataGaps && t.dataGaps.length && t.dataGaps[0] !== 'none' ? '<h4>Data Gaps</h4><div style="color:var(--text-muted)">' + t.dataGaps.join(', ') + '</div>' : '');
-    }
-    function toggleTradeDetail(id) {
-      const el = document.getElementById('anDetail-' + id);
-      el.style.display = el.style.display === 'none' ? 'block' : 'none';
-    }
-    // ---- A4 reports ----
-    function a4StrategySummary(cmp, strategy) {
-      if (!cmp) return null;
-      if (strategy === 'daytrading') return cmp.dayTrading;
-      if (strategy === 'crypto') return cmp.cryptoTrading || null;
-      return cmp.swingTrading;
-    }
-    function buildA4Html(strategy) {
-      // Priority-ordered content so the sheet NEVER exceeds one A4 page:
-      // type, period, net P/L, expectancy, PF, win rate, DD, graph, findings, review.
-      const s = a4StrategySummary(anData.comparison, strategy);
-      if (!s || !s.kpis.trades) return '<div class="a4-sheet"><h1>Trading Analytics</h1><h2>' + strategy.toUpperCase() + '</h2><p>Insufficient data: no closed trades in the selected period.</p></div>';
-      const k = s.kpis;
-      const label = strategy === 'daytrading' ? 'DAY TRADING' : strategy === 'crypto' ? 'CRYPTO TRADING' : 'SWING TRADING';
-      const periodTxt = (anData.periodStart ? anData.periodStart.slice(0, 10) : 'beginning') + ' → ' + (anData.periodEnd ? anData.periodEnd.slice(0, 10) : new Date().toISOString().slice(0, 10));
-      const works = anData.patterns.works.filter(p => p.expectancy > 0).slice(0, 3);
-      const attention = anData.patterns.needsAttention.filter(p => p.expectancy < 0).slice(0, 3);
-      // Trading Review: 3-5 lines from data.
-      const review = [];
-      review.push('Net P/L ' + fmtSignedMoney(k.netPL) + ' across ' + k.trades + ' closed trades (win rate ' + (k.winRate != null ? k.winRate + '%' : INSUF) + ', profit factor ' + (k.profitFactor != null ? k.profitFactor.toFixed(2) : INSUF) + ').');
-      review.push('Strongest pattern: ' + (works.length ? works[0].factorCombo + ' (' + fmtSignedMoney(works[0].expectancy) + '/trade)' : INSUF) + '.');
-      review.push('Key improvement area: ' + (attention.length ? attention[0].factorCombo + ' (' + fmtSignedMoney(attention[0].expectancy) + '/trade)' : INSUF) + '.');
-      review.push(anData.calibrationVerdict);
-      review.push('Next: ' + (anData.researchBacklog.length ? anData.researchBacklog[0].title : 'no open hypotheses in this period.'));
-      return '<div class="a4-sheet" id="a4Sheet">'
-        + '<h1>Trading Analytics</h1>'
-        + '<div style="font-size:13px;font-weight:600;letter-spacing:2px;color:#333">' + label + '</div>'
-        + '<div style="color:#666;margin-top:2px">Analysis period: ' + periodTxt + ' · Generated: ' + new Date().toLocaleString('en-GB') + ' · Evidence: ' + anData.robustness.evidence + ' (n=' + k.trades + ')</div>'
-        + '<h2>Key Metrics</h2>'
-        + '<div class="a4-kpis">'
-        + '<div class="a4-kpi"><div class="k">Trades</div><div class="v">' + k.trades + '</div></div>'
-        + '<div class="a4-kpi"><div class="k">Net P/L</div><div class="v">' + fmtSignedMoney(k.netPL) + '</div></div>'
-        + '<div class="a4-kpi"><div class="k">Win Rate</div><div class="v">' + (k.winRate != null ? k.winRate + '%' : INSUF) + '</div></div>'
-        + '<div class="a4-kpi"><div class="k">Profit Factor</div><div class="v">' + (k.profitFactor != null ? k.profitFactor.toFixed(2) : INSUF) + '</div></div>'
-        + '<div class="a4-kpi"><div class="k">Expectancy</div><div class="v">' + (k.expectancy != null ? fmtSignedMoney(k.expectancy) : INSUF) + '</div></div>'
-        + '<div class="a4-kpi"><div class="k">Max Drawdown</div><div class="v">' + (k.maxDrawdown != null ? fmtMoney(k.maxDrawdown) : INSUF) + '</div></div>'
-        + '<div class="a4-kpi"><div class="k">Avg Win</div><div class="v">' + (k.avgWin != null ? fmtMoney(k.avgWin) : INSUF) + '</div></div>'
-        + '<div class="a4-kpi"><div class="k">Avg Loss</div><div class="v">' + (k.avgLoss != null ? fmtMoney(k.avgLoss) : INSUF) + '</div></div>'
-        + '</div>'
-        + '<h2>Cumulative P/L</h2>'
-        + '<canvas id="a4Chart" style="width:100%;height:150px"></canvas>'
-        + '<h2>What Works</h2>'
-        + (works.map(f => '<div class="a4-finding"><span class="sym">+</span><strong>' + f.factorCombo + '</strong> — expectancy ' + fmtSignedMoney(f.expectancy) + '/trade, net ' + fmtSignedMoney(f.netPL) + ', n=' + f.trades + ' (' + f.evidence + ').</div>').join('') || '<div class="a4-finding">No positive pattern with sufficient sample in this period.</div>')
-        + '<h2>Improvements</h2>'
-        + (attention.map(f => '<div class="a4-finding"><span class="sym">-</span><strong>' + f.factorCombo + '</strong> — expectancy ' + fmtSignedMoney(f.expectancy) + '/trade, net ' + fmtSignedMoney(f.netPL) + ', n=' + f.trades + ' (' + f.evidence + ').</div>').join('') || '<div class="a4-finding">No negative pattern with sufficient sample in this period.</div>')
-        + '<div class="a4-bottomline"><div class="t">Trading Review</div>'
-        + review.map(l => '<div>' + l + '</div>').join('')
-        + '</div></div>';
-    }
-    function exportA4(strategy) {
-      if (!anData) { alert('Analytics not loaded yet.'); return; }
-      document.getElementById('a4ReportHost').innerHTML = buildA4Html(strategy);
-      setTimeout(() => {
-        const curve = (strategy === 'daytrading' ? anData.comparison?.dayTrading : anData.comparison?.swingTrading);
-        // Draw the cumulative P/L curve for THIS strategy's trades only.
-        const rows = anData.perTrade.filter(t => t.strategy === strategy && t.pl != null).slice().sort((a, b) => (a.closed_at ?? '').localeCompare(b.closed_at ?? ''));
-        let c = 0;
-        const pts = rows.map(t => { c += t.pl; return { ts: t.closed_at, v: c }; });
-        const canvas = document.getElementById('a4Chart');
-        if (canvas && pts.length >= 2) {
-          const ctx = canvas.getContext('2d');
-          const r = canvas.getBoundingClientRect(); canvas.width = r.width * 2; canvas.height = r.height * 2; ctx.scale(2, 2);
-          const w = r.width, h = r.height, pad = 30;
-          ctx.clearRect(0, 0, w, h);
-          const vals = pts.map(p => p.v);
-          const min = Math.min(0, ...vals), max = Math.max(...vals);
-          const range = (max - min) || 1;
-          ctx.strokeStyle = '#e2e2e2'; ctx.lineWidth = 1;
-          for (let i = 0; i <= 3; i++) { const y = pad + ((h - 2 * pad) / 3) * i; ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(w - pad / 2, y); ctx.stroke(); ctx.fillStyle = '#666'; ctx.font = '8px sans-serif'; ctx.textAlign = 'right'; ctx.fillText('$' + (max - (range / 3) * i).toFixed(0), pad - 4, y + 3); }
-          ctx.beginPath();
-          pts.forEach((pt, i) => { const x = pad + ((w - pad * 1.5) / (pts.length - 1)) * i; const y = h - pad - ((pt.v - min) / range) * (h - 2 * pad); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
-          ctx.strokeStyle = vals[vals.length - 1] >= 0 ? '#0a7a35' : '#b3122e'; ctx.lineWidth = 1.6; ctx.stroke();
-        } else if (canvas) {
-          const ctx = canvas.getContext('2d'); ctx.fillStyle = '#666'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Insufficient data for cumulative P/L curve', canvas.width / 4, canvas.height / 4);
-        }
-        window.print();
-      }, 60);
-    }
-    loadAnalyticsOnBoot();
-    function loadAnalyticsOnBoot() { /* analytics loads on first tab switch */ }
+    async function triggerSwing() { if (!confirm('Trigger swing cycle? It will run on the next cron tick.')) return; const r = await fetch(API_BASE + '/api/trigger-swing', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
+    async function triggerCrypto() { if (!confirm('Trigger crypto cycle? It will run on the next 4h cron tick.')) return; const r = await fetch(API_BASE + '/api/trigger-crypto', { method: 'POST' }); if (r.ok) { const d = await r.json(); alert(d.message); } else alert('Failed'); }
     loadDashboard();
     // Tab scroll hint: fade gradient when scrolled to end
     (function() {

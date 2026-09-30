@@ -1,0 +1,61 @@
+{
+  "ts": 1785508385395,
+  "daemonPid": 1,
+  "heartbeatAgeMs": 11020,
+  "kernelStack": "[<0>] folio_wait_bit_common+0x2c4/0x2e0\n",
+  "processState": "R",
+  "sample": {
+    "ts": 1785508385395,
+    "memory": {
+      "currentBytes": 1220898816,
+      "limitBytes": 8589934592,
+      "peakBytes": 1844367360,
+      "ratio": 0.14213132858276367
+    },
+    "memoryStat": {
+      "anonBytes": 857366528,
+      "fileBytes": 327225344,
+      "kernelBytes": 24895488,
+      "slabReclaimableBytes": 15078712,
+      "slabUnreclaimableBytes": 2147848,
+      "unevictableBytes": 859514376,
+      "reclaimableBytes": 342304056
+    },
+    "reclaim": {
+      "pgscanDirect": 0,
+      "pgstealDirect": 0,
+      "workingsetRefaultFile": 0
+    },
+    "cpu": {
+      "usageUsec": 9171649,
+      "userUsec": 6256979,
+      "systemUsec": 2914669,
+      "nrPeriods": 62,
+      "nrThrottled": 0,
+      "throttledUsec": 0
+    },
+    "events": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "deltas": null,
+    "disk": {
+      "path": "/workspace",
+      "usedMb": 12512.89,
+      "totalMb": 60386.2,
+      "freeMb": 47873.31
+    },
+    "activeConversations": [
+      {
+        "conversationId": "918f9184-2d56-4a86-9e99-77fb15475524",
+        "title": "Nøgle database status",
+        "originChannel": "vellum",
+        "originInterface": "web",
+        "processingStartedAt": 1785508293606
+      }
+    ]
+  }
+}

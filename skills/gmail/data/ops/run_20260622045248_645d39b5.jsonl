@@ -1,0 +1,3 @@
+{"ts":"2026-06-22T04:52:49.192Z","run_id":"run_20260622045248_645d39b5","op":"archive","chunk_index":0,"message_ids":["19ecc96c3116afe0"],"reason":"query:from:no-reply@mailer.alpaca.markets in:inbox newer_than:7d -subject:'[SMS-KIT]'","status":"staged"}
+{"ts":"2026-06-22T04:52:50.393Z","run_id":"run_20260622045248_645d39b5","chunk_index":0,"status":"committed"}
+{"ts":"2026-06-22T04:52:50.394Z","run_id":"run_20260622045248_645d39b5","status":"completed","total_committed":1,"total_failed":0}

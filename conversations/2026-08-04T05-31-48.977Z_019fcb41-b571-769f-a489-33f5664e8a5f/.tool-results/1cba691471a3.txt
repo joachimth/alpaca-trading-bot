@@ -1,0 +1,322 @@
+     1  // Database Layer
+     2  // All D1 interactions for the trading bot
+     3  
+     4  import type { D1Database } from '@cloudflare/workers-types';
+     5  
+     6  export interface DecisionRecord {
+     7    ticker: string;
+     8    action: string;
+     9    confidence: number;
+    10    signal_source: string;
+    11    reason: string;
+    12    ta_data: string;
+    13    ai_reasoning: string;
+    14    price_at_decision: number;
+    15    executed: number;
+    16    execution_reason: string;
+    17  }
+    18  
+    19  export interface TradeRecord {
+    20    alpaca_order_id: string;
+    21    ticker: string;
+    22    side: string;
+    23    qty: number;
+    24    fill_price: number | null;
+    25    avg_fill_price: number | null;
+    26    status: string;
+    27    order_type: string;
+    28    limit_price: number | null;
+    29    stop_price: number | null;
+    30    estimated_value: number;
+    31    decision_id: number | null;
+    32    error_message: string | null;
+    33  }
+    34  
+    35  export class Database {
+    36    private db: D1Database;
+    37  
+    38    constructor(db: D1Database) {
+    39      this.db = db;
+    40    }
+    41  
+    42    // ============================================================
+    43    // Config
+    44    // ============================================================
+    45  
+    46    async getConfig(): Promise<Record<string, string>> {
+    47      const result = await this.db.prepare('SELECT key, value FROM bot_config').all();
+    48      const config: Record<string, string> = {};
+    49      for (const row of result.results as any[]) {
+    50        config[row.key] = row.value;
+    51      }
+    52      return config;
+    53    }
+    54  
+    55    async setConfig(key: string, value: string): Promise<void> {
+    56      await this.db.prepare(
+    57        'INSERT INTO bot_config (key, value, updated_at) VALUES (?, ?, datetime(\'now\')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime(\'now\')'
+    58      ).bind(key, value).run();
+    59    }
+    60  
+    61    // ============================================================
+    62    // Decisions
+    63    // ============================================================
+    64  
+    65    async logDecision(record: DecisionRecord): Promise<number> {
+    66      const result = await this.db.prepare(
+    67        `INSERT INTO decisions (ticker, action, confidence, signal_source, reason, ta_data, ai_reasoning, price_at_decision, executed, execution_reason)
+    68         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    69      ).bind(
+    70        record.ticker,
+    71        record.action,
+    72        record.confidence,
+    73        record.signal_source,
+    74        record.reason,
+    75        record.ta_data,
+    76        record.ai_reasoning,
+    77        record.price_at_decision,
+    78        record.executed,
+    79        record.execution_reason
+    80      ).run();
+    81  
+    82      return result.meta.last_row_id as number;
+    83    }
+    84  
+    85    async updateDecisionStatus(id: number, executed: number, reason: string): Promise<void> {
+    86      await this.db.prepare(
+    87        'UPDATE decisions SET executed = ?, execution_reason = ? WHERE id = ?'
+    88      ).bind(executed, reason, id).run();
+    89    }
+    90  
+    91    async getRecentDecisions(limit: number = 50): Promise<any[]> {
+    92      const result = await this.db.prepare(
+    93        'SELECT * FROM decisions ORDER BY timestamp DESC LIMIT ?'
+    94      ).bind(limit).all();
+    95      return result.results as any[];
+    96    }
+    97  
+    98    // ============================================================
+    99    // Trades
+   100    // ============================================================
+   101  
+   102    async logTrade(record: TradeRecord): Promise<number> {
+   103      const result = await this.db.prepare(
+   104        `INSERT INTO trades (alpaca_order_id, ticker, side, qty, fill_price, avg_fill_price, status, order_type, limit_price, stop_price, estimated_value, decision_id, error_message)
+   105         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+   106      ).bind(
+   107        record.alpaca_order_id,
+   108        record.ticker,
+   109        record.side,
+   110        record.qty,
+   111        record.fill_price,
+   112        record.avg_fill_price,
+   113        record.status,
+   114        record.order_type,
+   115        record.limit_price,
+   116        record.stop_price,
+   117        record.estimated_value,
+   118        record.decision_id,
+   119        record.error_message
+   120      ).run();
+   121  
+   122      return result.meta.last_row_id as number;
+   123    }
+   124  
+   125    async updateTradeStatus(orderId: string, status: string, fillPrice: number | null, avgFillPrice: number | null): Promise<void> {
+   126      await this.db.prepare(
+   127        'UPDATE trades SET status = ?, fill_price = ?, avg_fill_price = ? WHERE alpaca_order_id = ?'
+   128      ).bind(status, fillPrice, avgFillPrice, orderId).run();
+   129    }
+   130  
+   131    async getRecentTrades(limit: number = 50): Promise<any[]> {
+   132      const result = await this.db.prepare(
+   133        'SELECT * FROM trades ORDER BY timestamp DESC LIMIT ?'
+   134      ).bind(limit).all();
+   135      return result.results as any[];
+   136    }
+   137  
+   138    // ============================================================
+   139    // Positions
+   140    // ============================================================
+   141  
+   142    async upsertPosition(pos: {
+   143      ticker: string;
+   144      side: string;
+   145      qty: number;
+   146      avg_entry_price: number;
+   147      current_price: number;
+   148      market_value: number;
+   149      unrealized_pl: number;
+   150      unrealized_plpc: number;
+   151      stop_loss_price: number | null;
+   152      take_profit_price: number | null;
+   153    }): Promise<void> {
+   154      await this.db.prepare(
+   155        `INSERT INTO positions (ticker, side, qty, avg_entry_price, current_price, market_value, unrealized_pl, unrealized_plpc, stop_loss_price, take_profit_price, opened_at, updated_at, closed_at, closed_pl, close_reason)
+   156         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), NULL, NULL, NULL)
+   157         ON CONFLICT(ticker) DO UPDATE SET
+   158           side = excluded.side,
+   159           qty = excluded.qty,
+   160           avg_entry_price = excluded.avg_entry_price,
+   161           current_price = excluded.current_price,
+   162           market_value = excluded.market_value,
+   163           unrealized_pl = excluded.unrealized_pl,
+   164           unrealized_plpc = excluded.unrealized_plpc,
+   165           stop_loss_price = excluded.stop_loss_price,
+   166           take_profit_price = excluded.take_profit_price,
+   167           opened_at = datetime('now'),
+   168           closed_at = NULL,
+   169           closed_pl = NULL,
+   170           close_reason = NULL,
+   171           updated_at = datetime('now')`
+   172      ).bind(
+   173        pos.ticker,
+   174        pos.side,
+   175        pos.qty,
+   176        pos.avg_entry_price,
+   177        pos.current_price,
+   178        pos.market_value,
+   179        pos.unrealized_pl,
+   180        pos.unrealized_plpc,
+   181        pos.stop_loss_price,
+   182        pos.take_profit_price
+   183      ).run();
+   184    }
+   185  
+   186    async closePosition(ticker: string, closedPl: number, reason: string): Promise<void> {
+   187      await this.db.prepare(
+   188        `UPDATE positions SET closed_at = datetime('now'), closed_pl = ?, close_reason = ? WHERE ticker = ? AND closed_at IS NULL`
+   189      ).bind(closedPl, reason, ticker).run();
+   190    }
+   191  
+   192    async getOpenPositions(): Promise<any[]> {
+   193      const result = await this.db.prepare(
+   194        'SELECT * FROM positions WHERE closed_at IS NULL ORDER BY market_value DESC'
+   195      ).all();
+   196      return result.results as any[];
+   197    }
+   198  
+   199    // Get tickers that were closed within the last N minutes (for re-entry cooldown)
+   200    async getRecentlyClosedSymbols(cooldownMinutes: number): Promise<Set<string>> {
+   201      const result = await this.db.prepare(
+   202        `SELECT ticker FROM positions 
+   203         WHERE closed_at IS NOT NULL 
+   204         AND closed_at > datetime('now', ?)
+   205         GROUP BY ticker`
+   206      ).bind(`-${cooldownMinutes} minutes`).all();
+   207      return new Set((result.results as any[]).map(r => r.ticker));
+   208    }
+   209  
+   210    // ============================================================
+   211    // Performance snapshots
+   212    // ============================================================
+   213  
+   214    async logSnapshot(snapshot: {
+   215      account_id: string;
+   216      equity: number;
+   217      cash: number;
+   218      buying_power: number;
+   219      portfolio_value: number;
+   220      long_market_value: number;
+   221      short_market_value: number;
+   222      positions_count: number;
+   223      daily_pl: number;
+   224      daily_plpc: number;
+   225      total_pl: number;
+   226      total_plpc: number;
+   227    }): Promise<void> {
+   228      await this.db.prepare(
+   229        `INSERT INTO performance_snapshots (account_id, equity, cash, buying_power, portfolio_value, long_market_value, short_market_value, positions_count, daily_pl, daily_plpc, total_pl, total_plpc)
+   230         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+   231      ).bind(
+   232        snapshot.account_id,
+   233        snapshot.equity,
+   234        snapshot.cash,
+   235        snapshot.buying_power,
+   236        snapshot.portfolio_value,
+   237        snapshot.long_market_value,
+   238        snapshot.short_market_value,
+   239        snapshot.positions_count,
+   240        snapshot.daily_pl,
+   241        snapshot.daily_plpc,
+   242        snapshot.total_pl,
+   243        snapshot.total_plpc
+   244      ).run();
+   245    }
+   246  
+   247    async getRecentSnapshots(limit: number = 100): Promise<any[]> {
+   248      const result = await this.db.prepare(
+   249        'SELECT * FROM performance_snapshots ORDER BY timestamp DESC LIMIT ?'
+   250      ).bind(limit).all();
+   251      return result.results as any[];
+   252    }
+   253  
+   254    // ============================================================
+   255    // Run log
+   256    // ============================================================
+   257  
+   258    async logRun(run: {
+   259      trigger: string;
+   260      market_open: number;
+   261      duration_ms: number;
+   262      decisions_made: number;
+   263      trades_executed: number;
+   264      errors: number;
+   265      error_details: string | null;
+   266      status: string;
+   267    }): Promise<void> {
+   268      await this.db.prepare(
+   269        `INSERT INTO run_log (trigger, market_open, duration_ms, decisions_made, trades_executed, errors, error_details, status)
+   270         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+   271      ).bind(
+   272        run.trigger,
+   273        run.market_open,
+   274        run.duration_ms,
+   275        run.decisions_made,
+   276        run.trades_executed,
+   277        run.errors,
+   278        run.error_details,
+   279        run.status
+   280      ).run();
+   281    }
+   282  
+   283    async getRecentRuns(limit: number = 30): Promise<any[]> {
+   284      const result = await this.db.prepare(
+   285        'SELECT * FROM run_log ORDER BY timestamp DESC LIMIT ?'
+   286      ).bind(limit).all();
+   287      return result.results as any[];
+   288    }
+   289  
+   290    // ============================================================
+   291    // Analytics
+   292    // ============================================================
+   293  
+   294    async getStats(): Promise<{
+   295      totalDecisions: number;
+   296      totalTrades: number;
+   297      executedTrades: number;
+   298      winRate: number;
+   299      avgConfidence: number;
+   300    }> {
+   301      const decisionsResult = await this.db.prepare('SELECT COUNT(*) as count FROM decisions').first();
+   302      const tradesResult = await this.db.prepare('SELECT COUNT(*) as count FROM trades').first();
+   303      const executedResult = await this.db.prepare("SELECT COUNT(*) as count FROM trades WHERE status = 'filled'").first();
+   304      const winsResult = await this.db.prepare("SELECT COUNT(*) as count FROM positions WHERE closed_pl > 0").first();
+   305      const closedResult = await this.db.prepare("SELECT COUNT(*) as count FROM positions WHERE closed_at IS NOT NULL").first();
+   306      const avgConfidenceResult = await this.db.prepare('SELECT AVG(confidence) as avg FROM decisions WHERE executed = 1').first();
+   307  
+   308      const totalTrades = (tradesResult?.count as number) || 0;
+   309      const executedTrades = (executedResult?.count as number) || 0;
+   310      const wins = (winsResult?.count as number) || 0;
+   311      const closed = (closedResult?.count as number) || 0;
+   312  
+   313      return {
+   314        totalDecisions: (decisionsResult?.count as number) || 0,
+   315        totalTrades,
+   316        executedTrades,
+   317        winRate: closed > 0 ? (wins / closed) * 100 : 0,
+   318        avgConfidence: (avgConfidenceResult?.avg as number) || 0,
+   319      };
+   320    }
+   321  }
+   322  

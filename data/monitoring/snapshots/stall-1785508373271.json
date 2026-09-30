@@ -1,0 +1,82 @@
+{
+  "ts": 1785508373271,
+  "daemonPid": 1,
+  "heartbeatAgeMs": 6242,
+  "kernelStack": "",
+  "processState": "R",
+  "sample": {
+    "ts": 1785508373271,
+    "memory": {
+      "currentBytes": 8589877248,
+      "limitBytes": 8589934592,
+      "peakBytes": 8589942784,
+      "ratio": 0.9999933242797852
+    },
+    "memoryStat": {
+      "anonBytes": 8079474688,
+      "fileBytes": 161189888,
+      "kernelBytes": 348528640,
+      "slabReclaimableBytes": 297547344,
+      "slabUnreclaimableBytes": 13825064,
+      "unevictableBytes": 8093299752,
+      "reclaimableBytes": 458737232
+    },
+    "reclaim": {
+      "pgscanDirect": 1312544,
+      "pgstealDirect": 1258977,
+      "workingsetRefaultFile": 6232
+    },
+    "cpu": {
+      "usageUsec": 52722521011,
+      "userUsec": 43817428755,
+      "systemUsec": 8905092256,
+      "nrPeriods": 1579521,
+      "nrThrottled": 89930,
+      "throttledUsec": 13818771739
+    },
+    "events": {
+      "low": 0,
+      "high": 0,
+      "max": 35946,
+      "oom": 0,
+      "oomKill": 0
+    },
+    "deltas": {
+      "events": {
+        "low": 0,
+        "high": 0,
+        "max": 700,
+        "oom": 0,
+        "oomKill": 0
+      },
+      "reclaim": {
+        "pgscanDirect": 32132,
+        "pgstealDirect": 32122,
+        "workingsetRefaultFile": 0
+      },
+      "cpu": {
+        "usageUsec": 268707,
+        "userUsec": 103966,
+        "systemUsec": 164742,
+        "nrPeriods": 3,
+        "nrThrottled": 0,
+        "throttledUsec": 0
+      }
+    },
+    "disk": {
+      "path": "/workspace",
+      "usedMb": 12537.27,
+      "totalMb": 60386.2,
+      "freeMb": 47848.93
+    },
+    "activeConversations": [
+      {
+        "conversationId": "918f9184-2d56-4a86-9e99-77fb15475524",
+        "title": "Nøgle database status",
+        "originChannel": "vellum",
+        "originInterface": "web",
+        "processingStartedAt": 1785508293606
+      }
+    ]
+  }
+}
