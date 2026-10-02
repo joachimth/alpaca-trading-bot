@@ -146,6 +146,32 @@ describe('audit schedule and dispatch regressions', () => {
     expect(runStatus([], skips)).toBe('ok');
   });
 
+  test('keeps informational deferrals out of runStatus regardless of their emitted scope (Control-1043)', () => {
+    // Regression pin: a skip classified as informational must never make an
+    // evaluated, no-trade cycle read as "skipped", whatever scope it was
+    // emitted under. runStatus keys on the CODE (the classification contract),
+    // not on the scope label.
+    for (const scope of ['reconciliation', 'decision', 'position', 'account', 'cycle', 'data']) {
+      const skips = new SkipReasonCollector();
+      skips.add('RECONCILIATION_DEFERRED_TO_MAINTENANCE', scope as never, 'delegated to maintenance');
+      expect(runStatus([], skips)).toBe('ok');
+    }
+    const skips = new SkipReasonCollector();
+    skips.add('EQUITY_DIRECTION_FALLBACK', 'account', 'observability only');
+    skips.add('HELD_POSITION', 'decision', 'already held');
+    skips.add('BROKER_ONLY_RECONCILED', 'reconciliation', 'broker authoritative');
+    expect(runStatus([], skips)).toBe('ok');
+    expect(runStatus([], skips, false, 1)).toBe('ok');
+  });
+
+  test('preserves true blocking cycle skips as skipped (Control-1043)', () => {
+    for (const code of ['MARKET_CLOSED', 'CYCLE_LEASE_HELD', 'POSITION_QTY_MISMATCH', 'EOD_NO_ENTRY', 'SUBREQUEST_BUDGET_EXHAUSTED', 'ONCE_PER_DAY']) {
+      const skips = new SkipReasonCollector();
+      skips.add(code, 'cycle', 'blocking');
+      expect(runStatus([], skips)).toBe('skipped');
+    }
+  });
+
   test('keeps swing and crypto broker fan-out bounded by deferring duplicate reconciliation', () => {
     const swingSource = readFileSync(new URL('../src/swing-strategy.ts', import.meta.url), 'utf8');
     const cryptoSource = readFileSync(new URL('../src/crypto-strategy.ts', import.meta.url), 'utf8');
