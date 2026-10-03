@@ -483,7 +483,7 @@ cd /workspace/alpaca-trading-bot && bun build src/index.ts --outfile /tmp/candid
 
 # Alpaca deployable reference header (mandatory, top-of-file)
 
-**Repo HEAD (updated Control-1066, Oct 3 2026):** `f40900e` (`git rev-parse HEAD` == `origin/main` == `f40900e`; the C-1065 docs commit `f40900e` is the last completed control's docs commit, and by the C-524 convention the C-1066 entry cannot name its own commit).
+**Repo HEAD (updated Control-1067, Oct 3 2026):** `aa3a6e9` (`git rev-parse HEAD` == `origin/main` == `aa3a6e9`; the C-1066 docs commit `aa3a6e9` is the last completed control's docs commit, and by the C-524 convention the C-1067 entry cannot name its own commit).
 Deployed src remains the 2.8.2 release `092b84b` PLUS the committed Control-901 reliability delta.
 
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256

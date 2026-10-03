@@ -443,7 +443,7 @@ Evidence: `/workspace/control1059-evidence-20261003T080000Z/`.
 
 # Alpaca deployable reference header (mandatory, top-of-file)
 
-**Repo HEAD (updated Control-1066, Oct 3 2026):** `f40900e` (`git rev-parse HEAD` == `origin/main` == `f40900e`; the C-1065 docs commit `f40900e` is the last completed control's docs commit, and by the C-524 convention the C-1066 entry cannot name its own commit).
+**Repo HEAD (updated Control-1067, Oct 3 2026):** `aa3a6e9` (`git rev-parse HEAD` == `origin/main` == `aa3a6e9`; the C-1066 docs commit `aa3a6e9` is the last completed control's docs commit, and by the C-524 convention the C-1067 entry cannot name its own commit).
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad` (364154 bytes, the `index.js` part of the
 multipart envelope from `.../workers/scripts/alpaca-trading-bot/content/v2`) == current source build
