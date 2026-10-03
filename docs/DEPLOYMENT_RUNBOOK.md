@@ -1,3 +1,24 @@
+## Control-1076 (Oct 3 23:00 UTC Sat)
+
+OPEN FAIL/DEGRADED (carried). D1 free-tier READ quota still exhausted for the FIFTH consecutive control-hour (3rd distinct episode) and the read path is FLAKY not binary: `/api/runs?limit=1` returned 200 on ~1/20, then 0/80, then 1/120, then 0/500+; `?limit=500` 0/10; `/api/config` 0/6 then 1/40. Healthy throughout: `/health` 200 (2.8.2, 4/4) and `/api/account` 200 broker-direct (4/4). Blocked: `/api/dashboard` 500, `/api/positions` 503 (fail-closed envelope exact: `{positions:[],positionsAvailable:false,source:'alpaca',error}`), `/api/runs` 500, `/api/trades` 500.
+
+**C-1074-B RESOLVED - occ-32 CONFIRMED as a WRITE-SUPPRESSION STALL.** Two independent write markers froze at the same moment: `broker_ledger_synced_until` = **2026-10-03T18:20:32.295Z** (read twice from `/api/config`, both successful reads agree) and the newest visible run row **20443 @ 2026-10-03 18:21:21z** (read repeatedly, never advanced). Both have been frozen for ~2h40m. Because the ledger projection write path and the run-log write path stopped together, the C-1074-B ambiguity is settled: this is a write stall, not a read path that merely serves older rows while the writer is healthy. **occ-32 opens 2026-10-03 18:21:21z** and is the FIRST stall in the record NOT anchored to a UTC-day boundary (occ-28 14:42:09z->00:01:25z, occ-30 20:21:22z->00:00:43z, occ-31 15:51:32z->00:00:44z all ended on the midnight-UTC reset). Class matches occ-28/occ-30/occ-31: write suppression on the run-log/ledger path only, `/api/account` broker-direct and `/health` unaffected.
+
+**Equity (broker-direct, Saturday market closed):** $97,148.26, last_equity $97,148.2617, change_today -$0.0017 marginally negative, cash $91,758.11, long_market_value $5,390.15, buying_power $381,752.45; ACTIVE, trading_blocked false, transfers_blocked false; three identical reads = frozen weekend book, not a stall. ~$148.26 over the $97,000 floor, never armed.
+
+**Identity PASS (D1-independent):** local bun build (no `--target` flag) = 364,154 B sha256 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad`; deployed payload from `/content/v2` (first CRLFCRLF=181, last CRLF--=364335) = same 364,154 B same sha256; CF version `4c96049f-08bb-4e63-be1a-ff8dbe16c21f` @100%, deployment `62a32206-50b0-475b-8499-555408400a0f` created 2026-09-28T20:04:24.862538Z = NO deploy since C-1026. 4/4 schedules CF-API verified (`1-59/5 * * * *`, `0 22 * * 2-6`, `7-59/30 * * * *`, `*/10 * * * *`, all modified_on 2026-09-28T20:04:34.219701Z). Caps 5000/3700/2000 UNCHANGED (src/index.ts:151, src/swing-strategy.ts:56, src/crypto-strategy.ts:147); floor 97000 armed (src/risk-guards.ts:36); live config 91 keys with floor 97000 / swing 3700 / day 5000 / crypto 2000; swing wiring src/index.ts:226-227 intact. 283 tests / 1030 assertions PASS; `bunx tsc --noEmit` exit 0.
+
+**UNVERIFIABLE this control (all D1-backed, NO claim made):** run-log window / status+trigger splits / id-contiguity across the occ-32 gap, delivery freshness for all four lanes, crypto :07/:37 cadence, cycle-scope CYCLE_LEASE_HELD scan, the seven classified error rows (20034 RIVN projection-lag + 20038/20039/20044/20056/20057/20062 C-1044-A upstream timeout burst), trade/fill lifecycle and the conservative gross/fee/net predicate, source=alpaca position rows, C-864 swing MV-basis, C-896-A MS/RUN attribution, filtered run observability.
+
+**Docs:** entry prepended to README.md + docs/OPERATIONS.md + docs/DEPLOYMENT_RUNBOOK.md. The authoritative `**Repo HEAD (updated ...` pointer inside the `# Alpaca deployable reference header` block named `f8346b8` (Control-1074) while the real authoring HEAD was `a760fd6` (the C-1075 docs commit) - the known intermittent one-control lag class; rewritten whole-line to `a760fd6` in all three files.
+
+**NO code/config/cap change, NO deploy.** A redeploy cannot fix a D1 capacity condition and would reset lease state.
+
+**SWING:** no slot - `0 22 * * 2-6` does not fire Saturday; next possible slot Mon Oct 5 22:00z. Thu Oct 1 + Fri Oct 2 22:00z swallowings (occ-30/occ-31) stand.
+
+**ESCALATION REMAINS BLOCKING**, now with a FOURTH confirmed write stall and a fifth consecutive control-hour of read pressure. The D1 free tier is producing three distinct failure signatures: (1) 4/7 surface read outage on a daily cadence, (2) four confirmed write-suppression stalls (occ-28 559.3 min, occ-30 219.3 min, occ-31 489.2 min, occ-32 open), (3) weekly swing dispatch demonstrably swallowed twice. **Paid D1 tier = Joachim's decision.**
+
+
 ## Control-1075 (Oct 3 22:00 UTC Sat) - strict read-only control: **OPEN FAIL/DEGRADED (carried) - the D1 free-tier daily row-read quota is STILL exhausted for the FOURTH consecutive control-hour (3rd distinct episode), and the read path is FLAKY not binary; C-1074-B REMAINS UNRESOLVED because the only two successful `/api/runs` reads in this control's ~130 probes both returned the SAME stale newest row id 20443 @ 2026-10-03 18:21:21z; NO code/config/cap change, NO deploy**
 
 **Route signature (GET-only):** `/health` 200 `2.8.2` (4/4); `/api/account` 200 broker-direct, D1-independent (6/6); `/api/config` **500 0/10 + 0/30 targeted**; `/api/dashboard` **500 0/4**; `/api/positions` **503 0/9**; `/api/runs?limit=1` **200 1/30, 1/60, 1/40 = 3/130**; `/api/runs?limit=500` **200 0/12, 0/30, 0/40**; `/api/trades` **500 0/4** - every blocked path carrying the identical platform error `D1_ERROR: Your account has exceeded D1's free tier daily row read limit. Upgrade to a paid plan or wait until tomorrow (midnight UTC).` The C-1053..C-1072 twenty-consecutive-control healthy streak remains over.
@@ -672,7 +693,7 @@ cd /workspace/alpaca-trading-bot && bun build src/index.ts --outfile /tmp/candid
 
 # Alpaca deployable reference header (mandatory, top-of-file)
 
-**Repo HEAD (updated Control-1075, Oct 3 2026):** `f8346b8` (`git rev-parse HEAD` == `f8346b8`, the C-1074 docs commit = the last completed control before this entry; by the C-524 convention the C-1075 entry cannot name its own docs commit).
+**Repo HEAD (updated Control-1076, Oct 3 2026):** `a760fd6` (`git rev-parse HEAD` == `a760fd6`, the C-1075 docs commit = the last completed control before this entry; by the C-524 convention the C-1076 entry cannot name its own docs commit).
 Deployed src remains the 2.8.2 release `092b84b` PLUS the committed Control-901 reliability delta.
 
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
