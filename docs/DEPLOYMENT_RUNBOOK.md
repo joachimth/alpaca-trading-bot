@@ -1,3 +1,23 @@
+## Control-1077 (Oct 4 00:00 UTC Sun)
+
+OPEN FAIL/DEGRADED (carried). D1 free-tier READ quota STILL exhausted for the SIXTH consecutive control-hour (3rd distinct episode) and it has now SURVIVED A THIRD UTC-day boundary - the midnight-UTC reset at 2026-10-04T00:00z did NOT restore the read path. Read path remains FLAKY not binary: `/api/runs?limit=1` returned a real body on only ~3 of ~350 probes across the whole window; `/api/runs?limit=500` 0/~25; `/api/config` 200 with a real 91-key body on only 2 probes (one at ~22:02z, one at ~22:04z) and 0 on every burst afterwards; `/api/dashboard` 0/4; `/api/positions` 0/4; `/api/trades` 0/4. Healthy throughout: `/health` 200 (2.8.2, 4/4) and `/api/account` 200 broker-direct (10/10). Fail-closed envelope exact and unchanged: `/api/positions` 503 `{positions:[],positionsAvailable:false,source:'alpaca',error}` matching src/api.ts:213-215 / :331.
+
+**occ-32 DID NOT END AT THE MIDNIGHT-UTC RESET - first stall in the record to cross a UTC-day boundary still open.** Both independent write markers are unchanged from C-1076 and now frozen ~4h: `broker_ledger_synced_until` = **2026-10-03T18:20:32.295Z** (re-read from `/api/config` this control, same value) and newest run row **20443 @ 2026-10-03 18:21:21z** (re-read repeatedly, never advanced, latest confirmation 22:15:49z). occ-32 open ~4h at this control. This breaks the pattern of occ-28 (559.3 min) / occ-30 (219.3 min) / occ-31 (489.2 min), all of which resumed 43-44s after the midnight-UTC boundary; occ-32 is the first stall NOT anchored to and NOT terminated by a UTC-day boundary. Scope unchanged: run-log + ledger-projection WRITE path only; `/api/account` broker-direct and `/health` unaffected. The two markers agreeing is what makes this a write stall rather than a read-path artifact (method established at C-1076).
+
+**Equity (broker-direct, weekend, market closed):** $97,148.26, last_equity $97,148.2617, change_today -$0.0017 marginally negative, cash $91,758.11, long_market_value $5,390.15, buying_power $381,752.45; ACTIVE, trading_blocked false, account_blocked false, transfers_blocked false; three identical reads = frozen weekend book, not a stall. ~$148.26 over the $97,000 floor, never armed.
+
+**Identity PASS (D1-independent):** local bun build (no `--target` flag) = 364,154 B sha256 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad`; deployed payload from `/content/v2` (first CRLFCRLF=181, last CRLF--=364335) = same 364,154 B same sha256, `cmp` byte-identical; CF version `4c96049f-08bb-4e63-be1a-ff8dbe16c21f` @100%, deployment `62a32206-50b0-475b-8499-555408400a0f` created 2026-09-28T20:04:24.862538Z = NO deploy since C-1026. 4/4 schedules CF-API verified (`1-59/5 * * * *`, `0 22 * * 2-6`, `7-59/30 * * * *`, `*/10 * * * *`, all modified_on 2026-09-28T20:04:34.219701Z). Caps 5000/3700/2000 UNCHANGED (src/index.ts:151, src/swing-strategy.ts:56, src/crypto-strategy.ts:147); floor 97000 armed (src/risk-guards.ts:36/47); live config 91 keys with floor 97000 / swing 3700 / day 5000 / crypto 2000, min_confidence 0.8, max_trades_per_cycle 3, crypto_trading_enabled false; swing wiring src/index.ts:226-227 intact. 283 tests / 1030 assertions PASS; `bunx tsc --noEmit` exit 0.
+
+**UNVERIFIABLE this control (all D1-backed, NO claim made):** run-log window / status+trigger splits / id-contiguity across the occ-32 gap, delivery freshness for all four lanes, crypto :07/:37 cadence, cycle-scope CYCLE_LEASE_HELD scan, the seven classified error rows (20034 RIVN projection-lag + 20038/20039/20044/20056/20057/20062 C-1044-A upstream timeout burst), trade/fill lifecycle and the conservative gross/fee/net predicate, source=alpaca position rows, C-864 swing MV-basis, C-896-A MS/RUN attribution, filtered run observability (the `?trigger=swing_cron` read also returned 500).
+
+**NO code/config/cap change, NO deploy** - correct, the defect is upstream D1 capacity and the worker continues to fail closed correctly; a redeploy cannot fix a quota and would reset lease state.
+
+**SWING:** no slot - `0 22 * * 2-6` does not fire Saturday or Sunday; next possible slot Mon Oct 5 22:00z. Thu Oct 1 + Fri Oct 2 22:00z swallowings (occ-30 / occ-31) stand and remain unverifiable while the read path is down.
+
+**ESCALATION REMAINS BLOCKING**, now on a SIXTH consecutive control-hour with a FOURTH confirmed write stall (occ-28 559.3 / occ-30 219.3 / occ-31 489.2 / occ-32 open ~4h) that has now outlived a UTC-day boundary, plus the daily 4/7 surface read outage and the weekly swing dispatch swallowed twice. **Paid D1 tier = Joachim's decision.**
+
+**FOLLOW-UP C-1078:** re-read `/api/runs?limit=1` and `/api/config`'s `broker_ledger_synced_until` to determine whether occ-32 ever ends, and whether the new UTC-day budget restores the read path at all (the reset has now failed to restore it at 00:00z Oct 4).
+
 ## Control-1076 (Oct 3 23:00 UTC Sat)
 
 OPEN FAIL/DEGRADED (carried). D1 free-tier READ quota still exhausted for the FIFTH consecutive control-hour (3rd distinct episode) and the read path is FLAKY not binary: `/api/runs?limit=1` returned 200 on ~1/20, then 0/80, then 1/120, then 0/500+; `?limit=500` 0/10; `/api/config` 0/6 then 1/40. Healthy throughout: `/health` 200 (2.8.2, 4/4) and `/api/account` 200 broker-direct (4/4). Blocked: `/api/dashboard` 500, `/api/positions` 503 (fail-closed envelope exact: `{positions:[],positionsAvailable:false,source:'alpaca',error}`), `/api/runs` 500, `/api/trades` 500.
@@ -693,7 +713,7 @@ cd /workspace/alpaca-trading-bot && bun build src/index.ts --outfile /tmp/candid
 
 # Alpaca deployable reference header (mandatory, top-of-file)
 
-**Repo HEAD (updated Control-1076, Oct 3 2026):** `a760fd6` (`git rev-parse HEAD` == `a760fd6`, the C-1075 docs commit = the last completed control before this entry; by the C-524 convention the C-1076 entry cannot name its own docs commit).
+**Repo HEAD (updated Control-1077, Oct 4 2026):** `8065ad7` (`git rev-parse HEAD` == `8065ad7`, the C-1076 docs commit = the last completed control before this entry; by the C-524 convention the C-1077 entry cannot name its own docs commit).
 Deployed src remains the 2.8.2 release `092b84b` PLUS the committed Control-901 reliability delta.
 
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
