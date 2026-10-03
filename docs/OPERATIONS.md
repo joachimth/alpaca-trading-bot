@@ -1,3 +1,25 @@
+## Control-1072 (Oct 3 19:00 UTC Sat): OPEN FAIL/DEGRADED (carried) but live path FULLY HEALTHY for the TWENTIETH consecutive control, ZERO new defects, NO code/config/cap change, NO deploy
+
+All 7 surfaces 200 first probe, no D1_ERROR (Oct 3 read quota CLEAR). Equity broker-direct $97,148.26 / change_today -$0.0017 marginally NEGATIVE (weekend frozen book, Saturday market closed; broker last_equity re-based to $97,148.2617), ~$148.26 over the $97,000 floor never armed; ACTIVE, trading_blocked false, account_blocked false, transfers_blocked false, cash $91,758.11, lmv $5,390.15, bp $381,752.45.
+
+Run log 500/500 ID-CONTIGUOUS ids 19944->20443 (2026-10-02 09:21:23z -> 2026-10-03 18:21:21z) ZERO id gaps; status skipped 344 / ok 149 / error 7; triggers cron 300 / reconcile_cron 150 / crypto_cron 50. Exactly ONE time-gap >10 min: occ-31 (20074 2026-10-02 15:51:32z -> 20075 2026-10-03 00:00:44z = 489.2 min) STANDS (evidence C-1053..C-1072), did NOT recur; occ-28 (559.3), occ-29 (13.7) and occ-30 (219.3) all aged out of the rolling 500-row window. All 7 error rows classified ZERO new (20034 RIVN projection-lag + 20038/20039/20044/20056/20057/20062 = C-1044-A upstream alpaca_request_timeout x5 + one 522); zero error rows in Oct 3. Cycle-scope CYCLE_LEASE_HELD ZERO (correct method: run_details[].code / error_details[].code for scope='cycle'; the single code hit is row 19976 scope='maintenance' errors=0).
+
+Delivery Oct 2 = 131 rows, Oct 3 = 369 rows (cron 216 / reconcile 109 / crypto 37); daytrading 5-min grid COMPLETE both days zero missing slots; crypto minutes exactly {07,37} for the whole of Oct 3 = :07/:37 cadence CONFIRMED. Window code histogram RECONCILIATION_DEFERRED_TO_MAINTENANCE 350 / MARKET_CLOSED 271 / MAINTENANCE_ONLY 148 / EQUITY_DIRECTION_FALLBACK 77 / CRYPTO_DISABLED_BY_CONFIG 49 / SWING_OWNED_EXCLUDE 47 / BROKER_ONLY_RECONCILED 27 / DAYTRADING_BARS_SHORT 21 / DECISION_HOLD 17 / NO_ENTRY_RISK 16 / DAYTRADING_BARS_UNAVAILABLE 8 / CAPITAL_CAP 2 / REENTRY_COOLDOWN 2 / DAYTRADING_BARS_STALE 2 / POSITION_QTY_MISMATCH 1 / MAX_TRADES_PER_CYCLE 1 / MIN_ORDER_SIZE 1.
+
+Positions source=alpaca positionsAvailable true 19 rows 0 null-strategy (swing 15 cost $3,647.88 MV $3,358.83; daytrading 2 PLTR/TSM cost $1,795.99 MV $1,786.16; unattributed 2 MS/RUN cost $246.82 = C-896-A); conservativeGross MV basis $3,603.99 vs $3,700 = $96.01 UNDER; C-864 STILL OPEN (MV-gross property per src/risk-manager.ts:234 and src/swing-risk.ts:168/176, NOT cost basis).
+
+Trades ids 1585->2084 ALL 500 filled (338 buy/162 sell) zero pending; gross 162/500 all gross_basis='fifo-lot-matched', net 0/500, fee 0/500, fee_attribution none-recorded 500/500, accounting_status filled_lot_exact_unavailable 338 / fifo-lot-matched 162, ZERO rows carry both gross and fee/net -> conservative predicate HOLDS; newest trade 2084 @2026-10-02 15:41:30z NFLX sell.
+
+Identity PASS: deployed payload 364,154 B sha256 7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad byte-identical to local bun build (no --target flag; multipart offsets first CRLFCRLF=181, last CRLF--=364335), CF 4c96049f @100% deployment 62a32206 created 2026-09-28T20:04:24.862538Z = NO deploy since C-1026; 4/4 schedules CF-API-GET verified (daytrading 1-59/5 * * * *, swing 0 22 * * 2-6, crypto 7-59/30 * * * *, reconcile */10 * * * *); caps 5000/3700/2000 UNCHANGED (src/index.ts:151, src/swing-strategy.ts:56, src/crypto-strategy.ts:147); floor 97000 armed (src/risk-guards.ts:36); crypto edge-gate wiring re-verified statically (src/crypto-strategy.ts:284/325/330, src/crypto-runtime.ts:295/296); 283 tests/1030 assertions PASS; bunx tsc --noEmit exit 0.
+
+Docs HEAD-identity FAIL->CORRECTED: the authoritative pointer inside the `# Alpaca deployable reference header` block named `44dd2b7` / Control-1070 in ALL THREE files (README.md:547, docs/OPERATIONS.md:557, docs/DEPLOYMENT_RUNBOOK.md:597) while the real authoring HEAD was `1510fe5` (the C-1071 docs commit) - one control behind, the known intermittent lag class. Rewritten whole-line to `1510fe5` in all three files and the C-1071 entry confirmed present. Docs commit pushed == origin/main (joachimth remote), remote URL reset to clean HTTPS, worktree clean.
+
+Post-push separate read-only verification: all 7 surfaces 200, equity $97,148.26 unchanged.
+
+Evidence /workspace/control1072-evidence-20261003T190000Z/.
+
+SWING: CLOSED not re-opened - no slot until Mon Oct 5 22:00z (`0 22 * * 2-6` does not fire Saturday); filtered `?trigger=swing_cron&limit=20` returns 18 rows newest 18635 @2026-09-28 22:01:25z; Thu Oct 1 + Fri Oct 2 22:00z both swallowed by occ-30/occ-31; wiring src/index.ts:226-227 intact. C-1060-A daytrading starvation carried decision-gated: 27 market_open=1 cron rows / 244 decisions / 0 trades_executed in this window (min_confidence 0.8 vs code fallback 0.7 at src/index.ts:161 + vol-targeting sizing at src/risk-manager.ts:249-265), invisible because runStatus cannot promote informational skips above 'ok'. ESCALATION REMAINS BLOCKING (daily 4/7 surface read outage, THREE write stalls, swing dispatch swallowed twice; paid D1 tier = Joachim's decision). Next control C-1073 (Oct 3 20:00 UTC).
+
 ## Control-1071 (Oct 3 18:00 UTC Sat): OPEN FAIL/DEGRADED (carried) but live path FULLY HEALTHY for the NINETEENTH consecutive control, ZERO new defects, NO code/config/cap change, NO deploy
 
 All 7 surfaces 200 first probe, no D1_ERROR (Oct 3 read quota CLEAR). Equity broker-direct $97,148.26 / change_today -$0.0017 marginally NEGATIVE (weekend frozen book, Saturday market closed, broker last_equity re-based to $97,148.2617), ~$148.26 over the $97,000 floor never armed; ACTIVE, trading_blocked false, account_blocked false, transfers_blocked false, cash $91,758.11, lmv $5,390.15, bp $381,752.45.
@@ -554,7 +576,7 @@ Evidence: `/workspace/control1059-evidence-20261003T080000Z/`.
 
 # Alpaca deployable reference header (mandatory, top-of-file)
 
-**Repo HEAD (updated Control-1071, Oct 3 2026):** `44dd2b7` (`git rev-parse HEAD` == `44dd2b7`, the C-1070 docs commit = the last completed control before this entry; by the C-524 convention the C-1071 entry cannot name its own docs commit).
+**Repo HEAD (updated Control-1072, Oct 3 2026):** `1510fe5` (`git rev-parse HEAD` == `44dd2b7`, the C-1070 docs commit = the last completed control before this entry; by the C-524 convention the C-1071 entry cannot name its own docs commit).
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad` (364154 bytes, the `index.js` part of the
 multipart envelope from `.../workers/scripts/alpaca-trading-bot/content/v2`) == current source build
