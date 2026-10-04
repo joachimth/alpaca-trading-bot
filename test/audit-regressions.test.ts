@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, it, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { RiskManager, type RiskConfig } from '../src/risk-manager';
 import {
@@ -417,5 +417,32 @@ describe('audit run-count lifecycle semantics', () => {
     expect(workerSource).toContain('Broker order status: ${order.status}; filled ${order.filled_qty}/${order.qty}');
     expect(swingSource).toContain('Broker order status: ${order.status}; filled ${order.filled_qty}/${order.qty}');
     expect(cryptoSource).toContain('Order submitted: ${riskCheck.adjustedQty} units; broker status ${order.status}');
+  });
+});
+
+// Control-1093 regression pins: MARKET_CLOSED is a benign gate, and the
+// market-open daytrading path emits decision-scope skip codes that stay
+// blocking-class so an evaluated-but-rejected cycle is never mistaken for ok.
+describe('runStatus gate/decision-scope contract', () => {
+  it('market-closed cycles are skipped, not ok', () => {
+    const s = new SkipReasonCollector();
+    s.add('MARKET_CLOSED', 'cycle', 'Market is closed; no daytrading actions were evaluated', {});
+    expect(runStatus([], s, false, 0)).toBe('skipped');
+  });
+
+  it('daytrading decision-scope skip codes remain blocking-class', () => {
+    for (const code of ['NO_ENTRY_RISK', 'CAPITAL_CAP', 'MIN_ORDER_SIZE', 'MAX_TRADES_PER_CYCLE', 'SWING_OWNED_EXCLUDE']) {
+      const s = new SkipReasonCollector();
+      s.add(code, 'decision', 'x', {});
+      expect(runStatus([], s, false, 0)).toBe('skipped');
+    }
+  });
+
+  it('a market-open cycle with only informational skips reads ok', () => {
+    const s = new SkipReasonCollector();
+    s.add('RECONCILIATION_DEFERRED_TO_MAINTENANCE', 'reconciliation', 'deferred', {});
+    s.add('EQUITY_DIRECTION_FALLBACK', 'account', 'zero delta', {});
+    s.add('DECISION_HOLD', 'decision', 'HOLD', {});
+    expect(runStatus([], s, false, 0)).toBe('ok');
   });
 });
