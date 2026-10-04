@@ -1078,7 +1078,73 @@ Evidence: `/workspace/control1059-evidence-20261003T080000Z/`.
 
 # Alpaca deployable reference header (mandatory, top-of-file)
 
-**Repo HEAD (updated Control-1098, Oct 4 2026):** `e4b2b0b` (the true `git rev-parse HEAD` at Control-1098 control start = the Control-1097 docs commit; by the C-524 convention an entry cannot name its own docs commit, which does not exist until this entry is committed).
+**Repo HEAD (updated Control-1099, Oct 4 2026):** `a67f9a6` (the true `git rev-parse HEAD` at Control-1099 control start = the Control-1098 docs commit; by the C-524 convention an entry cannot name its own docs commit, which does not exist until this entry is committed).
+## Control-1099 (Oct 4 22:00 UTC / 00:00 CEST Mon Oct 5)
+
+**Status: OPEN FAIL/DEGRADED (carried) - D1 free-tier READ quota EXHAUSTED AGAIN (4th distinct read-outage episode). ZERO new worker defects. NO code/config/cap change, NO deploy.**
+
+All D1-independent surfaces healthy on every probe: `/health` 200 (2.8.2) 4/4, `/api/account` 200 broker-direct 4/4.
+D1-backed surfaces FLAKY/BLOCKED: `/api/dashboard` 500 (0/30 bodies), `/api/runs?limit=1` 500 (0/30), `/api/trades?limit=500` 500 (0/40),
+`/api/positions` 503 fail-closed envelope exact `{"positions":[],"positionsAvailable":false,"source":"alpaca","error":"D1_ERROR..."}` (0/40),
+`/api/config` intermittently 200 (5/30 first sweep, then 200 on 6 of 12 one-second-spaced tries) - the small-budget surface still sometimes served.
+The read path is FLAKY/PARTIAL, not binary: **the FIRST probe of the window (`/api/runs?limit=1`) returned HTTP 200 with a 200-byte body that was itself the D1_ERROR envelope** - a status-code-only client would read an unavailable path as a healthy empty result (same C-1052-A fail-open shape). `/api/runs?limit=500` DID serve a full 918,865 B / 500-row body at 22:00z before the budget closed, so the run-log evidence below is real.
+
+**Equity (broker-direct, D1-independent):** $97,148.26 / last_equity $97,148.2617 / change_today -$0.0017 / cash $91,758.11 /
+lmv $5,390.15 / bp $381,752.45 / ACTIVE, trading_blocked false, account_blocked false, transfers_blocked false.
+Weekend frozen book (Sunday, market closed), identical across all reads. ~$148.26 over the $97,000 floor, never armed.
+
+**Write path HEALTHY:** `broker_ledger_synced_until` = 2026-10-04T21:10:28.229Z, stable across 6 one-second-spaced reads,
+matching the newest visible reconcile_cron run 20868 @21:10:28z - the ledger watermark is written by the SAME reconcile cycle
+that logs the run row, so the writer is alive and the C-1078-A self-perpetuating loop is NOT active
+(`src/broker-ledger.ts:54 if (!result.truncated)` re-confirmed).
+
+**Run log (500/500, captured at 22:00z):** ids 20371 -> 20870, ID-CONTIGUOUS zero id gaps, window 2026-10-03 14:46:23z -> 2026-10-04 21:16:20z;
+status skipped 350 / ok 150 / ERROR 0 = FOURTEENTH consecutive zero-error window; triggers cron 300 / reconcile_cron 150 / crypto_cron 50.
+**Exactly ONE time-gap >10 min: occ-32 (20443 2026-10-03 18:21:21z -> 20444 2026-10-04 00:00:51z = 339.5 min) STANDS** (evidence C-1076..C-1098);
+occ-28 (559.3), occ-29 (13.7) and occ-31 (489.2) aged out of the rolling window and none recurred.
+Cycle-scope `CYCLE_LEASE_HELD` ZERO (scopes present: reconciliation 700 / cycle 700 / maintenance 300 / account 100).
+Delivery Oct 4 = 427 rows (cron 252 / reconcile 126 / crypto 42), Oct 3 = 73 rows.
+Cron distinct minutes exactly {01,06,11,16,21,26,31,36,41,46,51,56} - the full 5-min grid (C-1091-A caveat: the 500-row window holds
+only 300 cron rows = 6.25h of cron, so this measures the surviving subset, not a completeness proof).
+Crypto minutes exactly {07:26, 37:24} = **:07/:37 UTC cadence CONFIRMED**, no :38 pair-shift, all `CRYPTO_DISABLED_BY_CONFIG`.
+
+**UNVERIFIABLE this control (all D1-backed, NO claim made):** `/api/positions` rows (broker-authoritative source=alpaca, per-category
+swing/daytrading/unattributed exposure, conservativeGross vs the $3,700 swing cap, C-864, C-896-A) - the fail-closed envelope is correct
+but carries no rows; `/api/trades` fill lifecycle, the conservative gross/fee/net predicate and the newest trade; `/api/dashboard` aggregates;
+filtered `?trigger=swing_cron` observability (returned 500). All STAND on prior evidence C-1080..C-1098.
+
+**Identity PASS (D1-independent):** deployed payload read from the CF API content/v2 path, multipart stripped at first CRLFCRLF=177 / last CRLF--=364335,
+= 364,154 B sha256 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad`, `cmp` BYTE-IDENTICAL to a fresh local `bun build src/index.ts`
+(no --target flag). CF deployment 62a32206-50b0-475b-8499-555408400a0f created 2026-09-28T20:04:24.862538Z @100% version 4c96049f = **NO deploy since C-1026**;
+`git log -1 -- src/` = baed2a3. 4/4 schedules verified via the CF API (1-59/5 * * * *, 0 22 * * 2-6, 7-59/30 * * * *, */10 * * * *, all modified_on 2026-09-28T20:04:34.219701Z).
+Caps UNCHANGED (live 91-key config): max_capital_usd 5000, swing_max_capital_usd 3700, crypto_max_capital_usd 2000, account_equity_floor_usd 97000,
+min_confidence 0.8, swing_min_confidence 0.5, max_trades_per_cycle 3, crypto_trading_enabled false. Wiring re-verified statically: swing dispatch
+`src/index.ts:226 if (event.cron === '0 22 * * 2-6')`; fail-closed positions `src/api.ts:209-215` + `:331` (503 envelope); equity floor `src/risk-guards.ts:36`;
+crypto edge gate `src/crypto-strategy.ts:282/284/325/330` + fail-closed `cryptoTradingEnabled` `src/risk-guards.ts:163-166` (only the explicit string 'true' enables);
+`src/broker-ledger.ts:54`. 286 tests / 1037 assertions PASS, `bunx tsc --noEmit` exit 0.
+
+**D1 database state (CF API, read-only):** uuid 2bc505a2-d744-4322-8c3b-5f5ebe35f9a1, 12 tables, file_size 53,743,616 B (grew 160 KB since C-1078's 53,903,360 B reading),
+`read_replication.mode = disabled` = still at the free-tier ceiling in both dimensions.
+
+**Docs HEAD-identity FAIL -> CORRECTED (C-1099-A, docs-only):** the authoritative `**Repo HEAD (updated Control-XXXX, ...)**` line inside the
+`# Alpaca deployable reference header` block named `e4b2b0b` / Control-1098 in ALL THREE files (README.md:1081, docs/OPERATIONS.md:1091,
+docs/DEPLOYMENT_RUNBOOK.md:1131) while the true `git rev-parse HEAD` at control start was `a67f9a6` (the Control-1098 docs commit) =
+the known intermittent one-control lag class; rewritten whole-line to `a67f9a6` / Control-1099. Both the Control-1098 and Control-1097 entries
+were present in all three files, so the C-1068-A missing-entry class did NOT recur.
+
+**NO code/config/cap change, NO deploy** - correct: the cause is upstream D1 capacity, the worker fails closed correctly, and a redeploy
+cannot create quota while it would reset lease state.
+
+**SWING:** no slot (`0 22 * * 2-6` does not fire Sat/Sun); filtered `?trigger=swing_cron` unreadable this control (500). **Mon Oct 5 22:00z is the
+decisive swing-dispatch re-test** - the first slot falling on a healthy write path since Thu Oct 1, and the first real answer to the question
+opened by the occ-30/occ-31 swallowings; C-1100 (Oct 5 23:00z) is the first control that can read it.
+
+**FOLLOW-UP C-1100:** re-read `/api/runs?limit=1` and `/api/config`'s `broker_ledger_synced_until` to determine whether this 4th read episode
+cleared and whether the writer stayed alive across it; re-check for a NEW >10 min gap after 21:16:20z; and READ THE MON OCT 5 22:00z SWING SLOT.
+Watch for read-quota recurrence in the historical 14:00-20:00z onset window.
+
+
+
 ## Control-1031 (Oct 2 04:00 UTC Fri) - strict read-only control: **OPEN DEGRADED, live path FULLY HEALTHY for the SECOND consecutive control; ZERO new defects; occ-28 (559.3 min) and occ-30 (219.3 min) both STAND and NEITHER recurred; swing dispatch STILL UNVERIFIABLE, decisive re-test Fri Oct 2 22:00z.** All 7 surfaces 200 first probe, no `D1_ERROR` (Oct 2 read quota CLEAR, 2nd consecutive control - 29th observation that the free-tier limit is per-UTC-day, not a deployment defect). Equity broker-direct **$97,201.97 / +$106.47 / +0.10965% POSITIVE** (9th consecutive), ~$201.97 over the $97,000 floor, never armed; `trading_blocked` false, `account_blocked` false. Run window `ids 19296 -> 19795` ID-CONTIGUOUS zero id gaps, `2026-09-30 12:11:58z -> 2026-10-02 01:56:23z`; status `skipped` 348 / `ok` 150 / **`error` 2**; triggers `cron` 300 / `reconcile_cron` 150 / `crypto_cron` 50. Only two >10 min time-gaps, both classified and standing: occ-28 `19346 14:42:09z -> 19347 00:01:25z` 559.3 min, occ-30 `19755 20:21:22z -> 19756 00:00:43z` 219.3 min. **occ-30 did NOT recur on Oct 2** - 40 gap-free rows through `01:56:23z`, live re-probe `19796 @ 02:00:36z reconcile_cron ok` fresh within the minute. **Zero `CYCLE_LEASE_HELD`.** The two `error` rows (`19696` LCID, `19742` RIVN) are the ALREADY-CLASSIFIED self-healed projection-lag pair - **ZERO new, zero error rows in Oct 2**. Oct 2 delivery 40 rows (cron 24 / reconcile 15 / crypto 1), daytrading minutes exactly the complete `1-59/5` grid with ZERO missing 5-min slots, +1 min offset. **Crypto :07/:37 cadence CONFIRMED** (minutes `{07:24, 37:23, 38:2, 08:1}`, one benign pair-shift), 50/50 `CRYPTO_DISABLED_BY_CONFIG`. Positions `source=alpaca` 17 rows, 0 null-strategy: swing 15 cost **$3,647.88 < $3,700**; daytrading 0; unattributed 2 **$246.82** (MS/RUN = C-896-A). **C-864 STILL OPEN** - overage is a MARKET-VALUE gross property (`src/risk-manager.ts:234`, `src/swing-risk.ts:168`/`:176`), not cost basis; cost-basis read is UNDER the cap (the documented trap). Trades ids `2011 -> 2060` ALL 50 `filled` (32 buy / 18 sell), zero pending; **conservative gross/fee/net predicate HOLDS** - `fee` 0/50, `fee_attribution` `none-recorded` 50/50, `net` 0/50, `gross` 18/50 all `gross_basis='fifo-lot-matched'`, no row asserts an unsupported net. **Identity PASS (D1-independent):** sha256 `7e8d4507...`, 364,154 B, `cmp` BYTE-IDENTICAL to local `bun build src/index.ts --outfile /tmp/candidate.js` (no `--target`); CF `4c96049f` @100% created `2026-09-28T20:04:24z` (SAME as C-1026..C-1030 = **no deploy**); 4/4 schedules incl `0 22 * * 2-6`; 281 tests/1016 assertions PASS; `tsc --noEmit` exit 0. Caps 5000/3700/2000 UNCHANGED (`src/capital-caps.ts:6-8`), floor 97000 armed (`src/risk-guards.ts:36`); `config.version` 2.7.0 remains the known cosmetic D1-seed lag. Crypto edge-gate wiring re-verified statically (`src/crypto-strategy.ts:73`/`:86`/`:87`/`:138`/`:284`/`:330`, `src/crypto-runtime.ts:295-296`). **DOCS HEAD-IDENTITY: PASS** - pointer named `d2a7ad6` = real authoring HEAD (lag is intermittent, not systematic, per C-1030). **SWING-DISPATCH: STILL OPEN AND UNVERIFIABLE** - zero `swing_cron`/`manual_swing` rows in a fully healthy window; `ONCE_PER_DAY` reads `getRecentRuns(5)` (`src/swing-strategy.ts:162-166`) so an unlogged success would not block either; wiring `src/index.ts:226-227` intact. **Fri Oct 2 22:00z is the decisive re-test; C-1032 MUST check it.** **ESCALATION BLOCKING, with demonstrated production cost** (daily 4/7 surface outage, two write-suppression stalls, one weekly strategy dispatch made unobservable) - paid D1 tier is Joachim's decision. NO code/config/cap change, NO deploy. Evidence `/workspace/control1031-evidence-20261002T040000Z/`.
 
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
