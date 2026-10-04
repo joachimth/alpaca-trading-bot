@@ -704,7 +704,7 @@ Evidence: `/workspace/control1059-evidence-20261003T080000Z/`.
 
 # Alpaca deployable reference header (mandatory, top-of-file)
 
-**Repo HEAD (updated Control-1082, Oct 4 2026):** `d6dc8b8` (`git rev-parse HEAD` == `d6dc8b8`, the C-1081 docs commit = the last completed control before this entry; by the C-524 convention the C-1082 entry cannot name its own docs commit).
+**Repo HEAD (updated Control-1083, Oct 4 2026):** `6a72bba` (`git rev-parse HEAD` == `6a72bba`, the C-1082 docs commit = the last completed control before this entry; by the C-524 convention the C-1083 entry cannot name its own docs commit).
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad` (364154 bytes, the `index.js` part of the
 multipart envelope from `.../workers/scripts/alpaca-trading-bot/content/v2`) == current source build
