@@ -1,3 +1,43 @@
+## Control-1105 (Oct 5 04:00 UTC Mon)
+
+**Status: OPEN FAIL/DEGRADED (carried) but live path FULLY HEALTHY for the FIFTH consecutive control. ZERO new worker defects. NO code/config/cap change, NO deploy.**
+
+All 7 surfaces returned 200 on the first probe and again on the separate post-commit re-verify, with no `D1_ERROR` on any surface. The 14:00-20:00z read-quota onset window did not recur.
+
+**Equity (broker-direct).** $97,154.60 / `change_today` **+$6.34 POSITIVE** (fifth consecutive positive read) / +0.00652% / `last_equity` $97,148.2617 / cash $91,758.11 / long market value $5,396.49 / buying power $381,769.61 / status ACTIVE, `trading_blocked` false, `account_blocked` false, `transfers_blocked` false. That is ~$154.60 above the $97,000 floor, which was never armed.
+
+**Run log (500-row window).** ids 20452 -> 20951, **500/500 ID-CONTIGUOUS, zero id gaps**; window 2026-10-04 00:21:23z -> 2026-10-05 04:00:37z; status skipped 350 / ok 150 / **error 0** = the NINETEENTH consecutive zero-error window; triggers cron 300 / reconcile_cron 150 / crypto_cron 50. **ZERO time-gaps > 10 min in the entire window** - occ-32 (339.5 min) and occ-33 (164.4 min) have BOTH AGED OUT of the rolling 500-row window (evidence stands C-1076..C-1104) and NEITHER recurred; occ-28 (559.3) / occ-29 (13.7) / occ-31 (489.2) aged out earlier. Cycle-scope `CYCLE_LEASE_HELD` **ZERO**. Window code histogram exactly `RECONCILIATION_DEFERRED_TO_MAINTENANCE` 350 (reconciliation) / `MARKET_CLOSED` 300 (cycle) / `MAINTENANCE_ONLY` 150 (maintenance) / `EQUITY_DIRECTION_FALLBACK` 50 (account) / `CRYPTO_DISABLED_BY_CONFIG` 50 (cycle).
+
+**Delivery completeness measured against the schedule (not the window).** The window's earliest timestamp 2026-10-04 00:21:23z sits exactly 21 s after a cron tick (00:21:21z), so the scheduled set is the regular grid; expected ticks over the span = cron 219 / reconcile_cron 109 / crypto_cron 36 = **364** against **observed 366** (cron 219, reconcile_cron 109, crypto_cron 38). Every fully-occupied hour holds the complete **12/12** 5-minute cron grid {01,06,11,16,21,26,31,36,41,46,51,56}; the crypto lane holds **exactly one row per :07 and per :37 minute on all 28 hours covered = 56/56**, no `:38` pair-shift. The only truncation is the trailing minute (cron 04:01-04:56 is past the 04:00:37z snapshot). This is the **fourth consecutive control** in which no hidden off-grid tick loss appears, so **C-1091-A and C-1102-A stay refuted in-window**.
+
+**Crypto cadence.** :07/:37 UTC cadence CONFIRMED, 56/56 pairs across 28 hours, no `:38` shift; `CRYPTO_DISABLED_BY_CONFIG` on every crypto cycle row.
+
+**Broker-authoritative positions.** `source=alpaca`, `positionsAvailable=true`, 19 rows, **0 null-strategy** (swing 15 cost $3,647.88 / MV $3,362.32; daytrading 2 PLTR/TSM cost $1,795.99 / MV $1,789.17; unattributed 2 MS/RUN cost $246.82 / MV $245.00 = C-896-A). conservativeGross on the MV basis (swing MV + unattributed MV) = $3,607.32 vs $3,700 = **$92.68 UNDER**; daytrading gross $1,789.17 vs $5,000. **C-864 STILL OPEN** (MV-gross property per `src/risk-manager.ts:234` and `src/swing-risk.ts:168/176`, NOT cost basis).
+
+**Trade / fill lifecycle.** ids 1585 -> 2084, **500/500 filled** (338 buy / 162 sell), zero pending; `gross` non-null 162/500 all `gross_basis='fifo-lot-matched'`; `fee` non-null 0/500; `net` non-null 0/500; `fee_attribution` `none-recorded` 500/500; `accounting_status` `filled_lot_exact_unavailable` 338 / `fifo-lot-matched` 162; **ZERO rows carry both gross and fee/net, so the conservative predicate HOLDS**. Newest trade 2084 @ 2026-10-02 15:41:30z NFLX sell.
+
+**Caps and floor.** UNCHANGED - daytrading $5,000 (`src/index.ts:151`), swing $3,700 (`src/swing-strategy.ts:56`), crypto $2,000 (`src/crypto-strategy.ts:147`), equity floor $97,000 (`src/risk-guards.ts:36`, key list `:47`). Live 91-key config confirms `max_capital_usd` 5000 / `swing_max_capital_usd` 3700 / `crypto_max_capital_usd` 2000 / `account_equity_floor_usd` 97000 / `min_confidence` 0.8 / `swing_min_confidence` 0.5 / `max_trades_per_cycle` 3 / `crypto_trading_enabled` false. `config.version` 2.7.0 vs `/health` 2.8.2 = the known cosmetic D1-seed lag.
+
+**Writer health.** `broker_ledger_synced_until` = 2026-10-05T04:00:37.153Z, matching the newest visible reconcile run 20951 @ 04:00:37z (the ledger watermark is written by the same reconcile cycle that logs the row), so the writer is alive and **the C-1078-A self-perpetuating watermark loop is NOT active** (`src/broker-ledger.ts:54` `if (!result.truncated)` re-confirmed).
+
+**Identity PASS (D1-independent).** A fresh local `bun build src/index.ts` (no `--target` flag) is 364,154 B sha256 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad`; the deployed payload fetched from the CF API `content/v2` (multipart 364,403 B, first CRLFCRLF=181, last CRLF--=364335) extracts to the same 364,154 B and the same sha256, `cmp` **BYTE-IDENTICAL**. CF deployment 62a32206-50b0-475b-8499-555408400a0f created 2026-09-28T20:04:24.862538Z at 100% version 4c96049f-08bb-4e63-be1a-ff8dbe16c21f = **NO deploy since C-1026**; `git log -1 -- src/` = baed2a3 (Control-1004, Sep 30).
+
+**Four schedules verified via the CF API.** `1-59/5 * * * *` (created 2026-09-19), `0 22 * * 2-6` (created 2026-08-31), `7-59/30 * * * *` (created 2026-08-04), `*/10 * * * *` (created 2026-08-07); all four `modified_on` 2026-09-28T20:04:34.219701Z.
+
+**Wiring re-verified statically.** swing dispatch `src/index.ts:226` `if (event.cron === '0 22 * * 2-6')` -> `:227`; fail-closed positions envelope `src/api.ts:213` + `:331` (HTTP 503 `{positions:[],positionsAvailable:false,source:'alpaca',error}`); crypto edge gate `src/crypto-strategy.ts:282/284/325/330`; fail-closed `cryptoTradingEnabled` `src/risk-guards.ts:163-166` (only the explicit string `'true'` enables); `src/broker-ledger.ts:54`. C-1093-A re-confirmed (`market_open: 0` hardcoded at `src/index.ts:504`).
+
+**Regressions.** `bun test` = **286 pass / 0 fail / 1037 expect() calls across 32 files**; `bunx tsc --noEmit` exit 0.
+
+**Filtered run observability.** `?trigger=swing_cron&limit=20` returns 16 rows, newest 18635 @ 2026-09-28 22:01:25z (skipped, `RECONCILIATION_DEFERRED_TO_MAINTENANCE`); **zero swing rows in the 500-row window**. `0 22 * * 2-6` does not fire Sat/Sun, so **Mon Oct 5 22:00z is the DECISIVE swing-dispatch re-test** - the first slot on a healthy write path since Thu Oct 1 - and **C-1106 (Oct 5 23:00z) is the first control that can read it**. The Thu Oct 1 (occ-30) and Fri Oct 2 (occ-31) swallowings stand.
+
+**C-1060-A daytrading starvation** carried decision-gated: 0 trades across the window; suppressors `min_confidence` 0.8 vs the code fallback 0.7 (`src/index.ts:161`) plus volatility-targeting sizing (`src/risk-manager.ts:249-265`), invisible because `runStatus` cannot promote informational skips above `ok`.
+
+**Escalation DECISION-GATED, still open.** The D1 database remains at the free-tier ceiling in both dimensions (file_size 53,354,496 B, `read_replication.mode` disabled). The read path has now been restored for five consecutive control-hours and the writer is alive, but the record still carries FOUR confirmed write-suppression stalls (occ-28 559.3 min, occ-30 219.3, occ-31 489.2, occ-32 339.5) plus the unexplained occ-33 (164.4 min), and C-1078-A explains occ-32 without bounding it. A paid D1 tier remains Joachim's decision.
+
+**Follow-up C-1106.** READ THE MON OCT 5 22:00z SWING SLOT. Confirm the per-lane id rate still matches the scheduled cadence and that no new >10 min gap opened after 2026-10-05 04:00:37z. Watch for read-quota recurrence in the historical 14:00-20:00z onset window.
+
+
+
 ## Control-1104 (Oct 5 03:00 UTC Mon)
 
 **OPEN FAIL/DEGRADED (carried) but live path FULLY HEALTHY for the FOURTH consecutive control.** All 7 surfaces 200 first probe AND on separate post-commit re-verify, no D1_ERROR. Read path clear; the 4th D1 read-outage episode (C-1099..C-1100) stays OVER. The historical 14:00-20:00z read-quota onset window did not recur overnight.
@@ -1198,7 +1238,7 @@ cd /workspace/alpaca-trading-bot && bun build src/index.ts --outfile /tmp/candid
 
 # Alpaca deployable reference header (mandatory, top-of-file)
 
-**Repo HEAD (updated Control-1104, Oct 5 2026):** `793de83` (the true `git rev-parse HEAD` at Control-1104 control start = the Control-1103 docs commit; by the C-524 convention an entry cannot name its own docs commit, which is created after the entry text is final).
+ **Repo HEAD (updated Control-1105, Oct 5 2026):** `bab464d` (the true `git rev-parse HEAD` at Control-1105 control start = the Control-1104 docs commit; by the C-524 convention an entry cannot name its own docs commit, which is created after the entry text is final).
 Deployed src remains the 2.8.2 release `092b84b` PLUS the committed Control-901 reliability delta.
 
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
