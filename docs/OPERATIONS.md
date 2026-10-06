@@ -1305,7 +1305,7 @@ Evidence: `/workspace/control1059-evidence-20261003T080000Z/`.
 
 # Alpaca deployable reference header (mandatory, top-of-file)
 
-  **Repo HEAD (updated Control-1121, Oct 5 2026 23:00 UTC Mon): the true `git rev-parse HEAD` at Control-1121 control start was `cb25f573c5243a2cef108e3a819a8439370fd9a1` (the Control-1120 docs commit). The previous pointer value `ec6cd54` named Control-1120 while the true HEAD was one commit ahead - the known one-control lag class, not a defect. This control rewrites this line to `<PENDING-SELF>`/Control-1121.**
+  **Repo HEAD (updated Control-1121, Oct 5 2026 23:00 UTC Mon): the true `git rev-parse HEAD` at Control-1121 control start was `cb25f573c5243a2cef108e3a819a8439370fd9a1` (the Control-1120 docs commit). The previous pointer value `ec6cd54` named Control-1120 while the true HEAD was one commit ahead - the known one-control lag class, not a defect. This control rewrites this line to `3ffcd04c4b9b5325583be14ad82c3b9775f76270`/Control-1121.**
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad` (364154 bytes, the `index.js` part of the
 multipart envelope from `.../workers/scripts/alpaca-trading-bot/content/v2`) == current source build

@@ -1345,7 +1345,7 @@ cd /workspace/alpaca-trading-bot && bun build src/index.ts --outfile /tmp/candid
 
 # Alpaca deployable reference header (mandatory, top-of-file)
 
-  **Repo HEAD (updated Control-1121, Oct 5 2026 23:00 UTC Mon): the true `git rev-parse HEAD` at Control-1121 control start was `cb25f573c5243a2cef108e3a819a8439370fd9a1` (the Control-1120 docs commit). The previous pointer value `ec6cd54` named Control-1120 while the true HEAD was one commit ahead - the known one-control lag class, not a defect. This control rewrites this line to `<PENDING-SELF>`/Control-1121.**
+  **Repo HEAD (updated Control-1121, Oct 5 2026 23:00 UTC Mon): the true `git rev-parse HEAD` at Control-1121 control start was `cb25f573c5243a2cef108e3a819a8439370fd9a1` (the Control-1120 docs commit). The previous pointer value `ec6cd54` named Control-1120 while the true HEAD was one commit ahead - the known one-control lag class, not a defect. This control rewrites this line to `3ffcd04c4b9b5325583be14ad82c3b9775f76270`/Control-1121.**
 Deployed src remains the 2.8.2 release `092b84b` PLUS the committed Control-901 reliability delta.
 
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
