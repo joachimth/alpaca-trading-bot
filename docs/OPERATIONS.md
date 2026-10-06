@@ -1326,7 +1326,7 @@ Evidence: `/workspace/control1059-evidence-20261003T080000Z/`.
 **ESCALATION DECISION-GATED, STILL OPEN:** D1 database at free-tier ceiling in both dimensions (53,903,360 B); FOUR confirmed write stalls (occ-28 559.3 / occ-30 219.3 / occ-31 489.2 / occ-32 339.5 min); C-1078-A explains occ-32 but does not bound it. Paid D1 tier = Joachim's decision. Follow-up C-1097: watch for read-quota recurrence in the historical 14:00-20:00z onset window, confirm the watermark keeps advancing, re-check the run log for any new >10 min gap, and read the Mon Oct 5 22:00z swing slot.
 
 # Alpaca deployable reference header (mandatory, top-of-file)
-  **Repo HEAD (updated Control-1122, Oct 6 2026 00:00 UTC Tue): the true `git rev-parse HEAD` at Control-1122 control start was `c9171427efc2f91e2252ff4563f65ad496522e99` (the Control-1121 docs commit). The previous pointer value `3ffcd04` named Control-1121 while the true HEAD was one commit ahead - the known one-control lag class, not a defect. This control rewrites this line to `c917142`/Control-1122.**
+  **Repo HEAD (updated Control-1123, Oct 6 2026 01:00 UTC Tue): the true `git rev-parse HEAD` at Control-1123 control start was `7f3f25a8db5e2ca0a9af863e68828ed3ef02efc9` (the Control-1122 docs commit). The previous pointer value `c917142` named Control-1122 while the true HEAD was one commit ahead - the known one-control lag class, not a defect. This control rewrites this line to `7f3f25a`/Control-1123.**
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad` (364154 bytes, the `index.js` part of the
 multipart envelope from `.../workers/scripts/alpaca-trading-bot/content/v2`) == current source build
@@ -2508,5 +2508,64 @@ All 7 surfaces returned 200 on the first probe and again on the separate post-co
 **ESCALATION DECISION-GATED STILL OPEN:** D1 database at the free-tier ceiling in both dimensions; FOUR confirmed write stalls (occ-28/30/31/32) plus the unexplained occ-33 delivery blackout; C-1078-A explains occ-32 but does NOT bound it; paid D1 tier = Joachim's decision.
 
 Evidence `/workspace/control1106-evidence-20261005T050000Z/`.
+
+**This control issued ONLY read-only GET calls: no trigger, submit, cancel, close, replace, retry, migration or broker mutation was attempted.**
+
+**OPEN FAIL/DEGRADED (carried). Live path FULLY HEALTHY; the 5th D1 read-quota episode is OVER. NO code/config/cap change, NO deploy.**
+
+### Surfaces (all 200 first probe, no D1_ERROR)
+health 77 B 2.8.2 | config 3621 B (91 keys) | dashboard 240574 B | positions 14536 B (19 rows, source=alpaca, positionsAvailable=true) | runs?limit=1 1887 B | runs?limit=500 1167703 B | trades?limit=500 742500 B | filtered swing_cron 200 (75455 B).
+
+### Account (broker-direct, D1-independent)
+equity **$97,167.56** / last_equity $97,148.2617 / change_today **+$19.2983 POSITIVE (23rd consecutive)** / cash $93,538.04 / lmv $3,629.52 / bp $383,943.97 / status ACTIVE / trading_blocked false / account_blocked false / transfers_blocked false / pattern_day_trader false; **~$167.56 over the $97,000 floor, never armed.**
+
+### Run log
+500/500 ids **20770 -> 21269**, ID-CONTIGUOUS, zero id gaps. Window 2026-10-04T16:16:26z -> 2026-10-06T00:56:22z (32.67 h). status **skipped 342 / ok 152 / error 6**. triggers cron 300 / reconcile_cron 150 / crypto_cron 50. CYCLE_LEASE_HELD **ZERO**.
+Skip histogram: RECONCILIATION_DEFERRED_TO_MAINTENANCE 350 / MARKET_CLOSED 234 / DECISION_HOLD 209 / MAINTENANCE_ONLY 150 / SWING_OWNED_EXCLUDE 147 / EQUITY_DIRECTION_FALLBACK 114 / BROKER_ONLY_RECONCILED 62 / NO_ENTRY_RISK 58 / CRYPTO_DISABLED_BY_CONFIG 50 / DAYTRADING_BARS_SHORT 47 / CAPITAL_CAP 21 / DAYTRADING_BARS_UNAVAILABLE 12 / MAX_TRADES_PER_CYCLE 10 / MIN_ORDER_SIZE 6 / EXIT_COST_GATE 4 / DAYTRADING_BARS_STALE 4 / POSITION_QTY_MISMATCH 2 / REENTRY_COOLDOWN 1.
+Gaps per lane (each vs its own cadence; reconcile */10 so 10.0-10.4 min is normal): cron 165.1 (occ-33) + **309.9 (occ-34)**; reconcile 170.3 (occ-33) + **310.5 (occ-34)**; crypto 180.0 (occ-33) + **330.0 (occ-34)**. **occ-34 = 2026-10-05 18:51:32z -> 2026-10-06 00:00:55z, all three lanes, closed at the UTC day boundary.** occ-32 (339.5) aged out, none recurred.
+market_open=1 rows 114, decisions 620, trades_executed 0.
+Cron 5-min grid: full 12/12 {01,06,11,16,21,26,31,36,41,46,51,56} in every fully-occupied hour since 00:00:55z; crypto minutes exactly {07,37} = **:07/:37 UTC cadence CONFIRMED**, no :38 pair-shift, all CRYPTO_DISABLED_BY_CONFIG.
+
+### NEW FINDING C-1123-A (reliability, observability, NOT changed)
+**One new error row: 21258 @2026-10-06 00:21:33z cron, errors 1, duration 12225 ms, market_open 0, decisions 0, detail `Fatal: alpaca_request_timeout`** - the 12 s abort at `src/alpaca.ts:187` caught by the cycle catch `src/index.ts:1358-1360`, died pre-decision. Same upstream class as C-1044-A (Oct 2, x5) and C-1116-A's 21227 @17:46:34z. Recovery verified: 21259 @00:26:21z cron skipped err 0, 21260 @00:30:30z reconcile_cron ok, and the 12/12 cron grid holds after it; lease TTL 5 min expired so no stuck lease. **The run-log error set for this window is 6 rows, all previously classified: 2x POSITION_QTY_MISMATCH (fail-closed daytrading halt, C-1116-A), 2x getBars 522/525 (C-1119-B), 2x alpaca_request_timeout (C-1116-A 21227 + new 21258).** No new class, but the upstream-timeout class has now recurred on three separate days.
+
+### Positions (broker-authoritative)
+19 rows, source **alpaca**, positionsAvailable true, ZERO null-strategy:
+- swing 15: ADBE BA BAC C ENPH F FCEL GM INTU NEE ORCL PSX SIRI SNOW UPS, cost $3,647.88 / MV $3,373.84
+- daytrading 2: SHOP SOFI, cost $11.91 / MV $12.01
+- unattributed 2: MS RUN, cost $246.82 / MV $243.67 (C-896-A)
+- **conservativeGross (swing MV + unattributed MV) $3,617.51 vs $3,700 = $82.49 UNDER**; daytrading gross $12.01 vs $5,000 = $4,987.99 under; **C-864 STILL OPEN** (MV-gross property, not cost basis).
+
+### Trades
+500 rows ids 1632 -> 2131 all **filled** (338 buy / 162 sell), zero pending, 0 duplicate alpaca_order_id. gross non-null 162/500 all `gross_basis='fifo-lot-matched'`; **fee 0/500; net 0/500; ZERO rows carry both gross and fee/net -> conservative predicate HOLDS.** accounting_status fifo-lot-matched 162 / filled_lot_exact_unavailable 338. Newest fills 2131 sell 37 @2026-10-05T18:51:30z gross +$2.20 and 2130 sell 1995 @18:26:37z gross -$34.56 (PLUG liquidation legs).
+
+### Caps (live 91-key config, UNCHANGED)
+max_capital_usd 5000 / swing_max_capital_usd 3700 / crypto_max_capital_usd 2000 / account_equity_floor_usd 97000 / min_confidence 0.8 / swing_min_confidence 0.5 / max_trades_per_cycle 3 / crypto_trading_enabled false. dashboard capitalCaps agrees {daytrading 5000, swing 3700, crypto 2000}. config.version 2.7.0 vs /health 2.8.2 = known cosmetic D1-seed lag.
+
+### Writer alive
+broker_ledger_synced_until **2026-10-06T00:50:32.420Z**, advanced past the 00:00:45.406Z value, matching the */10 reconcile cadence; C-1078-A loop NOT active (`src/broker-ledger.ts:54 if (!result.truncated)`). Dashboard freshness current_state_observed_at 2026-10-06T01:00:18.958Z.
+
+### Identity PASS - and C-1118-B is RESOLVED
+- **C-1118-B RESOLVED:** the Cloudflare API token WORKS. My first attempt failed because `assistant credentials get` does not exist; the correct call is `assistant credentials reveal --service cloudflare --field api_token`. `/user/tokens/verify` HTTP 401 previously reported at C-1118/C-1119 was an artefact of that wrong lookup, not an expired token.
+- deployed payload CF API `content/v2`: HTTP 200, 364,403 B multipart (first CRLFCRLF=177, last CRLF--=364335) -> extracted **364,154 B sha256 7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad**, `cmp` **BYTE-IDENTICAL** to a fresh local `bun build src/index.ts` (no --target flag).
+- CF deployment `62a32206-50b0-475b-8499-555408400a0f` created 2026-09-28T20:04:24.862538Z @100% version `4c96049f` = **NO deploy since C-1026** (deployment list confirms it is the newest of 10).
+- **4/4 schedules CF-API verified:** 1-59/5 * * * * / 0 22 * * 2-6 / 7-59/30 * * * * / */10 * * * *, all `modified_on 2026-09-28T20:04:34.219701Z`.
+- D1 (read-only): uuid 2bc505a2-d744-4322-8c3b-5f5ebe35f9a1, 12 tables, **file_size 54,607,872 B**, read_replication.mode disabled = still at the free-tier ceiling in both dimensions. read_queries_24h 5,108 / rows_read_24h 5,433,741.
+- `git log -1 -- src/` = baed2a3847571e034a505db4163adfb9542b60e0 (Control-1004, Sep 30).
+
+### Wiring re-verified statically
+swing dispatch src/index.ts:226 `if (event.cron === '0 22 * * 2-6')` -> :227; fail-closed positions src/api.ts:213 + :331 (503 envelope); crypto edge gate src/crypto-strategy.ts:282/284/325/330; fail-closed cryptoTradingEnabled src/risk-guards.ts:163-166 (only explicit 'true'); src/broker-ledger.ts:54; C-1093-A re-confirmed (market_open:0 hardcoded src/index.ts:504 + fatal catch :1359); caps src/index.ts:151 / src/swing-strategy.ts:56 / src/crypto-strategy.ts:147 / src/risk-guards.ts:36.
+
+### Validation
+286 tests / 1037 expect() PASS across 32 files; `bunx tsc --noEmit` exit 0.
+
+### Docs
+HEAD-identity FAIL -> CORRECTED (C-1123-B, docs-only): the `**Repo HEAD` pointer named `c917142`/Control-1122 in all three files while true `git rev-parse HEAD` at control start was `7f3f25a8db5e2ca0a9af863e68828ed3ef02efc9` (the Control-1122 docs commit) = the known one-control lag class; rewritten whole-line to `7f3f25a`/Control-1123 at README.md:1319, docs/OPERATIONS.md:1329, docs/DEPLOYMENT_RUNBOOK.md:1369. The Control-1121 and Control-1122 entries are both present in all three files, so the C-1068-A class did not recur.
+
+### SWING
+0 swing rows in the window; filtered ?trigger=swing_cron&limit=20 returns 16 rows, newest still 18635 @2026-09-28 22:01:25z. The question stays **CLOSED NEGATIVE** (C-1122): four consecutive slots lost to delivery blackouts (occ-32/33/34). Remaining work is an observability src change or a scheduler fix, both decision-gated.
+
+### Escalation
+Read-quota half DOWNGRADED (episode over, budget reset). **Blackout half RAISED: occ-32/33/34 in 48 h = a pattern, not an incident; occ-34 was 310.5 min and destroyed the week's only readable swing slot.** D1 still at the free-tier ceiling both dimensions -> paid tier = Joachim's decision.
 
 **This control issued ONLY read-only GET calls: no trigger, submit, cancel, close, replace, retry, migration or broker mutation was attempted.**
