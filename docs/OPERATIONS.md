@@ -1,3 +1,42 @@
+## Control-1153 (Oct 7 09:00 UTC Wed / 11:00 CEST) - strict read-only control: **OPEN FAIL/DEGRADED (carried)** but the **live path is FULLY HEALTHY for the 50th consecutive control**. **ZERO new worker defects. NO cap or trading-behaviour change. NO deploy.**
+
+All 9 probed surfaces returned HTTP 200 on the first probe, with no `D1_ERROR` (health 77 B `2.8.2`; config 3,621 B / 91 keys; dashboard 230,784 B; positions 13,108 B; runs?limit=1 1,450 B; runs?limit=500 1,204,193 B; trades?limit=500 742,020 B; filtered swing_cron 81,769 B; account 602 B). 19th consecutive green read-quota control.
+
+**Account (broker-direct).** Equity $97,150.36 / last_equity $97,164.1183 / change_today **-$13.7583 (-0.014160%)** NEGATIVE for the 12th consecutive control / cash $93,494.42 / long_market_value $3,655.94 / buying_power $383,814.42 / status ACTIVE, `trading_blocked` false, `account_blocked` false, `transfers_blocked` false, `pattern_day_trader` false. ~$150 over the $97,000 floor, never armed.
+
+**Writer alive.** `broker_ledger_synced_until` = 2026-10-07T06:30:27.466Z, matching the newest reconcile row (21833 @06:30:28z). C-1078-A self-perpetuating watermark loop NOT active (`src/broker-ledger.ts:54`).
+
+**Run log.** 500/500 rows, ids 21833 -> 21334, strictly descending and ID-CONTIGUOUS as a set (zero gaps, zero duplicates). Window 2026-10-06 04:10:29z -> 2026-10-07 06:30:28z. Status skipped 345 / ok 151 / **error 4**. Triggers cron 299 / reconcile_cron 151 / crypto_cron 49 / swing_cron 1.
+
+**The four error rows are ALL previously classified - ZERO new, 13th consecutive clean error ledger.** 21522 @10-06 13:36:30z, 21526 @13:46:35z, 21593 @18:31:28z, 21611 @19:26:29z, all cron, all `POSITION_QTY_MISMATCH` fail-closed daytrading halts (C-1116-A / C-1136-A / C-1143-B). No error row since 21611 @2026-10-06 19:26:29z.
+
+**Time gaps.** occ-35 is the ONLY standing blackout: cron 21588 16:51:32z -> 21590 18:21:32z = 90.0 min, reconcile 21587 16:50:23z -> 21589 18:20:28z = 90.1 min, crypto 21583 16:37:21z -> 21595 18:37:21z = 120.0 min; restart order reconcile -> cron -> crypto. occ-34 has aged out of the rolling window. No new gap after 06:30:28z. The only other >6.5 min cron interval is the known late-insert artefact 21385 06:41:22z -> 21386 06:49:45z = 8.4 min (not a lost tick). reconcile 9.7-10.3 min and crypto 29.9-30.1 min are their NORMAL cadences.
+
+**Delivery.** 26 calendar hours covered; 24 full 12/12 5-min cron grid {01,06,11,16,21,26,31,36,41,46,51,56}; the 2 partial hours are the truncated first window hour (10-06 04z = 10 ticks) and 10-06 16z (11 ticks = occ-35 onset) -> C-1091-A / C-1102-A stay REFUTED in-window. Crypto minutes are exactly the :07 / :37 UTC pairs across 46 distinct HH:MM with no :38 pair-shift, all `CRYPTO_DISABLED_BY_CONFIG`. market_open=1 rows 110, decisions 597, trades_executed 0. Cycle-scope `CYCLE_LEASE_HELD` ZERO.
+
+**Positions.** source=alpaca, positionsAvailable true, 17 rows, ZERO null-strategy, positionsError null: swing 17 cost $3,894.70 / MV $3,655.94; daytrading 0 rows FLAT; unattributed 0 (C-896-A stays RESOLVED by re-attribution). conservativeGross (MV basis) $3,655.94 vs $3,700 = **$44.06 UNDER**. C-864 STILL OPEN (MV-gross property, not cost basis).
+
+**Trades.** 500 rows, ids 2185 -> 1686, 495 filled / 5 accepted, 0 duplicate `alpaca_order_id`; gross non-null 161/500, all `gross_basis='fifo-lot-matched'`; fee 0/500; net 0/500; ZERO rows carry both gross and fee/net -> the conservative predicate HOLDS. accounting_status fifo-lot-matched 161 / filled_lot_exact_unavailable 334 / no_fill 5. Zero fills in-window.
+
+**Swing orders 2181-2185 (C-1146-B follow-up) - BROKER-VERIFIED STILL OPEN**, read-only GET paper-api `/v2/orders?status=open`: 1c634f4f FCEL sell 7, 7ef92f15 NEE sell 1, 29d944fe ORCL sell 0.9, 89afc36b PSX sell 0.48, dc98c680 MRK buy 0.24 - all `accepted`, `filled_qty` 0, tif=day, `expires_at` 2026-10-07T20:00:00Z, submitted 2026-10-06T22:00:33-40z. Not filled, not cancelled, not expired. C-1146-B STANDS: no bot API surface lists open/unfilled orders.
+
+**Swing observability stays CLOSED POSITIVE** (C-1145-A): swing_cron row 21663 @2026-10-06 22:00:44z in window, status skipped errors 0; filtered swing_cron returns 17 rows.
+
+**Caps.** UNCHANGED 91-key live config: max_capital_usd 5000, swing_max_capital_usd 3700, crypto_max_capital_usd 2000, account_equity_floor_usd 97000, min_confidence 0.8, swing_min_confidence 0.5, max_trades_per_cycle 3, crypto_trading_enabled false. config.version 2.7.0 vs /health 2.8.2 = known cosmetic D1-seed lag.
+
+**Identity FULL PASS - 30th consecutive control, 7th against deploy 6279c2da.** Fresh local `bun build src/index.ts` (no `--target` flag) = 364,616 B sha256 `b5c7f5e7939d95a2039c56fbf3c91dc98e01fdd2965dbfe4674c3dd284017e02`; deployed payload from CF API content/v2 (multipart 364,865 B, first CRLFCRLF=181, last CRLF--=364797) extracts to the same 364,616 B and the same sha256 - `cmp` BYTE-IDENTICAL. Newest CF deployment 6279c2da-e4ee-4c9e-9430-026db7b50441 / version d83ab071-e9a9-4fbf-9a7a-9807514fe648 created 2026-10-07T01:03:36.811341Z @100% = NO deploy this control (10 deployments). `git log -1 -- src/` = e47babc. 4/4 schedules CF-API verified, expressions and created_on unchanged. D1 2bc505a2-d744-4322-8c3b-5f5ebe35f9a1 file_size 55,943,168 B, read_replication disabled = free-tier ceiling both dimensions.
+
+**C-1141-D, 14th control:** all four Cloudflare cron schedules still carry `modified_on` = 2026-10-06T18:18:21.467086Z, which falls INSIDE the occ-35 delivery blackout (16:51:20z -> 18:21:21z). `created_on` values and all four cron expressions are unchanged. A Cloudflare-side schedule re-registration at that moment remains a candidate explanation for a blackout that ended two minutes later with a reconcile-first restart, and is NOT provable read-only. Still Joachim's to answer: what changed at 18:18:21z?
+
+**Tooling.** 287 tests / 1039 expect() calls PASS across 32 files; `bunx tsc --noEmit` exit 0.
+
+**Docs.** The Repo HEAD pointer named Control-1151 (`f553afd`) in all three files, which was the true HEAD at that control's start and correctly recorded there, while the true `git rev-parse HEAD` at Control-1153 start was `29a47754a67fd3a007e70757ef2e84c8dd3ba4a5` (the Control-1152 docs commit) - the known one-control lag class. Pointer rewritten whole-line in README.md, docs/OPERATIONS.md and docs/DEPLOYMENT_RUNBOOK.md; Control-1152 entry present in all three so the C-1068-A missing-entry class did NOT recur.
+
+**No code, config or cap change, and no deploy - correct: no worker defect was found, the worker fails closed correctly, and the outages were upstream D1 quota plus delivery blackouts, neither of which a redeploy can fix.**
+
+**Escalation.** Read-quota half DOWNGRADED (19th consecutive green control). Blackout half RAISED: five recorded blackouts, four within 48 h (occ-32 339.5 / occ-33 164.4 / occ-34 310.1 / occ-35 90.0 min), one of which destroyed the week's only readable swing slot. Two remedies for Joachim: (1) move D1 to the paid tier - the direct upstream cause of all six read-quota episodes; (2) give the write path a D1-independent witness so a future episode cannot blind the control.
+
+**Follow-up C-1154:** whether 2181-2185 fill at the US open or expire at 2026-10-07T20:00:00Z, whether MRK is added and FCEL/NEE/ORCL/PSX reduced, whether EXIT_PENDING_RECONCILIATION reappears; no new >10 min gap after 2026-10-07 06:30:28z; 7th read-quota episode in the historical 14:00-20:00z onset window; the `alpaca_request_timeout` class; settle the blackout remedy, C-1146-B and the 18:18:21z question with Joachim.
 ## Control-1152 (Oct 7 08:00 UTC Wed / 10:00 CEST) - strict read-only control: **OPEN FAIL/DEGRADED (carried)**
 
 **Verdict: live path FULLY HEALTHY for the 49th consecutive control.** Zero new worker defects, no cap or trading-behaviour change, **NO deploy this control**. All 9 probed surfaces 200 on the first probe (health 77 B 2.8.2 at root, config 3,621 B / 91 keys, dashboard 230,793 B, positions 13,073 B, runs?limit=1 1,887 B, runs?limit=500 1,206,039 B, trades?limit=500 742,020 B, swing_cron filter 81,769 B, account 601 B) plus a separate post-push read-only round; no `D1_ERROR`; **18th consecutive green read-quota control** (the 14:00-20:00z onset window did not recur).
@@ -1740,7 +1779,7 @@ Evidence: `/workspace/control1059-evidence-20261003T080000Z/`.
 **ESCALATION DECISION-GATED, STILL OPEN:** D1 database at free-tier ceiling in both dimensions (53,903,360 B); FOUR confirmed write stalls (occ-28 559.3 / occ-30 219.3 / occ-31 489.2 / occ-32 339.5 min); C-1078-A explains occ-32 but does not bound it. Paid D1 tier = Joachim's decision. Follow-up C-1097: watch for read-quota recurrence in the historical 14:00-20:00z onset window, confirm the watermark keeps advancing, re-check the run log for any new >10 min gap, and read the Mon Oct 5 22:00z swing slot.
 
 # Alpaca deployable reference header (mandatory, top-of-file)
-**Repo HEAD (updated Control-1152, Oct 7 2026 08:00 UTC Wed): the true `git rev-parse HEAD` at Control-1152 control start was `793a645908aecb1cd2055c93fb408d2a3a7b96ae` (the Control-1151 docs commit). The pointer line named Control-1151 (`f553afdbc7acbd5044f8361802cd15af162f6cf2`), which was the true HEAD at that control's start and correctly recorded there, is superseded by this line.**
+**Repo HEAD (updated Control-1153, Oct 7 2026 09:00 UTC Wed): the true `git rev-parse HEAD` at Control-1153 control start was `29a47754a67fd3a007e70757ef2e84c8dd3ba4a5` (the Control-1152 docs commit). The pointer line named Control-1152 (`793a645908aecb1cd2055c93fb408d2a3a7b96ae`), which was the true HEAD at that control's start and correctly recorded there, is superseded by this line.**
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad` (364154 bytes, the `index.js` part of the
 multipart envelope from `.../workers/scripts/alpaca-trading-bot/content/v2`) == current source build
