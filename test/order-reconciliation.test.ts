@@ -344,4 +344,25 @@ describe('scheduled order reconciliation', () => {
     expect(calls).toEqual(['getRecentOrders:desc']);
     expect((await rows(sqlite))[0]).toMatchObject({ status: 'filled', filled_qty: 10, leaves_qty: 0 });
   });
+
+  test('reports how many locally pending orders were left for the next pass when the lookup budget is exhausted', async () => {
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+    const pendingOrders = Array.from({ length: MAX_ORDER_LOOKUPS_PER_INVOCATION + 3 }, (_, i) => order({
+      id: `deferred-${i}`,
+      client_order_id: `deferred-client-${i}`,
+      symbol: `DEF${i}`,
+      status: 'new',
+      updated_at: `2026-08-07T11:${String(i % 60).padStart(2, '0')}:00Z`,
+    }));
+    await db.reconcileOrders(pendingOrders);
+    const broker = {
+      getRecentOrders: async () => [],
+      getOrder: async (orderId: string) => pendingOrders.find(candidate => candidate.id === orderId)!,
+    };
+
+    const result = await reconcileBrokerOrders(db, broker as any);
+    expect(result.pendingLookups).toBe(MAX_ORDER_LOOKUPS_PER_INVOCATION);
+    expect(result.deferredLookups).toBe(pendingOrders.length - MAX_ORDER_LOOKUPS_PER_INVOCATION);
+  });
 });

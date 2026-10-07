@@ -289,6 +289,15 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
         pendingLookups: reconciliation.pendingLookups,
       });
     }
+    if (reconciliation.deferredLookups > 0) {
+      // Not degraded: the per-invocation lookup budget is bounded on purpose and
+      // the remainder is picked up by the next scheduled pass. Reported so a
+      // deferred backlog is visible instead of silent.
+      skips.add('BROKER_ORDER_LOOKUP_DEFERRED', 'reconciliation', 'Locally pending orders exceeded the per-invocation lookup budget; the remainder stays in D1 for the next scheduled pass', {
+        deferredLookups: reconciliation.deferredLookups,
+        pendingLookups: reconciliation.pendingLookups,
+      });
+    }
     let ledger: Awaited<ReturnType<typeof syncBrokerLedger>> | null = null;
     try {
       ledger = await syncBrokerLedger(db, alpaca);

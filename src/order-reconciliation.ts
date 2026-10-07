@@ -5,6 +5,8 @@ export interface ReconciliationResult {
   brokerOrders: number;
   imported: number;
   pendingLookups: number;
+  /** Locally pending orders the per-invocation lookup budget did not reach. */
+  deferredLookups: number;
   lookupFailures: number;
 }
 
@@ -67,6 +69,10 @@ export async function reconcileBrokerOrders(
     .filter(Boolean)
     .filter(orderId => !ordersById.has(orderId));
   const lookupIds = pendingIds.slice(0, MAX_ORDER_LOOKUPS_PER_INVOCATION);
+  // Rows the lookup budget could not reach this pass. They stay in D1 and are
+  // re-selected by the next scheduled maintenance pass; the count is reported so
+  // a deferred backlog is observable rather than silent.
+  const deferredLookups = Math.max(0, pendingIds.length - lookupIds.length);
 
   let lookupFailures = 0;
   for (let i = 0; i < lookupIds.length; i += LOOKUP_CONCURRENCY) {
@@ -90,6 +96,7 @@ export async function reconcileBrokerOrders(
     brokerOrders: ordersById.size,
     imported,
     pendingLookups: lookupIds.length,
+    deferredLookups,
     lookupFailures,
   };
 }
