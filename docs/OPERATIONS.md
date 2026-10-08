@@ -1,3 +1,98 @@
+## Control-1195 (Oct 8 2026 19:00 UTC / 21:00 CEST Thu)
+
+Read-only control. Host https://alpaca-trading-bot.joachim-763.workers.dev (browser UA).
+Repo /workspace/alpaca-trading-bot, true HEAD at start 3cfea5896e04bbf93ce7fb0929eaf4f1d05a8360 (the Control-1194 docs commit).
+
+### Verdict
+Live path FULLY HEALTHY 93rd consecutive control. ZERO new worker defects. NO code/config/cap change, NO deploy.
+All 9 surfaces 200 first probe (health 77 B 2.8.2 ROOT, config 3,621 B 91 keys, dashboard 270,599 B,
+positions 13,663 B, runs?limit=1 7,117 B, runs?limit=500 1,358,091 B, trades?limit=500 741,726 B,
+swing_cron filter 83,232 B, account 600 B); no D1_ERROR; 57th consecutive green read-quota control.
+
+### Account
+Equity broker-direct $97,004.10 / $97,004.21 (second independent read) / last_equity $97,058.2374 /
+change_today -$54.0274 NEGATIVE (37th consecutive) / cash $92,513.27 / lmv $4,490.83 / bp $381,141.59 /
+ACTIVE, all *_blocked false, pattern_day_trader false.
+**~$4.10 ABOVE the $97,000 floor at control time; the account crossed back over the floor during the window.**
+Post-push read: equity $97,003.96 / change_today -$54.2774.
+
+### C-1192-A FOLLOW-UP ANSWERED - the ACCOUNT_DRAWDOWN_FLOOR has DISARMED
+The floor was armed from run 22491 @2026-10-08 15:16:38z (shortfall $5.98) through run 22553 @18:21:28z
+(shortfall $4.38) = 33 cron cycles, every one carrying cycle-scope ACCOUNT_DRAWDOWN_FLOOR plus
+decision-scope blocks on new daytrading BUYs (AAL, PEP, LCID among the blocked symbols).
+The SEVEN cron cycles after 22553 (22554 18:26:29z through 22564 18:56:31z) carry NO floor skip at all -
+equity recovered above $97,000 and the guard released on its own, exactly as designed.
+Wiring re-verified statically: `src/risk-guards.ts:99-121` (evaluateEntryGuards, floor checked first,
+`equityUsd < floor` -> blocked code ACCOUNT_DRAWDOWN_FLOOR) called from `src/index.ts:622-637` for the
+daytrading strategy only, with `src/index.ts:637-643` adding the cycle skip. Risk-reducing exits,
+reconciliation and the capital caps were never touched.
+
+### Delivery
+Run window 2026-10-07 18:06:33z -> 2026-10-08 18:56:31z, ids 22065->22564 ID-CONTIGUOUS as a set
+(500 unique, zero gaps, zero duplicates), skipped 346 / ok 150 / error 4,
+triggers cron 299 / reconcile_cron 150 / crypto_cron 50 / swing_cron 1.
+Cron 5-min grid {01,06,11,16,21,26,31,36,41,46,51,56} complete for 24/25 in-window hours; the single
+partial is the truncated window head 2026-10-07 18z (11 ticks).
+Largest intervals per lane: cron 10.07 min (22483 14:56:34z -> 22485 15:06:38z, with reconcile 22484
+15:00:27z firing inside = C-1164-A slow-cycle artefact, not a lost tick); reconcile 10.52 min (normal */10);
+crypto 30.90 min (normal */30). CYCLE_LEASE_HELD ZERO. occ-33/34/35 all remain aged out of the rolling window.
+
+### Crypto edge gate
+50 crypto_cron rows across 25 distinct hours, minutes {07: 24, 37: 25} plus one 15:08 row (22487 = the
+re-dispatch after the slow cycle) - :07/:37 UTC cadence CONFIRMED, no :38 shift.
+Every row CRYPTO_DISABLED_BY_CONFIG (src/crypto-strategy.ts:284 cycle skip, :325 decision skip);
+requireCalibratedEdge true (:385) and minEdgeAfterCostsBps from config (:740). crypto_trading_enabled false.
+
+### Positions / trades
+Positions 18 rows, source=alpaca, positionsAvailable true, positionsError null, freshness
+current_state_source=alpaca observed 2026-10-08T19:00:24.996Z / metadata_source=d1 metadata_updated_at
+2026-10-08 18:56:31: swing 12 MV $3,058.00 (ADBE BA BAC C ENPH F MRK MS RUN SIRI SNOW UPS);
+daytrading 1 (LCID 266, MV $996.91); unattributed 5 (AAL 2, BMY 2, INTC 1, QCOM 0.7, RIVN 8) cost $489.08
+MV $486.36 = C-896-A D1 metadata lag on the five fresh swing buys (raw broker book agrees symbol-for-symbol:
+18 rows, cost $4,808.57 / MV $4,490.22, F worst at -$290.19 uPL).
+conservativeGross (swing MV + unattributed MV) $3,544.36 vs $3,700 = $155.64 UNDER; daytrading $996.91 vs
+$5,000. C-864 open.
+Trades 500 ids 1767->2266, ALL 500 filled ZERO pending, 458 daytrading / 40 swing / 2 null, 0 duplicate
+alpaca_order_id, gross non-null 161/500 all gross_basis=fifo-lot-matched, fee 0/500, net 0/500,
+accounting fifo-lot-matched 161 / filled_lot_exact_unavailable 339, ZERO rows carry both gross and fee
+-> conservative predicate HOLDS (fee leg structurally untestable, C-1190-D). 27 fills on 2026-10-08
+(20 daytrading, 7 swing). Broker open-order view EMPTY (0 orders); clock is_open true,
+next_open 2026-10-09T09:30:00-04:00.
+
+### Identity
+Deployed content/v2 multipart 364,865 B (first CRLFCRLF=181, last CRLF--=364797) -> payload 364,616 B
+sha256 b5c7f5e7939d95a2039c56fbf3c91dc98e01fdd2965dbfe4674c3dd284017e02 cmp BYTE-IDENTICAL to fresh local
+bun build (68th consecutive pass, 43rd against this deployment). Newest deployment
+6279c2da-e4ee-4c9e-9430-026db7b50441 created 2026-10-07T01:03:36.811341Z @100% = NO deploy since C-1026.
+git log -1 -- src/ = e47babc. 4/4 CF schedules verified; created_on unchanged, ALL FOUR still
+modified_on 2026-10-06T18:18:21.467086Z (C-1141-D, 53rd control, inside occ-35 - still Joachim's to answer).
+D1 2bc505a2 file_size 59,166,720 B num_tables 12 read_replication disabled.
+287 tests / 1039 expect PASS across 32 files, bunx tsc --noEmit exit 0.
+
+### Caps
+UNCHANGED 5000/3700/2000/97000 verified in the live 91-key config AND dashboard capitalCaps
+{daytrading 5000, swing 3700, crypto 2000}; min_confidence 0.8, swing_min_confidence 0.5,
+max_trades_per_cycle 3, crypto_trading_enabled false; config.version 2.7.0 vs health 2.8.2 cosmetic lag.
+
+### Docs
+HEAD-identity PASS - NO correction needed, THIRTEENTH consecutive clean pass: the last pointer line named
+cfcc60d1480f4249d6b407fa26ea71f3c7b2955f = the true HEAD at Control-1194's own start; true HEAD at
+Control-1195 start = 3cfea5896e04bbf93ce7fb0929eaf4f1d05a8360 (the Control-1194 docs commit).
+Pointer advanced whole-line to 3cfea58/Control-1195; entry prepended at file line 1 of all three files.
+
+### Escalation
+Read-quota half DOWNGRADED (57th consecutive green control).
+Blackout half RAISED: occ-32/33/34/35 = 339.5 / 164.4 / 310.1 / 90.0 min, four within 48 h,
+all now aged out of the rolling 500-row window.
+
+### Follow-up C-1196
+Whether equity stays above $97,000 (the floor armed for 33 cycles / ~3h and then released - watch for a
+re-arm); whether the five unattributed swing rows (AAL/BMY/INTC/QCOM/RIVN) re-attribute to swing and
+C-896-A closes; whether daytrading stays inside the $5,000 cap and conservativeGross under $3,700;
+whether the alpaca_request_timeout/getBars-522 class or a POSITION_QTY_MISMATCH halt recurs;
+no new >10 min gap after 2026-10-08 18:56:31z; the 14:00-20:00z read-quota window;
+settle the blackout remedy, C-1146-B, C-1190-D fee-order-linkage and the 18:18:21z question with Joachim.
+
 ## Control-1194 (Oct 8 2026 18:00 UTC / 20:00 CEST Thu)
 
 Read-only control. Host https://alpaca-trading-bot.joachim-763.workers.dev (browser UA).
@@ -2522,7 +2617,7 @@ Evidence: `/workspace/control1059-evidence-20261003T080000Z/`.
 **Repo HEAD (updated Control-1191, Oct 8 2026 17:00 CEST Thu): the true `git rev-parse HEAD` at Control-1191 control start was `0bc35887a04348a88af01139eaf9727089ffc3d3` (the Control-1190 docs commit). The pointer line above is superseded by this line; the Control-1190 entry and all prior entries are present in all three files so the C-1068-A missing-entry class did not recur.**
 **Repo HEAD (updated Control-1192, Oct 8 2026 18:00 CEST Thu): the true `git rev-parse HEAD` at Control-1192 control start was `f595e614e9dd6b6a61c4ddcceabb2698608a02eb` (the Control-1191 docs commit). The pointer line above is superseded by this line; the Control-1191 entry and all prior entries are present in all three files so the C-1068-A missing-entry class did not recur.**
 **Repo HEAD (updated Control-1193, Oct 8 2026 19:00 CEST Thu): the true `git rev-parse HEAD` at Control-1193 control start was `f3225bebf7f7250f918e64297a4a833f76219b1e` (the Control-1192 docs commit). The pointer line above is superseded by this line; the Control-1192 entry and all prior entries are present in all three files so the C-1068-A missing-entry class did not recur.**
-**Repo HEAD (updated Control-1194, Oct 8 2026 20:00 CEST Thu): the true `git rev-parse HEAD` at Control-1194 control start was `cfcc60d1480f4249d6b407fa26ea71f3c7b2955f` (the Control-1193 docs commit). The pointer line above is superseded by this line; the Control-1193 entry and all prior entries are present in all three files so the C-1068-A missing-entry class did not recur.**
+**Repo HEAD (updated Control-1195, Oct 8 2026 21:00 CEST Thu): the true `git rev-parse HEAD` at Control-1195 control start was `3cfea5896e04bbf93ce7fb0929eaf4f1d05a8360` (the Control-1194 docs commit). The pointer line above is superseded by this line; the Control-1194 entry and all prior entries are present in all three files so the C-1068-A missing-entry class did not recur.**
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad` (364154 bytes, the `index.js` part of the
 multipart envelope from `.../workers/scripts/alpaca-trading-bot/content/v2`) == current source build
