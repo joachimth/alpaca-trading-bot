@@ -1,3 +1,81 @@
+## Control-1197 (Oct 8 2026 22:00 CEST / 20:00 UTC Thu)
+
+OPEN FAIL/DEGRADED carried, live path FULLY HEALTHY 95th consecutive control, ZERO new worker defects, NO code/config/cap change, NO deploy.
+
+## Surfaces (all 200 first probe)
+health 77 B 2.8.2 ROOT, config 3,621 B 91 keys, dashboard 268,923 B, positions 12,858 B, runs?limit=1 1,450 B,
+runs?limit=500 1,360,068 B, trades?limit=500 741,882 B, swing_cron filter 83,232 B (17 rows), account 599 B.
+No D1_ERROR. 56th consecutive green read-quota control.
+
+## Equity / floor
+Broker-direct $97,023.09 / worker /api/account $97,023.09 / last_equity $97,058.2374 / change_today -$35.1474
+NEGATIVE (39th consecutive) / cash $93,511.07 / lmv $3,512.02 / bp $383,182.20 / ACTIVE, all *_blocked false,
+pattern_day_trader false. ~$23.09 above the $97,000 floor, never armed.
+
+ACCOUNT_DRAWDOWN_FLOOR STILL DISARMED: the 33 armed cron cycles 22491 @2026-10-08 15:16:38z -> 22553 @18:21:28z
+carry the skip (peak shortfall $5.98) and every cycle after them carries none; all eight newest cron rows
+22564->22576 and 22578->22585 20:00:27z clean. src/risk-guards.ts:99-121 verified statically: the guard blocks new
+entries only, exits/reconciliation/caps untouched.
+
+## Write path
+broker_ledger_synced_until D1 bot_config 2026-10-08T20:00:27.204Z == newest run row 22585 @20:00:27z (reconcile_cron ok).
+C-1078-A loop NOT active.
+
+## Runs
+500/500 ids 22086->22585 ID-CONTIGUOUS zero gaps/dups, window 2026-10-07 19:07:21z -> 2026-10-08 20:00:27z,
+skipped 346 / ok 151 / error 3, triggers cron 298 / reconcile_cron 151 / crypto_cron 50 / swing_cron 1.
+The 3 error rows ALL previously classified = ZERO new (22094 @10-07 19:31:30z, 22462 @10-08 13:51:32z,
+22488 @10-08 15:08:19z, all cron POSITION_QTY_MISMATCH fail-closed daytrading halts) = 24th consecutive clean interval.
+Zero status/errors disagreements. CYCLE_LEASE_HELD ZERO.
+
+## Gaps / delivery
+Largest cron interval 10.07 min (22483 14:56:34z -> 22485 15:06:38z, 22484 reconcile 15:00:27z fired inside it)
+= C-1164-A slow-cycle artefact, not a lost tick. reconcile max 10.52 (normal */10), crypto max 30.9 (normal */30).
+Cron 5-min grid complete for 24/25 in-window hours (only partial = truncated window head 10-07 19z, 10 ticks).
+occ-33/34/35 all aged out of the rolling window. Crypto minutes exactly {07:24, 37:25} plus ONE :08 row
+(22487 @15:08:15z, duration 1,854 ms, status skipped, errors 0) = C-1164-A-class re-dispatch after the 15:06:38z slow
+cycle, not a cadence shift; all 50 rows CRYPTO_DISABLED_BY_CONFIG. Swing slot fired 22144 @2026-10-07 22:01:03z
+skipped errors 0, filtered swing 17 rows.
+
+## Positions / trades
+17 rows source=alpaca positionsAvailable true positionsError null ZERO null-strategy, freshness
+current_state_source=alpaca observed 20:00:31.098Z / metadata_source=d1 metadata_updated_at 2026-10-07 22:01:02:
+swing 12 cost $3,316.66 MV $3,022.25; unattributed 5 (AAL 2, BMY 2, INTC 1, QCOM 0.7, RIVN 8) cost $489.08 MV $489.75
+= C-896-A D1 metadata lag; raw broker book 17 rows agrees symbol-for-symbol (F worst -$282.95 uPL);
+conservativeGross $3,512.00 vs $3,700 = $188.00 UNDER; C-864 open.
+
+Trades 500/500 ids 1773->2272 ALL filled ZERO pending, 458 daytrading / 40 swing / 2 null, 0 duplicate
+alpaca_order_id, gross non-null 162/500 all gross_basis=fifo-lot-matched, fee 0/500, net 0/500,
+accounting fifo-lot-matched 162 / filled_lot_exact_unavailable 338, ZERO rows carry both gross and fee ->
+conservative predicate HOLDS (fee leg structurally untestable, C-1190-D). Newest fills 2272 NIO sell 889 gross +$2.96
+@19:46:27z, 2270 LCID sell gross -$7.98 @19:11:29z. Broker open-order view EMPTY (0 orders); broker clock is_open
+false next_open 2026-10-09T09:30:00-04:00.
+
+## Caps / identity
+Caps UNCHANGED 5000/3700/2000/97000 (live config + D1 bot_config + dashboard capitalCaps); min_confidence 0.8,
+swing_min_confidence 0.5, max_trades_per_cycle 3, crypto_trading_enabled false; config.version 2.7.0 vs /health 2.8.2
+cosmetic lag. Crypto edge gate src/risk-guards.ts:163-166 verified (only explicit 'true' enables).
+
+Identity FULL PASS 67th consecutive / 44th against deploy 6279c2da: deployed content/v2 multipart 364,865 B
+(first CRLFCRLF=181, last CRLF--=364797) -> 364,616 B sha256
+b5c7f5e7939d95a2039c56fbf3c91dc98e01fdd2965dbfe4674c3dd284017e02 cmp BYTE-IDENTICAL to fresh local bun build;
+newest deployment 6279c2da / d83ab071 created 2026-10-07T01:03:36.811341Z @100% = no deploy (10 deployments);
+git log -1 -- src/ = e47babc; 4/4 schedules verified, created_on + cron expressions unchanged, all four still
+modified_on 2026-10-06T18:18:21.467086Z (C-1141-D 55th control); D1 2bc505a2 file_size 59,437,056 B 12 tables
+read_replication disabled, run_log 13,758 rows. 287 tests / 1039 expect PASS across 32 files, bunx tsc --noEmit exit 0.
+
+## Docs
+HEAD-identity PASS - NO correction needed, SEVENTEENTH consecutive clean pass (last pointer named e48ad83 = true HEAD
+at Control-1196's own start; true HEAD at C-1197 start = 87bfec9 the Control-1196 docs commit; Control-1196 entry
+present in all three files so the C-1068-A class did not recur). Pointer advanced whole-line to 87bfec9/Control-1197.
+
+## Follow-up C-1198
+Whether the five unattributed swing rows (AAL/BMY/INTC/QCOM/RIVN) re-attribute and C-896-A closes again; whether
+daytrading stays inside the $5,000 cap and conservativeGross under $3,700; whether the alpaca_request_timeout/
+getBars-522 class or a POSITION_QTY_MISMATCH halt recurs; no new >10 min gap after 2026-10-08 20:00:27z;
+the $97,000 floor margin (~$23, and the floor already armed once today); settle the blackout remedy, C-1146-B,
+C-1190-D fee-order-linkage and the 18:18:21z question with Joachim.
+
 ## Control-1196 (Oct 8 2026 21:00 UTC / 23:00 CEST Thu): OPEN FAIL/DEGRADED carried, live path FULLY HEALTHY 94th consecutive control, ZERO new worker defects, NO code/config/cap change, NO deploy.
 
 All 9 surfaces 200 first probe (health 77 B 2.8.2 ROOT, config 3,621 B 91 keys, dashboard 268,562 B, positions 13,647 B, runs?limit=1 6,154 B, runs?limit=500 1,361,039 B, trades?limit=500 741,691 B, swing_cron filter 83,232 B, account 601 B); no D1_ERROR; 55th consecutive green read-quota control.
@@ -2649,6 +2727,7 @@ Evidence: `/workspace/control1059-evidence-20261003T080000Z/`.
 **Repo HEAD (updated Control-1193, Oct 8 2026 19:00 CEST Thu): the true `git rev-parse HEAD` at Control-1193 control start was `f3225bebf7f7250f918e64297a4a833f76219b1e` (the Control-1192 docs commit). The pointer line above is superseded by this line; the Control-1192 entry and all prior entries are present in all three files so the C-1068-A missing-entry class did not recur.**
 **Repo HEAD (updated Control-1195, Oct 8 2026 21:00 CEST Thu): the true `git rev-parse HEAD` at Control-1195 control start was `3cfea5896e04bbf93ce7fb0929eaf4f1d05a8360` (the Control-1194 docs commit). The pointer line above is superseded by this line; the Control-1194 entry and all prior entries are present in all three files so the C-1068-A missing-entry class did not recur.**
 **Repo HEAD (updated Control-1196, Oct 8 2026 23:00 CEST Thu): the true `git rev-parse HEAD` at Control-1196 control start was `e48ad830200a4fd905de1d9508f5c9fdab08d871` (the Control-1195 docs commit). The pointer line above is superseded by this line; the Control-1195 entry and all prior entries are present in all three files so the C-1068-A missing-entry class did not recur.**
+**Repo HEAD (updated Control-1197, Oct 9 2026 00:00 CEST Fri): the true `git rev-parse HEAD` at Control-1197 control start was `87bfec91b0ecf2d17cd1bbfbce29be7b36e8b4f5` (the Control-1196 docs commit). The pointer line above is superseded by this line; the Control-1196 entry and all prior entries are present in all three files so the C-1068-A missing-entry class did not recur.**
 **Deployment identity (content-hash method, mandatory since Control-911):** live module payload sha256
 `7e8d45070ff236fe0bd546e9253892647462c6a773be75f9a99a08e8b92717ad` (364154 bytes, the `index.js` part of the
 multipart envelope from `.../workers/scripts/alpaca-trading-bot/content/v2`) == current source build
