@@ -75,8 +75,19 @@ export interface AccountActivitiesResult {
   degraded: boolean;
 }
 
-/** Shared read-only budget for the scheduled broker activity import. */
-export const ACCOUNT_ACTIVITY_PAGE_BUDGET = 5;
+/**
+ * Shared read-only budget for the scheduled broker activity import.
+ *
+ * C-1226: raised from 5 to 60 pages (6,000 activity rows). Alpaca returns
+ * activities in ascending order and the walk advances via page_token, so a
+ * small budget takes only the OLDEST slice of the requested window; on a busy
+ * day the FILL rows alone consume the whole budget and the FEE/CFEE rows that
+ * Alpaca posts after the trade date (and that carry a trade-date activity id,
+ * which sorts at 00:00 of that date) sit beyond it. The watermark is not
+ * advanced while truncated, so the same oldest slice was re-walked every
+ * pass and broker_fees stopped being imported on 2026-08-25.
+ */
+export const ACCOUNT_ACTIVITY_PAGE_BUDGET = 60;
 
 export type AlpacaOrderStatus =
   | 'new' | 'partially_filled' | 'filled' | 'done_for_day'
