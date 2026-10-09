@@ -53,9 +53,11 @@ describe('bounded Alpaca account activity pagination', () => {
     expect(result.truncated).toBe(false);
     expect(result.degraded).toBe(false);
   });
-  test('C-1226: the scheduled budget is large enough to reach post-trade-date fee rows past a full day of fills', async () => {
-    // A busy day: 900 FILL rows (9 pages) precede the FEE rows Alpaca posts after
-    // the trade date. The default budget must walk past them, not stop inside the fills.
+  test('C-1226/C-1229-A: the scheduled budget reaches post-trade-date fee rows past a full day of fills', async () => {
+    // A full session of FILL rows (~900 = 9 pages) precedes the FEE rows Alpaca
+    // posts after the trade date. The budget must walk past them, not stop inside
+    // the fills. NOTE (C-1229-A): this proves the budget is adequate for one
+    // session; it does NOT prove the window start or the D1 write path.
     const fills = Array.from({ length: 900 }, (_, i) => activity(`f-${i}`));
     const fees = [
       { id: 'fee-reg', activity_type: 'FEE', date: '2026-10-08', net_amount: '-0.27' },

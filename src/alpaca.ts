@@ -83,9 +83,18 @@ export interface AccountActivitiesResult {
  * small budget takes only the OLDEST slice of the requested window; on a busy
  * day the FILL rows alone consume the whole budget and the FEE/CFEE rows that
  * Alpaca posts after the trade date (and that carry a trade-date activity id,
- * which sorts at 00:00 of that date) sit beyond it. The watermark is not
- * advanced while truncated, so the same oldest slice was re-walked every
- * pass and broker_fees stopped being imported on 2026-08-25.
+ * which sorts at 00:00 of that date) sit beyond it.
+ *
+ * C-1229-A (correction to C-1226's root-cause claim): the scheduled window is
+ * `watermark - RECONCILIATION_OVERLAP_MINUTES` .. now, so the window start is
+ * NOT the reason fee rows are skipped - a fee posted at any time is either
+ * inside the window or was inside it during an earlier pass, and while a pass
+ * is truncated the watermark is deliberately held so the same window is
+ * re-walked. With a 15-minute window a full day of fills cannot exceed the
+ * budget either, so the page budget is not the binding constraint on a normal
+ * day. Treat the broker_fees staleness as unexplained until the activity
+ * window start, the truncation/watermark handshake and the D1 write path have
+ * been observed together on a live pass; do not assume a cause.
  */
 export const ACCOUNT_ACTIVITY_PAGE_BUDGET = 60;
 
