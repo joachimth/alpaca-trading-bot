@@ -1067,7 +1067,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         // the same cycle it fills, defeating the swing entry (Control-854).
         if (swingOwnedSymbols.has(signal.indicators.symbol)) {
           await db.updateDecisionStatus(decisionId, 2, 'Daytrading CLOSE skipped: symbol is swing-owned, daytrading must not sell swing-held positions');
-          skips.add('SWING_OWNED_EXCLUDE', 'decision', 'Daytrading CLOSE skipped because the symbol is swing-owned and daytrading cannot own/sell combined swing positions', { strategy: 'daytrading', symbol: signal.indicators.symbol, decision_id: decisionId, action: 'CLOSE' });
+          skips.add('SWING_OWNED_EXCLUDE', 'decision', 'Daytrading CLOSE skipped because the symbol is swing-owned and daytrading cannot own combined swing positions', { strategy: 'daytrading', symbol: signal.indicators.symbol, decision_id: decisionId, action: 'CLOSE' });
           continue;
         }
         const existingPos = closedSymbols.has(signal.indicators.symbol) ? undefined : positions.find(p => p.symbol === signal.indicators.symbol);
@@ -1161,7 +1161,7 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
         // swing buys (ORCL/UPS/FCEL/RUN/INTU) via SELL at the Fri 13:30z open.
         if (swingOwnedSymbols.has(signal.indicators.symbol)) {
           await db.updateDecisionStatus(decisionId, 2, 'Daytrading SELL skipped: symbol is swing-owned, daytrading must not sell swing-held positions');
-          skips.add('SWING_OWNED_EXCLUDE', 'decision', 'Daytrading SELL skipped because the symbol is swing-owned and daytrading cannot own/sell combined swing positions', { strategy: 'daytrading', symbol: signal.indicators.symbol, decision_id: decisionId, action: 'SELL' });
+          skips.add('SWING_OWNED_EXCLUDE', 'decision', 'Daytrading SELL skipped because the symbol is swing-owned and daytrading must not sell swing-held positions', { strategy: 'daytrading', symbol: signal.indicators.symbol, decision_id: decisionId, action: 'SELL' });
           continue;
         }
         const existingPos = closedSymbols.has(signal.indicators.symbol) ? undefined : positions.find(p => p.symbol === signal.indicators.symbol);
