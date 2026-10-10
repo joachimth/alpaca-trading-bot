@@ -1,7 +1,15 @@
 import { AlpacaClient, type AccountActivity, ACCOUNT_ACTIVITY_PAGE_BUDGET } from './alpaca';
 import { Database } from './database';
 
-const RECONCILIATION_OVERLAP_MINUTES = 15;
+// C-1231-A: broker FEE/CFEE rows carry a TRADE-DATE activity id (e.g.
+// 20261008000000000::...) but are posted by Alpaca the NEXT day at ~00:05-00:15z.
+// With a `watermark - 15min` window the previous session's fee rows sort before
+// the window start and are never fetched, so broker_fees froze at 2026-08-25
+// while broker_fills stayed current. The window must therefore reach back over
+// the post-trade-date posting lag; 2 days covers it with margin and is cheap
+// (D1 upserts are idempotent by activity_id, and a measured 2-day walk is ~4
+// pages vs the 60-page budget).
+export const RECONCILIATION_OVERLAP_MINUTES = 2880;
 const FALLBACK_OVERLAP_DAYS = 3;
 const WATERMARK_KEY = 'broker_ledger_synced_until';
 

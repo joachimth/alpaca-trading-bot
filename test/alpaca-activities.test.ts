@@ -81,3 +81,13 @@ describe('bounded Alpaca account activity pagination', () => {
     expect(result.pageBudget).toBe(ACCOUNT_ACTIVITY_PAGE_BUDGET);
   });
 });
+
+describe('C-1231-A: the ledger sync window must reach post-trade-date fee rows', () => {
+  test('a fee posted after its trade date is inside the scheduled overlap window', async () => {
+    // Alpaca stamps a FEE with the trade-date id (sorts at 00:00 of that date)
+    // but posts it the next day ~00:05-00:15z. The overlap must therefore span
+    // more than the posting lag, not just 15 minutes.
+    const { RECONCILIATION_OVERLAP_MINUTES } = await import('../src/broker-ledger');
+    expect(RECONCILIATION_OVERLAP_MINUTES).toBeGreaterThanOrEqual(24 * 60);
+  });
+});

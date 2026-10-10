@@ -86,15 +86,20 @@ export interface AccountActivitiesResult {
  * which sorts at 00:00 of that date) sit beyond it.
  *
  * C-1229-A (correction to C-1226's root-cause claim): the scheduled window is
- * `watermark - RECONCILIATION_OVERLAP_MINUTES` .. now, so the window start is
- * NOT the reason fee rows are skipped - a fee posted at any time is either
- * inside the window or was inside it during an earlier pass, and while a pass
- * is truncated the watermark is deliberately held so the same window is
- * re-walked. With a 15-minute window a full day of fills cannot exceed the
- * budget either, so the page budget is not the binding constraint on a normal
- * day. Treat the broker_fees staleness as unexplained until the activity
- * window start, the truncation/watermark handshake and the D1 write path have
- * been observed together on a live pass; do not assume a cause.
+ * `watermark - RECONCILIATION_OVERLAP_MINUTES` .. now, so with a SHORT overlap
+ * the window start is the reason fee rows are skipped - a fee is only fetched
+ * if it sorts inside the window, and a truncated pass holds the watermark so the
+ * same window is re-walked.
+ *
+ * C-1231-A (ROOT CAUSE, established live): a broker FEE/CFEE row carries a
+ * TRADE-DATE activity id (e.g. `20261008000000000::689b57ee`) so it sorts at
+ * 00:00 of the trade date, but Alpaca only POSTS it the next day at ~00:05-00:15z
+ * (verified broker-side: the 10-07/10-08 CAT/REG/TAF fees carry created_at
+ * 2026-10-08T00:05:37z and 2026-10-09T00:15:42z). With a 15-minute overlap the
+ * previous session's fee rows sort BEFORE the window start and are never fetched
+ * - broker_fees froze at 2026-08-25 while broker_fills stayed current to 10-09.
+ * Fixed by widening RECONCILIATION_OVERLAP_MINUTES to 2 days; the page budget
+ * was never the binding constraint (a measured 2-day FILL+FEE walk is ~4 pages).
  */
 export const ACCOUNT_ACTIVITY_PAGE_BUDGET = 60;
 
