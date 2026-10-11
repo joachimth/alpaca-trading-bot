@@ -1,3 +1,36 @@
+## Control-1267 (Oct 11 2026 11:00z / 13:00 CEST Sun): strict read-only control - 161st consecutive healthy control, ZERO new worker defects, NO deploy, NO cap/strategy change
+
+**Repo HEAD (updated Control-1267, Oct 11 2026 11:00z / 13:00 CEST Sun): the true `git rev-parse HEAD` at Control-1267 control start was `27ea23188d12036bfdb65e09f9d173bdcc955e49` (the Control-1266 docs commit). The pointer line above is superseded by this line; the Control-1266 entry is present in all three files so the C-1068-A missing-entry class did not recur.**
+
+Strict read-only control: all 9 surfaces HTTP 200 on the first probe (`/health` 77 B 2.8.2, `/api/config` 3,620 B 91 keys, `/api/dashboard` 230,027 B, `/api/positions` 14,236 B, `/api/runs?limit=1` 1,887 B, `/api/runs?limit=500` 919,564 B, `/api/trades?limit=500` 741,472 B, `/api/account` 603 B, `/api/runs?trigger=swing_cron` 86,257 B = 18 rows). No `D1_ERROR` on any surface. 83rd consecutive green read-quota control.
+
+Equity broker-direct == worker `/api/account` $97,026.01 / `last_equity` $97,026.0052 / `change_today` +$0.0048 POSITIVE = **38th consecutive positive read** / cash $93,326.31 / lmv $3,699.70 / bp $382,948.85 / status ACTIVE, `trading_blocked` false, `transfers_blocked` false, `account_blocked` false. ~$26.01 above the $97,000 floor; **ACCOUNT_DRAWDOWN_FLOOR DISARMED** (0 occurrences of the skip code in the whole 500-row page; D1 all-time still exactly the 33 armed rows 22491..22553 of 2026-10-08, peak shortfall $18.99 at run 22523).
+
+Writer alive: `broker_ledger_synced_until` D1 bot_config `2026-10-11T11:00:40.820Z` matching the 11:00z reconcile cadence; D1 run_log 13,620 rows min id 10,254 / max id 23,873, newest `2026-10-11 11:00:42`; C-1078-A loop NOT active.
+
+Runs 500/500 ids 23,373 -> 23,872, 500 unique, ID-CONTIGUOUS as a set property (zero gaps), window 2026-10-10 10:00:42z -> 2026-10-11 10:56:39z, status 350 skipped / 150 ok, triggers cron 300 / reconcile_cron 150 / crypto_cron 50. **ZERO error rows in the entire page for the ELEVENTH consecutive control = 27th consecutive clean error interval.** CYCLE_LEASE_HELD ZERO.
+
+NO lane above threshold: cron 4.95-5.05 min, reconcile 9.80-10.20 (normal */10), crypto 29.98-30.02 (normal */30); cron 5-min grid complete 12/12 for ALL 25 in-window hours (7th consecutive control). Crypto 50 rows, minutes exactly {07, 37}, ZERO off-cadence, all CRYPTO_DISABLED_BY_CONFIG; edge gate `src/risk-guards.ts:163-166` fails closed. Swing lane has NO row in this ~25 h window by schedule (`0 22 * * 2-6` = Tue-Sat; last fire 23124 @2026-10-09 22:00:42z, next Monday 2026-10-12 22:00z) - per C-1260-A not a stall.
+
+Positions `source=alpaca`, `positionsAvailable` true, `positionsError` key absent, 19 rows ZERO null-strategy ALL 19 `strategy=swing` (AAL ADBE BA BAC BMY C COIN ENPH F INTC MRK MS MU QCOM RIVN RUN SIRI SNOW UPS) cost $3,994.95 MV $3,699.70; daytrading 0 FLAT; unattributed 0 (C-896-A stays resolved); raw broker book 19 rows identical symbol set cost $3,994.95 / MV $3,699.70; conservativeGross $3,699.70 vs $3,700 = **$0.30 UNDER (22nd consecutive under)**; C-864 open.
+
+Trades 500 ids 1831 -> 2330, 499 filled / 1 accepted / 0 pending_new, 473 daytrading / 25 swing / 2 null, 0 duplicate `alpaca_order_id`, gross non-null 158/500 all fifo-lot-matched, fee 0/500, net 0/500, ZERO rows carry both -> conservative predicate HOLDS (fee leg structurally untestable, C-1190-D); whole-set diff vs C-1266 ZERO added, ZERO aged out (no fill since 2026-10-09 19:46:28z).
+
+Broker open orders EXACTLY ONE: `1ba6a1c9` SNOW sell 0.39 accepted filled_qty 0 tif=day `expires_at` 2026-10-12T20:00:00Z (trade 2330 swing EXIT_PENDING_RECONCILIATION); clock `is_open` false, `next_open` Monday 2026-10-12T09:30:00-04:00 (13:30z); C-1146-B stands.
+
+Caps UNCHANGED 5000/3700/2000/97000 (live 91-key config + dashboard capitalCaps); min_confidence 0.8, swing_min_confidence 0.5, max_trades_per_cycle 3, crypto_trading_enabled false; config.version 2.7.0 vs health 2.8.2 cosmetic.
+
+Identity FULL PASS **104th consecutive**: fresh esbuild 390,335 B sha256 `1eea2be94d02dc99b6e194d92c702a716f3c6fc073444282533090899587dcad` BYTE-IDENTICAL to deployed content/v2 (multipart 390,584 B, first CRLFCRLF=181, last CRLF--=390,516); newest deployment `453fffd9` 2026-10-10T00:15:35.212938Z @100% = NO deploy (C-1231-A stable across a 23rd control); `git log -1 -- src/` = 1169789; D1 2bc505a2-d744-4322-8c3b-5f5ebe35f9a1 file_size 60,907,520 B 12 tables read_replication disabled.
+
+4/4 CF schedules verified, created_on + expressions unchanged, ALL FOUR still `modified_on` 2026-10-06T18:18:21.467086Z (C-1141-D 107th control, still Joachim's to answer).
+
+289 tests / 1045 expect PASS (`bun test`), `bunx tsc --noEmit` exit 0.
+
+Docs HEAD-identity PASS - NO correction needed, 51st consecutive clean pointer pass (last pointer named `69cc55a5` = true HEAD at Control-1266's own start; true HEAD at C-1267 start = `27ea23188d12036bfdb65e09f9d173bdcc955e49` the Control-1266 docs commit; whole-file heading order verified strictly descending 1267>1266>1265 with exactly one `## Control-NNNN` and one `updated Control-NNNN` per file). Pointer advanced whole-line to `27ea2318`/Control-1267 in README.md + docs/OPERATIONS.md + docs/DEPLOYMENT_RUNBOOK.md, entry prepended immediately before the Control-1266 heading.
+
+FOLLOW-UP C-1268: whether the SNOW swing exit (2330, 1ba6a1c9, expiring 2026-10-12T20:00:00Z) fills at the Monday 13:30z US open or expires and whether swing exit legs are re-issued; conservativeGross under $3,700 and daytrading re-entry inside $5,000; C-1234-A duplicate-dispatch recurrence; whether the 2026-10-10 FEE rows land and are imported after the Monday 10-12 session (broker_fees still 302 rows / newest created_record_at 2026-10-10 07:10:41, all order_id NULL per C-1261-A); recurrence of the alpaca_request_timeout/getBars-522 class or a POSITION_QTY_MISMATCH halt; C-1190-D fee-to-trade linkage; the ~$26 floor margin; settle the blackout remedy, C-1146-B and the 18:18:21z question (107th control) with Joachim.
+
+
 ## Control-1266 (Oct 11 2026 10:00z / 12:00 CEST Sun): strict read-only control - 160th consecutive healthy control, ZERO new worker defects, NO deploy, NO cap/strategy change
 
 **Repo HEAD (updated Control-1266, Oct 11 2026 10:00z / 12:00 CEST Sun): the true `git rev-parse HEAD` at Control-1266 control start was `69cc55a5d159bc6acc204aed903358056fdf2300` (the Control-1265 docs commit). The pointer line above is superseded by this line; the Control-1265 entry is present in all three files so the C-1068-A missing-entry class did not recur.**
