@@ -1,3 +1,43 @@
+## Control-1275 (Oct 11 2026 19:00z / 21:00 CEST Sun): strict read-only control - 169th consecutive healthy control, ZERO new worker defects, NO deploy, NO cap/strategy change
+
+**Repo HEAD (updated Control-1275, Oct 11 2026 19:00z / 21:00 CEST Sun): the true `git rev-parse HEAD` at Control-1275 control start was `a0882c50b5caaecd4df2136b83e2f1894311eae6` (the Control-1274 docs commit).**
+
+Read-only control of `https://alpaca-trading-bot.joachim-763.workers.dev`; no trigger, submit, cancel, close, replace, retry, migration or broker-mutating endpoint was called.
+
+**Result.** PASS, no defect. All 9 read-only surfaces returned 200 on the first probe (health 77 B 2.8.2, config 3,620 B 91 keys, dashboard 229,695 B, positions 14,236 B, runs?limit=1 1,887 B, runs?limit=500 919,502 B, trades?limit=500 741,472 B, account 603 B, swing filter 86,257 B = 17 rows). No `D1_ERROR`; 86th consecutive green read-quota control. Runner exit 0 with every leg printed; a separate read-only verification round was run afterwards.
+
+**Equity.** broker-direct == worker `/api/account` $97,026.01 / `last_equity` $97,026.0052 / cash $93,326.31 / long market value $3,699.70 / buying power $382,948.85 / status ACTIVE, `trading_blocked` false, `account_blocked` false; ~$26.01 above the $97,000 floor. `change_today` is null on the broker payload and the worker account at this hour (identical on both reads, so no divergence) - positive-read streak therefore not extended, not broken.
+
+**ACCOUNT_DRAWDOWN_FLOOR DISARMED.** 0 occurrences of the skip code in the whole 500-row page; D1 all-time still exactly the 33 armed rows `22491..22553` of 2026-10-08 (peak shortfall $18.99 at run 22523), none since. Floor wiring `src/risk-guards.ts` `ACCOUNT_FLOOR_KEYS` + `evaluateEntryGuards` floor branch; crypto edge gate `cryptoTradingEnabled` (`src/risk-guards.ts:163-166`) fails closed on anything but the literal string `true`.
+
+**Writer alive.** `broker_ledger_synced_until` D1 `bot_config` `2026-10-11T18:50:41.152Z` == live `/api/config` value; D1 `run_log` 13,779 rows (min id 10,254 / max 24,032), newest 2026-10-11 18:56:41. C-1078-A loop not active.
+
+**Runs.** 500/500 ids `23,533 -> 24,032`, 500 unique, ID-CONTIGUOUS as a set, window 2026-10-10 18:01:39z -> 2026-10-11 18:56:41z, 350 skipped / 150 ok, triggers cron 300 / reconcile_cron 150 / crypto_cron 50; **ZERO error rows in the entire page** = 31st consecutive clean error interval, 15th consecutive clean control; `CYCLE_LEASE_HELD` 0.
+
+**Lanes.** No lane above threshold: cron 4.95-5.05 min, reconcile 9.80-10.20 (normal */10), crypto 29.98-30.02 (normal */30). Cron 5-min grid complete 12/12 for ALL 25 in-window hours (15th consecutive). Crypto 50 rows, minutes exactly `{07, 37}` UTC, zero off-cadence, all `CRYPTO_DISABLED_BY_CONFIG`. Swing lane has NO row in this ~25 h window by schedule (`0 22 * * 2-6` = Tue-Sat; last fire 23124 @2026-10-09 22:00:42z, next Monday 2026-10-12 22:00z) - per C-1260-A not a stall; filtered swing view 17 rows, all skipped errors 0.
+
+**Positions.** source=alpaca, `positionsAvailable` true, `positionsError` key absent, 19 rows, ZERO null-strategy, ALL 19 `strategy=swing` (AAL ADBE BA BAC BMY C COIN ENPH F INTC MRK MS MU QCOM RIVN RUN SIRI SNOW UPS) cost $3,994.95 MV $3,699.70; daytrading 0 FLAT; unattributed 0 (C-896-A stays resolved). Raw broker book independently read: 19 rows, identical symbol set AND quantity-for-quantity, cost $3,994.95 / MV $3,699.70. **conservativeGross $3,699.70 vs $3,700 = $0.30 UNDER** (26th consecutive under).
+
+**Trades.** 500 ids `1831 -> 2330`, 499 filled / 1 accepted / 0 pending_new, 473 daytrading / 25 swing / 2 null, 0 duplicate `alpaca_order_id`, `gross` non-null 158/500 all `gross_basis=fifo-lot-matched`, `fee` 0/500, `net` 0/500, `fee_attribution` none-recorded 500/500, ZERO rows carry both gross and fee -> conservative predicate HOLDS (fee leg structurally untestable, C-1190-D). Whole-set diff vs Control-1274: ZERO added, ZERO aged out (no fill since 2026-10-09 19:46:28z; US market closed since Friday 20:00z).
+
+**Broker.** Open orders EXACTLY ONE: `1ba6a1c9` SNOW sell 0.39 accepted filled_qty 0 tif=day expires `2026-10-12T20:00:00Z` (trade 2330 swing EXIT_PENDING_RECONCILIATION). Clock `is_open` false, `next_open` 2026-10-12T09:30:00-04:00 (Monday 13:30z). C-1146-B stands.
+
+**Caps UNCHANGED** 5000/3700/2000/97000 (live 91-key config + dashboard `capitalCaps` {daytrading 5000, swing 3700, crypto 2000}); `min_confidence` 0.8, `swing_min_confidence` 0.5, `max_trades_per_cycle` 3, `crypto_trading_enabled` false; `config.version` 2.7.0 vs health 2.8.2 cosmetic.
+
+**Identity FULL PASS 111th consecutive.** Fresh esbuild 390,335 B sha256 `1eea2be94d02dc99b6e194d92c702a716f3c6fc073444282533090899587dcad` BYTE-IDENTICAL to deployed `content/v2` payload (multipart 390,584 B, first CRLFCRLF=181, last CRLF--=390,516); newest deployment `453fffd9` 2026-10-10T00:15:35.212938Z @100% = NO deploy (C-1231-A stable across a 26th control); `git log -1 -- src/` = `1169789`; D1 `2bc505a2-d744-4322-8c3b-5f5ebe35f9a1` file_size 61,034,496 B, 12 tables, read_replication disabled.
+
+**Schedules.** 4/4 CF schedules verified, `created_on` + expressions unchanged, ALL FOUR still `modified_on` `2026-10-06T18:18:21.467086Z` (C-1141-D 110th control, still Joachim's to answer).
+
+**Regressions.** 289 tests / 1045 expect PASS (`bun test`), `bunx tsc --noEmit` exit 0.
+
+**Ledger observability.** `broker_fees` 302 rows, newest `created_record_at` 2026-10-10 07:10:41, all 302 `order_id` NULL (C-1190-D / C-1261-A: no FEE activity exists for trade date 10-10); `broker_fills` 3,879 rows, newest 2026-10-09T19:46:29.96346Z.
+
+**Docs.** HEAD-identity PASS - 54th consecutive clean pointer pass (the Control-1274 pointer named `fdd21fdaed060716ecac8e3ebf52314eb48b2931` = true HEAD at Control-1274's own start; true HEAD at Control-1275 start = `a0882c50b5caaecd4df2136b83e2f1894311eae6`). Pointer advanced whole-line to `a0882c50`/Control-1275, entry prepended immediately before the Control-1274 heading in README.md + docs/OPERATIONS.md + docs/DEPLOYMENT_RUNBOOK.md; 12xx heading order strictly descending 1275>1274>1273>1272 with exactly one heading and one pointer per control. No parallel-instance run this control (the `## Control-1275` grep returned 0 both before starting the runner and before committing).
+
+**Evidence.** `/workspace/control1275-evidence-20261011T190000Z/` + `/workspace/control1275-verify-20261011T190000Z/`.
+
+**FOLLOW-UP C-1276.** Whether the SNOW swing exit (2330, `1ba6a1c9`, expiring 2026-10-12T20:00:00Z) fills at the Monday 13:30z US open or expires and whether swing exit legs are re-issued; conservativeGross under $3,700 and daytrading re-entry inside $5,000; C-1234-A duplicate-dispatch recurrence; whether FEE rows appear after the Monday 10-12 session; recurrence of the `alpaca_request_timeout`/getBars-522 class or a POSITION_QTY_MISMATCH halt; C-1190-D fee-to-trade linkage; the ~$26 floor margin; settle the blackout remedy, C-1146-B and the 18:18:21z question with Joachim.
+
 ## Control-1274 (Oct 11 2026 18:00z / 20:00 CEST Sun): strict read-only control - 168th consecutive healthy control, ZERO new worker defects, NO deploy, NO cap/strategy change
 
 **Repo HEAD (updated Control-1274, Oct 11 2026 18:00z / 20:00 CEST Sun): the true `git rev-parse HEAD` at Control-1274 control start was `fdd21fdaed060716ecac8e3ebf52314eb48b2931` (the Control-1273 docs commit).**
