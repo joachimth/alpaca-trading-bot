@@ -3,7 +3,7 @@
 
 ## Control-1320 (Oct 13 2026 14:00z / 16:00 CEST Tue)
 
-**Repo HEAD (updated Control-1320): `4d8a0beb725196b4a99197aa4ac97ca10db5e6d4` (Control-1319 docs commit, == origin/main at Control-1320's own start)**
+**Repo HEAD (updated Control-1320): `4d8a0beb725196b4a99197aa4ac97ca10db5e6d4` (Control-1319 docs commit, == origin/main at Control-1320's own start; C-1320 docs commit `23a8ee1d8ebd2434d66cf3aff235d48610fb8ee3`)**
 
 214th consecutive healthy read-only control, ZERO new worker defects, NO deploy, NO cap/strategy change. **MARKET OPEN (first live session since Monday's close; next open 2026-10-14T09:30:00-04:00).** 9/9 surfaces 200 first probe + separate verify round (health 77 B, config 3,635 B 91 keys, dashboard 268,095 B, positions 13,117 B, runs?limit=1 6,622 B, runs?limit=500 1,277,329 B, trades?limit=500 741,744 B, account 601 B, swing-filter 87,180 B); no D1_ERROR. Equity broker $96,954.24 / worker $96,951.10 / dashboard $96,951.00 (deltas = one mark tick, not divergence) / last_equity $96,974.0496 / change_today **-$22.9496 NEGATIVE** (raw broker /v2/account carries change_today null; worker derives the delta from last_equity - consistent, not a defect) / cash $93,583.52 / lmv $3,367.58 / bp $383,463.48 / ACTIVE, all *_blocked false, shorting_enabled true; **$45.76 BELOW the $97,000 floor**.
 
