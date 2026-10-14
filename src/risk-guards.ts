@@ -33,7 +33,11 @@ export const RISK_GUARD_DEFAULTS: Readonly<{
   accountEquityFloorUsd: number;
 }> = {
   dailyLossLimitUsd: { daytrading: 150, swing: 100, crypto: 100 },
-  accountEquityFloorUsd: 97000,
+  // Joachim lowered the approved account floor from $97,000 to $95,000 on
+  // 2026-10-14 (live D1 bot_config account_equity_floor_usd = 95000). Keep the
+  // code fallback in step with the operator setting so a missing/blank D1 key
+  // can never re-arm the retired $97,000 floor and silently halt entries.
+  accountEquityFloorUsd: 95000,
 };
 
 const DAILY_LOSS_KEYS: Readonly<Record<GuardedStrategy, readonly string[]>> = {

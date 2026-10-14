@@ -50,6 +50,13 @@ describe('risk guard config resolution', () => {
     expect(cfg.dailyLossLimitUsd.swing).toBe(RISK_GUARD_DEFAULTS.dailyLossLimitUsd.swing);
     expect(cfg.accountEquityFloorUsd).toBe(RISK_GUARD_DEFAULTS.accountEquityFloorUsd);
   });
+
+  test('the code fallback floor tracks the operator setting (95,000 since 2026-10-14)', () => {
+    // Joachim lowered the approved floor from $97,000 to $95,000 on 2026-10-14.
+    // A missing D1 key must never silently re-arm the retired floor.
+    expect(RISK_GUARD_DEFAULTS.accountEquityFloorUsd).toBe(95000);
+    expect(resolveRiskGuardConfig({}).accountEquityFloorUsd).toBe(95000);
+  });
 });
 
 describe('entry guard evaluation', () => {
@@ -85,18 +92,29 @@ describe('entry guard evaluation', () => {
     expect(evaluateEntryGuards({ strategy: 'crypto', equityUsd: 97700, strategyDailyPlUsd: -99.99, config: cfg }).blocked).toBe(false);
   });
 
-  test('trips ACCOUNT_DRAWDOWN_FLOOR below $97,000 for every strategy, ahead of the daily loss check', () => {
+  test('trips ACCOUNT_DRAWDOWN_FLOOR below the approved $95,000 floor for every strategy, ahead of the daily loss check', () => {
     for (const strategy of ['daytrading', 'swing', 'crypto'] as const) {
       const result = evaluateEntryGuards({
         strategy,
-        equityUsd: 96999.99,
+        equityUsd: 94999.99,
         strategyDailyPlUsd: -500,
         config: cfg,
       });
       expect(result.blocked).toBe(true);
       expect(result.code).toBe('ACCOUNT_DRAWDOWN_FLOOR');
-      expect(result.context).toMatchObject({ equityUsd: 96999.99, floorUsd: 97000 });
+      expect(result.context).toMatchObject({ equityUsd: 94999.99, floorUsd: 95000 });
     }
+  });
+
+  test('does not trip the floor between the retired $97,000 and the approved $95,000', () => {
+    const result = evaluateEntryGuards({
+      strategy: 'swing',
+      equityUsd: 96000,
+      strategyDailyPlUsd: 0,
+      config: cfg,
+    });
+    expect(result.blocked).toBe(false);
+    expect(result.code).toBeNull();
   });
 
   test('a disabled daily limit never trips and a disabled floor never trips', () => {
