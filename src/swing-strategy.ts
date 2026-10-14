@@ -536,10 +536,28 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         const pendingExit = await findPendingSwingExit(sell.symbol, { exitType: sell.exitType, reason: sell.reason });
         if (pendingExit) continue;
         const pos = positions.find(p => p.symbol === sell.symbol);
-        // Submit the exit without synchronous getOrder polling. The bounded
+        if (!pos || !(pos.qty > 0)) {
+          errors.push(`Swing exit skipped ${sell.symbol}: no broker position/qty to submit`);
+          continue;
+        }
+        // C-1346-B fix: submit an explicit market sell with tif=gtc instead of
+        // closePosition (which creates a day order). The swing cron fires at
+        // 22:00z, AFTER the US close, so a day-ordered exit expired at 20:00z
+        // the NEXT day - two hours before the lane could re-issue it
+        // (evidence: BAC exit c7d520ce expired 2026-10-14T20:00z unfilled and
+        // the exit leg died overnight). GTC survives the close and fills at the
+        // next open; findPendingSwingExit still guards against duplicates.
+        // Submit without synchronous getOrder polling: the bounded
         // maintenance lane confirms accepted/partial fills later, avoiding
         // one or more extra broker requests per swing exit.
-        const order = await alpaca.closePosition(sell.symbol, { waitForFill: false });
+        const order = await alpaca.submitOrder({
+          symbol: sell.symbol,
+          qty: Math.abs(pos.qty),
+          side: 'sell',
+          type: 'market',
+          time_in_force: 'gtc',
+          client_order_id: `swing_exit_${sell.symbol}_${new Date().toISOString().slice(0, 10)}`,
+        });
         await db.logOrderTrade(order, { strategy: 'swing' });
         console.log(`Swing ${sell.exitType} exit ${sell.symbol}: ${sell.reason}`);
         if (pos && alpaca.isOrderFullyFilled(order)) {

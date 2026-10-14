@@ -47,7 +47,9 @@ describe('broker-authoritative entry position persistence', () => {
 
   test('protective and exit paths remain present in all strategy sources', () => {
     expect(workerSource).toContain('closePosition(');
-    expect(swingSource).toContain('closePosition(');
+    // Swing exits are now explicit GTC market sells (C-1346-B fix): closePosition
+    // creates day orders that expire before the 22:00z lane can re-issue them.
+    expect(swingSource).toContain("time_in_force: 'gtc'");
     expect(cryptoSource).toContain('closePosition(');
   });
 });

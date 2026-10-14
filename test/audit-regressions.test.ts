@@ -184,7 +184,9 @@ describe('audit schedule and dispatch regressions', () => {
       expect(source, `${strategy} must record deferred reconciliation evidence`).toContain("RECONCILIATION_DEFERRED_TO_MAINTENANCE");
       expect(source, `${strategy} must name the maintenance cron`).toContain("maintenanceTrigger: 'reconcile_cron'");
     }
-    expect(swingSource).toContain("closePosition(sell.symbol, { waitForFill: false })");
+    expect(swingSource).toContain("time_in_force: 'gtc'");
+    expect(swingSource).toContain('C-1346-B fix');
+    expect(swingSource).not.toContain('closePosition(sell.symbol, { waitForFill');
     expect(alpacaSource).toContain('options: { waitForFill?: boolean } = {}');
     expect(alpacaSource).toContain('options.waitForFill !== false');
   });

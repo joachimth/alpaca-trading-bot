@@ -14,7 +14,7 @@ import { projectBrokerPositions, summarizeByCategory } from './position-projecti
 import { SkipReasonCollector, serializeDecisionSkip, serializeRunDetails, runStatus } from './skip-reasons';
 import { syncBrokerLedger } from './broker-ledger';
 import { reconcileBrokerOrders } from './order-reconciliation';
-import { reconcileBrokerQuantityMismatches } from './position-reconciliation';
+import { reconcileBrokerQuantityMismatches, closeBrokerAbsentPositions } from './position-reconciliation';
 import { resolveCapitalCapOverride } from './capital-caps';
 import { assessIntradayBars, DAYTRADING_BAR_INTERVAL_SECONDS, DAYTRADING_MAX_BAR_STALE_INTERVALS } from './market-data-quality';
 import { accountWithEquityDirection, resolveEquityDirection } from './equity-observability';
@@ -331,6 +331,32 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
       }
     } catch (feeError) {
       console.log(JSON.stringify({ event: 'fee_summary_cache_refresh_failed', trigger, error: feeError instanceof Error ? feeError.message : String(feeError) }));
+    }
+
+    // Control-1347-A follow-up: close D1 positions the broker no longer holds,
+    // WITHOUT consulting the pending-trade predicate. The swing lane's absent
+    // close excludes any symbol with a non-terminal order row
+    // (getTradesNeedingSync), so when an exit is still `accepted` at the 22:00z
+    // swing cycle and only later becomes `filled` in the maintenance lane, no
+    // cycle ever closes that position row. Evidence 2026-10-14: the BAC swing
+    // exit c7d520ce filled at 13:31:33z, the broker book is flat for BAC, and
+    // the D1 row still read closed_at IS NULL. This block only closes rows that
+    // are genuinely absent from the broker snapshot; it submits no orders.
+    try {
+      const brokerPositions = await alpaca.getPositions();
+      const openDbPositions = await db.getOpenPositions();
+      const brokerSymbols = new Set(brokerPositions.map(p => String(p.symbol).toUpperCase()));
+      const stalePositions = openDbPositions.filter(p => !brokerSymbols.has(String(p.ticker).toUpperCase()));
+      if (stalePositions.length > 0) {
+        const closed = await closeBrokerAbsentPositions(db, brokerPositions, stalePositions);
+        skips.add('BROKER_AUTHORITATIVE_SYNC_ABSENT', 'reconciliation', 'Closed D1 positions absent from the broker snapshot during scheduled maintenance', {
+          closed: closed.length,
+          symbols: closed,
+        });
+        console.log(JSON.stringify({ event: 'maintenance_position_sync_absent', trigger, closed }));
+      }
+    } catch (positionError) {
+      console.log(JSON.stringify({ event: 'maintenance_position_sync_failed', trigger, error: positionError instanceof Error ? positionError.message : String(positionError) }));
     }
 
     // Trading Analytics snapshots: persist daily per-strategy KPIs (once per

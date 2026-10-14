@@ -138,3 +138,37 @@ describe('broker quantity reconciliation', () => {
     expect(writes).toEqual([]);
   });
 });
+
+describe('Control-1347-C maintenance broker-absent close (no pending-trade predicate)', () => {
+  test('closes an open D1 row whose exit already filled, ignoring getTradesNeedingSync exclusion', async () => {
+    const { Database } = await import('../src/database');
+    const { createFakeD1, createTestDatabase } = await import('./helpers/fake-d1');
+    const { closeBrokerAbsentPositions } = await import('../src/position-reconciliation');
+    const sqlite = createTestDatabase();
+    const db = new Database(createFakeD1(sqlite));
+
+    // BAC-style shape: the swing exit is already FILLED (so getTradesNeedingSync,
+    // which only returns NON-terminal rows, cannot see it) while the D1 position
+    // row is still open.
+    await db.logTrade({
+      alpaca_order_id: 'bac-exit', client_order_id: 'sell-bac', ticker: 'BAC', side: 'sell',
+      qty: 1, fill_price: 50.27, avg_fill_price: 50.27, status: 'filled', order_type: 'market',
+      limit_price: null, stop_price: null, estimated_value: 50.27, decision_id: 1,
+      error_message: null, strategy: 'swing', filled_qty: 1, leaves_qty: 0,
+    });
+    const needing = await db.getTradesNeedingSync(200);
+    expect(needing.map(t => t.ticker)).not.toContain('BAC');
+
+    sqlite.run(`INSERT INTO positions (ticker, side, qty, avg_entry_price, current_price, market_value, unrealized_pl, unrealized_plpc, strategy)
+      VALUES ('BAC', 'long', 1, 50.27, 50.27, 50.27, 0, 0, 'swing')`);
+    const open = await db.getOpenPositions();
+    expect(open.map(p => p.ticker)).toContain('BAC');
+
+    // The broker book no longer holds BAC, so maintenance closes the row.
+    const closed = await closeBrokerAbsentPositions(db, [], open);
+    expect(closed).toContain('BAC');
+    const after = sqlite.query(`SELECT closed_at, close_reason FROM positions WHERE ticker = 'BAC'`).get() as any;
+    expect(after.closed_at).not.toBeNull();
+    expect(after.close_reason).toBe('broker_authoritative_sync_absent');
+  });
+});

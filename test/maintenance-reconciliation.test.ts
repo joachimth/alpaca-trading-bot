@@ -23,6 +23,7 @@ describe('scheduled maintenance reconciliation observability', () => {
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.includes('/v2/orders?')) return new Response('[]', { status: 200 });
+      if (url.includes('/v2/positions')) return new Response('[]', { status: 200 });
       if (url.includes('/v2/account/activities?')) return new Response('[]', { status: 200 });
       throw new Error(`unexpected broker request: ${url}`);
     }) as typeof fetch;
@@ -68,6 +69,7 @@ describe('scheduled maintenance reconciliation observability', () => {
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/v2/orders?')) return new Response('[]', { status: 200 });
+      if (url.includes('/v2/positions')) return new Response('[]', { status: 200 });
       if (url.includes('/v2/account/activities?')) return new Response('[]', { status: 200 });
       throw new Error(`unexpected broker request: ${url}`);
     }) as typeof fetch;
@@ -90,6 +92,7 @@ describe('scheduled maintenance reconciliation observability', () => {
       requests.push({ method: init?.method || 'GET', url });
       if (url.includes('/v2/orders?')) return new Response('[]', { status: 200 });
       if (url.includes('/v2/orders/missing-order-1')) return new Response('', { status: 404 });
+      if (url.includes('/v2/positions')) return new Response('[]', { status: 200 });
       if (url.includes('/v2/account/activities?')) return new Response('[]', { status: 200 });
       throw new Error(`unexpected broker request: ${url}`);
     }) as typeof fetch;
@@ -124,7 +127,7 @@ describe('scheduled maintenance reconciliation observability', () => {
       scope: 'reconciliation',
       context: { pendingLookups: 1, lookupFailures: 1 },
     });
-    expect(requests.length).toBe(3);
+    expect(requests.length).toBe(4);
     expect(requests.every(request => request.method === 'GET')).toBe(true);
     expect(requests.some(request => /trigger|submit|cancel|close|replace|retry|migrat/i.test(request.url))).toBe(false);
   });
