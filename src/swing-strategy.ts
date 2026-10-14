@@ -40,8 +40,8 @@ export const SWING_FALLBACK_CONFIG = {
   maxPositionPct: 5,        // 5% max per position (gap protection via diversification)
   targetPositionPct: 3.33,  // ~30 positions = 3.33% each
   maxGrossExposure: 100,    // no margin on swing by default
-  stopLossPct: 15,          // wider stop (overnight gaps)
-  trailingStopPct: 8,
+  stopLossPct: 8,           // tightened 2026-10-14 (Joachim's call): avg swing loss $61.67 vs avg win $16.49 rode the 15% stop
+  trailingStopPct: 8,       // NOTE: trailing stop is not implemented (no peak-price state) - dead knob
   dailyLossLimitPct: 5,
   rollingDrawdownLimitPct: 15,
   minConfidence: 0.5,       // z-score threshold for entry

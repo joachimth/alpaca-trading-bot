@@ -19,6 +19,12 @@ describe('runtime capital-cap aliases', () => {
     expect(resolveSwingConfig({}).maxCapitalUsd).toBe(SWING_FALLBACK_CONFIG.maxCapitalUsd);
   });
 
+  test('swing stop-loss tightened to 8 (2026-10-14: avg loss 3.7x avg win rode the 15% stop)', () => {
+    expect(SWING_FALLBACK_CONFIG.stopLossPct).toBe(8);
+    expect(resolveSwingConfig({}).stopLossPct).toBe(8);
+    expect(resolveSwingConfig({ swing_stop_loss_pct: '8' }).stopLossPct).toBe(8);
+  });
+
   test('malformed cap overrides preserve the existing runtime fallback', () => {
     expect(resolveDaytradingConfig({ max_capital_usd: 'not-a-number' }).maxCapitalUsd).toBe(5000);
     expect(resolveSwingConfig({ swing_max_capital_usd: '-1' }).maxCapitalUsd).toBe(3700);
