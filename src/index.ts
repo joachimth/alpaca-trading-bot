@@ -20,6 +20,7 @@ import { assessIntradayBars, DAYTRADING_BAR_INTERVAL_SECONDS, DAYTRADING_MAX_BAR
 import { accountWithEquityDirection, resolveEquityDirection } from './equity-observability';
 import { recordDailyAnalyticsSnapshots } from './analytics-snapshot';
 import {
+  daytradingTradingEnabled,
   evaluateEntryGuards,
   resolveRiskGuardConfig,
   riskGuardUnavailable,
@@ -653,6 +654,19 @@ async function runTradingCycle(env: Env, trigger: string): Promise<void> {
       });
     } catch (e) {
       daytradingEntryGuard = riskGuardUnavailable('daytrading', e instanceof Error ? e.message : String(e));
+    }
+    // Formal config gate (Joachim decision Oct 14, 2026): daytrading is paused
+    // until the lane shows a backtested edge (structural -$1.36/trade over 636
+    // round trips). Blocking via the existing entry guard keeps exits,
+    // reconciliation, and capital caps untouched and reuses the decision-level
+    // BUY block, exactly like the crypto lane's disable.
+    if (!daytradingTradingEnabled(dbConfig)) {
+      daytradingEntryGuard = {
+        blocked: true,
+        code: 'DAYTRADING_DISABLED_BY_CONFIG',
+        reason: 'Daytrading is disabled by config (daytrading_trading_enabled != true); structural negative expectancy. Risk-reducing exits remain eligible',
+        context: { strategy: 'daytrading' },
+      };
     }
     if (daytradingEntryGuard.blocked) {
       skips.add(daytradingEntryGuard.code ?? 'RISK_GUARD_UNAVAILABLE', 'cycle', `${daytradingEntryGuard.reason} Risk-reducing exits remain eligible`, {

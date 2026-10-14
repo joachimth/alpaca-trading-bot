@@ -214,6 +214,12 @@ CREATE TABLE IF NOT EXISTS bot_config (
   value TEXT NOT NULL,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Daytrading's formal enable gate is fail-closed in production (only the
+-- explicit string 'true' enables, mirroring crypto_trading_enabled). Tests
+-- exercise daytrading entries by default, so the test baseline seeds the
+-- enabled value; gate-specific tests override it.
+INSERT INTO bot_config (key, value) VALUES ('daytrading_trading_enabled', 'true');
 `;
 
 /** Creates a fresh in-memory SQLite DB with the base tables Database.ts assumes already exist. */

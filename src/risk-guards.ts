@@ -86,7 +86,7 @@ export function resolveRiskGuardConfig(dbConfig: Record<string, string>): RiskGu
   return { dailyLossLimitUsd, accountEquityFloorUsd };
 }
 
-export type EntryGuardCode = 'DAILY_LOSS_LIMIT_USD' | 'ACCOUNT_DRAWDOWN_FLOOR' | 'RISK_GUARD_UNAVAILABLE' | 'CRYPTO_DISABLED_BY_CONFIG';
+export type EntryGuardCode = 'DAILY_LOSS_LIMIT_USD' | 'ACCOUNT_DRAWDOWN_FLOOR' | 'RISK_GUARD_UNAVAILABLE' | 'CRYPTO_DISABLED_BY_CONFIG' | 'DAYTRADING_DISABLED_BY_CONFIG';
 
 export interface EntryGuardEvaluation {
   blocked: boolean;
@@ -162,6 +162,18 @@ export function strategyDailyPlUsd(realizedTodayUsd: number, intradayUnrealizedU
  */
 export function cryptoTradingEnabled(dbConfig: Record<string, string>): boolean {
   const raw = dbConfig['crypto_trading_enabled'];
+  return raw !== undefined && raw.trim().toLowerCase() === 'true';
+}
+
+/**
+ * Daytrading is paused (Joachim decision Oct 14, 2026) until the lane shows a
+ * backtested edge: 636 round trips at a 40% win rate with avg win $10.16 vs
+ * avg loss -$9.07 is a structural -$1.36/trade expectancy (-$866 realized
+ * all-time, never near break-even). Fail closed, mirroring
+ * cryptoTradingEnabled: only the explicit string 'true' enables it.
+ */
+export function daytradingTradingEnabled(dbConfig: Record<string, string>): boolean {
+  const raw = dbConfig['daytrading_trading_enabled'];
   return raw !== undefined && raw.trim().toLowerCase() === 'true';
 }
 

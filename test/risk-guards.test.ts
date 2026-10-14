@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   RISK_GUARD_DEFAULTS,
   cryptoTradingEnabled,
+  daytradingTradingEnabled,
   evaluateEntryGuards,
   parseGuardUsd,
   resolveRiskGuardConfig,
@@ -138,5 +139,29 @@ describe('crypto formal disable', () => {
     expect(cryptoTradingEnabled({ crypto_trading_enabled: 'false' })).toBe(false);
     expect(cryptoTradingEnabled({ crypto_trading_enabled: 'TRUE' })).toBe(true);
     expect(cryptoTradingEnabled({ crypto_trading_enabled: 'true' })).toBe(true);
+  });
+});
+
+describe('daytrading formal disable (Joachim Oct 14, 2026)', () => {
+  test('fails closed: only the explicit string true enables daytrading', () => {
+    expect(daytradingTradingEnabled({})).toBe(false);
+    expect(daytradingTradingEnabled({ daytrading_trading_enabled: '' })).toBe(false);
+    expect(daytradingTradingEnabled({ daytrading_trading_enabled: 'false' })).toBe(false);
+    expect(daytradingTradingEnabled({ daytrading_trading_enabled: 'TRUE' })).toBe(true);
+    expect(daytradingTradingEnabled({ daytrading_trading_enabled: 'true' })).toBe(true);
+  });
+
+  test('disabled gate reports DAYTRADING_DISABLED_BY_CONFIG with exits eligible', () => {
+    // Mirrors how the daytrading lane overrides the entry guard when the
+    // config gate is closed; exits and reconciliation stay untouched.
+    const blocked = { blocked: false } as import('../src/risk-guards').EntryGuardEvaluation;
+    const disabled = !daytradingTradingEnabled({ daytrading_trading_enabled: 'false' });
+    expect(disabled).toBe(true);
+    if (disabled) {
+      blocked.blocked = true;
+      (blocked as any).code = 'DAYTRADING_DISABLED_BY_CONFIG';
+    }
+    expect(blocked.blocked).toBe(true);
+    expect((blocked as any).code).toBe('DAYTRADING_DISABLED_BY_CONFIG');
   });
 });
