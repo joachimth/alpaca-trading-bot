@@ -1923,7 +1923,11 @@ export class Database {
            GROUP BY COALESCE(strategy, 'daytrading')`
         ).all();
 
-    // Closed positions: realized P&L grouped by strategy
+    // Closed positions: realized P&L grouped by strategy.
+    // DEFECT FIX (Joachim 2026-10-14): most closed positions have closed_pl
+    // NULL (pre-tracking history), so positions-derived realized_pl badly
+    // undercounts. Prefer FIFO-lot-matched round trips from trades.fifo_gross
+    // when that strategy has any; fall back to positions.closed_pl otherwise.
     const closedResult = await this.db.prepare(
       `SELECT COALESCE(strategy, 'daytrading') as strategy,
               COUNT(*) as closed_positions,
@@ -1933,6 +1937,16 @@ export class Database {
        FROM positions WHERE closed_at IS NOT NULL
        GROUP BY COALESCE(strategy, 'daytrading')`
     ).all();
+    const fifoResult = await this.db.prepare(
+      `SELECT COALESCE(strategy, 'daytrading') as strategy,
+              COALESCE(SUM(fifo_gross), 0) as realized_pl,
+              SUM(CASE WHEN fifo_gross > 0 THEN 1 ELSE 0 END) as wins,
+              SUM(CASE WHEN fifo_gross < 0 THEN 1 ELSE 0 END) as losses,
+              COUNT(*) as round_trips
+       FROM trades
+       WHERE status = 'filled' AND fifo_gross IS NOT NULL
+       GROUP BY COALESCE(strategy, 'daytrading')`
+    ).all().catch(() => ({ results: [] as any[] }));
 
     // Decisions grouped by signal_source (maps to strategy)
     const decResult = await this.db.prepare(
@@ -2013,6 +2027,20 @@ export class Database {
       s.wins = r.wins;
       s.losses = r.losses;
     }
+    // FIFO-lot-matched round trips are the most complete realized-P&L source;
+    // use them when this strategy has any, and record the basis explicitly.
+    for (const r of fifoResult.results as any[]) {
+      const s = ensure(r.strategy);
+      if ((r.round_trips ?? 0) > 0) {
+        s.realizedPl = r.realized_pl;
+        s.wins = r.wins;
+        s.losses = r.losses;
+        s.realizedBasis = 'fifo-lot-matched';
+      }
+    }
+    for (const s of Object.values(strategies) as any[]) {
+      if (!s.realizedBasis) s.realizedBasis = 'closed-position-pl';
+    }
     for (const r of decResult.results as any[]) {
       const s = ensure(r.strategy);
       s.totalDecisions = r.total_decisions;
@@ -2081,12 +2109,30 @@ export class Database {
     }
 
     const strategyRows = Object.values(strategies);
+    // All-time P&L from broker equity snapshots — the only complete measure:
+    // it includes realized, unrealized, fees and in-kind fees by construction.
+    // (Joachim 2026-10-14: the dashboard headline must anchor on this, not on
+    // the per-strategy sums whose realized history is incomplete.)
+    let allTimePl: number | null = null;
+    try {
+      const eqRow = await this.db.prepare(
+        `SELECT (SELECT equity FROM performance_snapshots ORDER BY id ASC LIMIT 1) as first_equity,
+                (SELECT equity FROM performance_snapshots ORDER BY id DESC LIMIT 1) as last_equity`
+      ).first() as any;
+      if (eqRow && eqRow.first_equity != null && eqRow.last_equity != null) {
+        allTimePl = Number(eqRow.last_equity) - Number(eqRow.first_equity);
+      }
+    } catch {
+      allTimePl = null;
+    }
     return {
       strategies: strategyRows,
       timeSeries,
       fees: feeSummary,
       accountLevelFeesUsd: feeSummary.regulatoryUsd,
       netTotalPl: strategyRows.reduce((sum: number, s: any) => sum + s.netTotalPl, 0) - feeSummary.regulatoryUsd,
+      allTimePl,
+      allTimeBasis: 'equity-snapshots',
     };
   }
 
@@ -2099,25 +2145,39 @@ export class Database {
     totalTrades: number;
     executedTrades: number;
     winRate: number;
+    closedRoundTrips: number;
+    wins: number;
+    losses: number;
     avgConfidence: number;
   }> {
     const decisionsResult = await this.db.prepare('SELECT COUNT(*) as count FROM decisions').first();
     const tradesResult = await this.db.prepare('SELECT COUNT(*) as count FROM trades').first();
     const executedResult = await this.db.prepare("SELECT COUNT(*) as count FROM trades WHERE status = 'filled'").first();
-    const winsResult = await this.db.prepare("SELECT COUNT(*) as count FROM positions WHERE closed_pl > 0").first();
-    const closedResult = await this.db.prepare("SELECT COUNT(*) as count FROM positions WHERE closed_at IS NOT NULL").first();
+    // Win rate on FIFO-lot-matched round trips (a completed buy->sell pair),
+    // not on positions rows: most closed positions carry closed_pl NULL from
+    // pre-tracking history, which made the old win rate read 3.6%.
+    const fifoStatsResult = await this.db.prepare(
+      `SELECT SUM(CASE WHEN fifo_gross > 0 THEN 1 ELSE 0 END) as wins,
+              SUM(CASE WHEN fifo_gross < 0 THEN 1 ELSE 0 END) as losses,
+              COUNT(*) as round_trips
+       FROM trades WHERE status = 'filled' AND fifo_gross IS NOT NULL`
+    ).first().catch(() => null) as any;
     const avgConfidenceResult = await this.db.prepare('SELECT AVG(confidence) as avg FROM decisions WHERE executed = 1').first();
 
     const totalTrades = (tradesResult?.count as number) || 0;
     const executedTrades = (executedResult?.count as number) || 0;
-    const wins = (winsResult?.count as number) || 0;
-    const closed = (closedResult?.count as number) || 0;
+    const wins = Number(fifoStatsResult?.wins ?? 0) || 0;
+    const losses = Number(fifoStatsResult?.losses ?? 0) || 0;
+    const roundTrips = Number(fifoStatsResult?.round_trips ?? 0) || 0;
 
     return {
       totalDecisions: (decisionsResult?.count as number) || 0,
       totalTrades,
       executedTrades,
-      winRate: closed > 0 ? (wins / closed) * 100 : 0,
+      winRate: roundTrips > 0 ? (wins / roundTrips) * 100 : 0,
+      closedRoundTrips: roundTrips,
+      wins,
+      losses,
       avgConfidence: (avgConfidenceResult?.avg as number) || 0,
     };
   }

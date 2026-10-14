@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS trades (
   failed_at TEXT,
   replaced_at TEXT,
   last_reconciled_at TEXT,
+  fifo_gross REAL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

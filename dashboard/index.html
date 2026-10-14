@@ -537,14 +537,16 @@
         document.getElementById('mDailyPL').textContent = fmtMoney(a.change_today);
         document.getElementById('mDailyPL').className = 'metric-value ' + (a.change_today >= 0 ? 'positive' : 'negative');
         document.getElementById('mDailyPLSub').textContent = fmtPct(a.change_today_pct) + ' broker-reported';
-        const netPl = data.strategyComparison && data.strategyComparison.netTotalPl != null ? data.strategyComparison.netTotalPl : null;
+        const netPl = data.strategyComparison && data.strategyComparison.allTimePl != null
+          ? data.strategyComparison.allTimePl
+          : (data.strategyComparison && data.strategyComparison.netTotalPl != null ? data.strategyComparison.netTotalPl : null);
         const netPlEl = document.getElementById('mNetPL');
         const netPlSubEl = document.getElementById('mNetPLSub');
         if (netPl != null) {
           netPlEl.textContent = fmtMoney(netPl);
           netPlEl.className = 'metric-value ' + (netPl >= 0 ? 'positive' : 'negative');
           const feeTotal = data.strategyComparison.fees ? data.strategyComparison.fees.totalUsd : 0;
-          netPlSubEl.textContent = 'Recorded fees: ' + fmtMoney(feeTotal);
+          netPlSubEl.textContent = 'All-time (equity-based) · fees: ' + fmtMoney(feeTotal);
         } else {
           netPlEl.textContent = '—';
           netPlSubEl.textContent = 'Fee-aware model unavailable';
@@ -557,7 +559,7 @@
       }
       if (data.stats) {
         document.getElementById('mWinRate').textContent = data.stats.winRate.toFixed(1) + '%';
-        document.getElementById('mWinRateSub').textContent = data.stats.executedTrades + ' closed';
+        document.getElementById('mWinRateSub').textContent = (data.stats.closedRoundTrips ?? data.stats.executedTrades) + ' closed round trips';
         document.getElementById('mTrades').textContent = data.stats.totalTrades;
         document.getElementById('mTradesSub').textContent = data.stats.totalDecisions + ' decisions';
       }

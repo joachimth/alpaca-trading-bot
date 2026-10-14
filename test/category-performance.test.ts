@@ -237,4 +237,33 @@ describe('Database category snapshots (real SQLite, UTC day boundaries)', () => 
       expect(s.portfolioValue).toBeUndefined();
     }
   });
+
+  test('getStats win rate is based on FIFO-lot-matched round trips, not incomplete positions rows (Joachim 2026-10-14 defect fix)', async () => {
+    const { sqlite, db } = setup();
+    // The 3.6% defect: 83 closed positions, most with closed_pl NULL.
+    await insertClosedPosition(sqlite, { ticker: 'AAPL', strategy: 'daytrading', closedAt: `${today} 10:00:00`, closedPl: 25 });
+    for (let i = 0; i < 82; i++) {
+      sqlite.run(
+        `INSERT INTO positions (ticker, side, qty, avg_entry_price, strategy, closed_at, closed_pl)
+         VALUES (?, 'long', 1, 100, 'daytrading', ?, NULL)`,
+        [`NULLPL${i}`, `${today} 10:00:00`],
+      );
+    }
+    // FIFO round trips: 4 wins, 1 loss -> 80% win rate over 5 round trips.
+    for (let i = 0; i < 4; i++) {
+      sqlite.run(
+        `INSERT INTO trades (ticker, side, qty, status, strategy, fifo_gross) VALUES ('MSFT', 'sell', 1, 'filled', 'daytrading', ?)`,
+        [10 + i],
+      );
+    }
+    sqlite.run(
+      `INSERT INTO trades (ticker, side, qty, status, strategy, fifo_gross) VALUES ('TSLA', 'sell', 1, 'filled', 'daytrading', -5)`,
+    );
+
+    const stats = await db.getStats();
+    expect(stats.closedRoundTrips).toBe(5);
+    expect(stats.wins).toBe(4);
+    expect(stats.losses).toBe(1);
+    expect(stats.winRate).toBeCloseTo(80, 10);
+  });
 });
