@@ -165,6 +165,7 @@ const swingConfig = (values: Partial<SwingRiskConfig> = {}): SwingRiskConfig => 
   maxSectorPct: 25,
   maxGrossExposure: 100,
   stopLossPct: 10,
+  takeProfitPct: 15,
   trailingStopPct: 5,
   dailyLossLimitPct: 10,
   rollingDrawdownLimitPct: 20,

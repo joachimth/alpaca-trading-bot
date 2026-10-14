@@ -41,6 +41,7 @@ export const SWING_FALLBACK_CONFIG = {
   targetPositionPct: 3.33,  // ~30 positions = 3.33% each
   maxGrossExposure: 100,    // no margin on swing by default
   stopLossPct: 8,           // tightened 2026-10-14 (Joachim's call): avg swing loss $61.67 vs avg win $16.49 rode the 15% stop
+  takeProfitPct: 15,        // implemented 2026-10-14 (Joachim's call): lock in large winners instead of riding the z-score reversal back down
   trailingStopPct: 8,       // NOTE: trailing stop is not implemented (no peak-price state) - dead knob
   dailyLossLimitPct: 5,
   rollingDrawdownLimitPct: 15,
@@ -62,13 +63,22 @@ export function resolveSwingConfig(dbConfig: Record<string, string>) {
     if (!key.startsWith('swing_')) continue;
     const cleanKey = key.replace('swing_', '');
     if (cleanKey === 'maxCapitalUsd' || cleanKey === 'max_capital_usd') continue;
+    // D1 bot_config keys are snake_case (swing_stop_loss_pct) while config
+    // fields are camelCase (stopLossPct). Without this normalization every
+    // swing_* D1 key was silently ignored (dead knob) and the worker ran on
+    // the fallbacks alone. Keys with no matching field still fall through.
+    const camelKey = cleanKey.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+    // 'exit_zscore' normalizes to 'exitZscore' but the field is 'exitZScore'
+    // (internal capital) - the one irregular field in the config surface.
+    const mappedKey = camelKey === 'exitZscore' ? 'exitZScore' : camelKey;
+    if (!(mappedKey in config)) continue;
     const numVal = parseFloat(value);
-    if (!isNaN(numVal) && cleanKey in config) {
-      (config as any)[cleanKey] = numVal;
-    } else if (value === 'true' && cleanKey in config) {
-      (config as any)[cleanKey] = true;
-    } else if (value === 'false' && cleanKey in config) {
-      (config as any)[cleanKey] = false;
+    if (!isNaN(numVal)) {
+      (config as any)[mappedKey] = numVal;
+    } else if (value === 'true') {
+      (config as any)[mappedKey] = true;
+    } else if (value === 'false') {
+      (config as any)[mappedKey] = false;
     }
   }
   const cap = resolveCapitalCapOverride(dbConfig, 'swing');
@@ -262,6 +272,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       maxSectorPct: 20,
       maxGrossExposure: config.maxGrossExposure,
       stopLossPct: config.stopLossPct,
+      takeProfitPct: config.takeProfitPct,
       trailingStopPct: config.trailingStopPct,
       dailyLossLimitPct: config.dailyLossLimitPct,
       rollingDrawdownLimitPct: config.rollingDrawdownLimitPct,

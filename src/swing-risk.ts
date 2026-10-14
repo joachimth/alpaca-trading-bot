@@ -16,7 +16,8 @@ export interface SwingRiskConfig {
   maxSectorPct: number;            // max net sector exposure (placeholder, needs sector data)
   maxGrossExposure: number;        // max total exposure as % of swing capital (100 = no margin)
   stopLossPct: number;             // emergency stop (gap protection, not primary)
-  trailingStopPct: number;         // trailing stop for profit protection
+  takeProfitPct: number;           // lock in winners at this unrealized gain (protective, bypasses fee gate)
+  trailingStopPct: number;         // trailing stop for profit protection (NOT implemented - dead knob)
   dailyLossLimitPct: number;       // stop trading if down this much on the day
   rollingDrawdownLimitPct: number; // stop if drawdown from peak exceeds this
   minConfidence: number;           // min composite z-score to buy
@@ -283,6 +284,19 @@ export class SwingRiskManager {
       return {
         shouldExit: true,
         reason: `Stop loss: ${(position.unrealized_plpc * 100).toFixed(1)}% loss`,
+        isHysteresisSkip: false,
+        exitType: 'protective',
+      };
+    }
+
+    // Take profit (implemented 2026-10-14, Joachim's call): lock in large
+    // winners instead of riding the z-score reversal back down. Protective by
+    // definition - a gain at this size covers exit costs many times over, so
+    // the discretionary fee gate below must not apply.
+    if (position.unrealized_pl > 0 && position.unrealized_plpc >= this.config.takeProfitPct / 100) {
+      return {
+        shouldExit: true,
+        reason: `Take profit: ${(position.unrealized_plpc * 100).toFixed(1)}% gain`,
         isHysteresisSkip: false,
         exitType: 'protective',
       };

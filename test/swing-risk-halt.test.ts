@@ -9,6 +9,7 @@ const config: SwingRiskConfig = {
   maxSectorPct: 20,
   maxGrossExposure: 100,
   stopLossPct: 15,
+  takeProfitPct: 15,
   trailingStopPct: 8,
   dailyLossLimitPct: 5,
   rollingDrawdownLimitPct: 15,
