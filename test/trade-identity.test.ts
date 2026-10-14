@@ -248,3 +248,37 @@ describe('trade observability enrichment', () => {
     expect(row.time_in_force).toBe('gtc');
   });
 });
+
+describe('Control-1347-A duplicate daytrading dispatch across cycles', () => {
+  test('a filled row does NOT block a retry because the client order id is decision-scoped', async () => {
+    // Production evidence (2026-10-12): decision 23993 and 24003 both produced
+    // a BUY for T with confidence 0.8115384615384615, one 5-minute cycle apart.
+    // Each cycle builds client_order_id = `bot_<decisionId>_<symbol>`, so the
+    // guard's lookup can never see the earlier cycle's fill.
+    const db = createDb();
+    await seedTrade(db, {
+      alpaca_order_id: 'monday-buy-1',
+      client_order_id: 'bot_23993_T',
+      ticker: 'T',
+      qty: 44,
+      status: 'filled',
+      filled_qty: 44,
+      leaves_qty: 0,
+      decision_id: 23993,
+    });
+    expect(await db.findNonTerminalTradeByClientOrderId('bot_24003_T')).toBeUndefined();
+
+    // Re-issuing the SAME decision id is the only shape the guard catches.
+    await seedTrade(db, {
+      alpaca_order_id: 'monday-buy-2',
+      client_order_id: 'bot_24003_T',
+      ticker: 'T',
+      qty: 44,
+      status: 'filled',
+      filled_qty: 44,
+      leaves_qty: 0,
+      decision_id: 24003,
+    });
+    expect(await db.findNonTerminalTradeByClientOrderId('bot_24003_T')).toBeDefined();
+  });
+});
