@@ -356,6 +356,47 @@ export async function runScheduledMaintenance(env: Env, trigger = 'maintenance')
         });
         console.log(JSON.stringify({ event: 'maintenance_position_sync_absent', trigger, closed }));
       }
+
+      // Control-1352-A (reliability): the mirror of the absent-close above.
+      // A position that fills at the open but has no D1 row stays permanently
+      // unattributed: reconcileBrokerQuantityMismatches only updates rows that
+      // already exist, and the only row-creating path (the daytrading lane's
+      // BROKER_ONLY_RECONCILED import) never runs while daytrading is disabled
+      // by config. Evidence 2026-10-15: swing entries AMD 0.22 / TSM 0.06
+      // filled at 13:23:01z (trades 2353/2355 status=filled) yet /api/positions
+      // served them as strategy='unattributed', metadata_source='none', with no
+      // D1 row — invisible to every swing exit lane. This step creates the
+      // missing D1 row from the broker snapshot, attributing it to 'swing' only
+      // when the symbol appears in the swing trade ledger, otherwise leaving it
+      // unattributed. It changes D1 metadata only and never submits an order.
+      const dbSymbols = new Set(openDbPositions.map(p => String(p.ticker).toUpperCase()));
+      const brokerOnly = brokerPositions.filter(p => !dbSymbols.has(String(p.symbol).toUpperCase()));
+      if (brokerOnly.length > 0) {
+        const swingLedgerSymbols = new Set([...(await db.getSwingTradeSymbols())].map(s => String(s).toUpperCase()));
+        const imported: string[] = [];
+        for (const pos of brokerOnly) {
+          const symbol = String(pos.symbol).toUpperCase();
+          await db.upsertPosition({
+            ticker: pos.symbol,
+            side: pos.side,
+            qty: pos.qty,
+            avg_entry_price: pos.avg_entry_price,
+            current_price: pos.current_price,
+            market_value: pos.market_value,
+            unrealized_pl: pos.unrealized_pl,
+            unrealized_plpc: pos.unrealized_plpc,
+            stop_loss_price: null,
+            take_profit_price: null,
+            strategy: swingLedgerSymbols.has(symbol) ? 'swing' : null,
+          });
+          imported.push(symbol);
+        }
+        skips.add('BROKER_AUTHORITATIVE_SYNC_IMPORTED', 'reconciliation', 'Created D1 position rows for broker positions absent from D1 during scheduled maintenance', {
+          imported: imported.length,
+          symbols: imported,
+        });
+        console.log(JSON.stringify({ event: 'maintenance_position_sync_imported', trigger, imported }));
+      }
     } catch (positionError) {
       console.log(JSON.stringify({ event: 'maintenance_position_sync_failed', trigger, error: positionError instanceof Error ? positionError.message : String(positionError) }));
     }

@@ -132,3 +132,43 @@ describe('scheduled maintenance reconciliation observability', () => {
     expect(requests.some(request => /trigger|submit|cancel|close|replace|retry|migrat/i.test(request.url))).toBe(false);
   });
 });
+
+describe('Control-1352-A broker-only position import', () => {
+  test('creates a D1 row for a broker position absent from D1, attributing swing ledger symbols', async () => {
+    const sqlite = seededSqlite();
+    // Seed a swing BUY trade for AMD so the import can attribute it to 'swing'.
+    sqlite.run(
+      `INSERT INTO trades (timestamp, ticker, side, qty, status, strategy)
+       VALUES (datetime('now'), 'AMD', 'buy', 0.22, 'filled', 'swing')`,
+    );
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/v2/orders?')) return new Response('[]', { status: 200 });
+      if (url.includes('/v2/positions')) {
+        return new Response(JSON.stringify([
+          { symbol: 'AMD', side: 'long', qty: 0.22, avg_entry_price: 200, current_price: 210, market_value: 46.2, unrealized_pl: 2.2, unrealized_plpc: 0.05 },
+          { symbol: 'ZZZ', side: 'long', qty: 1, avg_entry_price: 10, current_price: 11, market_value: 11, unrealized_pl: 1, unrealized_plpc: 0.1 },
+        ]), { status: 200 });
+      }
+      if (url.includes('/v2/account/activities?')) return new Response('[]', { status: 200 });
+      throw new Error(`unexpected broker request: ${url}`);
+    }) as typeof fetch;
+    const env = {
+      DB: createFakeD1(sqlite),
+      ALPACA_API_KEY: 'test-key',
+      ALPACA_API_SECRET: 'test-secret',
+      ALPACA_BASE_URL: 'https://paper-api.alpaca.markets',
+      LLM_API_KEY: '',
+    } as unknown as Env;
+
+    await runScheduledMaintenance(env, 'import_test');
+
+    const rows = sqlite.query(`SELECT ticker, strategy, qty FROM positions WHERE closed_at IS NULL ORDER BY ticker`).all() as Array<{ ticker: string; strategy: string | null; qty: number }>;
+    expect(rows).toContainEqual(expect.objectContaining({ ticker: 'AMD', strategy: 'swing', qty: 0.22 }));
+    expect(rows).toContainEqual(expect.objectContaining({ ticker: 'ZZZ', strategy: null, qty: 1 }));
+
+    const run = sqlite.query(`SELECT error_details FROM run_log WHERE trigger = 'import_test' ORDER BY id DESC LIMIT 1`).get() as { error_details: string };
+    const details = parseRunDetails(run.error_details);
+    expect(details).toContainEqual(expect.objectContaining({ code: 'BROKER_AUTHORITATIVE_SYNC_IMPORTED' }));
+  });
+});
