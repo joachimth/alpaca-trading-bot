@@ -54,7 +54,14 @@ export const SWING_FALLBACK_CONFIG = {
   maxTurnoverPct: 30,       // max 30% of portfolio traded per rebalance
   minTradeSize: 0.25,       // skip trades < 0.25% of portfolio
   maxOrderRatePerMin: 15,
-  maxCapitalUsd: 3700,      // ~25,000 DKK cap for swing strategy
+  // Cap raised 2026-10-15 (Joachim's call, paper account): at $3.700 the
+  // target position was 3.33% * $3.700 = $123, so every stock above $123 was
+  // buyable ONLY as a fractional lot and max_positions was a dead ceiling
+  // (30 * $123 = $3.696 ~ the whole cap). At $10.000 the target is ~$333:
+  // most names fill as whole shares, max_positions 30 * $333 = $9.990 is a
+  // meaningful ceiling, and combined with the whole-share-only entry gate
+  // below the fractional trap is gone at the root.
+  maxCapitalUsd: 10000,
   maxHoldDays: 14,          // time stop (implemented 2026-10-15, Joachim's call): exit losers held > 14 days - 100% of realized swing loss sits in positions held past 14 days (exit-timing report, n=51)
 };
 
@@ -704,11 +711,23 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
       }
 
       const price = buy.score.indicators.price;
-      const qty = Math.floor((buy.value) / price) || Math.round((buy.value / price) * 100) / 100;
-      if (qty < 0.01) {
-        skips.add('MIN_ORDER_SIZE', 'decision', 'Entry skipped because calculated quantity is below minimum order size', { symbol: buy.symbol, qty });
+      // Whole-share-only entries (implemented 2026-10-15, Joachim's call -
+      // "en løsning der virker, ikke en halv løsning"). Fractional entries
+      // were the root of the fractional trap: tiny economically meaningless
+      // lots (TSM 0.06 = $25) whose exits Alpaca only accepts as DAY orders
+      // (run 25524's 422s) and that the stop lane could not reliably close.
+      // With whole shares every position is closable by a GTC exit, so the
+      // trap is structurally gone. Stocks too expensive for the ~$333 target
+      // position are skipped rather than bought as dust.
+      const qty = Math.floor(buy.value / price);
+      if (qty < 1) {
+        skips.add('WHOLE_SHARE_ENTRY_UNAVAILABLE', 'decision', 'Entry skipped because the target position cannot fill a whole share (fractional entries are disabled)', { symbol: buy.symbol, price, targetValue: buy.value });
+        await db.updateDecisionStatus(buy.decisionId, 2, `Entry skipped: $${(buy.value).toFixed(0)} target at $${price.toFixed(2)} fills no whole share`);
+        console.log(`Swing: skip buy ${buy.symbol}: no whole share at $${price.toFixed(2)}`);
         continue;
       }
+      // (qty < 0.01 is unreachable since the whole-share gate above requires
+      // qty >= 1; the old MIN_ORDER_SIZE branch was folded into it.)
 
       const clientOrderId = `swing_${buy.decisionId}_${buy.symbol}`;
       // Deterministic client order ID lets a retry of the same decision be

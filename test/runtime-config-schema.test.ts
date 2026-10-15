@@ -27,7 +27,7 @@ describe('runtime capital-cap aliases', () => {
 
   test('malformed cap overrides preserve the existing runtime fallback', () => {
     expect(resolveDaytradingConfig({ max_capital_usd: 'not-a-number' }).maxCapitalUsd).toBe(5000);
-    expect(resolveSwingConfig({ swing_max_capital_usd: '-1' }).maxCapitalUsd).toBe(3700);
+    expect(resolveSwingConfig({ swing_max_capital_usd: '-1' }).maxCapitalUsd).toBe(10000);
   });
 
   test('snake_case D1 keys merge into camelCase runtime config (FINDING 1 fix)', () => {

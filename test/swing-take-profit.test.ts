@@ -99,7 +99,7 @@ describe('swing snake_case D1 mapping (dead-knob fix 2026-10-14)', () => {
 
   test('capital cap override still wins over the generic mapping', () => {
     expect(resolveSwingConfig({ swing_max_capital_usd: '4200' }).maxCapitalUsd).toBe(4200);
-    expect(resolveSwingConfig({ swing_max_capital_usd: '-1' }).maxCapitalUsd).toBe(3700);
+    expect(resolveSwingConfig({ swing_max_capital_usd: '-1' }).maxCapitalUsd).toBe(10000);
   });
 
   test('boolean swing keys still map through snake_case', () => {
