@@ -184,8 +184,12 @@ describe('audit schedule and dispatch regressions', () => {
       expect(source, `${strategy} must record deferred reconciliation evidence`).toContain("RECONCILIATION_DEFERRED_TO_MAINTENANCE");
       expect(source, `${strategy} must name the maintenance cron`).toContain("maintenanceTrigger: 'reconcile_cron'");
     }
-    expect(swingSource).toContain("time_in_force: 'gtc'");
     expect(swingSource).toContain('C-1346-B fix');
+    expect(swingSource).toContain('time_in_force: exitTif');
+    // Run 25524 (2026-10-14 22:00z): BA/MU fractional exits rejected 422
+    // "fractional orders must be DAY orders" - the exit tif must branch on
+    // whole-share vs fractional qty.
+    expect(swingSource).toContain('Number.isInteger(exitQty) ? \'gtc\' : \'day\'');
     expect(swingSource).not.toContain('closePosition(sell.symbol, { waitForFill');
     expect(alpacaSource).toContain('options: { waitForFill?: boolean } = {}');
     expect(alpacaSource).toContain('options.waitForFill !== false');

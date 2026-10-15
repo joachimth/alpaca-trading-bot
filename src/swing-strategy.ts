@@ -561,12 +561,20 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         // Submit without synchronous getOrder polling: the bounded
         // maintenance lane confirms accepted/partial fills later, avoiding
         // one or more extra broker requests per swing exit.
+        // Fractional qty is the exception (run 25524, 2026-10-14 22:00z:
+        // BA/MU exits rejected 422 "fractional orders must be DAY orders"):
+        // Alpaca only accepts fractional orders as DAY, so a fractional exit
+        // keeps tif=day. A day exit submitted at 22:00z queues for the next
+        // session and dies at that day's close - acceptable for fractional
+        // dust; the whole-share GTC path is the one that must survive.
+        const exitQty = Math.abs(pos.qty);
+        const exitTif = Number.isInteger(exitQty) ? 'gtc' : 'day';
         const order = await alpaca.submitOrder({
           symbol: sell.symbol,
-          qty: Math.abs(pos.qty),
+          qty: exitQty,
           side: 'sell',
           type: 'market',
-          time_in_force: 'gtc',
+          time_in_force: exitTif,
           client_order_id: `swing_exit_${sell.symbol}_${new Date().toISOString().slice(0, 10)}`,
         });
         await db.logOrderTrade(order, { strategy: 'swing' });
