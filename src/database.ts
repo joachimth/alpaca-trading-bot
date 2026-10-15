@@ -995,6 +995,33 @@ export class Database {
     };
   }
 
+  /**
+   * Entry re-submission guard (implemented 2026-10-15, Joachim's call).
+   * Symbol-level counterpart to findNonTerminalTradeByClientOrderId: a DAY
+   * entry submitted at 22:00z queues for the NEXT open, and the next swing
+   * decision for the same symbol gets a NEW decisionId - so the client-order-
+   * id duplicate check cannot see it and a SECOND open buy order goes to the
+   * broker (evidence 15/10: UAL 1 + FCEL 8 re-submitted 08:00:22z on top of
+   * the previous night's still-open orders). Returns the genuinely-open
+   * broker states only; 'filled' is deliberately NOT blocking (a reconciled
+   * fill is either a held position or an exited round trip, both of which
+   * must allow future entries).
+   */
+  async findOpenSwingBuyBySymbol(ticker: string): Promise<{ tradeId: number; status: string; clientOrderId: string | null } | undefined> {
+    await this.ensureTradeSchema();
+    const row = await this.db.prepare(
+      `SELECT id, status, client_order_id
+         FROM trades
+        WHERE ticker = ?
+          AND side = 'buy'
+          AND strategy = 'swing'
+          AND status IN ('new', 'accepted', 'pending_new', 'pending_cancel', 'pending_replace', 'partially_filled', 'queued', 'accepted_for_boking')
+        ORDER BY id DESC LIMIT 1`
+    ).bind(ticker).first() as { id: number; status: string; client_order_id: string | null } | null;
+    if (!row) return undefined;
+    return { tradeId: row.id, status: row.status, clientOrderId: row.client_order_id };
+  }
+
   async logOrderTrade(order: Order, options: {
     decisionId?: number | null;
     estimatedValue?: number | null;

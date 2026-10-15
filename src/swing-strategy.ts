@@ -55,6 +55,7 @@ export const SWING_FALLBACK_CONFIG = {
   minTradeSize: 0.25,       // skip trades < 0.25% of portfolio
   maxOrderRatePerMin: 15,
   maxCapitalUsd: 3700,      // ~25,000 DKK cap for swing strategy
+  maxHoldDays: 14,          // time stop (implemented 2026-10-15, Joachim's call): exit losers held > 14 days - 100% of realized swing loss sits in positions held past 14 days (exit-timing report, n=51)
 };
 
 export function resolveSwingConfig(dbConfig: Record<string, string>) {
@@ -488,6 +489,13 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
 
     const proposedSells: Array<{ symbol: string; value: number; reason: string; exitType: 'protective' | 'discretionary' }> = [];
 
+    // Time stop needs position age. Broker positions carry no entry timestamp,
+    // so read opened_at from the D1 open-position ledger (the same rows the
+    // maintenance lane keeps broker-synced).
+    const openedAtBySymbol = new Map(
+      (await db.getOpenPositions()).map((p: { ticker: string; opened_at: string | null }) => [p.ticker, p.opened_at])
+    );
+
     for (const pos of positions) {
       if (pos.qty <= 0) continue;
       const score = allScores.get(pos.symbol);
@@ -510,7 +518,7 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         continue;
       }
 
-      const exitCheck = riskManager.checkExit(score, pos);
+      const exitCheck = riskManager.checkExit(score, pos, openedAtBySymbol.get(pos.symbol));
       decisionsMade++;
 
       // Log decision
@@ -711,6 +719,20 @@ async function runSwingCycleInner(env: Env, trigger: string): Promise<void> {
         skips.add('DUPLICATE_ORDER_PREVENTED', 'decision', 'Swing BUY skipped because a non-terminal order with the same client order ID already exists', { symbol: buy.symbol, decisionId: buy.decisionId, tradeId: existingTrade.tradeId, status: existingTrade.status });
         await db.updateDecisionStatus(buy.decisionId, 2, `Duplicate swing BUY skipped: order already open (status ${existingTrade.status})`);
         console.log(`Swing: skip buy ${buy.symbol}: duplicate client_order_id ${clientOrderId}`);
+        continue;
+      }
+
+      // Entry re-submission guard (implemented 2026-10-15, Joachim's call).
+      // The client-order-id check above cannot catch a NEW decision for the
+      // same symbol while last cycle's DAY entry is still queued at the
+      // broker (evidence 15/10: UAL 1 + FCEL 8 re-submitted 08:00:22z on top
+      // of the 22:00z orders). Block while a genuinely open swing buy
+      // exists for the symbol.
+      const openSwingBuy = await db.findOpenSwingBuyBySymbol(buy.symbol);
+      if (openSwingBuy) {
+        skips.add('ENTRY_ORDER_ALREADY_OPEN', 'decision', 'Swing BUY skipped because an open buy order for this symbol is still pending at the broker', { symbol: buy.symbol, decisionId: buy.decisionId, tradeId: openSwingBuy.tradeId, status: openSwingBuy.status });
+        await db.updateDecisionStatus(buy.decisionId, 2, `Entry skipped: open buy order still pending (trade ${openSwingBuy.tradeId}, status ${openSwingBuy.status})`);
+        console.log(`Swing: skip buy ${buy.symbol}: open buy order trade ${openSwingBuy.tradeId} (${openSwingBuy.status})`);
         continue;
       }
 

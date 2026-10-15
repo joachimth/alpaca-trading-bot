@@ -31,6 +31,7 @@ export interface SwingRiskConfig {
   minTradeSize: number;            // min trade size as % of swing capital (skip tiny rebalances)
   maxOrderRatePerMin: number;      // kill switch
   maxCapitalUsd: number;           // hard cap on total swing capital deployed (0 = use full account)
+  maxHoldDays?: number;            // time stop: exit losing positions held > N days (0/undefined = disabled)
 }
 
 export interface SwingRiskCheckResult {
@@ -275,7 +276,8 @@ export class SwingRiskManager {
 
   checkExit(
     score: SwingScore,
-    position: Position
+    position: Position,
+    openedAt?: string | null
   ): { shouldExit: boolean; reason: string; isHysteresisSkip: boolean; exitType: 'protective' | 'discretionary' | 'none' } {
     // Protective exits are evaluated before signal exits and always bypass the
     // discretionary fee gate. A true trailing stop needs peak-price state,
@@ -300,6 +302,28 @@ export class SwingRiskManager {
         isHysteresisSkip: false,
         exitType: 'protective',
       };
+    }
+
+    // Time stop (implemented 2026-10-15, Joachim's call): the exit-timing
+    // report (n=51 closed swing lots) shows <=14d holdings are net POSITIVE
+    // (+$52.90) while every loss bucket lives beyond it (15-30d -$594.52,
+    // >30d -$755.85) - checkExit has no max-hold, so losers rode until the
+    // z-score reversal fired *after* the drawdown. Exit LOSING positions
+    // held past maxHoldDays protectively (bypasses the fee gate, same
+    // rationale as stop/TP); winners keep riding toward take profit.
+    // 0/undefined disables.
+    const maxHoldDays = this.config.maxHoldDays ?? 0;
+    if (maxHoldDays > 0 && position.unrealized_pl < 0 && openedAt) {
+      const openedMs = Date.parse(openedAt.includes('T') ? openedAt : `${openedAt.replace(' ', 'T')}Z`);
+      const daysHeld = (Date.now() - openedMs) / 86_400_000;
+      if (Number.isFinite(openedMs) && daysHeld > maxHoldDays) {
+        return {
+          shouldExit: true,
+          reason: `Time stop: held ${daysHeld.toFixed(0)} days exceeds max hold ${maxHoldDays} days while down $${position.unrealized_pl.toFixed(2)}`,
+          isHysteresisSkip: false,
+          exitType: 'protective',
+        };
+      }
     }
 
     const dailyVol = (score.indicators.vol20d > 0 ? score.indicators.vol20d : 0.3) / Math.sqrt(252);
