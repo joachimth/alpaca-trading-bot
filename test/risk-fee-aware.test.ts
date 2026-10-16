@@ -381,3 +381,61 @@ describe('fee-aware SwingRiskManager regression coverage', () => {
     expect(result.exitType).toBe('protective');
   });
 });
+
+describe('whole-share-only swing entry approvals (Control-1366)', () => {
+  // The risk layer must never approve economics it already knows are unfillable.
+  // It used to fall back to a fractional adjustedQty when integerQty was 0, while
+  // swing-strategy discarded that qty and re-floored the notional at its own
+  // gate - so a fractional decision was approved and its notional reserved, then
+  // silently reversed at execution without releasing the reservation.
+  test('refuses an entry whose approved notional cannot fill one whole share', () => {
+    // Target position $100 at $735.64/share => 0.13 shares. CAT-like case.
+    const manager = new SwingRiskManager(
+      swingConfig({ maxCapitalUsd: 1000, maxPositionPct: 100, targetPositionPct: 10, minTradeSize: 0 }),
+    );
+    const result = manager.checkEntry(
+      score(),
+      { ...account(), equity: 1000, portfolio_value: 1000, cash: 1000 },
+      [],
+      735.64,
+    );
+
+    expect(result.approved).toBe(false);
+    expect(result.reason).toContain('fills no whole share');
+    expect(result.reason).toContain('fractional entries disabled');
+  });
+
+  test('never returns a fractional adjustedQty when approved', () => {
+    const manager = new SwingRiskManager(
+      swingConfig({ maxCapitalUsd: 10000, maxPositionPct: 100, targetPositionPct: 100, minTradeSize: 0 }),
+    );
+    const result = manager.checkEntry(
+      score(),
+      { ...account(), equity: 10000, portfolio_value: 10000, cash: 10000 },
+      [],
+      98.88,
+    );
+
+    expect(result.approved).toBe(true);
+    expect(Number.isInteger(result.adjustedQty)).toBe(true);
+    expect(result.adjustedQty).toBeGreaterThanOrEqual(1);
+  });
+
+  test('approved adjustedQty stays consistent with the approved notional', () => {
+    const price = 98.88;
+    const manager = new SwingRiskManager(
+      swingConfig({ maxCapitalUsd: 10000, maxPositionPct: 100, targetPositionPct: 100, minTradeSize: 0 }),
+    );
+    const result = manager.checkEntry(
+      score(),
+      { ...account(), equity: 10000, portfolio_value: 10000, cash: 10000 },
+      [],
+      price,
+    );
+
+    expect(result.approved).toBe(true);
+    // The whole share count must be the floor of the approved value, so a
+    // downstream consumer recomputing floor(value/price) cannot disagree.
+    expect(result.adjustedQty).toBe(Math.floor((result.adjustedValue ?? 0) / price));
+  });
+});

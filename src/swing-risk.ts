@@ -228,7 +228,26 @@ export class SwingRiskManager {
     if (fractionalQty < 0.01) {
       return { approved: false, reason: `Position too small ($${positionValue.toFixed(2)} at $${price.toFixed(2)})` };
     }
-    const finalQty = integerQty >= 1 ? integerQty : Math.round(fractionalQty * 100) / 100;
+    // Whole-share-only approvals (2026-10-16, Control-1366). The risk layer must
+    // never approve economics it already knows are unfillable: this method used
+    // to fall back to a fractional `adjustedQty` when integerQty was 0, while the
+    // caller (swing-strategy) discarded that qty, forwarded only `adjustedValue`,
+    // and then re-floored it at its own whole-share gate. That seam meant a
+    // fractional decision was approved and its notional reserved here, then
+    // silently reversed at execution - and the reservation was never released,
+    // so phantom notional consumed swing-cap headroom for later candidates.
+    // Fractional entries are disabled by policy (Joachim's call 2026-10-15): dust
+    // lots are unclosable by GTC exits (run 25524: Alpaca 422 "fractional orders
+    // must be DAY orders"). Names too expensive for the target position are
+    // skipped rather than bought as dust, so refuse the approval here where the
+    // quantity is first known. The strategy-layer gate stays as defense-in-depth.
+    if (integerQty < 1) {
+      return {
+        approved: false,
+        reason: `Position $${positionValue.toFixed(2)} at $${price.toFixed(2)} fills no whole share (fractional entries disabled)`,
+      };
+    }
+    const finalQty = integerQty;
 
     // Emergency stop loss (gap protection, not primary defense)
     // Set wider than daytrading since swings tolerate more volatility
